@@ -309,6 +309,34 @@ def test_markdown_modes_have_no_forbidden_words():
             assert word not in md
 
 
+# LQ-003 Phase 3: Reporting übernimmt die Daten-Herkunfts-Metadaten.
+def test_summary_carries_data_metadata_parameters():
+    result = BacktestResult(
+        experiment_id="lq003-test",
+        number_of_trades=0,
+        approved_signals=0,
+        rejected_signals=0,
+        starting_equity=0.0,
+        ending_equity=0.0,
+        equity_curve=(0.0,),
+        metrics={"number_of_trades": 0},
+        trades=(),
+        parameters={
+            "strategy": "TestStrategy",
+            "sizing_mode": "absolute",
+            "data_asset_class": "crypto",
+            "data_exchange": "binance",
+            "data_symbol": "BTCUSDT",
+            "data_timeframe": "5m",
+            "data_source_type": "local_csv",
+        },
+    )
+    summary = summarize_backtest_result(result)
+    assert summary.parameters["data_symbol"] == "BTCUSDT"
+    assert summary.parameters["data_timeframe"] == "5m"
+    assert summary.parameters["data_source_type"] == "local_csv"
+
+
 # Zusatz: Summary hält keine mutable Defaults / ist frozen (immutable).
 def test_summary_is_immutable():
     summary = summarize_backtest_result(_sample_result())

@@ -19,7 +19,7 @@ Anforderungen aus der Spec, die jede konkrete Quelle erfüllen muss:
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Iterable, Protocol, runtime_checkable
 
@@ -90,6 +90,22 @@ def _parse_timeframe(timeframe: str | None) -> timedelta | None:
     return timedelta(seconds=_TIMEFRAME_SECONDS[timeframe])
 
 
+@dataclass(frozen=True)
+class DataSourceMetadata:
+    """Beschreibt die Herkunft der gelesenen Daten (immutable, LQ-003 Phase 3).
+
+    Rein dokumentarisch/auditierbar — KEINE Zugangsdaten, kein Netzwerk, keine
+    Provider-Logik. Defensive Defaults, damit bestehende Aufrufe nicht brechen.
+    """
+
+    asset_class: str = "unknown"
+    exchange: str = "unknown"
+    symbol: str = "unknown"
+    timeframe: str | None = None
+    source_type: str = "local_csv"
+    source_path: str = ""
+
+
 class HistoricalFileSource:
     """Datei-basierte historische Quelle für lokale OHLCV-CSV-Dumps.
 
@@ -145,6 +161,7 @@ class HistoricalFileSource:
         timeframe: str | None = None,
         gap_policy: str = "reject",
         max_gaps: int = 0,
+        metadata: DataSourceMetadata | None = None,
     ) -> None:
         self.path = path
         # Fail-safe: ungültige Konfiguration sofort bei Konstruktion ablehnen.
@@ -158,6 +175,25 @@ class HistoricalFileSource:
         self.gap_policy = gap_policy
         self.max_gaps = max_gaps
         self.gaps: tuple[Gap, ...] = ()
+        # LQ-003 Phase 3: Daten-Herkunfts-Metadaten (defensiv, rückwärtskompatibel).
+        self.metadata: DataSourceMetadata = self._resolve_metadata(metadata)
+
+    def _resolve_metadata(
+        self, metadata: DataSourceMetadata | None
+    ) -> DataSourceMetadata:
+        """Erzeugt/vervollständigt die Metadaten defensiv (keine Validierung)."""
+        if metadata is None:
+            return DataSourceMetadata(
+                source_type="local_csv",
+                source_path=str(self.path),
+                timeframe=self.timeframe,
+            )
+        updates: dict[str, object] = {}
+        if not metadata.source_path:
+            updates["source_path"] = str(self.path)
+        if metadata.timeframe in (None, ""):
+            updates["timeframe"] = self.timeframe
+        return replace(metadata, **updates) if updates else metadata
 
     def market_data(self) -> list[MarketData]:
         """Liest und validiert die CSV vollständig und gibt eine Liste zurück.

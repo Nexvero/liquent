@@ -11,7 +11,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-from liquent.data.sources import Gap, HistoricalFileSource
+from liquent.data.sources import DataSourceMetadata, Gap, HistoricalFileSource
 from liquent.backtesting.metrics import (
     TradeResult,
     average_r_multiple,
@@ -1343,3 +1343,91 @@ def test_csv_empty_with_timeframe_no_gaps():
     bars = src.market_data()
     assert bars == []
     assert src.gap_report() == ()
+
+
+# --------------------------------------------------------------------------- #
+# LQ-003 Phase 3: Daten-Metadaten (Instrument/Quelle/Timeframe)
+# --------------------------------------------------------------------------- #
+# 1–3: Default-Metadaten werden erzeugt.
+def test_source_creates_default_metadata():
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"))
+    assert isinstance(src.metadata, DataSourceMetadata)
+    assert src.metadata.source_type == "local_csv"
+    assert src.metadata.source_path == _fixture("ohlcv_valid.csv")
+    # nicht gesetzte Felder bleiben defensiv "unknown".
+    assert src.metadata.asset_class == "unknown"
+
+
+# 4: Default-Metadaten übernehmen den Timeframe.
+def test_default_metadata_takes_timeframe():
+    src = HistoricalFileSource(_fixture("ohlcv_no_gap_5m.csv"), timeframe="5m")
+    assert src.metadata.timeframe == "5m"
+
+
+# 5: Custom-Metadaten werden akzeptiert.
+def test_custom_metadata_accepted():
+    meta = DataSourceMetadata(asset_class="crypto", exchange="binance", symbol="ETHUSDT")
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"), metadata=meta)
+    assert src.metadata.symbol == "ETHUSDT"
+    assert src.metadata.exchange == "binance"
+    assert src.metadata.asset_class == "crypto"
+
+
+# 6: Custom-Metadaten mit leerem source_path werden um den Pfad ergänzt.
+def test_custom_metadata_empty_path_filled():
+    meta = DataSourceMetadata(symbol="BTCUSDT", source_path="")
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"), metadata=meta)
+    assert src.metadata.source_path == _fixture("ohlcv_valid.csv")
+    assert src.metadata.symbol == "BTCUSDT"
+
+
+# 7: Custom-Metadaten mit timeframe=None werden um den Source-Timeframe ergänzt.
+def test_custom_metadata_timeframe_filled_from_source():
+    meta = DataSourceMetadata(symbol="BTCUSDT")  # timeframe=None
+    src = HistoricalFileSource(_fixture("ohlcv_no_gap_1h.csv"), timeframe="1h", metadata=meta)
+    assert src.metadata.timeframe == "1h"
+
+
+# 8: Metadata ist immutable.
+def test_metadata_is_immutable():
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"))
+    raised = False
+    try:
+        src.metadata.symbol = "X"  # type: ignore[misc]
+    except Exception:
+        raised = True
+    assert raised, "DataSourceMetadata muss frozen/immutable sein"
+
+
+# 9: Bestehende Aufrufe ohne Metadata-Argument bleiben kompatibel.
+def test_existing_source_calls_still_compatible():
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"))
+    bars = src.market_data()
+    assert len(bars) == 3
+
+
+# 10: BacktestResult.parameters enthält die Daten-Metadaten (Quelle trägt sie).
+def test_runner_parameters_include_data_metadata():
+    source = HistoricalFileSource(
+        _fixture("ohlcv_valid.csv"),
+        timeframe="1m",
+        metadata=DataSourceMetadata(asset_class="crypto", exchange="binance", symbol="BTCUSDT"),
+    )
+    res = BacktestRunner(source, RiskEngine(_valid_limits()), CostModel()).run()
+    assert res.parameters["data_asset_class"] == "crypto"
+    assert res.parameters["data_exchange"] == "binance"
+    assert res.parameters["data_symbol"] == "BTCUSDT"
+    assert res.parameters["data_timeframe"] == "1m"  # aus Source-Timeframe ergänzt
+    assert res.parameters["data_source_type"] == "local_csv"
+    # weiterhin ausschließlich skalare Parameter.
+    for value in res.parameters.values():
+        assert isinstance(value, (str, int, float, bool))
+
+
+# Zusatz: Quelle ohne Metadata (FakeSource) fügt KEINE data_*-Parameter hinzu.
+def test_runner_without_metadata_source_has_no_data_params():
+    res = BacktestRunner(
+        _FakeSource([100.0, 102.0, 105.0]), RiskEngine(_valid_limits()), CostModel()
+    ).run()
+    assert "data_symbol" not in res.parameters
+    assert "data_source_type" not in res.parameters

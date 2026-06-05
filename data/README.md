@@ -95,6 +95,24 @@ Nicht Teil von v1:
 - Nur `data/README.md` und die `.gitkeep`-Platzhalter werden getrackt.
 - Echte Daten dürfen nicht committed werden.
 
+## Data Metadata
+
+Empfohlene Herkunfts-Metadaten (LQ-003 Phase 3, `DataSourceMetadata`):
+
+```text
+asset_class=crypto
+exchange=binance
+symbol=BTCUSDT
+timeframe=5m
+source_type=local_csv
+source_path=data/raw/crypto/binance/BTCUSDT/5m/BTCUSDT_5m_2026-05-01_2026-05-31.csv
+```
+
+Hinweis: Metadaten beschreiben ausschließlich die Datenherkunft. Sie enthalten
+**keine** Zugangsdaten und **keine** API-Keys. `HistoricalFileSource` erzeugt
+ohne Angabe defensive Default-Metadaten (`source_type=local_csv`,
+`source_path`, `timeframe`); andere Felder bleiben `unknown`.
+
 ## Source / License Note
 
 Jede lokal verwendete CSV-Datei muss außerhalb von Git dokumentierbar sein mit:

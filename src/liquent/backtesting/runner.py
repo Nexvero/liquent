@@ -363,6 +363,24 @@ class BacktestRunner:
             "paper_trading": False,
         }
 
+        # LQ-003 Phase 3: Daten-Herkunfts-Metadaten übernehmen, falls die Quelle
+        # sie trägt (defensiv via getattr; FakeSources ohne metadata bleiben
+        # unverändert). Nur skalare Werte; timeframe None -> "".
+        source_metadata = getattr(self.source, "metadata", None)
+        if source_metadata is not None:
+            parameter.update(
+                {
+                    "data_asset_class": source_metadata.asset_class,
+                    "data_exchange": source_metadata.exchange,
+                    "data_symbol": source_metadata.symbol,
+                    "data_timeframe": source_metadata.timeframe
+                    if source_metadata.timeframe is not None
+                    else "",
+                    "data_source_type": source_metadata.source_type,
+                    "data_source_path": source_metadata.source_path,
+                }
+            )
+
         return BacktestResult(
             experiment_id=_deterministic_experiment_id(parameter),
             number_of_trades=len(trades),
