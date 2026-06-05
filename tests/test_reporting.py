@@ -337,6 +337,36 @@ def test_summary_carries_data_metadata_parameters():
     assert summary.parameters["data_source_type"] == "local_csv"
 
 
+# LQ-003 Phase 4: Reporting übernimmt die History-Report-Parameter.
+def test_summary_carries_history_parameters():
+    result = BacktestResult(
+        experiment_id="lq003p4-test",
+        number_of_trades=0,
+        approved_signals=0,
+        rejected_signals=0,
+        starting_equity=0.0,
+        ending_equity=0.0,
+        equity_curve=(0.0,),
+        metrics={"number_of_trades": 0},
+        trades=(),
+        parameters={
+            "strategy": "TestStrategy",
+            "sizing_mode": "absolute",
+            "data_history_timeframe": "5m",
+            "data_history_actual_bars": 3,
+            "data_history_required_bars": 8640,
+            "data_history_required_days": 30,
+            "data_history_meets_minimum": False,
+            "data_history_policy": "flag",
+        },
+    )
+    summary = summarize_backtest_result(result)
+    assert summary.parameters["data_history_timeframe"] == "5m"
+    assert summary.parameters["data_history_required_bars"] == 8640
+    assert summary.parameters["data_history_meets_minimum"] is False
+    assert summary.parameters["data_history_policy"] == "flag"
+
+
 # Zusatz: Summary hält keine mutable Defaults / ist frozen (immutable).
 def test_summary_is_immutable():
     summary = summarize_backtest_result(_sample_result())

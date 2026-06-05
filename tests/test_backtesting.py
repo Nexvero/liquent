@@ -11,7 +11,12 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-from liquent.data.sources import DataSourceMetadata, Gap, HistoricalFileSource
+from liquent.data.sources import (
+    DataSourceMetadata,
+    Gap,
+    HistoricalFileSource,
+    HistoryReport,
+)
 from liquent.backtesting.metrics import (
     TradeResult,
     average_r_multiple,
@@ -1431,3 +1436,119 @@ def test_runner_without_metadata_source_has_no_data_params():
     ).run()
     assert "data_symbol" not in res.parameters
     assert "data_source_type" not in res.parameters
+
+
+# --------------------------------------------------------------------------- #
+# LQ-003 Phase 4: Mindesthistorie prüfen / warnen
+# --------------------------------------------------------------------------- #
+# 1: history_policy="flag" lädt kurze Fixture; Report zeigt meets_minimum=False.
+def test_history_flag_short_loads():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="flag"
+    )
+    bars = src.market_data()
+    assert len(bars) == 3
+    report = src.history_report()
+    assert isinstance(report, HistoryReport)
+    assert report.meets_minimum is False
+
+
+# 2: history_policy="reject" wirft bei kurzer Fixture.
+def test_history_reject_short_raises():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="reject"
+    )
+    _expect_value_error(src.market_data)
+
+
+# 3: history_policy="ignore" erzeugt keinen Report.
+def test_history_ignore_no_report():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="ignore"
+    )
+    src.market_data()
+    assert src.history_report() is None
+
+
+# 4: unbekannte history_policy -> ValueError (bei Konstruktion).
+def test_unknown_history_policy_rejected():
+    _expect_value_error(
+        lambda: HistoricalFileSource(
+            _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="warn"
+        )
+    )
+
+
+# 5: timeframe=None erzeugt keinen Report.
+def test_history_no_timeframe_no_report():
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"))  # timeframe None, flag
+    src.market_data()
+    assert src.history_report() is None
+
+
+# 6: Leere CSV mit history_policy="flag" -> Report mit actual_bars=0.
+def test_history_empty_flag_report_zero_bars():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_empty.csv"), timeframe="5m", history_policy="flag"
+    )
+    bars = src.market_data()
+    assert bars == []
+    report = src.history_report()
+    assert report is not None
+    assert report.actual_bars == 0
+    assert report.meets_minimum is False
+
+
+# 7: Leere CSV mit history_policy="reject" wirft.
+def test_history_empty_reject_raises():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_empty.csv"), timeframe="5m", history_policy="reject"
+    )
+    _expect_value_error(src.market_data)
+
+
+# 8: Report enthält required_bars für 5m (30 Tage -> 8640).
+def test_history_required_bars_5m():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="flag"
+    )
+    src.market_data()
+    report = src.history_report()
+    assert report.required_bars == 8640
+    assert report.required_days == 30
+
+
+# 9: Report enthält required_bars für 1h (180 Tage -> 4320).
+def test_history_required_bars_1h():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_1h.csv"), timeframe="1h", history_policy="flag"
+    )
+    src.market_data()
+    report = src.history_report()
+    assert report.required_bars == 4320
+    assert report.required_days == 180
+
+
+# 10: Runner übernimmt die History-Report-Parameter (Quelle stellt sie bereit).
+def test_runner_parameters_include_history_report():
+    source = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="flag"
+    )
+    res = BacktestRunner(source, RiskEngine(_valid_limits()), CostModel()).run()
+    assert res.parameters["data_history_timeframe"] == "5m"
+    assert res.parameters["data_history_required_bars"] == 8640
+    assert res.parameters["data_history_required_days"] == 30
+    assert res.parameters["data_history_meets_minimum"] is False
+    assert res.parameters["data_history_policy"] == "flag"
+    # weiterhin ausschließlich skalare Parameter.
+    for value in res.parameters.values():
+        assert isinstance(value, (str, int, float, bool))
+
+
+# Zusatz: ignore -> Runner ergänzt KEINE History-Parameter.
+def test_runner_history_ignore_no_params():
+    source = HistoricalFileSource(
+        _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", history_policy="ignore"
+    )
+    res = BacktestRunner(source, RiskEngine(_valid_limits()), CostModel()).run()
+    assert "data_history_timeframe" not in res.parameters

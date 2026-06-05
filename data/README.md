@@ -55,8 +55,24 @@ data/raw/crypto/binance/BTCUSDT/5m/BTCUSDT_5m_2026-05-01_2026-05-31.csv
 
 ## Minimum History
 
-- 5m: mindestens 30 Tage empfohlen.
-- 1h: mindestens 180 Tage empfohlen.
+Empfohlene Mindesthistorie (LQ-003 Phase 4, geprüft via `history_policy`):
+
+- 5m: 30 Tage / 8640 Bars.
+- 1h: 180 Tage / 4320 Bars.
+- 1m: 14 Tage / 20160 Bars (optionale Ergänzung).
+- 15m: 90 Tage / 8640 Bars (optionale Ergänzung).
+
+`required_bars = required_days * 86400 / timeframe_seconds`.
+
+History Policies:
+
+- `flag` (Default): zu kurze Historie wird nur markiert (`meets_minimum=False`),
+  Daten werden geladen.
+- `reject`: zu kurze Historie wirft `ValueError`.
+- `ignore`: keine Prüfung, kein Report.
+
+Der Report ist über `source.history_report()` verfügbar (`HistoryReport | None`;
+`None` bei `timeframe=None` oder `history_policy="ignore"`).
 
 ## Gap Policy
 

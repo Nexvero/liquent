@@ -57,6 +57,18 @@ _TIMEFRAME_SECONDS = {
 }
 _GAP_POLICIES = ("reject", "flag", "tolerate")
 
+# LQ-003 Phase 4: empfohlene Mindesthistorie je Timeframe (Tage).
+# 5m/1h sind die v1-Kernwerte; 1m/15m sind optionale Ergänzungen (dokumentiert
+# in data/README.md). required_bars = required_days * 86400 / timeframe_seconds.
+_MIN_HISTORY_DAYS = {
+    "1m": 14,
+    "5m": 30,
+    "15m": 90,
+    "1h": 180,
+}
+_HISTORY_POLICIES = ("flag", "reject", "ignore")
+_SECONDS_PER_DAY = 86400
+
 
 @dataclass(frozen=True)
 class Gap:
@@ -104,6 +116,23 @@ class DataSourceMetadata:
     timeframe: str | None = None
     source_type: str = "local_csv"
     source_path: str = ""
+
+
+@dataclass(frozen=True)
+class HistoryReport:
+    """Bewertung der geladenen Historie gegen die empfohlene Mindesthistorie.
+
+    Immutable, deterministisch (LQ-003 Phase 4). ``meets_minimum`` ist
+    ``actual_bars >= required_bars``. Standard-Policy warnt nur (``flag``);
+    ``reject`` lehnt zu kurze Historie hart ab, ``ignore`` prüft nicht.
+    """
+
+    timeframe: str
+    actual_bars: int
+    required_bars: int
+    required_days: int
+    meets_minimum: bool
+    policy: str
 
 
 class HistoricalFileSource:
@@ -162,6 +191,7 @@ class HistoricalFileSource:
         gap_policy: str = "reject",
         max_gaps: int = 0,
         metadata: DataSourceMetadata | None = None,
+        history_policy: str = "flag",
     ) -> None:
         self.path = path
         # Fail-safe: ungültige Konfiguration sofort bei Konstruktion ablehnen.
@@ -177,6 +207,14 @@ class HistoricalFileSource:
         self.gaps: tuple[Gap, ...] = ()
         # LQ-003 Phase 3: Daten-Herkunfts-Metadaten (defensiv, rückwärtskompatibel).
         self.metadata: DataSourceMetadata = self._resolve_metadata(metadata)
+        # LQ-003 Phase 4: Mindesthistorie-Policy (Default: nur warnen/markieren).
+        if history_policy not in _HISTORY_POLICIES:
+            raise ValueError(
+                f"unbekannte history_policy {history_policy!r}; unterstützt: "
+                f"{', '.join(_HISTORY_POLICIES)}"
+            )
+        self.history_policy = history_policy
+        self._history_report: HistoryReport | None = None
 
     def _resolve_metadata(
         self, metadata: DataSourceMetadata | None
@@ -207,12 +245,13 @@ class HistoricalFileSource:
         bars: list[MarketData] = []
         found_gaps: list[Gap] = []
         self.gaps = ()
+        self._history_report = None
         with open(self.path, newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
 
             # Vollständig leere Datei (keine Kopfzeile) -> leere Liste, keine Gaps.
             if reader.fieldnames is None:
-                return bars
+                return self._finalize(bars, found_gaps)
 
             missing = [c for c in _REQUIRED_COLUMNS if c not in reader.fieldnames]
             if missing:
@@ -261,6 +300,12 @@ class HistoricalFileSource:
                     )
                 )
 
+        return self._finalize(bars, found_gaps)
+
+    def _finalize(
+        self, bars: list[MarketData], found_gaps: list[Gap]
+    ) -> list[MarketData]:
+        """Schließt das Laden ab: Gap-tolerate-Prüfung + Mindesthistorie."""
         # tolerate: zu viele Lücken -> fail-safe ablehnen.
         if self.gap_policy == "tolerate" and len(found_gaps) > self.max_gaps:
             raise ValueError(
@@ -268,7 +313,42 @@ class HistoricalFileSource:
                 f"{self.max_gaps} (gap_policy=tolerate)"
             )
         self.gaps = tuple(found_gaps)
+        # Mindesthistorie bewerten (kann bei policy="reject" werfen).
+        self._history_report = self._evaluate_history(len(bars))
         return bars
+
+    def _evaluate_history(self, actual_bars: int) -> HistoryReport | None:
+        """Bewertet die Bar-Anzahl gegen die empfohlene Mindesthistorie.
+
+        Liefert ``None``, wenn kein Timeframe gesetzt ist oder
+        ``history_policy="ignore"``. Bei ``"reject"`` und zu kurzer Historie
+        wird ``ValueError`` geworfen; bei ``"flag"`` wird nur markiert.
+        """
+        if self._expected_delta is None or self.history_policy == "ignore":
+            return None
+        timeframe = self.timeframe  # bei gesetztem _expected_delta nie None
+        required_days = _MIN_HISTORY_DAYS[timeframe]  # Schlüssel deckungsgleich
+        expected_seconds = int(self._expected_delta.total_seconds())
+        required_bars = int(required_days * _SECONDS_PER_DAY / expected_seconds)
+        meets_minimum = actual_bars >= required_bars
+        if not meets_minimum and self.history_policy == "reject":
+            raise ValueError(
+                f"{self.path}: Historie zu kurz — timeframe={timeframe}, "
+                f"actual_bars={actual_bars}, required_bars={required_bars}, "
+                f"required_days={required_days}"
+            )
+        return HistoryReport(
+            timeframe=timeframe,
+            actual_bars=actual_bars,
+            required_bars=required_bars,
+            required_days=required_days,
+            meets_minimum=meets_minimum,
+            policy=self.history_policy,
+        )
+
+    def history_report(self) -> HistoryReport | None:
+        """Liefert den Mindesthistorie-Report des letzten ``market_data()``."""
+        return self._history_report
 
     def gap_report(self) -> tuple[Gap, ...]:
         """Liefert die beim letzten ``market_data()`` erkannten Lücken."""

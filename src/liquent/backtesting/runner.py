@@ -381,6 +381,22 @@ class BacktestRunner:
                 }
             )
 
+        # LQ-003 Phase 4: Mindesthistorie-Report übernehmen, falls die Quelle ihn
+        # bereitstellt (defensiv; nur skalare Werte; kein Einfluss aufs Verhalten).
+        history_report_fn = getattr(self.source, "history_report", None)
+        history = history_report_fn() if callable(history_report_fn) else None
+        if history is not None:
+            parameter.update(
+                {
+                    "data_history_timeframe": history.timeframe,
+                    "data_history_actual_bars": history.actual_bars,
+                    "data_history_required_bars": history.required_bars,
+                    "data_history_required_days": history.required_days,
+                    "data_history_meets_minimum": history.meets_minimum,
+                    "data_history_policy": history.policy,
+                }
+            )
+
         return BacktestResult(
             experiment_id=_deterministic_experiment_id(parameter),
             number_of_trades=len(trades),
