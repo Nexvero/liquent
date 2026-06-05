@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "liquent"
+version = "0.0.1"
+description = "Liquent — understand liquidity. Modular skeleton (analysis mode only, no live execution)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Liquent Team" }]
+# Skeleton stage (LQ-008): no runtime trading dependencies are pulled in yet.
+# Concrete data/UI libraries are intentionally deferred to their own tasks.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
