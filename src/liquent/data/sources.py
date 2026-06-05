@@ -19,7 +19,8 @@ Anforderungen aus der Spec, die jede konkrete Quelle erfüllen muss:
 from __future__ import annotations
 
 import csv
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Iterable, Protocol, runtime_checkable
 
 from ..domain.models import MarketData, OrderBookSnapshot
@@ -46,6 +47,47 @@ class DataSource(Protocol):
 _REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 # Preisspalten, die nicht-negativ sein müssen.
 _PRICE_COLUMNS = ("open", "high", "low", "close")
+
+# LQ-003 Phase 2: unterstützte Timeframes (v1) und Gap-Policies.
+_TIMEFRAME_SECONDS = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "1h": 3600,
+}
+_GAP_POLICIES = ("reject", "flag", "tolerate")
+
+
+@dataclass(frozen=True)
+class Gap:
+    """Erkannte Lücke zwischen zwei aufeinanderfolgenden Bars (immutable).
+
+    Zeitstempel als ISO-8601-Strings (konsistent zur String-Darstellung im
+    Report); Deltas in ganzen Sekunden. ``missing_bars`` zählt die fehlenden
+    vollständigen Intervalle konservativ als ``actual // expected - 1`` (für
+    exakte Vielfache exakt; bei Nicht-Vielfachen abgerundet, mind. 0).
+    """
+
+    previous_timestamp: str
+    current_timestamp: str
+    expected_delta_seconds: int
+    actual_delta_seconds: int
+    missing_bars: int
+
+
+def _parse_timeframe(timeframe: str | None) -> timedelta | None:
+    """Mappt einen v1-Timeframe-String auf ein ``timedelta`` (fail-safe).
+
+    ``None`` -> ``None`` (keine Gap-Erkennung). Unbekannte Werte -> ``ValueError``.
+    """
+    if timeframe is None:
+        return None
+    if timeframe not in _TIMEFRAME_SECONDS:
+        raise ValueError(
+            f"unbekannter timeframe {timeframe!r}; unterstützt: "
+            f"{', '.join(_TIMEFRAME_SECONDS)}"
+        )
+    return timedelta(seconds=_TIMEFRAME_SECONDS[timeframe])
 
 
 class HistoricalFileSource:
@@ -84,12 +126,38 @@ class HistoricalFileSource:
     gespeichert; ``volume`` wird übernommen. Bewusst keine neue, inkompatible
     Datenstruktur (LQ-005 Phase 3, minimal-invasiv).
 
-    # TODO(spec): Lückenbehandlung (Interpolation/Verwerfen/Flag) und der
-    #   Instrument-/Historien-Scope bleiben offen (LQ-003).
+    Gap-Erkennung (LQ-003 Phase 2, optional, additiv): Wird ein ``timeframe``
+    (z. B. ``"5m"``, ``"1h"``) gesetzt, prüft der Loader den Abstand
+    aufeinanderfolgender Zeitstempel gegen das erwartete Raster. ``gap_policy``
+    steuert die Reaktion: ``"reject"`` (Default) wirft bei der ersten Lücke,
+    ``"flag"`` lädt und stellt die Lücken über ``gap_report()`` bereit,
+    ``"tolerate"`` lädt, solange die Anzahl Lücken ``max_gaps`` nicht
+    überschreitet. ``timeframe=None`` deaktiviert die Gap-Erkennung
+    (bisheriges Verhalten, vollständig rückwärtskompatibel). Jede Lücke ist
+    deterministisch (rein aus den Zeitstempeln berechnet).
+
+    # TODO(spec): Instrument-/Quellen-Metadaten bleiben offen (LQ-003 Phase 3).
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(
+        self,
+        path: str,
+        timeframe: str | None = None,
+        gap_policy: str = "reject",
+        max_gaps: int = 0,
+    ) -> None:
         self.path = path
+        # Fail-safe: ungültige Konfiguration sofort bei Konstruktion ablehnen.
+        self.timeframe = timeframe
+        self._expected_delta = _parse_timeframe(timeframe)
+        if gap_policy not in _GAP_POLICIES:
+            raise ValueError(
+                f"unbekannte gap_policy {gap_policy!r}; unterstützt: "
+                f"{', '.join(_GAP_POLICIES)}"
+            )
+        self.gap_policy = gap_policy
+        self.max_gaps = max_gaps
+        self.gaps: tuple[Gap, ...] = ()
 
     def market_data(self) -> list[MarketData]:
         """Liest und validiert die CSV vollständig und gibt eine Liste zurück.
@@ -97,12 +165,16 @@ class HistoricalFileSource:
         Eager (kein Generator): Validierungsfehler treten sofort beim Aufruf
         auf, nicht erst bei verzögerter Iteration. Ergebnis ist in aufsteigender
         Zeit sortiert (per Validierung erzwungen) und damit reproduzierbar.
+        Bei gesetztem ``timeframe`` werden Lücken gemäß ``gap_policy`` behandelt
+        und in ``self.gaps`` festgehalten.
         """
         bars: list[MarketData] = []
+        found_gaps: list[Gap] = []
+        self.gaps = ()
         with open(self.path, newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
 
-            # Vollständig leere Datei (keine Kopfzeile) -> leere Liste.
+            # Vollständig leere Datei (keine Kopfzeile) -> leere Liste, keine Gaps.
             if reader.fieldnames is None:
                 return bars
 
@@ -129,6 +201,18 @@ class HistoricalFileSource:
                             f"{self.path} (Zeile {line_no}): Daten nicht aufsteigend "
                             f"sortiert ({ts.isoformat()} < {previous_ts.isoformat()})"
                         )
+                    # Gap-Erkennung nur bei gesetztem Timeframe (deterministisch).
+                    if self._expected_delta is not None and ts - previous_ts != self._expected_delta:
+                        gap = self._build_gap(previous_ts, ts)
+                        if self.gap_policy == "reject":
+                            raise ValueError(
+                                f"{self.path} (Zeile {line_no}): Lücke erkannt — "
+                                f"previous={gap.previous_timestamp}, "
+                                f"current={gap.current_timestamp}, "
+                                f"expected_delta={gap.expected_delta_seconds}s, "
+                                f"actual_delta={gap.actual_delta_seconds}s"
+                            )
+                        found_gaps.append(gap)
                 previous_ts = ts
 
                 # Close-to-Close: close als Referenzpreis (bid = ask = close).
@@ -141,7 +225,31 @@ class HistoricalFileSource:
                     )
                 )
 
+        # tolerate: zu viele Lücken -> fail-safe ablehnen.
+        if self.gap_policy == "tolerate" and len(found_gaps) > self.max_gaps:
+            raise ValueError(
+                f"{self.path}: {len(found_gaps)} Lücke(n) > max_gaps="
+                f"{self.max_gaps} (gap_policy=tolerate)"
+            )
+        self.gaps = tuple(found_gaps)
         return bars
+
+    def gap_report(self) -> tuple[Gap, ...]:
+        """Liefert die beim letzten ``market_data()`` erkannten Lücken."""
+        return self.gaps
+
+    def _build_gap(self, previous_ts: datetime, current_ts: datetime) -> Gap:
+        """Erzeugt ein ``Gap`` aus zwei Zeitstempeln (deterministisch)."""
+        expected_s = int(self._expected_delta.total_seconds())  # type: ignore[union-attr]
+        actual_s = int((current_ts - previous_ts).total_seconds())
+        missing_bars = max(0, actual_s // expected_s - 1) if expected_s > 0 else 0
+        return Gap(
+            previous_timestamp=previous_ts.isoformat(),
+            current_timestamp=current_ts.isoformat(),
+            expected_delta_seconds=expected_s,
+            actual_delta_seconds=actual_s,
+            missing_bars=missing_bars,
+        )
 
     def order_book_snapshots(self) -> Iterable[OrderBookSnapshot]:
         # Orderbuch-Snapshots gehören nicht zum OHLCV-CSV-Scope (Phase 3).

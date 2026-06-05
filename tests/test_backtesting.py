@@ -11,7 +11,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-from liquent.data.sources import HistoricalFileSource
+from liquent.data.sources import Gap, HistoricalFileSource
 from liquent.backtesting.metrics import (
     TradeResult,
     average_r_multiple,
@@ -1208,3 +1208,138 @@ def test_runner_parameters_expose_risk_sizing_fields():
     # Weiterhin nur skalare Parameter.
     for value in res.parameters.values():
         assert isinstance(value, (str, int, float, bool))
+
+
+# --------------------------------------------------------------------------- #
+# LQ-003 Phase 2: Gap-Erkennung + Timeframe-Parameter (HistoricalFileSource)
+# --------------------------------------------------------------------------- #
+def _expect_value_error(fn) -> None:
+    raised = False
+    try:
+        fn()
+    except ValueError:
+        raised = True
+    assert raised, "erwartete ValueError wurde nicht ausgelöst"
+
+
+# 1: timeframe=None behält bisheriges Verhalten (keine Gap-Erkennung).
+def test_csv_timeframe_none_keeps_behavior():
+    src = HistoricalFileSource(_fixture("ohlcv_valid.csv"))
+    bars = src.market_data()
+    assert len(bars) == 3
+    assert src.gap_report() == ()
+
+
+# 2: timeframe="5m" ohne Gap lädt erfolgreich.
+def test_csv_5m_no_gap_loads():
+    src = HistoricalFileSource(_fixture("ohlcv_no_gap_5m.csv"), timeframe="5m")
+    bars = src.market_data()
+    assert len(bars) == 3
+    assert src.gap_report() == ()
+
+
+# 3: timeframe="1h" ohne Gap lädt erfolgreich.
+def test_csv_1h_no_gap_loads():
+    src = HistoricalFileSource(_fixture("ohlcv_no_gap_1h.csv"), timeframe="1h")
+    bars = src.market_data()
+    assert len(bars) == 3
+    assert src.gap_report() == ()
+
+
+# 4: unbekannter Timeframe -> ValueError (bei Konstruktion).
+def test_csv_unknown_timeframe_rejected():
+    _expect_value_error(lambda: HistoricalFileSource(_fixture("ohlcv_no_gap_5m.csv"), timeframe="3m"))
+
+
+# 5: unbekannte gap_policy -> ValueError (bei Konstruktion).
+def test_csv_unknown_gap_policy_rejected():
+    _expect_value_error(
+        lambda: HistoricalFileSource(
+            _fixture("ohlcv_no_gap_5m.csv"), timeframe="5m", gap_policy="skip"
+        )
+    )
+
+
+# 6: gap_policy="reject" wirft bei Gap.
+def test_csv_reject_raises_on_gap():
+    src = HistoricalFileSource(_fixture("ohlcv_gap_5m.csv"), timeframe="5m")  # reject default
+    _expect_value_error(src.market_data)
+
+
+# 7: Fehlermeldung bei Gap enthält previous/current/expected/actual.
+def test_csv_reject_error_message_details():
+    src = HistoricalFileSource(_fixture("ohlcv_gap_5m.csv"), timeframe="5m")
+    message = ""
+    try:
+        src.market_data()
+    except ValueError as exc:
+        message = str(exc)
+    assert "previous=" in message
+    assert "current=" in message
+    assert "expected_delta=300s" in message
+    assert "actual_delta=600s" in message
+
+
+# 8: gap_policy="flag" lädt trotz Gap.
+def test_csv_flag_loads_despite_gap():
+    src = HistoricalFileSource(_fixture("ohlcv_gap_5m.csv"), timeframe="5m", gap_policy="flag")
+    bars = src.market_data()
+    assert len(bars) == 3
+
+
+# 9: gap_policy="flag" stellt einen Gap-Report bereit.
+def test_csv_flag_provides_gap_report():
+    src = HistoricalFileSource(_fixture("ohlcv_gap_5m.csv"), timeframe="5m", gap_policy="flag")
+    src.market_data()
+    gaps = src.gap_report()
+    assert len(gaps) == 1
+    assert isinstance(gaps[0], Gap)
+
+
+# 10: gap_policy="tolerate", max_gaps=1 lädt bei einem Gap.
+def test_csv_tolerate_within_max_gaps_loads():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_gap_5m.csv"), timeframe="5m", gap_policy="tolerate", max_gaps=1
+    )
+    bars = src.market_data()
+    assert len(bars) == 3
+    assert len(src.gap_report()) == 1
+
+
+# 11: gap_policy="tolerate", max_gaps=0 wirft bei einem Gap.
+def test_csv_tolerate_exceeds_max_gaps_raises():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_gap_5m.csv"), timeframe="5m", gap_policy="tolerate", max_gaps=0
+    )
+    _expect_value_error(src.market_data)
+
+
+# 12: missing_bars wird korrekt berechnet (exaktes Vielfaches).
+def test_csv_gap_missing_bars_computed():
+    src = HistoricalFileSource(_fixture("ohlcv_gap_5m.csv"), timeframe="5m", gap_policy="flag")
+    src.market_data()
+    gap = src.gap_report()[0]
+    assert gap.expected_delta_seconds == 300
+    assert gap.actual_delta_seconds == 600
+    assert gap.missing_bars == 1
+
+
+# Zusatz: nicht-exaktes Vielfaches wird ebenfalls als Gap behandelt (deterministisch).
+def test_csv_non_multiple_gap_is_flagged():
+    src = HistoricalFileSource(
+        _fixture("ohlcv_gap_non_multiple.csv"), timeframe="5m", gap_policy="flag"
+    )
+    src.market_data()
+    gaps = src.gap_report()
+    assert len(gaps) == 1
+    assert gaps[0].expected_delta_seconds == 300
+    assert gaps[0].actual_delta_seconds == 420  # 00:05 -> 00:12
+    assert gaps[0].missing_bars == 0  # 420 // 300 - 1 = 0 (konservativ)
+
+
+# 13: leere CSV liefert [] und keine Gaps (auch mit gesetztem Timeframe).
+def test_csv_empty_with_timeframe_no_gaps():
+    src = HistoricalFileSource(_fixture("ohlcv_empty.csv"), timeframe="5m")
+    bars = src.market_data()
+    assert bars == []
+    assert src.gap_report() == ()

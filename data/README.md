@@ -60,10 +60,15 @@ data/raw/crypto/binance/BTCUSDT/5m/BTCUSDT_5m_2026-05-01_2026-05-31.csv
 
 ## Gap Policy
 
-v1-Entscheidung:
+Status: Gap-Erkennung ist implementiert (LQ-003 Phase 2).
 
-- Gap-Erkennung wird in einer späteren Phase ergänzt.
-- Default-Policy geplant: `reject`.
+- Unterstützte Timeframes v1: `1m`, `5m`, `15m`, `1h`.
+- `timeframe=None` (Default): keine Gap-Erkennung (bisheriges Verhalten).
+- Sobald ein Timeframe gesetzt ist, gilt `gap_policy="reject"` als Default.
+- Gap Policies:
+  - `reject`: wirft bei der ersten Lücke (fail-safe).
+  - `flag`: lädt trotzdem und stellt Lücken über `gap_report()` bereit.
+  - `tolerate`: lädt, solange Anzahl Lücken `max_gaps` nicht überschreitet.
 - Keine automatische Interpolation.
 - Keine automatische Auffüllung fehlender Bars.
 
