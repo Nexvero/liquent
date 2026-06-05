@@ -24,3 +24,14 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# Liquent local market data (LQ-003) — never commit real market data
+data/raw/**
+data/processed/**
+
+# Keep data documentation and folder placeholders
+!data/README.md
+!data/raw/
+!data/raw/.gitkeep
+!data/processed/
+!data/processed/.gitkeep
