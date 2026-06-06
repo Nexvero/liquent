@@ -588,6 +588,26 @@ installed…" und beendet sich — kein Traceback, keine Netzwerk-Calls, keine
 Dateien. Die Preview zeigt ausschließlich **synthetic/local preview only**;
 **no live trading**, **no trading recommendation**, keine Ergebnisinterpretation.
 
+#### Visual Preview Quickstart
+
+```bash
+. .venv/bin/activate
+python -m pytest
+python -m tools.visual_preview.app
+pip install -e ".[visual]"
+streamlit run tools/visual_preview/app.py
+```
+
+- `python -m tools.visual_preview.app` ist ein Fallback-/Smoke-Check ohne
+  Streamlit (klare Meldung, kein Traceback).
+- `pip install -e ".[visual]"` ist optional und wird nur benötigt, wenn die
+  lokale UI gestartet werden soll.
+- Die Visual Preview nutzt synthetische oder lokal hochgeladene CSV-Daten und
+  unterstützt **Bid/Ask-CSV** und **OHLCV-CSV**.
+- Uploads bleiben **local/in-memory**; Liquent speichert hochgeladene CSVs nicht.
+- **No live trading. No trading recommendation. No profitability assessment.**
+- Ausführliche Doku: `docs/lq-025-visual-preview-quickstart.md`.
+
 ## 4. Projektstruktur
 
 ```text
@@ -619,7 +639,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-421 passed (pytest, lokale .venv)
+434 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -645,7 +665,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-421 passed
+434 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
