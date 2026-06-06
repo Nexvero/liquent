@@ -191,6 +191,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   no further Visual Preview gate phases unless installation, UI execution, or new feature track is approved;
   no live/paper/exchange/API functionality.
 
+## 12. BacktestRunner / Trade-Lifecycle Integration
+
+- LQ-035 specification: `docs/lq-035-backtest-runner-trade-lifecycle-integration.md`
+- Status:
+  - existing Runner/RiskEngine/CostModel/Reporting stack verified
+  - Visual Preview remains frozen
+  - next suggested action: Runner regression test plan, no UI integration
+
 ---
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
