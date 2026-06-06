@@ -86,92 +86,136 @@ def _build_parser() -> argparse.ArgumentParser:
             "Research/backtesting only; not investment advice."
         ),
     )
-    parser.add_argument("--csv", required=True, help="Pfad zur lokalen OHLCV-CSV.")
-    parser.add_argument("--output", required=True, help="Pfad der Markdown-Ausgabe.")
+    # LQ-018: argparse argument groups nur zur Gliederung der Hilfe — KEINE
+    # Änderung an Flags, Defaults, dest, choices oder Verhalten. Prozentangaben
+    # in Help-Strings sind als %% escaped (argparse-Format-Platzhalter).
+    g_data = parser.add_argument_group("Data input")
+    g_strat = parser.add_argument_group("Strategy selection")
+    g_params = parser.add_argument_group("Strategy parameters")
+    g_v1 = parser.add_argument_group("Strategy v1 parameters")
+    g_risk = parser.add_argument_group("Risk / Backtest")
+    g_cost = parser.add_argument_group("Cost model")
+    g_out = parser.add_argument_group("Output / Reporting")
 
-    parser.add_argument("--symbol", default="UNKNOWN")
-    parser.add_argument("--exchange", default="unknown")
-    parser.add_argument("--asset-class", default="unknown", dest="asset_class")
-    parser.add_argument("--timeframe", default="5m", choices=_TIMEFRAMES)
-    parser.add_argument("--gap-policy", default="reject", choices=_GAP_POLICIES, dest="gap_policy")
-    parser.add_argument(
-        "--max-gaps",
-        default=0,
-        type=int,
-        dest="max_gaps",
-        help="max. tolerierte Lücken bei --gap-policy tolerate (>= 0).",
+    # --- Data input ---
+    g_data.add_argument(
+        "--csv", required=True, help="Path to the local OHLCV CSV input file."
     )
-    parser.add_argument(
-        "--history-policy", default="flag", choices=_HISTORY_POLICIES, dest="history_policy"
+    g_data.add_argument(
+        "--symbol", default="UNKNOWN", help="Instrument symbol label for report metadata."
+    )
+    g_data.add_argument(
+        "--exchange", default="unknown", help="Exchange label for report metadata."
+    )
+    g_data.add_argument(
+        "--asset-class", default="unknown", dest="asset_class",
+        help="Asset-class label for report metadata.",
+    )
+    g_data.add_argument(
+        "--timeframe", default="5m", choices=_TIMEFRAMES,
+        help="Bar timeframe of the input data.",
+    )
+    g_data.add_argument(
+        "--gap-policy", default="reject", choices=_GAP_POLICIES, dest="gap_policy",
+        help="How to handle data gaps: reject, flag, or tolerate.",
+    )
+    g_data.add_argument(
+        "--max-gaps", default=0, type=int, dest="max_gaps",
+        help="Maximum tolerated gaps when --gap-policy tolerate (>= 0).",
+    )
+    g_data.add_argument(
+        "--history-policy", default="flag", choices=_HISTORY_POLICIES, dest="history_policy",
+        help="How to handle the minimum-history check: flag, reject, or ignore.",
     )
 
-    parser.add_argument("--initial-equity", default=10_000.0, type=float, dest="initial_equity")
-    parser.add_argument(
-        "--strategy",
-        default="v0",
-        choices=_STRATEGIES,
-        help="Strategie: v0 (MidBreakoutStrategy) oder v1 (MidBreakoutStrategyV1). Default v0.",
+    # --- Strategy selection ---
+    g_strat.add_argument(
+        "--strategy", default="v0", choices=_STRATEGIES,
+        help="Strategy version to use. Default: v0 for backward-compatible runs.",
     )
-    # Gemeinsame Parameter mit Sentinel-Default None: nach dem Parsen
-    # strategieabhängig auf die v0- bzw. v1-Defaults aufgelöst. So bleibt
-    # `--strategy v0` byte-identisch zu bisher und `--strategy v1` nutzt die
-    # v1-Defaults, sofern der Nutzer nichts explizit setzt.
-    parser.add_argument("--lookback-bars", default=None, type=int, dest="lookback_bars")
-    parser.add_argument(
-        "--stop-distance-pct", default=None, type=float, dest="stop_distance_pct"
+
+    # --- Strategy parameters (common) ---
+    # Sentinel-Default None: nach dem Parsen strategieabhängig auf die v0- bzw.
+    # v1-Defaults aufgelöst (Verhalten unverändert).
+    g_params.add_argument(
+        "--lookback-bars", default=None, type=int, dest="lookback_bars",
+        help="Number of previous bars for the breakout window. "
+        "Defaults depend on strategy (v0: 3, v1: 12).",
     )
-    parser.add_argument("--min-strength", default=None, type=float, dest="min_strength")
-    parser.add_argument("--allow-short", default=True, type=_parse_bool, dest="allow_short")
-    # v1-only Parameter (Sentinel None): bei --strategy v0 hart abgelehnt,
-    # bei --strategy v1 auf die v1-Defaults aufgelöst, wenn nicht gesetzt.
-    parser.add_argument(
-        "--breakout-threshold-pct",
-        default=None,
-        type=float,
-        dest="breakout_threshold_pct",
-        help="nur mit --strategy v1: relative Breakout-Schwelle in [0, 0.1).",
+    g_params.add_argument(
+        "--stop-distance-pct", default=None, type=float, dest="stop_distance_pct",
+        help="Relative stop distance for percent-risk sizing. The current runner "
+        "uses stop_price for sizing, not as an executed stop-loss.",
     )
-    parser.add_argument(
-        "--cooldown-bars",
-        default=None,
-        type=int,
-        dest="cooldown_bars",
-        help="nur mit --strategy v1: Sperr-Bars nach einem Signal (>= 0).",
+    g_params.add_argument(
+        "--min-strength", default=None, type=float, dest="min_strength",
+        help="Minimum signal strength filter. Default: 0.0.",
     )
-    parser.add_argument(
-        "--max-signals-per-day",
-        default=None,
-        type=int,
-        dest="max_signals_per_day",
-        help="nur mit --strategy v1: max. Signale je UTC-Tag (> 0; None = aus).",
+    g_params.add_argument(
+        "--allow-short", default=True, type=_parse_bool, dest="allow_short",
+        help="Whether short signals are allowed (true/false). Default: true.",
     )
-    parser.add_argument(
-        "--risk-per-trade-pct", default=0.01, type=float, dest="risk_per_trade_pct"
+
+    # --- Strategy v1 parameters (v1-only; bei v0 hart abgelehnt) ---
+    g_v1.add_argument(
+        "--breakout-threshold-pct", default=None, type=float, dest="breakout_threshold_pct",
+        help="Minimum relative breakout distance for v1. Only valid with --strategy v1.",
     )
-    parser.add_argument(
-        "--max-position-size", default=100.0, type=float, dest="max_position_size"
+    g_v1.add_argument(
+        "--cooldown-bars", default=None, type=int, dest="cooldown_bars",
+        help="Number of bars skipped after an emitted v1 signal. "
+        "Only valid with --strategy v1.",
     )
-    parser.add_argument(
-        "--max-total-exposure", default=100_000.0, type=float, dest="max_total_exposure"
+    g_v1.add_argument(
+        "--max-signals-per-day", default=None, type=int, dest="max_signals_per_day",
+        help="Optional max number of v1 signals per UTC day. "
+        "Only valid with --strategy v1. Omit to disable.",
     )
-    parser.add_argument(
-        "--max-daily-drawdown", default=10_000.0, type=float, dest="max_daily_drawdown"
+
+    # --- Risk / Backtest ---
+    g_risk.add_argument(
+        "--initial-equity", default=10_000.0, type=float, dest="initial_equity",
+        help="Starting account equity for the backtest.",
     )
-    # LQ-012: Kostenmodell-Parameter (reale CostModel-Felder). Defaults 0.0 ->
-    # frictionless, byte-identisch zum bisherigen Verhalten ohne diese Flags.
-    parser.add_argument(
+    g_risk.add_argument(
+        "--risk-per-trade-pct", default=0.01, type=float, dest="risk_per_trade_pct",
+        help="Risk per trade as a fraction of equity for percent-risk sizing.",
+    )
+    g_risk.add_argument(
+        "--max-position-size", default=100.0, type=float, dest="max_position_size",
+        help="Maximum position size (units) cap.",
+    )
+    g_risk.add_argument(
+        "--max-total-exposure", default=100_000.0, type=float, dest="max_total_exposure",
+        help="Maximum total exposure cap.",
+    )
+    g_risk.add_argument(
+        "--max-daily-drawdown", default=10_000.0, type=float, dest="max_daily_drawdown",
+        help="Daily drawdown limit before the risk gate pauses.",
+    )
+
+    # --- Cost model (reale CostModel-Felder; Defaults 0.0 = frictionless) ---
+    g_cost.add_argument(
         "--fee-rate", default=0.0, type=float, dest="fee_rate",
-        help="CostModel.fee_rate: Notional-Anteil je Leg (0.001 = 0,1 %). >= 0.",
+        help="Fee rate as notional fraction (e.g. 0.001 = 0.1%%). Default: 0.0.",
     )
-    parser.add_argument(
+    g_cost.add_argument(
         "--spread", default=0.0, type=float, dest="spread",
-        help="CostModel.spread: absoluter Aufschlag pro Einheit. >= 0.",
+        help="Absolute spread cost per unit. Default: 0.0.",
     )
-    parser.add_argument(
+    g_cost.add_argument(
         "--slippage", default=0.0, type=float, dest="slippage",
-        help="CostModel.slippage: Notional-Anteil je Leg (0.0005 = 0,05 %). >= 0.",
+        help="Slippage as notional fraction (e.g. 0.0005 = 0.05%%). Default: 0.0.",
     )
-    parser.add_argument("--overwrite", action="store_true", default=False)
+
+    # --- Output / Reporting ---
+    g_out.add_argument(
+        "--output", required=True, help="Path of the Markdown report output."
+    )
+    g_out.add_argument(
+        "--overwrite", action="store_true", default=False,
+        help="Overwrite the output file if it already exists.",
+    )
     return parser
 
 

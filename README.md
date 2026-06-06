@@ -420,6 +420,32 @@ python -m liquent.cli.backtest_mid_breakout \
   --overwrite
 ```
 
+Beispiel v1 mit Tageslimit (`--max-signals-per-day`, nur v1):
+
+```bash
+python -m liquent.cli.backtest_mid_breakout \
+  --strategy v1 \
+  --max-signals-per-day 2 \
+  --csv path/to/synthetic_or_local_data.csv \
+  --output reports/mid_breakout_v1_limit.md \
+  --overwrite
+```
+
+Beispiel mit Kostenmodell (`--fee-rate`/`--spread`/`--slippage`):
+
+```bash
+python -m liquent.cli.backtest_mid_breakout \
+  --strategy v1 \
+  --fee-rate 0.001 --spread 0.0 --slippage 0.0005 \
+  --csv path/to/synthetic_or_local_data.csv \
+  --output reports/mid_breakout_costs.md \
+  --overwrite
+```
+
+> Platzhalterpfade — keine echten Datenpfade, keine Ergebnisinterpretation. Tipp:
+> `python -m liquent.cli.backtest_mid_breakout --help` listet alle Parameter
+> nach Gruppen.
+
 **Gemeinsame Parameter** (für v0 und v1):
 
 ```text
@@ -509,7 +535,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-345 passed (pytest, lokale .venv)
+353 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -535,7 +561,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-345 passed
+353 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
