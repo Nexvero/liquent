@@ -168,6 +168,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - keine Echtdaten, keine Reports,
 - kein Commit ohne Freigabe, kein Push.
 
+## 11. Visual Preview
+
+- Visual Preview docs index: `docs/visual-preview-index.md`
+- Quickstart: `docs/lq-025-visual-preview-quickstart.md`
+
 ---
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine

@@ -606,7 +606,8 @@ streamlit run tools/visual_preview/app.py
   unterstützt **Bid/Ask-CSV** und **OHLCV-CSV**.
 - Uploads bleiben **local/in-memory**; Liquent speichert hochgeladene CSVs nicht.
 - **No live trading. No trading recommendation. No profitability assessment.**
-- Ausführliche Doku: `docs/lq-025-visual-preview-quickstart.md`.
+- Docs index: `docs/visual-preview-index.md`.
+- Ausführliche Doku / Quickstart: `docs/lq-025-visual-preview-quickstart.md`.
 
 ## 4. Projektstruktur
 
@@ -639,7 +640,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-434 passed (pytest, lokale .venv)
+444 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -665,7 +666,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-434 passed
+444 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
