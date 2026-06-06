@@ -177,11 +177,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - Review pause / next-track decision: `docs/lq-029-visual-preview-review-pause-next-track.md`
 - Manual Streamlit smoke-test execution plan: `docs/lq-030-manual-streamlit-smoke-test-execution-plan.md`
 - Manual Streamlit smoke-test result template / execution gate: `docs/lq-031-manual-streamlit-smoke-test-result-template.md`
+- Streamlit optional install decision / no-execution checkpoint: `docs/lq-032-streamlit-install-decision-no-execution-checkpoint.md`
 - Status: local visual preview checkpoint documented;
   LQ-028 documents the manual smoke-test procedure (no automation, no deployment);
   Visual Preview reached a stable local checkpoint; next track should be chosen explicitly;
   next step is manual UI smoke-test execution, not new feature work;
   execution gate and neutral result template documented; no UI execution yet;
+  current recommended decision is no execution unless optional Streamlit install is separately approved;
   no live/paper/exchange/API functionality.
 
 ---

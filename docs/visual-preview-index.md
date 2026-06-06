@@ -20,6 +20,7 @@
 | LQ-029 | `docs/lq-029-visual-preview-review-pause-next-track.md` | Review pause and next-track decision           |
 | LQ-030 | `docs/lq-030-manual-streamlit-smoke-test-execution-plan.md` | Manual Streamlit smoke-test execution plan     |
 | LQ-031 | `docs/lq-031-manual-streamlit-smoke-test-result-template.md` | Manual Streamlit smoke-test result template and execution gate |
+| LQ-032 | `docs/lq-032-streamlit-install-decision-no-execution-checkpoint.md` | Streamlit optional install decision and no-execution checkpoint |
 
 ## Current capabilities
 
@@ -52,6 +53,7 @@
 * Use the review pause document before choosing Runner, CostModel, or further UI work.
 * Use the LQ-030 execution plan before running the local Streamlit UI.
 * Use the LQ-031 execution gate before installing Streamlit, running the UI, or committing a result document.
+* Current recommended decision: keep no-execution state unless optional Streamlit install is separately approved.
 * Keep the quickstart and index updated as Visual Preview evolves.
 * Keep CSV examples as code blocks, not committed CSV files.
 * Only later and only if explicitly specified: controlled local runner integration.
