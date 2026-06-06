@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from .preview_logic import (
     SAFETY_NOTES,
+    build_dataset_from_csv_text,
     build_preview_datasets,
     generate_preview_summary,
 )
@@ -44,10 +45,32 @@ def main() -> None:
     # Safety-Banner (alle Hinweise sichtbar).
     st.info("  •  ".join(SAFETY_NOTES))
 
-    # --- Sidebar: Dataset / Strategy / Parameter ---
+    # --- Sidebar: Dataset mode / Strategy / Parameter ---
     datasets = build_preview_datasets()
     st.sidebar.header("Dataset")
-    dataset_key = st.sidebar.selectbox("Dataset", list(datasets.keys()))
+    dataset_mode = st.sidebar.radio(
+        "Dataset mode", ["Synthetic dataset", "Local CSV upload"]
+    )
+    # `dataset_arg` ist entweder ein synthetischer Key oder ein PreviewDataset.
+    dataset_arg: object | None = None
+    if dataset_mode == "Synthetic dataset":
+        dataset_arg = st.sidebar.selectbox("Dataset", list(datasets.keys()))
+    else:
+        uploaded = st.sidebar.file_uploader("Upload local CSV", type=["csv"])
+        if uploaded is None:
+            st.info(
+                "Upload a local CSV (timestamp,bid,ask[,volume]) to preview. "
+                "The file is read in memory only — nothing is stored, downloaded "
+                "or sent anywhere."
+            )
+            return
+        try:
+            csv_text = uploaded.getvalue().decode("utf-8")
+            dataset_arg = build_dataset_from_csv_text(uploaded.name, csv_text)
+        except (ValueError, UnicodeDecodeError) as exc:
+            st.error(f"Invalid CSV: {exc}")
+            return
+
     st.sidebar.header("Strategy")
     strategy_key = st.sidebar.selectbox("Strategy", ["v0", "v1"])
 
@@ -71,7 +94,7 @@ def main() -> None:
     st.sidebar.header("Cost parameters")
     st.sidebar.caption("not used in signal-only preview")
 
-    summary = generate_preview_summary(dataset_key, strategy_key, params)
+    summary = generate_preview_summary(dataset_arg, strategy_key, params)
     tech = summary["technical_summary"]
 
     # --- Technical Summary ---

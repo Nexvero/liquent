@@ -521,7 +521,34 @@ Die Preview zeigt (technisch, ohne Ergebnisinterpretation): **Technical Summary*
 **Mid-price chart** (mit Long/Short-Signalmarkern), **Signal table**, **Strategy
 metadata** und **Safety notes**. Weiterhin gilt: **synthetic/local preview only**,
 **no live trading**, **no trading recommendation**, **no profitability
-assessment**, **no CSV upload yet**, **no report files**, **no deployment**.
+assessment**, **no report files**, **no deployment**.
+
+#### Datenquellen: Synthetic datasets + Local CSV upload
+
+Die Preview unterstützt zwei Datenmodi:
+
+- **Synthetic datasets** (Default; deterministische Muster).
+- **Local CSV upload** (wenn Streamlit installiert ist) — über `st.file_uploader`.
+  Der Upload wird **nur im Speicher** verarbeitet: **keine Speicherung**, **kein
+  Download**, **keine API**, **keine Exchange**, **keine Persistenz im Repo**.
+
+Minimales CSV-Format für den Upload:
+
+```csv
+timestamp,bid,ask,volume
+2026-01-01T00:00:00+00:00,100.0,100.5,1.0
+2026-01-01T00:05:00+00:00,100.2,100.7,1.0
+```
+
+- **Pflichtspalten:** `timestamp`, `bid`, `ask` · **Optional:** `volume`
+  (Default `1.0`, wenn fehlt/leer).
+- `timestamp` muss **timezone-aware** (ISO-8601, UTC) sein — **naive Timestamps
+  werden abgelehnt**.
+- `bid > 0`, `ask > 0`, `ask >= bid`; Zeilen werden nach `timestamp` sortiert;
+  `mid = (bid + ask) / 2`.
+
+Keine echten Datenpfade, keine Ergebnisinterpretation, keine
+Profitabilitätsaussage.
 
 **Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies;
 `dependencies = []` bleibt unverändert). Streamlit ist als **optionales Extra**
@@ -576,7 +603,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-379 passed (pytest, lokale .venv)
+399 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -602,7 +629,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-379 passed
+399 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

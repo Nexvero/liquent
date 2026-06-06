@@ -14,7 +14,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping
+import csv
+from io import StringIO
+from typing import Any, Mapping, Sequence
 
 from liquent.domain.models import MarketData
 from liquent.strategy import MidBreakoutStrategy, MidBreakoutStrategyV1
@@ -168,6 +170,89 @@ def _strategy_metadata(strategy_key: str, strategy) -> dict[str, Any]:
     }
 
 
+# --------------------------------------------------------------------------- #
+# LQ-022: lokaler CSV-Textparser (rein, ohne Streamlit, ohne File-/Netzwerk-I/O)
+# --------------------------------------------------------------------------- #
+
+_CSV_REQUIRED_COLUMNS = ("timestamp", "bid", "ask")
+
+
+def _require_csv_columns(fieldnames: Sequence[str] | None) -> None:
+    """Stellt sicher, dass die CSV-Pflichtspalten vorhanden sind (sonst ValueError)."""
+    if not fieldnames:
+        raise ValueError("CSV ohne Kopfzeile oder leer")
+    missing = [c for c in _CSV_REQUIRED_COLUMNS if c not in fieldnames]
+    if missing:
+        raise ValueError(f"CSV fehlen Pflichtspalten: {', '.join(missing)}")
+
+
+def _parse_csv_timestamp(value: str | None) -> datetime:
+    """Parst einen ISO-8601-Timestamp; verlangt timezone-aware (naiv -> ValueError)."""
+    text = (value or "").strip()
+    if not text:
+        raise ValueError("leerer timestamp")
+    try:
+        ts = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"timestamp nicht ISO-8601-parsebar: {text!r}") from exc
+    if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
+        raise ValueError(f"timestamp muss timezone-aware sein (UTC): {text!r}")
+    return ts
+
+
+def _parse_csv_float(value: str | None, field: str) -> float:
+    """Parst ein numerisches CSV-Feld (sonst ValueError mit neutraler Meldung)."""
+    text = (value or "").strip()
+    try:
+        return float(text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} nicht numerisch: {value!r}") from exc
+
+
+def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
+    """Baut ein ``PreviewDataset`` aus lokalem CSV-Text (stdlib ``csv``, kein I/O).
+
+    Pflichtspalten ``timestamp,bid,ask``; optional ``volume`` (Default ``1.0``).
+    Validierung: nicht leer, Pflichtspalten vorhanden, timestamp ISO-8601 und
+    timezone-aware, ``bid``/``ask`` numerisch und ``> 0``, ``ask >= bid``,
+    mindestens eine Datenzeile. Stabile Sortierung nach ``timestamp``;
+    ``mid = (bid + ask) / 2``. KEINE pandas-, Datei- oder Netzwerk-Abhängigkeit.
+    """
+    reader = csv.DictReader(StringIO(csv_text))
+    _require_csv_columns(reader.fieldnames)
+
+    parsed: list[tuple[datetime, float, float, float]] = []
+    for row in reader:
+        ts = _parse_csv_timestamp(row.get("timestamp"))
+        bid = _parse_csv_float(row.get("bid"), "bid")
+        ask = _parse_csv_float(row.get("ask"), "ask")
+        volume_raw = (row.get("volume") or "").strip()
+        volume = _parse_csv_float(volume_raw, "volume") if volume_raw else 1.0
+        if bid <= 0.0:
+            raise ValueError(f"bid muss > 0 sein (war {bid})")
+        if ask <= 0.0:
+            raise ValueError(f"ask muss > 0 sein (war {ask})")
+        if ask < bid:
+            raise ValueError(f"ask muss >= bid sein (ask={ask}, bid={bid})")
+        parsed.append((ts, bid, ask, volume))
+
+    if not parsed:
+        raise ValueError("CSV enthält keine Datenzeilen")
+
+    parsed.sort(key=lambda r: r[0])  # stabil (Timsort) nach timestamp
+    bars = tuple(
+        MarketData(timestamp=ts, bid=bid, ask=ask, volume=vol)
+        for ts, bid, ask, vol in parsed
+    )
+    mids = tuple((bar.bid + bar.ask) / 2.0 for bar in bars)
+    return PreviewDataset(
+        name=name or "local_csv",
+        description="Local CSV preview dataset",
+        mids=mids,
+        market_data=bars,
+    )
+
+
 def build_price_rows(dataset: PreviewDataset) -> list[dict[str, Any]]:
     """Chartfreundliche Preis-Rows je Bar (rein, deterministisch, keine I/O)."""
     rows: list[dict[str, Any]] = []
@@ -230,18 +315,26 @@ def build_chart_rows(dataset: PreviewDataset, signals) -> list[dict[str, Any]]:
 
 
 def generate_preview_summary(
-    dataset_key: str, strategy_key: str, params: Mapping[str, Any] | None = None
+    dataset: "str | PreviewDataset",
+    strategy_key: str,
+    params: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Erzeugt eine rein technische Preview-Zusammenfassung (kein Runner, kein I/O).
+
+    ``dataset`` ist entweder ein synthetischer Dataset-Key (``str``) ODER ein
+    fertiges ``PreviewDataset`` (z. B. aus ``build_dataset_from_csv_text``).
 
     Enthält: Dataset-Metadaten, Strategie-Metadaten, ``signals_total``, eine
     Signaltabelle (timestamp/side/price/stop_price/strength) und die
     Sicherheitshinweise. KEIN ``ending_equity``, KEINE Bewertungsfelder.
     """
-    datasets = build_preview_datasets()
-    if dataset_key not in datasets:
-        raise ValueError(f"unbekanntes dataset_key: {dataset_key!r}")
-    dataset = datasets[dataset_key]
+    if isinstance(dataset, PreviewDataset):
+        dataset = dataset
+    else:
+        datasets = build_preview_datasets()
+        if dataset not in datasets:
+            raise ValueError(f"unbekanntes dataset_key: {dataset!r}")
+        dataset = datasets[dataset]
 
     p = dict(params or {})
     strategy = build_strategy(
