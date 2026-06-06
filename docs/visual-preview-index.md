@@ -22,6 +22,7 @@
 | LQ-031 | `docs/lq-031-manual-streamlit-smoke-test-result-template.md` | Manual Streamlit smoke-test result template and execution gate |
 | LQ-032 | `docs/lq-032-streamlit-install-decision-no-execution-checkpoint.md` | Streamlit optional install decision and no-execution checkpoint |
 | LQ-033 | `docs/lq-033-optional-streamlit-install-execution-plan.md` | Optional Streamlit install execution plan      |
+| LQ-034 | `docs/lq-034-visual-preview-documentation-freeze.md` | Visual Preview documentation freeze and milestone summary |
 
 ## Current capabilities
 
@@ -56,6 +57,7 @@
 * Use the LQ-031 execution gate before installing Streamlit, running the UI, or committing a result document.
 * Current recommended decision: keep no-execution state unless optional Streamlit install is separately approved.
 * Follow the LQ-033 optional install execution plan if installation is separately approved.
+* Visual Preview documentation is frozen until optional install, UI execution, or a new track is explicitly approved.
 * Keep the quickstart and index updated as Visual Preview evolves.
 * Keep CSV examples as code blocks, not committed CSV files.
 * Only later and only if explicitly specified: controlled local runner integration.
