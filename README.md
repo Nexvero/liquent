@@ -609,6 +609,7 @@ streamlit run tools/visual_preview/app.py
 - Docs index: `docs/visual-preview-index.md`.
 - Ausführliche Doku / Quickstart: `docs/lq-025-visual-preview-quickstart.md`.
 - Stabilization checkpoint: `docs/lq-027-visual-preview-stabilization-checkpoint.md`.
+- Controlled Streamlit smoke-test checklist: `docs/lq-028-controlled-streamlit-smoke-test-checklist.md`.
 
 ## 4. Projektstruktur
 
