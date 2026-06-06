@@ -31,7 +31,7 @@ from liquent.backtesting.reporting import (
 from liquent.backtesting.runner import BacktestRunner, CostModel
 from liquent.data.sources import DataSourceMetadata, HistoricalFileSource
 from liquent.risk.engine import RiskEngine, RiskLimits
-from liquent.strategy import MidBreakoutStrategy
+from liquent.strategy import MidBreakoutStrategy, MidBreakoutStrategyV1
 
 # Statischer, deterministischer Kopf des Reports (kein Zeitstempel, kein Zufall).
 _DISCLAIMER = (
@@ -42,6 +42,20 @@ _DISCLAIMER = (
 _TIMEFRAMES = ("1m", "5m", "15m", "1h")
 _GAP_POLICIES = ("reject", "flag", "tolerate")
 _HISTORY_POLICIES = ("flag", "reject", "ignore")
+_STRATEGIES = ("v0", "v1")
+
+# Strategieabhängige Defaults für gemeinsame Parameter (LQ-009 Phase 2).
+# v0 behält die bisherigen CLI-Defaults (Reproduzierbarkeit bestehender Läufe);
+# v1 erhält die Defaults aus MidBreakoutStrategyV1. Aufgelöst werden nur die
+# vom Nutzer NICHT gesetzten (Sentinel-None-)Werte.
+_V0_DEFAULTS = {"lookback_bars": 3, "stop_distance_pct": 0.05, "min_strength": 0.0}
+_V1_DEFAULTS = {
+    "lookback_bars": 12,
+    "stop_distance_pct": 0.01,
+    "min_strength": 0.0,
+    "breakout_threshold_pct": 0.001,
+    "cooldown_bars": 3,
+}
 
 _BOOL_TRUE = {"true", "1", "yes"}
 _BOOL_FALSE = {"false", "0", "no"}
@@ -92,11 +106,38 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument("--initial-equity", default=10_000.0, type=float, dest="initial_equity")
-    parser.add_argument("--lookback-bars", default=3, type=int, dest="lookback_bars")
     parser.add_argument(
-        "--stop-distance-pct", default=0.05, type=float, dest="stop_distance_pct"
+        "--strategy",
+        default="v0",
+        choices=_STRATEGIES,
+        help="Strategie: v0 (MidBreakoutStrategy) oder v1 (MidBreakoutStrategyV1). Default v0.",
     )
+    # Gemeinsame Parameter mit Sentinel-Default None: nach dem Parsen
+    # strategieabhängig auf die v0- bzw. v1-Defaults aufgelöst. So bleibt
+    # `--strategy v0` byte-identisch zu bisher und `--strategy v1` nutzt die
+    # v1-Defaults, sofern der Nutzer nichts explizit setzt.
+    parser.add_argument("--lookback-bars", default=None, type=int, dest="lookback_bars")
+    parser.add_argument(
+        "--stop-distance-pct", default=None, type=float, dest="stop_distance_pct"
+    )
+    parser.add_argument("--min-strength", default=None, type=float, dest="min_strength")
     parser.add_argument("--allow-short", default=True, type=_parse_bool, dest="allow_short")
+    # v1-only Parameter (Sentinel None): bei --strategy v0 hart abgelehnt,
+    # bei --strategy v1 auf die v1-Defaults aufgelöst, wenn nicht gesetzt.
+    parser.add_argument(
+        "--breakout-threshold-pct",
+        default=None,
+        type=float,
+        dest="breakout_threshold_pct",
+        help="nur mit --strategy v1: relative Breakout-Schwelle in [0, 0.1).",
+    )
+    parser.add_argument(
+        "--cooldown-bars",
+        default=None,
+        type=int,
+        dest="cooldown_bars",
+        help="nur mit --strategy v1: Sperr-Bars nach einem Signal (>= 0).",
+    )
     parser.add_argument(
         "--risk-per-trade-pct", default=0.01, type=float, dest="risk_per_trade_pct"
     )
@@ -113,14 +154,58 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_strategy_args(args: argparse.Namespace) -> str | None:
+    """Gating + Sentinel-Auflösung der strategieabhängigen Parameter.
+
+    1) v1-only Parameter (``breakout_threshold_pct``, ``cooldown_bars``) bei
+       ``--strategy v0`` hart ablehnen, wenn sie explizit gesetzt wurden
+       (Sentinel: ``is not None``). Verhindert Scheinsicherheit.
+    2) Gemeinsame Parameter (None) auf die v0- bzw. v1-Defaults auflösen.
+    3) v1-only Parameter (None) auf die v1-Defaults auflösen (nur bei v1).
+
+    Gibt eine Fehlermeldung (Usage-Fehler) zurück oder ``None``.
+    """
+    if args.strategy == "v0":
+        if args.breakout_threshold_pct is not None:
+            return "--breakout-threshold-pct ist nur mit --strategy v1 erlaubt"
+        if args.cooldown_bars is not None:
+            return "--cooldown-bars ist nur mit --strategy v1 erlaubt"
+
+    common = _V1_DEFAULTS if args.strategy == "v1" else _V0_DEFAULTS
+    if args.lookback_bars is None:
+        args.lookback_bars = common["lookback_bars"]
+    if args.stop_distance_pct is None:
+        args.stop_distance_pct = common["stop_distance_pct"]
+    if args.min_strength is None:
+        args.min_strength = common["min_strength"]
+
+    if args.strategy == "v1":
+        if args.breakout_threshold_pct is None:
+            args.breakout_threshold_pct = _V1_DEFAULTS["breakout_threshold_pct"]
+        if args.cooldown_bars is None:
+            args.cooldown_bars = _V1_DEFAULTS["cooldown_bars"]
+    return None
+
+
 def _validate_ranges(args: argparse.Namespace) -> str | None:
-    """Prüft numerische Wertebereiche; gibt eine Fehlermeldung oder ``None``."""
+    """Prüft numerische Wertebereiche; gibt eine Fehlermeldung oder ``None``.
+
+    Läuft NACH ``_resolve_strategy_args`` (Sentinels sind dann aufgelöst). Die
+    Strategie-Konstruktoren bleiben zusätzlich autoritativ (fail-safe).
+    """
     if args.initial_equity <= 0.0:
         return "--initial-equity muss > 0 sein"
     if args.lookback_bars <= 0:
         return "--lookback-bars muss > 0 sein"
     if not (0.0 < args.stop_distance_pct < 1.0):
         return "--stop-distance-pct muss in (0, 1) liegen"
+    if not (0.0 <= args.min_strength <= 1.0):
+        return "--min-strength muss in [0, 1] liegen"
+    if args.strategy == "v1":
+        if not (0.0 <= args.breakout_threshold_pct < 0.1):
+            return "--breakout-threshold-pct muss in [0, 0.1) liegen"
+        if args.cooldown_bars < 0:
+            return "--cooldown-bars muss >= 0 sein"
     if not (0.0 < args.risk_per_trade_pct <= 1.0):
         return "--risk-per-trade-pct muss in (0, 1] liegen"
     if args.max_position_size <= 0.0:
@@ -147,7 +232,13 @@ def main(argv: list[str] | None = None) -> int:
         code = exc.code if isinstance(exc.code, int) else _EXIT_USAGE
         return code if code is not None else _EXIT_USAGE
 
-    # 1) Wertebereiche.
+    # 1a) Strategieauswahl auflösen (v1-only Gating + Sentinel-Defaults).
+    strategy_error = _resolve_strategy_args(args)
+    if strategy_error is not None:
+        print(f"error: {strategy_error}", file=sys.stderr)
+        return _EXIT_USAGE
+
+    # 1b) Wertebereiche (nach Sentinel-Auflösung).
     range_error = _validate_ranges(args)
     if range_error is not None:
         print(f"error: {range_error}", file=sys.stderr)
@@ -182,12 +273,22 @@ def main(argv: list[str] | None = None) -> int:
         metadata=metadata,
         history_policy=args.history_policy,
     )
-    strategy = MidBreakoutStrategy(
-        lookback_bars=args.lookback_bars,
-        stop_distance_pct=args.stop_distance_pct,
-        min_strength=0.0,
-        allow_short=args.allow_short,
-    )
+    if args.strategy == "v1":
+        strategy = MidBreakoutStrategyV1(
+            lookback_bars=args.lookback_bars,
+            stop_distance_pct=args.stop_distance_pct,
+            breakout_threshold_pct=args.breakout_threshold_pct,
+            cooldown_bars=args.cooldown_bars,
+            allow_short=args.allow_short,
+            min_strength=args.min_strength,
+        )
+    else:
+        strategy = MidBreakoutStrategy(
+            lookback_bars=args.lookback_bars,
+            stop_distance_pct=args.stop_distance_pct,
+            min_strength=args.min_strength,
+            allow_short=args.allow_short,
+        )
     limits = RiskLimits(
         max_position_size=args.max_position_size,
         max_total_exposure=args.max_total_exposure,
@@ -221,6 +322,20 @@ def main(argv: list[str] | None = None) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding="utf-8")
     print(f"report written: {output_path}")
+    # Minimal-invasiver Terminal-Hinweis auf die effektiv verwendete Strategie
+    # (der deterministische Markdown-Report bleibt unverändert; er trägt den
+    # Strategie-Klassennamen bereits über parameters["strategy"]).
+    strategy_line = (
+        f"strategy: {args.strategy} ({type(strategy).__name__}) "
+        f"lookback_bars={args.lookback_bars} stop_distance_pct={args.stop_distance_pct} "
+        f"min_strength={args.min_strength} allow_short={args.allow_short}"
+    )
+    if args.strategy == "v1":
+        strategy_line += (
+            f" breakout_threshold_pct={args.breakout_threshold_pct} "
+            f"cooldown_bars={args.cooldown_bars}"
+        )
+    print(strategy_line)
     return _EXIT_OK
 
 

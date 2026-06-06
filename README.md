@@ -382,6 +382,88 @@ python -m liquent.cli.backtest_mid_breakout \
   --overwrite
 ```
 
+#### Strategieauswahl: `--strategy v0|v1` (LQ-009)
+
+Das CLI kann explizit zwischen `MidBreakoutStrategy` (v0) und
+`MidBreakoutStrategyV1` (v1) wählen:
+
+```text
+--strategy v0|v1     (Default: v0)
+```
+
+**`v0` bleibt Default** — bestehende Aufrufe ohne `--strategy` verhalten sich
+exakt wie bisher (Rückwärtskompatibilität, byte-identisch reproduzierbare
+Reports).
+
+Beispiel v0 (entspricht dem Default):
+
+```bash
+python -m liquent.cli.backtest_mid_breakout \
+  --strategy v0 \
+  --csv tests/fixtures/strategy_mid_breakout_long.csv \
+  --output reports/mid_breakout_v0.md \
+  --symbol TESTUSDT --exchange synthetic --asset-class crypto \
+  --overwrite
+```
+
+Beispiel v1 (mit v1-only Parametern):
+
+```bash
+python -m liquent.cli.backtest_mid_breakout \
+  --strategy v1 \
+  --breakout-threshold-pct 0.001 \
+  --cooldown-bars 3 \
+  --csv tests/fixtures/strategy_mid_breakout_long.csv \
+  --output reports/mid_breakout_v1.md \
+  --symbol TESTUSDT --exchange synthetic --asset-class crypto \
+  --overwrite
+```
+
+**Gemeinsame Parameter** (für v0 und v1):
+
+```text
+--lookback-bars
+--stop-distance-pct
+--min-strength
+--allow-short true|false
+```
+
+**Nur v1:**
+
+```text
+--breakout-threshold-pct
+--cooldown-bars
+```
+
+**Wichtig — v1-only Gating:**
+
+- `--breakout-threshold-pct` und `--cooldown-bars` sind **nur mit
+  `--strategy v1`** gültig.
+- Werden sie bei `--strategy v0` gesetzt, **bricht das CLI mit Fehler ab**
+  (keine Report-Datei).
+- Da **ohne `--strategy` automatisch v0 gilt**, sind diese beiden Parameter auch
+  **ohne explizites `--strategy v1`** ungültig.
+
+**Strategie-Defaults** (werden nur für die jeweils gewählte Strategie
+aufgelöst, sofern der Nutzer den Parameter nicht explizit setzt):
+
+| Parameter | v0 (CLI-Default) | v1 (Default) |
+|---|---|---|
+| `lookback_bars` | 3 | 12 |
+| `stop_distance_pct` | 0.05 | 0.01 |
+| `min_strength` | 0.0 | 0.0 |
+| `allow_short` | True | True |
+| `breakout_threshold_pct` | — (nicht erlaubt) | 0.001 |
+| `cooldown_bars` | — (nicht erlaubt) | 3 |
+
+Gemeinsame Parameter nutzen eine Sentinel-Logik: ohne explizite Angabe greift
+der Default der **gewählten** Strategie (v0: 3 / 0.05, v1: 12 / 0.01). Das CLI
+validiert die Werte früh; die Strategie-Konstruktoren bleiben zusätzlich
+autoritativ (fail-safe). Der Markdown-Report weist die verwendete Strategie über
+`parameters["strategy"]` (Klassenname) aus; zusätzlich gibt das CLI eine
+`strategy: …`-Zeile auf der Konsole aus. Die Strategieauswahl ändert weder
+`BacktestRunner` noch `RiskEngine`.
+
 ## 4. Projektstruktur
 
 ```text
@@ -413,7 +495,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-246 passed (pytest, lokale .venv)
+261 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -439,7 +521,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-246 passed
+261 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
