@@ -435,6 +435,18 @@ python -m liquent.cli.backtest_mid_breakout \
 --cooldown-bars
 ```
 
+**Kostenmodell** (für v0 und v1; reale `CostModel`-Felder, Default `0.0` =
+frictionless, jeweils `>= 0`):
+
+```text
+--fee-rate    (Notional-Anteil je Leg; 0.001 = 0,1 %)
+--spread      (absoluter Aufschlag pro Einheit)
+--slippage    (Notional-Anteil je Leg; 0.0005 = 0,05 %)
+```
+
+Der Report weist die effektiven Kosten im Abschnitt `## Cost Model` aus (auch bei
+`0.0`). Ohne diese Flags bleibt das Verhalten frictionless und byte-identisch.
+
 **Wichtig — v1-only Gating:**
 
 - `--breakout-threshold-pct` und `--cooldown-bars` sind **nur mit
@@ -495,7 +507,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-278 passed (pytest, lokale .venv)
+295 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -521,7 +533,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-278 passed
+295 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

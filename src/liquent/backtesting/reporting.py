@@ -67,6 +67,13 @@ class BacktestExperimentSummary:
     safety_flags: dict[str, bool]
     # Additiv, optional (Default am Ende der frozen dataclass).
     strategy_metadata: dict[str, object] | None = None
+    # LQ-012: additiv, optional — Kostenmodell-Metadaten (separat von
+    # parameters). Default None -> kein Cost-Model-Abschnitt.
+    cost_metadata: dict[str, object] | None = None
+
+
+# Feste, deterministische Feldreihenfolge der Cost-Model-Metadaten (LQ-012).
+_COST_FIELDS = ("fee_rate", "spread", "slippage")
 
 
 def _normalize_strategy_metadata(
@@ -89,11 +96,26 @@ def _normalize_strategy_metadata(
     }
 
 
+def _normalize_cost_metadata(
+    cost_metadata: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """Bringt optionale Kosten-Metadaten in eine feste, deterministische Form.
+
+    Erzwingt die Feldreihenfolge ``fee_rate, spread, slippage`` (unabhängig von
+    der Reihenfolge im übergebenen Dict). ``None`` bleibt ``None`` (kein
+    Cost-Model-Abschnitt). Fehlende Felder werden defensiv auf ``0.0`` gesetzt.
+    """
+    if cost_metadata is None:
+        return None
+    return {field: cost_metadata.get(field, 0.0) for field in _COST_FIELDS}
+
+
 def summarize_backtest_result(
     result: BacktestResult,
     title: str = "Liquent Backtest",
     *,
     strategy_metadata: dict[str, object] | None = None,
+    cost_metadata: dict[str, object] | None = None,
 ) -> BacktestExperimentSummary:
     """Überführt ein ``BacktestResult`` in eine ``BacktestExperimentSummary``.
 
@@ -103,6 +125,9 @@ def summarize_backtest_result(
 
     ``strategy_metadata`` (LQ-011, optional, keyword-only): additive Strategie-
     Metadaten. Default ``None`` lässt Output und bestehende Aufrufer unverändert.
+    ``cost_metadata`` (LQ-012, optional, keyword-only): additive Kostenmodell-
+    Metadaten (``fee_rate``, ``spread``, ``slippage``). Default ``None`` ebenso
+    backward-compatible.
     """
     strategy_name = str(result.parameters.get("strategy", "unknown"))
 
@@ -166,6 +191,7 @@ def summarize_backtest_result(
         risk_notes=tuple(risk_notes),
         safety_flags=safety_flags,
         strategy_metadata=_normalize_strategy_metadata(strategy_metadata),
+        cost_metadata=_normalize_cost_metadata(cost_metadata),
     )
 
 
@@ -221,6 +247,18 @@ def summary_to_markdown(summary: BacktestExperimentSummary) -> str:
             for key, value in params.items():
                 lines.append(f"| {key} | {_format_value(value)} |")
             lines.append("")
+
+    # LQ-012: additiver Cost-Model-Abschnitt — nur bei vorhandenen Metadaten.
+    # Position: nach Strategy (falls vorhanden), sonst nach Experiment; vor Metrics.
+    if summary.cost_metadata is not None:
+        cost = summary.cost_metadata
+        lines.append("## Cost Model")
+        lines.append("")
+        lines.append("| Parameter | Value |")
+        lines.append("|---|---|")
+        for field in _COST_FIELDS:
+            lines.append(f"| {field} | {_format_value(cost.get(field, 0.0))} |")
+        lines.append("")
 
     lines.append("## Metrics")
     lines.append("")
@@ -287,4 +325,8 @@ def summary_to_dict(summary: BacktestExperimentSummary) -> dict[str, object]:
             "name": meta.get("name"),
             "params": dict(params) if isinstance(params, dict) else {},
         }
+    # LQ-012: additiv — Schlüssel nur bei vorhandenen Kosten-Metadaten.
+    if summary.cost_metadata is not None:
+        cost = summary.cost_metadata
+        as_dict["cost_model"] = {field: cost.get(field, 0.0) for field in _COST_FIELDS}
     return as_dict

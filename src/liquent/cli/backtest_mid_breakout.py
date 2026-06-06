@@ -150,6 +150,20 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-daily-drawdown", default=10_000.0, type=float, dest="max_daily_drawdown"
     )
+    # LQ-012: Kostenmodell-Parameter (reale CostModel-Felder). Defaults 0.0 ->
+    # frictionless, byte-identisch zum bisherigen Verhalten ohne diese Flags.
+    parser.add_argument(
+        "--fee-rate", default=0.0, type=float, dest="fee_rate",
+        help="CostModel.fee_rate: Notional-Anteil je Leg (0.001 = 0,1 %). >= 0.",
+    )
+    parser.add_argument(
+        "--spread", default=0.0, type=float, dest="spread",
+        help="CostModel.spread: absoluter Aufschlag pro Einheit. >= 0.",
+    )
+    parser.add_argument(
+        "--slippage", default=0.0, type=float, dest="slippage",
+        help="CostModel.slippage: Notional-Anteil je Leg (0.0005 = 0,05 %). >= 0.",
+    )
     parser.add_argument("--overwrite", action="store_true", default=False)
     return parser
 
@@ -216,6 +230,12 @@ def _validate_ranges(args: argparse.Namespace) -> str | None:
         return "--max-daily-drawdown muss > 0 sein"
     if args.max_gaps < 0:
         return "--max-gaps muss >= 0 sein"
+    if args.fee_rate < 0.0:
+        return "--fee-rate muss >= 0 sein"
+    if args.spread < 0.0:
+        return "--spread muss >= 0 sein"
+    if args.slippage < 0.0:
+        return "--slippage muss >= 0 sein"
     return None
 
 
@@ -303,7 +323,11 @@ def main(argv: list[str] | None = None) -> int:
     runner = BacktestRunner(
         source=source,
         risk_engine=RiskEngine(limits),
-        cost_model=CostModel(fee_rate=0.0, spread=0.0, slippage=0.0),
+        cost_model=CostModel(
+            fee_rate=args.fee_rate,
+            spread=args.spread,
+            slippage=args.slippage,
+        ),
         strategy=strategy,
         initial_equity=args.initial_equity,
     )
@@ -340,10 +364,19 @@ def main(argv: list[str] | None = None) -> int:
         "params": strategy_params,
     }
 
+    # LQ-012: Kosten-Metadaten aus den effektiven CLI-Werten. Immer übergeben,
+    # damit der Report die Kosten (auch 0.0) explizit ausweist.
+    cost_metadata = {
+        "fee_rate": args.fee_rate,
+        "spread": args.spread,
+        "slippage": args.slippage,
+    }
+
     summary = summarize_backtest_result(
         result,
         title="Liquent MidBreakout Backtest",
         strategy_metadata=strategy_metadata,
+        cost_metadata=cost_metadata,
     )
     markdown = summary_to_markdown(summary)
     content = f"{_DISCLAIMER}\n\n{markdown}\n"
@@ -365,6 +398,10 @@ def main(argv: list[str] | None = None) -> int:
             f"cooldown_bars={args.cooldown_bars}"
         )
     print(strategy_line)
+    print(
+        f"cost_model: fee_rate={args.fee_rate} spread={args.spread} "
+        f"slippage={args.slippage}"
+    )
     return _EXIT_OK
 
 
