@@ -540,15 +540,24 @@ timestamp,bid,ask,volume
 2026-01-01T00:05:00+00:00,100.2,100.7,1.0
 ```
 
-**CSV format requirements:**
+**CSV format requirements** — two schemas are accepted (auto-detected from the
+header; bid/ask has priority):
 
-- **Required:** `timestamp,bid,ask` · **Optional:** `volume`.
+- **bid/ask** (default): `timestamp,bid,ask` (+ optional `volume`). `bid`/`ask`
+  must be positive; `ask >= bid`; `mid = (bid + ask) / 2`.
+- **OHLCV**: `timestamp,open,high,low,close` (+ optional `volume`). Prices must be
+  non-negative with `high >= low` and `low <= open/close <= high`; mapped to
+  `bid = ask = close` (so `mid = close`), consistent with the core data source.
+
+```csv
+timestamp,open,high,low,close,volume
+2026-01-01T00:00:00+00:00,100.0,100.6,99.8,100.4,1.0
+2026-01-01T00:05:00+00:00,100.4,100.9,100.2,100.7,1.0
+```
+
 - `timestamp` must be ISO-8601 with timezone, e.g. `+00:00` (naive timestamps are
-  rejected).
-- `bid` and `ask` must be positive numbers; `ask` must be greater than or equal
-  to `bid`.
-- `volume` defaults to `1.0` if omitted or empty.
-- Rows are sorted by `timestamp`; `mid = (bid + ask) / 2`.
+  rejected); rows are sorted by `timestamp`; `volume` defaults to `1.0` if omitted
+  or empty.
 - Uploaded CSV files are processed **local/in-memory only** — **Liquent does not
   save uploaded CSV files**. Invalid CSVs produce a clear, row-numbered error
   message in the UI (e.g. `CSV row 3: timestamp must include timezone information,
@@ -610,7 +619,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-410 passed (pytest, lokale .venv)
+421 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -636,7 +645,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-410 passed
+421 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

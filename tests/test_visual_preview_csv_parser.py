@@ -10,6 +10,7 @@ from tools.visual_preview.preview_logic import (
     CSV_REQUIRED_COLUMNS,
     PreviewDataset,
     SAMPLE_CSV_TEMPLATE,
+    SAMPLE_OHLCV_CSV_TEMPLATE,
     build_dataset_from_csv_text,
     generate_preview_summary,
 )
@@ -241,3 +242,118 @@ def test_messages_have_no_traceback_details():
         msg = _error_message(lambda t=text: build_dataset_from_csv_text("x", t))
         assert "Traceback" not in msg
         assert 'File "' not in msg
+
+
+# --------------------------------------------------------------------------- #
+# LQ-024: OHLCV-Schema (zusätzlich; bid/ask bleibt Default/byte-identisch)
+# --------------------------------------------------------------------------- #
+
+_OHLCV = (
+    "timestamp,open,high,low,close,volume\n"
+    "2026-01-01T00:00:00+00:00,100.0,100.6,99.8,100.4,1.0\n"
+    "2026-01-01T00:05:00+00:00,100.4,100.9,100.2,100.7,2.0\n"
+)
+
+
+# 25: OHLCV-CSV -> bid == ask == close, mid == close.
+def test_ohlcv_maps_close_to_bid_ask():
+    ds = build_dataset_from_csv_text("o.csv", _OHLCV)
+    assert len(ds.market_data) == 2
+    bar = ds.market_data[0]
+    assert bar.bid == bar.ask == 100.4
+    assert ds.mids[0] == 100.4
+    assert bar.volume == 1.0
+
+
+# 26: SAMPLE_OHLCV_CSV_TEMPLATE ist parsebar und ergibt >= 3 Bars.
+def test_sample_ohlcv_template_is_parseable():
+    ds = build_dataset_from_csv_text("sample", SAMPLE_OHLCV_CSV_TEMPLATE)
+    assert len(ds.market_data) >= 3
+
+
+# 27: bid/ask-Schema bleibt unverändert (Regressionsanker).
+def test_bid_ask_schema_unchanged():
+    ds = build_dataset_from_csv_text("x", _VALID)
+    assert ds.mids == (100.25, 100.45)
+
+
+# 28: unbekannter Header -> klarer "not recognized"-Fehler.
+def test_unknown_header_rejected():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,foo,bar\n2026-01-01T00:00:00+00:00,1,2\n")
+    )
+    assert "header not recognized" in msg
+
+
+# 29: OHLCV high < low -> abgelehnt (row-nummeriert).
+def test_ohlcv_high_below_low_rejected():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text(
+            "x", "timestamp,open,high,low,close\n2026-01-01T00:00:00+00:00,100,99,101,100\n"
+        )
+    )
+    assert "CSV row 2" in msg
+    assert "high must be greater than or equal to low" in msg
+
+
+# 30: OHLCV close außerhalb [low, high] -> abgelehnt.
+def test_ohlcv_close_out_of_range_rejected():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text(
+            "x", "timestamp,open,high,low,close\n2026-01-01T00:00:00+00:00,100,101,99,105\n"
+        )
+    )
+    assert "close must be within [low, high]" in msg
+
+
+# 31: OHLCV negativer/nicht-numerischer Preis -> abgelehnt.
+def test_ohlcv_invalid_price_rejected():
+    _expect_value_error(
+        lambda: build_dataset_from_csv_text(
+            "x", "timestamp,open,high,low,close\n2026-01-01T00:00:00+00:00,-1,101,99,100\n"
+        )
+    )
+    _expect_value_error(
+        lambda: build_dataset_from_csv_text(
+            "x", "timestamp,open,high,low,close\n2026-01-01T00:00:00+00:00,abc,101,99,100\n"
+        )
+    )
+
+
+# 32: OHLCV naiver timestamp -> abgelehnt (gleiche Regel).
+def test_ohlcv_naive_timestamp_rejected():
+    _expect_value_error(
+        lambda: build_dataset_from_csv_text(
+            "x", "timestamp,open,high,low,close\n2026-01-01T00:00:00,100,101,99,100\n"
+        )
+    )
+
+
+# 33: unsortierte OHLCV-CSV wird nach timestamp sortiert.
+def test_ohlcv_is_sorted():
+    csv_text = (
+        "timestamp,open,high,low,close\n"
+        "2026-01-01T00:10:00+00:00,100,101,99,100\n"
+        "2026-01-01T00:00:00+00:00,100,101,99,100\n"
+    )
+    ds = build_dataset_from_csv_text("x", csv_text)
+    assert ds.market_data[0].timestamp.isoformat() == "2026-01-01T00:00:00+00:00"
+
+
+# 34: generate_preview_summary funktioniert mit OHLCV-Dataset.
+def test_summary_works_with_ohlcv_dataset():
+    ds = build_dataset_from_csv_text("o.csv", _OHLCV)
+    summary = generate_preview_summary(ds, "v1", {})
+    assert summary["technical_summary"]["bars"] == 2
+    assert "chart_rows" in summary
+
+
+# 35: Mischheader (bid/ask UND OHLCV) -> bid/ask hat Vorrang.
+def test_mixed_header_prefers_bid_ask():
+    csv_text = (
+        "timestamp,bid,ask,open,high,low,close\n"
+        "2026-01-01T00:00:00+00:00,100.0,100.5,100,101,99,100\n"
+    )
+    ds = build_dataset_from_csv_text("x", csv_text)
+    assert ds.market_data[0].bid == 100.0 and ds.market_data[0].ask == 100.5
+    assert ds.mids[0] == 100.25

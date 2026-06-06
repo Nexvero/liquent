@@ -16,6 +16,7 @@ from .preview_logic import (
     CSV_REQUIRED_COLUMNS,
     SAFETY_NOTES,
     SAMPLE_CSV_TEMPLATE,
+    SAMPLE_OHLCV_CSV_TEMPLATE,
     build_dataset_from_csv_text,
     build_preview_datasets,
     generate_preview_summary,
@@ -58,16 +59,23 @@ def main() -> None:
     if dataset_mode == "Synthetic dataset":
         dataset_arg = st.sidebar.selectbox("Dataset", list(datasets.keys()))
     else:
-        # CSV-Format-Hinweis + kopierbares Beispiel (kein Download-Button).
+        # CSV-Format-Hinweis + kopierbare Beispiele (kein Download-Button).
         st.subheader("CSV upload")
         st.markdown(
-            "**Required columns:** `" + "`, `".join(CSV_REQUIRED_COLUMNS) + "`  \n"
-            "**Optional column:** `volume` (defaults to 1.0 if omitted/empty)  \n"
-            "**timestamp** must be ISO-8601 with timezone, e.g. `+00:00`; "
-            "`bid`/`ask` must be positive numbers; `ask >= bid`.  \n"
+            "Two schemas are accepted (auto-detected from the header):  \n"
+            "**bid/ask** (default): `" + "`, `".join(CSV_REQUIRED_COLUMNS) + "` "
+            "(+ optional `volume`).  \n"
+            "**OHLCV**: `timestamp,open,high,low,close` (+ optional `volume`) — "
+            "mapped to `bid = ask = close` (so `mid = close`).  \n"
+            "**timestamp** must be ISO-8601 with timezone, e.g. `+00:00`; prices "
+            "must be valid (`ask >= bid`; `low <= open/close <= high`); `volume` "
+            "defaults to 1.0 if omitted/empty.  \n"
             "Upload is local/in-memory only. Liquent does not save uploaded CSV files."
         )
+        st.caption("bid/ask example")
         st.code(SAMPLE_CSV_TEMPLATE, language="csv")
+        st.caption("OHLCV example")
+        st.code(SAMPLE_OHLCV_CSV_TEMPLATE, language="csv")
         uploaded = st.sidebar.file_uploader("Upload local CSV", type=["csv"])
         if uploaded is None:
             st.info(

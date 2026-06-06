@@ -184,6 +184,19 @@ SAMPLE_CSV_TEMPLATE: str = (
     "2026-01-01T00:10:00+00:00,100.4,100.9,1.0\n"
 )
 
+# LQ-024: zusätzliches OHLCV-Schema. open/high/low/close erforderlich; volume
+# optional (Default 1.0); Mapping close -> bid = ask = close (⇒ mid = close).
+_OHLCV_PRICE_COLUMNS: tuple[str, ...] = ("open", "high", "low", "close")
+CSV_OHLCV_REQUIRED_COLUMNS: tuple[str, ...] = (
+    "timestamp", "open", "high", "low", "close",
+)
+SAMPLE_OHLCV_CSV_TEMPLATE: str = (
+    "timestamp,open,high,low,close,volume\n"
+    "2026-01-01T00:00:00+00:00,100.0,100.6,99.8,100.4,1.0\n"
+    "2026-01-01T00:05:00+00:00,100.4,100.9,100.2,100.7,1.0\n"
+    "2026-01-01T00:10:00+00:00,100.7,101.2,100.5,101.0,1.0\n"
+)
+
 
 def _require_csv_columns(fieldnames: Sequence[str] | None) -> None:
     """Stellt sicher, dass die CSV-Pflichtspalten vorhanden sind (sonst ValueError)."""
@@ -242,20 +255,55 @@ def _parse_csv_volume(value: str | None, row: int) -> float:
         ) from None
 
 
-def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
-    """Baut ein ``PreviewDataset`` aus lokalem CSV-Text (stdlib ``csv``, kein I/O).
+def _detect_csv_schema(fieldnames: Sequence[str] | None) -> str:
+    """Erkennt das CSV-Schema anhand der Kopfzeile: ``"bid_ask"`` oder ``"ohlcv"``.
 
-    Pflichtspalten ``timestamp,bid,ask``; optional ``volume`` (Default ``1.0``).
-    Validierung: nicht leer, Pflichtspalten vorhanden, timestamp ISO-8601 und
-    timezone-aware, ``bid``/``ask`` positiv-numerisch, ``ask >= bid``, mindestens
-    eine Datenzeile. Fehler tragen die CSV-Zeilennummer (Header = Zeile 1, erste
-    Datenzeile = Zeile 2) und sind englisch/neutral (kein Traceback). Stabile
-    Sortierung nach ``timestamp``; ``mid = (bid + ask) / 2``. KEINE pandas-,
-    Datei- oder Netzwerk-Abhängigkeit.
+    Reihenfolge: ``bid`` UND ``ask`` -> ``bid_ask`` (Default-Vorrang, auch bei
+    Mischheader); sonst ``open/high/low/close`` vorhanden -> ``ohlcv``; sonst
+    klarer Fehler. ``timestamp`` wird je Schema separat geprüft.
     """
-    reader = csv.DictReader(StringIO(csv_text))
-    _require_csv_columns(reader.fieldnames)
+    if not fieldnames:
+        raise ValueError(
+            "CSV is empty. Expected columns: " + ",".join(CSV_REQUIRED_COLUMNS) + "."
+        )
+    if "bid" in fieldnames and "ask" in fieldnames:
+        return "bid_ask"
+    if all(column in fieldnames for column in _OHLCV_PRICE_COLUMNS):
+        return "ohlcv"
+    # Teil-bid/ask-Header (nur bid ODER ask): als bid/ask behandeln, damit die
+    # konkrete fehlende Pflichtspalte gemeldet wird (statt eines generischen
+    # "not recognized").
+    if "bid" in fieldnames or "ask" in fieldnames:
+        return "bid_ask"
+    raise ValueError(
+        "CSV header not recognized. Expected either "
+        "timestamp,bid,ask[,volume] or timestamp,open,high,low,close[,volume]."
+    )
 
+
+def _require_ohlcv_columns(fieldnames: Sequence[str]) -> None:
+    """Stellt die OHLCV-Pflichtspalten sicher (timestamp + open/high/low/close)."""
+    for column in CSV_OHLCV_REQUIRED_COLUMNS:
+        if column not in fieldnames:
+            raise ValueError(f"CSV is missing required column: {column}.")
+
+
+def _parse_ohlcv_price(value: str | None, field: str, row: int) -> float:
+    """Parst einen nicht-negativen OHLC-Preis (sonst ValueError mit Row-Hinweis)."""
+    text = (value or "").strip()
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"CSV row {row}: {field} must be a non-negative number."
+        ) from None
+    if number < 0.0:
+        raise ValueError(f"CSV row {row}: {field} must be a non-negative number.")
+    return number
+
+
+def _parse_bid_ask_rows(reader: "csv.DictReader") -> list[tuple[datetime, float, float, float]]:
+    """Liest bid/ask-Datenzeilen (unverändert zum bisherigen Verhalten)."""
     parsed: list[tuple[datetime, float, float, float]] = []
     for row_number, row in enumerate(reader, start=2):
         ts = _parse_csv_timestamp(row.get("timestamp"), row_number)
@@ -267,6 +315,60 @@ def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
                 f"CSV row {row_number}: ask must be greater than or equal to bid."
             )
         parsed.append((ts, bid, ask, volume))
+    return parsed
+
+
+def _parse_ohlcv_rows(reader: "csv.DictReader") -> list[tuple[datetime, float, float, float]]:
+    """Liest OHLCV-Datenzeilen und mappt ``close -> bid = ask = close``.
+
+    Validierung je Zeile (row-nummeriert, englisch, kein Traceback):
+    timestamp tz-aware; open/high/low/close nicht-negativ; ``high >= low``;
+    ``low <= open <= high`` und ``low <= close <= high``; ``close > 0``.
+    """
+    parsed: list[tuple[datetime, float, float, float]] = []
+    for row_number, row in enumerate(reader, start=2):
+        ts = _parse_csv_timestamp(row.get("timestamp"), row_number)
+        open_ = _parse_ohlcv_price(row.get("open"), "open", row_number)
+        high = _parse_ohlcv_price(row.get("high"), "high", row_number)
+        low = _parse_ohlcv_price(row.get("low"), "low", row_number)
+        close = _parse_ohlcv_price(row.get("close"), "close", row_number)
+        volume = _parse_csv_volume(row.get("volume"), row_number)
+        if high < low:
+            raise ValueError(
+                f"CSV row {row_number}: high must be greater than or equal to low."
+            )
+        if not (low <= open_ <= high):
+            raise ValueError(f"CSV row {row_number}: open must be within [low, high].")
+        if not (low <= close <= high):
+            raise ValueError(f"CSV row {row_number}: close must be within [low, high].")
+        if close <= 0.0:
+            raise ValueError(f"CSV row {row_number}: close must be a positive number.")
+        # Mapping: close als Referenzpreis (bid = ask = close => mid = close).
+        parsed.append((ts, close, close, volume))
+    return parsed
+
+
+def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
+    """Baut ein ``PreviewDataset`` aus lokalem CSV-Text (stdlib ``csv``, kein I/O).
+
+    Unterstützt zwei Schemata (Auto-Erkennung per Header, LQ-024):
+    - **bid/ask** (Default): ``timestamp,bid,ask[,volume]`` -> ``mid=(bid+ask)/2``.
+    - **OHLCV**: ``timestamp,open,high,low,close[,volume]`` ->
+      ``bid = ask = close`` (⇒ ``mid = close``), konsistent zur Kernbibliothek.
+
+    ``volume`` ist in beiden Schemata optional (Default ``1.0``). Fehler tragen
+    die CSV-Zeilennummer (Header = Zeile 1, erste Datenzeile = Zeile 2) und sind
+    englisch/neutral (kein Traceback). Stabile Sortierung nach ``timestamp``.
+    KEINE pandas-, Datei- oder Netzwerk-Abhängigkeit.
+    """
+    reader = csv.DictReader(StringIO(csv_text))
+    schema = _detect_csv_schema(reader.fieldnames)
+    if schema == "bid_ask":
+        _require_csv_columns(reader.fieldnames)
+        parsed = _parse_bid_ask_rows(reader)
+    else:
+        _require_ohlcv_columns(reader.fieldnames)
+        parsed = _parse_ohlcv_rows(reader)
 
     if not parsed:
         raise ValueError("CSV contains no data rows.")
