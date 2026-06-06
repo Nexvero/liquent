@@ -132,13 +132,38 @@ Siehe [`data/README.md`](data/README.md) für Details.
 ## 6. Teststand
 
 ```text
-Letzter bekannter Teststand:
-169 Tests grün über stdlib-Harness.
+Aktueller verifizierter Teststand:
+169 passed (pytest, lokale .venv)
 ```
 
-Im aktuellen VPS-Environment wurden Tests über einen temporären stdlib-Harness
-ausgeführt, weil `pytest`/`pip` nicht verfügbar waren. Der Harness wird nicht
+Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
+auf dem VPS zunächst nicht verfügbar waren. Das lokale Tooling ist inzwischen
+eingerichtet (siehe „Local test setup"); der frühere Harness wird nicht
 committed.
+
+### Local test setup
+
+Liquent nutzt eine lokale Python-Virtualenv für Entwicklung und Tests.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+Das Verzeichnis `.venv/` ist ausschließlich lokal und darf nicht committed
+werden (bereits in `.gitignore`).
+
+Aktueller verifizierter lokaler Teststand:
+
+```text
+169 passed
+```
+
+Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
+Exchange-API-Keys und keine Netzwerk-Calls.
 
 ## 7. GitHub / Remote
 
@@ -170,5 +195,5 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen
-- Tooling: `pytest`/`pip`/`venv` auf dem VPS sauber einrichten
+- Tooling: lokale `.venv` mit `pytest` eingerichtet (erledigt) — ggf. CI ergänzen
 - Optional: CI später über GitHub Actions, aber noch nicht jetzt
