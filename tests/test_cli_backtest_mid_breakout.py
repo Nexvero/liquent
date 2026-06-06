@@ -152,3 +152,51 @@ def test_cli_module_has_no_forbidden_paths_or_terms():
     ]
     for token in forbidden:
         assert token not in source_code, f"CLI-Modul darf {token!r} nicht enthalten"
+
+
+# --------------------------------------------------------------------------- #
+# LQ-007 Phase 4c: --gap-policy / --max-gaps gegen die Gap-Fixture
+# --------------------------------------------------------------------------- #
+# ohlcv_gap_5m.csv hat bei timeframe=5m genau eine Lücke (00:05 -> 00:15).
+_GAP_FIXTURE = "ohlcv_gap_5m.csv"
+
+
+# 11: --gap-policy reject -> Exit != 0, keine Output-Datei.
+def test_gap_reject_fails(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(_GAP_FIXTURE, out, "--gap-policy", "reject"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 12: --gap-policy flag -> Exit 0, Report wird erzeugt.
+def test_gap_flag_writes_report(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(_GAP_FIXTURE, out, "--gap-policy", "flag"))
+    assert rc == 0
+    assert out.is_file()
+    assert "MidBreakoutStrategy" in out.read_text(encoding="utf-8")
+
+
+# 13: --gap-policy tolerate --max-gaps 1 -> Exit 0, Report wird erzeugt.
+def test_gap_tolerate_within_max_gaps(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(_GAP_FIXTURE, out, "--gap-policy", "tolerate", "--max-gaps", "1"))
+    assert rc == 0
+    assert out.is_file()
+
+
+# 14: --gap-policy tolerate --max-gaps 0 -> Exit != 0, keine Output-Datei.
+def test_gap_tolerate_exceeds_max_gaps(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(_GAP_FIXTURE, out, "--gap-policy", "tolerate", "--max-gaps", "0"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 15: --max-gaps -1 -> Exit != 0, keine Output-Datei.
+def test_negative_max_gaps_fails(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args("strategy_mid_breakout_long.csv", out, "--max-gaps", "-1"))
+    assert rc != 0
+    assert not out.exists()

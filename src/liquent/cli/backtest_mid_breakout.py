@@ -81,6 +81,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeframe", default="5m", choices=_TIMEFRAMES)
     parser.add_argument("--gap-policy", default="reject", choices=_GAP_POLICIES, dest="gap_policy")
     parser.add_argument(
+        "--max-gaps",
+        default=0,
+        type=int,
+        dest="max_gaps",
+        help="max. tolerierte Lücken bei --gap-policy tolerate (>= 0).",
+    )
+    parser.add_argument(
         "--history-policy", default="flag", choices=_HISTORY_POLICIES, dest="history_policy"
     )
 
@@ -122,6 +129,8 @@ def _validate_ranges(args: argparse.Namespace) -> str | None:
         return "--max-total-exposure muss > 0 sein"
     if args.max_daily_drawdown <= 0.0:
         return "--max-daily-drawdown muss > 0 sein"
+    if args.max_gaps < 0:
+        return "--max-gaps muss >= 0 sein"
     return None
 
 
@@ -169,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
         str(csv_path),
         timeframe=args.timeframe,
         gap_policy=args.gap_policy,
+        max_gaps=args.max_gaps,
         metadata=metadata,
         history_policy=args.history_policy,
     )

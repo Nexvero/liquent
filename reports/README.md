@@ -43,4 +43,8 @@ python -m liquent.cli.backtest_mid_breakout \
   --overwrite
 ```
 
+Reports generated from real local CSVs remain local artifacts and must not be
+committed. For real data with gaps, use `--gap-policy flag` or
+`--gap-policy tolerate --max-gaps N` to surface data gaps instead of aborting.
+
 Do not commit generated files from this directory.

@@ -246,6 +246,29 @@ Generierte Reports werden unter `reports/` abgelegt — dieser Ordner ist von Gi
 ignoriert (Ausnahme: `reports/README.md`). Das CLI ist ausschließlich für lokale
 Research-/Backtesting-Workflows gedacht und ist keine Handelsempfehlung.
 
+#### Datenlücken bei echten CSVs
+
+Reale OHLCV-Exporte enthalten häufig Lücken (z. B. Börsen-Wartung).
+`--gap-policy tolerate` kann mit `--max-gaps N` kombiniert werden, um bis zu `N`
+Lücken zuzulassen; `--gap-policy flag` lädt trotz Lücken und meldet sie.
+`--gap-policy reject` (Default) bricht bei der ersten Lücke ab.
+
+Beispiel (Pfad ist nur ein **Beispiel**; keine echten Daten im Repo):
+
+```bash
+python -m liquent.cli.backtest_mid_breakout \
+  --csv data/raw/crypto/binance/BTCUSDT/5m/BTCUSDT_5m_2026-05-01_2026-05-31.csv \
+  --output reports/real_btcusdt_5m.md \
+  --symbol BTCUSDT \
+  --exchange binance \
+  --asset-class crypto \
+  --timeframe 5m \
+  --gap-policy tolerate \
+  --max-gaps 5 \
+  --history-policy flag \
+  --overwrite
+```
+
 ## 4. Projektstruktur
 
 ```text
