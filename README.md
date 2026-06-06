@@ -517,18 +517,27 @@ Trading-Empfehlung**, keine Ergebnisinterpretation.
 - `tools/visual_preview/app.py` ist ein **optionales** Streamlit-Skeleton;
   Streamlit ist **keine** Pflicht-Dependency und wird nur in `main()` importiert.
 
-**Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies):
+**Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies;
+`dependencies = []` bleibt unverändert). Streamlit ist als **optionales Extra**
+`visual` geführt:
 
 ```bash
-# Streamlit separat/optional installieren, dann:
+# optionales Visual-Extra installieren (Streamlit; nur lokal/optional):
+pip install -e ".[visual]"
+# oder, falls uv genutzt wird:
+uv pip install -e ".[visual]"
+
+# Preview starten:
 streamlit run tools/visual_preview/app.py
-# oder (gibt ohne Streamlit nur einen klaren Hinweis aus):
+
+# Fallback ohne Streamlit (gibt nur einen klaren Hinweis aus):
 python -m tools.visual_preview.app
 ```
 
 Ohne installiertes Streamlit meldet die App freundlich „Streamlit is not
 installed…" und beendet sich — kein Traceback, keine Netzwerk-Calls, keine
-Dateien.
+Dateien. Die Preview zeigt ausschließlich **synthetic/local preview only**;
+**no live trading**, **no trading recommendation**, keine Ergebnisinterpretation.
 
 ## 4. Projektstruktur
 
@@ -561,7 +570,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-364 passed (pytest, lokale .venv)
+370 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -587,7 +596,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-364 passed
+370 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

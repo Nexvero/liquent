@@ -16,6 +16,9 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+# LQ-020: optionales Visual-Preview-Extra. KEINE Pflicht-Dependency; nur für die
+# lokale Streamlit-Preview unter tools/visual_preview/. dependencies=[] bleibt.
+visual = ["streamlit>=1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

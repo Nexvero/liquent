@@ -2,7 +2,7 @@
 
 Lokales Entwickler-/Analysewerkzeug — KEIN Produktivcode, KEIN Streamlit-Import
 hier. Vollständig deterministisch: keine Zufallswerte, keine I/O, keine Zeit aus
-der Wanduhr, keine Netzwerk-/Exchange-/Order-Pfade. Nutzt ausschließlich die
+der Wanduhr, keine Netzwerk-, Börsen- oder Orderpfade. Nutzt ausschließlich die
 bestehenden Strategieklassen aus ``liquent`` und eigene, minimale synthetische
 Dataset-Builder (bewusst KEINE Abhängigkeit auf ``tests/helpers``).
 
