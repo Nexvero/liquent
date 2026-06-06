@@ -7,10 +7,20 @@ tmp-Dateien, kein pandas, kein Netzwerk, kein File-I/O.
 from datetime import timezone
 
 from tools.visual_preview.preview_logic import (
+    CSV_REQUIRED_COLUMNS,
     PreviewDataset,
+    SAMPLE_CSV_TEMPLATE,
     build_dataset_from_csv_text,
     generate_preview_summary,
 )
+
+
+def _error_message(fn) -> str:
+    try:
+        fn()
+    except ValueError as exc:
+        return str(exc)
+    raise AssertionError("erwartete ValueError wurde nicht ausgelöst")
 
 _VALID = (
     "timestamp,bid,ask,volume\n"
@@ -150,3 +160,84 @@ def test_parser_is_pure_and_deterministic():
     a = build_dataset_from_csv_text("x", _VALID)
     b = build_dataset_from_csv_text("x", _VALID)
     assert a == b
+
+
+# --------------------------------------------------------------------------- #
+# LQ-023: Sample-Template + nutzerfreundliche, row-nummerierte Fehlermeldungen
+# --------------------------------------------------------------------------- #
+
+
+# 16: SAMPLE_CSV_TEMPLATE ist parsebar und ergibt >= 3 Bars.
+def test_sample_template_is_parseable():
+    ds = build_dataset_from_csv_text("sample", SAMPLE_CSV_TEMPLATE)
+    assert len(ds.market_data) >= 3
+
+
+# 17: CSV_REQUIRED_COLUMNS ist die erwartete Pflichtspalten-Liste.
+def test_required_columns_constant():
+    assert CSV_REQUIRED_COLUMNS == ("timestamp", "bid", "ask")
+
+
+# 18: fehlende Pflichtspalte nennt die konkrete Spalte.
+def test_missing_column_names_the_column():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid\n2026-01-01T00:00:00+00:00,10\n")
+    )
+    assert "missing required column" in msg
+    assert "ask" in msg
+
+
+# 19: ungültiger timestamp -> Row-Hinweis + ISO-8601.
+def test_invalid_timestamp_message():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid,ask\nnope,10,11\n")
+    )
+    assert "CSV row 2" in msg
+    assert "ISO-8601" in msg
+
+
+# 20: naiver timestamp -> Hinweis auf timezone.
+def test_naive_timestamp_message():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid,ask\n2026-01-01T00:00:00,10,11\n")
+    )
+    assert "CSV row 2" in msg
+    assert "timezone information" in msg
+
+
+# 21: ungültiger bid -> "positive number".
+def test_invalid_bid_message():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid,ask\n2026-01-01T00:00:00+00:00,abc,11\n")
+    )
+    assert "bid must be a positive number" in msg
+
+
+# 22: ask < bid -> "greater than or equal".
+def test_ask_below_bid_message():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid,ask\n2026-01-01T00:00:00+00:00,12,11\n")
+    )
+    assert "greater than or equal to bid" in msg
+
+
+# 23: ungültige volume -> "numeric".
+def test_invalid_volume_message():
+    msg = _error_message(
+        lambda: build_dataset_from_csv_text("x", "timestamp,bid,ask,volume\n2026-01-01T00:00:00+00:00,10,11,xx\n")
+    )
+    assert "volume must be numeric" in msg
+
+
+# 24: Fehlermeldungen enthalten keine Traceback-Details.
+def test_messages_have_no_traceback_details():
+    samples = [
+        "",
+        "timestamp,bid\n2026-01-01T00:00:00+00:00,10\n",
+        "timestamp,bid,ask\nnope,10,11\n",
+        "timestamp,bid,ask\n2026-01-01T00:00:00+00:00,12,11\n",
+    ]
+    for text in samples:
+        msg = _error_message(lambda t=text: build_dataset_from_csv_text("x", t))
+        assert "Traceback" not in msg
+        assert 'File "' not in msg

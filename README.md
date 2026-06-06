@@ -540,15 +540,22 @@ timestamp,bid,ask,volume
 2026-01-01T00:05:00+00:00,100.2,100.7,1.0
 ```
 
-- **Pflichtspalten:** `timestamp`, `bid`, `ask` · **Optional:** `volume`
-  (Default `1.0`, wenn fehlt/leer).
-- `timestamp` muss **timezone-aware** (ISO-8601, UTC) sein — **naive Timestamps
-  werden abgelehnt**.
-- `bid > 0`, `ask > 0`, `ask >= bid`; Zeilen werden nach `timestamp` sortiert;
-  `mid = (bid + ask) / 2`.
+**CSV format requirements:**
+
+- **Required:** `timestamp,bid,ask` · **Optional:** `volume`.
+- `timestamp` must be ISO-8601 with timezone, e.g. `+00:00` (naive timestamps are
+  rejected).
+- `bid` and `ask` must be positive numbers; `ask` must be greater than or equal
+  to `bid`.
+- `volume` defaults to `1.0` if omitted or empty.
+- Rows are sorted by `timestamp`; `mid = (bid + ask) / 2`.
+- Uploaded CSV files are processed **local/in-memory only** — **Liquent does not
+  save uploaded CSV files**. Invalid CSVs produce a clear, row-numbered error
+  message in the UI (e.g. `CSV row 3: timestamp must include timezone information,
+  e.g. +00:00.`).
 
 Keine echten Datenpfade, keine Ergebnisinterpretation, keine
-Profitabilitätsaussage.
+Profitabilitätsaussage, keine Trading-Empfehlung.
 
 **Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies;
 `dependencies = []` bleibt unverändert). Streamlit ist als **optionales Extra**
@@ -603,7 +610,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-399 passed (pytest, lokale .venv)
+410 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -629,7 +636,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-399 passed
+410 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

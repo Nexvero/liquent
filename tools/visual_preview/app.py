@@ -13,7 +13,9 @@ Start (nach optionaler Streamlit-Installation):
 from __future__ import annotations
 
 from .preview_logic import (
+    CSV_REQUIRED_COLUMNS,
     SAFETY_NOTES,
+    SAMPLE_CSV_TEMPLATE,
     build_dataset_from_csv_text,
     build_preview_datasets,
     generate_preview_summary,
@@ -56,6 +58,16 @@ def main() -> None:
     if dataset_mode == "Synthetic dataset":
         dataset_arg = st.sidebar.selectbox("Dataset", list(datasets.keys()))
     else:
+        # CSV-Format-Hinweis + kopierbares Beispiel (kein Download-Button).
+        st.subheader("CSV upload")
+        st.markdown(
+            "**Required columns:** `" + "`, `".join(CSV_REQUIRED_COLUMNS) + "`  \n"
+            "**Optional column:** `volume` (defaults to 1.0 if omitted/empty)  \n"
+            "**timestamp** must be ISO-8601 with timezone, e.g. `+00:00`; "
+            "`bid`/`ask` must be positive numbers; `ask >= bid`.  \n"
+            "Upload is local/in-memory only. Liquent does not save uploaded CSV files."
+        )
+        st.code(SAMPLE_CSV_TEMPLATE, language="csv")
         uploaded = st.sidebar.file_uploader("Upload local CSV", type=["csv"])
         if uploaded is None:
             st.info(

@@ -29,6 +29,18 @@ def test_app_uses_csv_parser():
     assert "build_dataset_from_csv_text" in _app_source()
 
 
+# 3a: app.py zeigt das Sample-Template via st.code.
+def test_app_shows_sample_template():
+    src = _app_source()
+    assert "SAMPLE_CSV_TEMPLATE" in src
+    assert ".code(" in src
+
+
+# 3b: kein Download-Button in Phase 2.
+def test_app_has_no_download_button():
+    assert "download_button" not in _app_source()
+
+
 # 4: app.py enthält keine Datei-Schreibpfade.
 def test_app_has_no_file_write_paths():
     src = _app_source()

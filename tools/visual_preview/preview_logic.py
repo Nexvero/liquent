@@ -174,39 +174,72 @@ def _strategy_metadata(strategy_key: str, strategy) -> dict[str, Any]:
 # LQ-022: lokaler CSV-Textparser (rein, ohne Streamlit, ohne File-/Netzwerk-I/O)
 # --------------------------------------------------------------------------- #
 
-_CSV_REQUIRED_COLUMNS = ("timestamp", "bid", "ask")
+# Öffentliche CSV-Format-Konstanten (LQ-023). Keine .csv-Datei im Repo.
+CSV_REQUIRED_COLUMNS: tuple[str, ...] = ("timestamp", "bid", "ask")
+CSV_OPTIONAL_COLUMNS: tuple[str, ...] = ("volume",)
+SAMPLE_CSV_TEMPLATE: str = (
+    "timestamp,bid,ask,volume\n"
+    "2026-01-01T00:00:00+00:00,100.0,100.5,1.0\n"
+    "2026-01-01T00:05:00+00:00,100.2,100.7,1.0\n"
+    "2026-01-01T00:10:00+00:00,100.4,100.9,1.0\n"
+)
 
 
 def _require_csv_columns(fieldnames: Sequence[str] | None) -> None:
     """Stellt sicher, dass die CSV-Pflichtspalten vorhanden sind (sonst ValueError)."""
     if not fieldnames:
-        raise ValueError("CSV ohne Kopfzeile oder leer")
-    missing = [c for c in _CSV_REQUIRED_COLUMNS if c not in fieldnames]
-    if missing:
-        raise ValueError(f"CSV fehlen Pflichtspalten: {', '.join(missing)}")
+        raise ValueError(
+            "CSV is empty. Expected columns: " + ",".join(CSV_REQUIRED_COLUMNS) + "."
+        )
+    for column in CSV_REQUIRED_COLUMNS:
+        if column not in fieldnames:
+            raise ValueError(f"CSV is missing required column: {column}.")
 
 
-def _parse_csv_timestamp(value: str | None) -> datetime:
-    """Parst einen ISO-8601-Timestamp; verlangt timezone-aware (naiv -> ValueError)."""
+def _parse_csv_timestamp(value: str | None, row: int) -> datetime:
+    """Parst einen ISO-8601-Timestamp; verlangt timezone-aware (naiv -> ValueError).
+
+    ``row`` ist die CSV-Zeilennummer inkl. Kopfzeile (Header = Zeile 1).
+    """
     text = (value or "").strip()
     if not text:
-        raise ValueError("leerer timestamp")
+        raise ValueError(f"CSV row {row}: timestamp is missing.")
     try:
         ts = datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise ValueError(f"timestamp nicht ISO-8601-parsebar: {text!r}") from exc
+    except ValueError:
+        raise ValueError(
+            f"CSV row {row}: timestamp is not a valid ISO-8601 datetime."
+        ) from None
     if ts.tzinfo is None or ts.tzinfo.utcoffset(ts) is None:
-        raise ValueError(f"timestamp muss timezone-aware sein (UTC): {text!r}")
+        raise ValueError(
+            f"CSV row {row}: timestamp must include timezone information, e.g. +00:00."
+        ) from None
     return ts
 
 
-def _parse_csv_float(value: str | None, field: str) -> float:
-    """Parst ein numerisches CSV-Feld (sonst ValueError mit neutraler Meldung)."""
+def _parse_csv_positive(value: str | None, field: str, row: int) -> float:
+    """Parst ein positives numerisches Feld (sonst ValueError mit Row-Hinweis)."""
     text = (value or "").strip()
     try:
+        number = float(text)
+    except (TypeError, ValueError):
+        raise ValueError(f"CSV row {row}: {field} must be a positive number.") from None
+    if number <= 0.0:
+        raise ValueError(f"CSV row {row}: {field} must be a positive number.")
+    return number
+
+
+def _parse_csv_volume(value: str | None, row: int) -> float:
+    """Parst die optionale Spalte ``volume`` (leer/fehlt -> Default ``1.0``)."""
+    text = (value or "").strip()
+    if not text:
+        return 1.0
+    try:
         return float(text)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field} nicht numerisch: {value!r}") from exc
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"CSV row {row}: volume must be numeric when provided."
+        ) from None
 
 
 def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
@@ -214,30 +247,29 @@ def build_dataset_from_csv_text(name: str, csv_text: str) -> PreviewDataset:
 
     Pflichtspalten ``timestamp,bid,ask``; optional ``volume`` (Default ``1.0``).
     Validierung: nicht leer, Pflichtspalten vorhanden, timestamp ISO-8601 und
-    timezone-aware, ``bid``/``ask`` numerisch und ``> 0``, ``ask >= bid``,
-    mindestens eine Datenzeile. Stabile Sortierung nach ``timestamp``;
-    ``mid = (bid + ask) / 2``. KEINE pandas-, Datei- oder Netzwerk-Abhängigkeit.
+    timezone-aware, ``bid``/``ask`` positiv-numerisch, ``ask >= bid``, mindestens
+    eine Datenzeile. Fehler tragen die CSV-Zeilennummer (Header = Zeile 1, erste
+    Datenzeile = Zeile 2) und sind englisch/neutral (kein Traceback). Stabile
+    Sortierung nach ``timestamp``; ``mid = (bid + ask) / 2``. KEINE pandas-,
+    Datei- oder Netzwerk-Abhängigkeit.
     """
     reader = csv.DictReader(StringIO(csv_text))
     _require_csv_columns(reader.fieldnames)
 
     parsed: list[tuple[datetime, float, float, float]] = []
-    for row in reader:
-        ts = _parse_csv_timestamp(row.get("timestamp"))
-        bid = _parse_csv_float(row.get("bid"), "bid")
-        ask = _parse_csv_float(row.get("ask"), "ask")
-        volume_raw = (row.get("volume") or "").strip()
-        volume = _parse_csv_float(volume_raw, "volume") if volume_raw else 1.0
-        if bid <= 0.0:
-            raise ValueError(f"bid muss > 0 sein (war {bid})")
-        if ask <= 0.0:
-            raise ValueError(f"ask muss > 0 sein (war {ask})")
+    for row_number, row in enumerate(reader, start=2):
+        ts = _parse_csv_timestamp(row.get("timestamp"), row_number)
+        bid = _parse_csv_positive(row.get("bid"), "bid", row_number)
+        ask = _parse_csv_positive(row.get("ask"), "ask", row_number)
+        volume = _parse_csv_volume(row.get("volume"), row_number)
         if ask < bid:
-            raise ValueError(f"ask muss >= bid sein (ask={ask}, bid={bid})")
+            raise ValueError(
+                f"CSV row {row_number}: ask must be greater than or equal to bid."
+            )
         parsed.append((ts, bid, ask, volume))
 
     if not parsed:
-        raise ValueError("CSV enthält keine Datenzeilen")
+        raise ValueError("CSV contains no data rows.")
 
     parsed.sort(key=lambda r: r[0])  # stabil (Timsort) nach timestamp
     bars = tuple(
