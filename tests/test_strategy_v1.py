@@ -13,22 +13,22 @@ import math
 from datetime import datetime, timezone
 
 from liquent.backtesting.runner import BacktestRunner, CostModel
-from liquent.domain.models import Direction, MarketData, Signal
+from liquent.domain.models import Direction
 from liquent.risk.engine import RiskEngine, RiskLimits
 from liquent.strategy import MidBreakoutStrategy, MidBreakoutStrategyV1
 
+from helpers.synthetic_data import InMemoryMarketDataSource, make_mid_series_dataset
 
-def _bars(mids: list[float]) -> list[MarketData]:
-    """Baut Bars aus einer Mid-Liste (bid/ask symmetrisch -> _mid == m)."""
-    return [
-        MarketData(
-            timestamp=datetime(2026, 6, 2, 0, i, tzinfo=timezone.utc),
-            bid=m - 0.5,
-            ask=m + 0.5,
-            volume=1.0,
-        )
-        for i, m in enumerate(mids)
-    ]
+# Bestehende Stamp-/Spread-Konvention beibehalten (byte-grüne Migration auf den
+# LQ-014-Helper): Start 2026-06-02, 1-Minuten-Raster, half_spread=0.5.
+_START = datetime(2026, 6, 2, 0, 0, tzinfo=timezone.utc)
+
+
+def _bars(mids: list[float]):
+    """Baut Bars über den synthetischen Helfer (mid=(bid+ask)/2, identisch zu zuvor)."""
+    return make_mid_series_dataset(
+        "strategy_v1", mids, start=_START, interval_minutes=1, half_spread=0.5
+    ).market_data
 
 
 def _ts(i: int) -> datetime:
@@ -226,17 +226,9 @@ def test_max_signals_per_day_not_enforced_in_phase2():
 # --------------------------------------------------------------------------- #
 
 
-class _MidSource:
-    """In-Memory-DataSource aus einer Mid-Liste (bid/ask symmetrisch)."""
-
-    def __init__(self, mids: list[float]) -> None:
-        self._bars = _bars(mids)
-
-    def market_data(self):
-        return list(self._bars)
-
-    def order_book_snapshots(self):
-        return []
+def _source(mids: list[float]) -> InMemoryMarketDataSource:
+    """In-Memory-DataSource aus einer Mid-Liste (ersetzt das frühere _MidSource)."""
+    return InMemoryMarketDataSource(_bars(mids))
 
 
 def _pct_risk_limits(**overrides) -> RiskLimits:
@@ -262,7 +254,7 @@ _STARTING_EQUITY = 10_000.0
 # 12: Runner-Integration mit percent_risk bleibt grün (ein Long-Trade).
 def test_integration_percent_risk_long_trade():
     res = BacktestRunner(
-        _MidSource(_LONG_MIDS),
+        _source(_LONG_MIDS),
         RiskEngine(_pct_risk_limits()),
         CostModel(fee_rate=0.0, spread=0.0, slippage=0.0),
         strategy=MidBreakoutStrategyV1(
