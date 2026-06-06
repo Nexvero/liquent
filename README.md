@@ -43,7 +43,8 @@ Ausführung.
 - deterministische Experiment-ID
 - Strategy Protocol
 - `MomentumStubStrategy` als technischer Default-Stub
-- keine echte Strategie im Produktcode
+- `MidBreakoutStrategy` als erste regelbasierte v0-Strategie (siehe
+  „Strategie v0: MidBreakoutStrategy" unten)
 
 ### Metrics
 
@@ -105,6 +106,98 @@ Ausführung.
   - `network_calls`
   - `paper_trading`
 
+### Strategy v0: MidBreakoutStrategy
+
+`MidBreakoutStrategy` ist das erste einfache Strategie-Modul in Liquent. Es dient
+ausschließlich dazu, die Research-/Backtesting-Pipeline zu validieren — es ist
+**keine** Handelsempfehlung und **keine** Aussage über Profitabilität.
+
+Die Strategie arbeitet auf dem Mittelkurs `MarketData.mid`:
+
+```text
+mid = (bid + ask) / 2
+```
+
+Für CSV-Daten über `HistoricalFileSource` gilt das aktuelle v1-Mapping
+`close -> bid = ask = close`, also `mid == close`. `MidBreakoutStrategy` ist
+damit ein **Mid-/Close-Breakout-Proxy** — kein echtes Intrabar-High/Low-Breakout
+(kein ATR, kein Orderbook).
+
+#### Signal-Logik
+
+Für jeden ausführbaren Bar `i` betrachtet die Strategie die vorangehenden
+`lookback_bars` Mid-Preise.
+
+Long-Signal:
+
+```text
+mid[i] > max(mid[i-lookback_bars : i])
+```
+
+Short-Signal:
+
+```text
+mid[i] < min(mid[i-lookback_bars : i])
+```
+
+Beide Vergleiche sind strikt (Gleichstand erzeugt kein Signal). Short-Signale
+lassen sich mit `allow_short=False` abschalten. Auf dem letzten Bar wird kein
+Signal erzeugt, weil der Close-to-Close-Runner einen Folge-Bar für den
+simulierten Exit benötigt.
+
+#### Stop-Logik
+
+Die Strategie liefert immer einen `stop_price` (Voraussetzung für
+`percent_risk`-Sizing):
+
+```text
+Long:  stop_price = mid[i] * (1 - stop_distance_pct)
+Short: stop_price = mid[i] * (1 + stop_distance_pct)
+```
+
+Mit `0 < stop_distance_pct < 1` liegt der Long-Stop strikt unter und der
+Short-Stop strikt über dem Entry — passend zur strikten Stop-Prüfung der
+Risk Engine.
+
+#### Parameter
+
+- `lookback_bars: int` (> 0)
+- `stop_distance_pct: float` (0 < x < 1)
+- `min_strength: float = 0.0` (in `[0, 1]`)
+- `allow_short: bool = True`
+
+Ungültige Werte werden bereits im Konstruktor mit `ValueError` abgelehnt
+(fail-safe). Die Signalstärke ist in v0 fix `1.0`, da die Risk Engine `strength`
+nur auf `> 0` prüft und die Positionsgröße nicht damit skaliert.
+
+#### Risk-Integration
+
+Die Strategie berechnet **keine** Positionsgröße und kennt weder Equity noch
+Risk-Limits. Das Sizing erfolgt ausschließlich in der `RiskEngine`.
+
+```text
+MarketData
+→ MidBreakoutStrategy.generate_signals(...)
+→ Signal mit stop_price
+→ RiskEngine.evaluate(..., reference_price=entry_price)
+→ BacktestResult
+→ Reporting
+```
+
+#### Sicherheitsgrenzen
+
+`MidBreakoutStrategy` ist:
+
+- lokal,
+- deterministisch,
+- frei von Netzwerk-Calls,
+- ohne Exchange-Anbindung,
+- keine Live-Trading-Komponente,
+- keine Paper-Trading-Komponente,
+- nicht optimiert,
+- keine Profitabilitätsaussage,
+- keine Handelsempfehlung.
+
 ## 4. Projektstruktur
 
 ```text
@@ -112,6 +205,7 @@ src/liquent/domain/        Entitäten (Signal, RiskDecision, MarketData, …)
 src/liquent/risk/          Risk Engine — Pflicht-Gate, Risk-First
 src/liquent/data/          HistoricalFileSource, Validierung, Gap-/History-Reports
 src/liquent/backtesting/   Runner, Metrics, Reporting
+src/liquent/strategy/      Strategien (MidBreakoutStrategy, v0-Proxy)
 tests/                     stdlib-Testsuite
 tests/fixtures/            OHLCV-Test-CSV (nur Fixtures, keine Marktdaten)
 data/                      Datenpolicy + Platzhalter (siehe data/README.md)
@@ -133,7 +227,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-169 passed (pytest, lokale .venv)
+199 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -159,7 +253,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-169 passed
+199 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
