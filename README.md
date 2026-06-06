@@ -504,6 +504,32 @@ autoritativ (fail-safe). Der Markdown-Report weist die verwendete Strategie übe
 `strategy: …`-Zeile auf der Konsole aus. Die Strategieauswahl ändert weder
 `BacktestRunner` noch `RiskEngine`.
 
+### Visual Preview (lokal, optional)
+
+`tools/visual_preview/` ist ein **lokales Entwickler-/Analysewerkzeug** zur rein
+technischen Sichtbarmachung von Signaldichte und Parameterauswirkung — **nur
+synthetische/lokale Preview**, **kein Live-Trading**, **keine
+Trading-Empfehlung**, keine Ergebnisinterpretation.
+
+- Die testbare Logik (`tools/visual_preview/preview_logic.py`) ist
+  Streamlit-frei und nutzt nur synthetische Datasets + die bestehenden
+  Strategien.
+- `tools/visual_preview/app.py` ist ein **optionales** Streamlit-Skeleton;
+  Streamlit ist **keine** Pflicht-Dependency und wird nur in `main()` importiert.
+
+**Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies):
+
+```bash
+# Streamlit separat/optional installieren, dann:
+streamlit run tools/visual_preview/app.py
+# oder (gibt ohne Streamlit nur einen klaren Hinweis aus):
+python -m tools.visual_preview.app
+```
+
+Ohne installiertes Streamlit meldet die App freundlich „Streamlit is not
+installed…" und beendet sich — kein Traceback, keine Netzwerk-Calls, keine
+Dateien.
+
 ## 4. Projektstruktur
 
 ```text
@@ -535,7 +561,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-353 passed (pytest, lokale .venv)
+364 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -561,7 +587,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-353 passed
+364 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
