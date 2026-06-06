@@ -17,6 +17,7 @@
 | LQ-025 | `docs/lq-025-visual-preview-quickstart.md`             | User-facing quickstart and first-run checklist |
 | LQ-027 | `docs/lq-027-visual-preview-stabilization-checkpoint.md` | Stabilization and release checkpoint           |
 | LQ-028 | `docs/lq-028-controlled-streamlit-smoke-test-checklist.md` | Controlled local Streamlit smoke-test checklist |
+| LQ-029 | `docs/lq-029-visual-preview-review-pause-next-track.md` | Review pause and next-track decision           |
 
 ## Current capabilities
 
@@ -46,6 +47,7 @@
 
 * See the stabilization checkpoint before adding new Visual Preview features.
 * Use the controlled Streamlit smoke-test checklist for any manual local UI check.
+* Use the review pause document before choosing Runner, CostModel, or further UI work.
 * Keep the quickstart and index updated as Visual Preview evolves.
 * Keep CSV examples as code blocks, not committed CSV files.
 * Only later and only if explicitly specified: controlled local runner integration.

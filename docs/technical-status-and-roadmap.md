@@ -174,8 +174,10 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - Quickstart: `docs/lq-025-visual-preview-quickstart.md`
 - Stabilization checkpoint: `docs/lq-027-visual-preview-stabilization-checkpoint.md`
 - Controlled Streamlit smoke-test checklist: `docs/lq-028-controlled-streamlit-smoke-test-checklist.md`
+- Review pause / next-track decision: `docs/lq-029-visual-preview-review-pause-next-track.md`
 - Status: local visual preview checkpoint documented;
   LQ-028 documents the manual smoke-test procedure (no automation, no deployment);
+  Visual Preview reached a stable local checkpoint; next track should be chosen explicitly;
   no live/paper/exchange/API functionality.
 
 ---
