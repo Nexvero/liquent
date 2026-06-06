@@ -182,3 +182,67 @@ def test_cli_module_has_no_forbidden_paths():
     ]
     for token in forbidden:
         assert token not in source_code, f"CLI-Modul darf {token!r} nicht enthalten"
+
+
+# --------------------------------------------------------------------------- #
+# LQ-015: --max-signals-per-day (nur v1)
+# --------------------------------------------------------------------------- #
+
+
+# 14: --strategy v1 --max-signals-per-day 2 wird akzeptiert.
+def test_v1_accepts_max_signals_per_day(tmp_path, capsys):
+    out = tmp_path / "report.md"
+    rc = main(_args(out, "--strategy", "v1", "--max-signals-per-day", "2"))
+    assert rc == 0
+    assert "max_signals_per_day=2" in capsys.readouterr().out
+
+
+# 15: --strategy v0 --max-signals-per-day 2 wird abgelehnt (keine Datei).
+def test_v0_with_max_signals_per_day_rejected(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(out, "--strategy", "v0", "--max-signals-per-day", "2"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 16: --max-signals-per-day ohne --strategy v1 (Default v0) wird abgelehnt.
+def test_max_signals_per_day_with_default_strategy_rejected(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(out, "--max-signals-per-day", "2"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 17: --strategy v1 --max-signals-per-day 0 wird abgelehnt.
+def test_v1_max_signals_per_day_zero_rejected(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(out, "--strategy", "v1", "--max-signals-per-day", "0"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 18: --strategy v1 --max-signals-per-day -1 wird abgelehnt.
+def test_v1_max_signals_per_day_negative_rejected(tmp_path):
+    out = tmp_path / "report.md"
+    rc = main(_args(out, "--strategy", "v1", "--max-signals-per-day", "-1"))
+    assert rc != 0
+    assert not out.exists()
+
+
+# 19: v1-Report enthält max_signals_per_day im Strategy-Parameters-Abschnitt.
+def test_v1_report_contains_max_signals_per_day(tmp_path):
+    out = tmp_path / "report.md"
+    # ohne Flag -> None (deaktiviert), aber als reproduzierbarer Parameter sichtbar.
+    assert main(_args(out, "--strategy", "v1")) == 0
+    assert "| max_signals_per_day | None |" in out.read_text(encoding="utf-8")
+    # mit explizitem Wert.
+    out2 = tmp_path / "report2.md"
+    assert main(_args(out2, "--strategy", "v1", "--max-signals-per-day", "3")) == 0
+    assert "| max_signals_per_day | 3 |" in out2.read_text(encoding="utf-8")
+
+
+# 20: v0-Report enthält max_signals_per_day NICHT.
+def test_v0_report_omits_max_signals_per_day(tmp_path):
+    out = tmp_path / "report.md"
+    assert main(_args(out, "--strategy", "v0")) == 0
+    assert "max_signals_per_day" not in out.read_text(encoding="utf-8")

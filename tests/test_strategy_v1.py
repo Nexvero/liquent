@@ -210,15 +210,77 @@ def test_constructor_accepts_valid_bounds():
     )
 
 
-# 11c: max_signals_per_day wird in Phase 2 NICHT erzwungen.
-def test_max_signals_per_day_not_enforced_in_phase2():
-    mids = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0]
-    strat = MidBreakoutStrategyV1(
+# --------------------------------------------------------------------------- #
+# LQ-015: max_signals_per_day (aktives Tageslimit, UTC)
+# --------------------------------------------------------------------------- #
+
+# Vier Breakouts am selben UTC-Tag (lookback=2 -> i=2,3,4,5; _bars: 2026-06-02).
+_SAME_DAY_MIDS = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0]
+
+
+def _bars_at(mids: list[float], start):
+    """Bars über den Helfer mit explizitem Start (1-Minuten-Raster, half_spread=0.5)."""
+    return make_mid_series_dataset(
+        "v1-day", mids, start=start, interval_minutes=1, half_spread=0.5
+    ).market_data
+
+
+def _v1_day(max_signals_per_day, cooldown_bars=0) -> MidBreakoutStrategyV1:
+    return MidBreakoutStrategyV1(
         lookback_bars=2, stop_distance_pct=0.1, breakout_threshold_pct=0.0,
-        cooldown_bars=0, max_signals_per_day=1,
+        cooldown_bars=cooldown_bars, max_signals_per_day=max_signals_per_day,
     )
-    # Trotz max_signals_per_day=1 entstehen mehrere Signale am selben Tag.
-    assert len(strat.generate_signals(_bars(mids))) == 4
+
+
+# 11c-1: max_signals_per_day=None erhält das bisherige Verhalten (4 Signale).
+def test_max_signals_per_day_none_unchanged():
+    assert len(_v1_day(None).generate_signals(_bars(_SAME_DAY_MIDS))) == 4
+
+
+# 11c-2: max_signals_per_day=1 begrenzt denselben UTC-Tag auf 1 Signal.
+def test_max_signals_per_day_one_limits_same_day():
+    signals = _v1_day(1).generate_signals(_bars(_SAME_DAY_MIDS))
+    assert len(signals) == 1
+    assert signals[0].timestamp == _ts(2)
+
+
+# 11c-3: max_signals_per_day=2 begrenzt denselben UTC-Tag auf 2 Signale.
+def test_max_signals_per_day_two_limits_same_day():
+    signals = _v1_day(2).generate_signals(_bars(_SAME_DAY_MIDS))
+    assert len(signals) == 2
+    assert [s.timestamp for s in signals] == [_ts(2), _ts(3)]
+
+
+# 11c-4: Zähler resetet am nächsten UTC-Tag (je 1 Signal pro Tag).
+def test_max_signals_per_day_resets_next_utc_day():
+    # Start 23:54 UTC -> i=2..5 noch am 02.06., i=6 am 03.06. (Mitternacht zw. i=5/i=6).
+    start = datetime(2026, 6, 2, 23, 54, tzinfo=timezone.utc)
+    mids = [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0]
+    signals = _v1_day(1, cooldown_bars=0).generate_signals(_bars_at(mids, start))
+    assert len(signals) == 2  # je Tag genau eines (Reset am Folgetag)
+    days = {s.timestamp.date() for s in signals}
+    assert days == {datetime(2026, 6, 2).date(), datetime(2026, 6, 3).date()}
+
+
+# 11c-5: ein vom Tageslimit verworfenes Signal löst KEINEN Cooldown aus.
+def test_day_limit_rejection_does_not_trigger_cooldown():
+    # i=2 (real, 23:56), i=5 (23:59, day-limit-REJECT), i=6 (00:00 Folgetag).
+    # cooldown_bars=2: würde die Rejection einen Cooldown setzen (next_allowed=8),
+    # bliebe i=6 gesperrt -> nur 1 Signal. Korrekt (kein Cooldown) -> 2 Signale.
+    start = datetime(2026, 6, 2, 23, 54, tzinfo=timezone.utc)
+    mids = [100.0, 100.0, 101.0, 100.0, 100.0, 102.0, 103.0, 100.0]
+    signals = _v1_day(1, cooldown_bars=2).generate_signals(_bars_at(mids, start))
+    assert len(signals) == 2
+    assert {s.timestamp.date() for s in signals} == {
+        datetime(2026, 6, 2).date(), datetime(2026, 6, 3).date()
+    }
+
+
+# 11c-6: Determinismus bleibt erhalten (gleicher Input -> gleiche Signale).
+def test_max_signals_per_day_deterministic():
+    a = _v1_day(1).generate_signals(_bars(_SAME_DAY_MIDS))
+    b = _v1_day(1).generate_signals(_bars(_SAME_DAY_MIDS))
+    assert a == b
 
 
 # --------------------------------------------------------------------------- #

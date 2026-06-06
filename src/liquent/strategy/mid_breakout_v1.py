@@ -69,8 +69,12 @@ class MidBreakoutStrategyV1:
         ``threshold > 0`` praktisch gesättigt (== 1.0); der Wert bleibt rein
         informativ. ``min_strength`` wirkt ausschließlich als Signalfilter.
 
-    ``max_signals_per_day`` ist als optionales Feld vorhanden (Default ``None``),
-    wird in dieser Phase aber NICHT erzwungen (vorbereitet für v1.1).
+    ``max_signals_per_day`` (LQ-015) begrenzt optional die Signale pro
+    UTC-Kalendertag (``timestamp.date()``). Default ``None`` = deaktiviert
+    (Verhalten unverändert). Bei ``N`` werden nach ``N`` erzeugten Signalen eines
+    Tages weitere Signale dieses Tages übersprungen; der Zähler startet am
+    nächsten UTC-Tag neu. Das Tageslimit ist das letzte Gate vor dem Erzeugen
+    eines Signals — ein dadurch verworfenes Signal löst KEINEN Cooldown aus.
     """
 
     def __init__(
@@ -141,6 +145,8 @@ class MidBreakoutStrategyV1:
         signals: list[Signal] = []
         # Cooldown-Gate: vor diesem Index ist kein neues Signal erlaubt.
         next_allowed = self.lookback_bars
+        # LQ-015: Signale je UTC-Kalendertag (timestamp.date()) zählen.
+        daily_counts: dict[object, int] = {}
         long_threshold = 1.0 + self.breakout_threshold_pct
         short_threshold = 1.0 - self.breakout_threshold_pct
 
@@ -180,6 +186,17 @@ class MidBreakoutStrategyV1:
             if strength < self.min_strength:
                 continue
 
+            # LQ-015: Tageslimit als LETZTES Gate vor dem Append. Ein hier
+            # verworfenes Signal erhöht den Zähler NICHT und löst KEINEN Cooldown
+            # aus (next_allowed bleibt unverändert) — folgende Bars desselben
+            # Tages werden regulär weiter geprüft.
+            signal_day = bars[i].timestamp.date()
+            if (
+                self.max_signals_per_day is not None
+                and daily_counts.get(signal_day, 0) >= self.max_signals_per_day
+            ):
+                continue
+
             signals.append(
                 Signal(
                     timestamp=bars[i].timestamp,
@@ -188,7 +205,8 @@ class MidBreakoutStrategyV1:
                     stop_price=stop_price,
                 )
             )
-            # Cooldown: nächste cooldown_bars Bars überspringen.
+            daily_counts[signal_day] = daily_counts.get(signal_day, 0) + 1
+            # Cooldown: nächste cooldown_bars Bars überspringen (nur nach Append).
             next_allowed = i + self.cooldown_bars + 1
 
         return tuple(signals)

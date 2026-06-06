@@ -222,7 +222,7 @@ Profitabilität.
 | `stop_distance_pct` (Default) | 0.05 (CLI) | 0.01 |
 | `allow_short` (Default) | True | True |
 | `min_strength` (Default) | 0.0 | 0.0 |
-| `max_signals_per_day` | — | None (in Phase 2 **nicht** erzwungen) |
+| `max_signals_per_day` | — | None (aktiv; None = deaktiviert) |
 | `strength` | fix `1.0` | thresholdbasiert (s. u.) |
 | Signaldichte | hoch möglich | gezielt reduzierbar |
 
@@ -282,7 +282,8 @@ Signalfilter. Die `RiskEngine` skaliert die Positionsgröße **nicht** über
 - `cooldown_bars: int = 3` (>= 0)
 - `allow_short: bool = True`
 - `min_strength: float = 0.0` (in `[0, 1]`)
-- `max_signals_per_day: int | None = None` (None oder > 0; in Phase 2 nicht erzwungen)
+- `max_signals_per_day: int | None = None` (None oder > 0; aktiv — max. Signale je
+  UTC-Tag, None = deaktiviert)
 
 Ungültige Werte werden bereits im Konstruktor mit `ValueError` abgelehnt
 (fail-safe).
@@ -433,6 +434,7 @@ python -m liquent.cli.backtest_mid_breakout \
 ```text
 --breakout-threshold-pct
 --cooldown-bars
+--max-signals-per-day   (INT > 0; max. Signale je UTC-Tag; ohne Angabe deaktiviert)
 ```
 
 **Kostenmodell** (für v0 und v1; reale `CostModel`-Felder, Default `0.0` =
@@ -507,7 +509,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-321 passed (pytest, lokale .venv)
+333 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -533,7 +535,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-321 passed
+333 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

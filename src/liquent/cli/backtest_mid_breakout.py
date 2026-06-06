@@ -139,6 +139,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="nur mit --strategy v1: Sperr-Bars nach einem Signal (>= 0).",
     )
     parser.add_argument(
+        "--max-signals-per-day",
+        default=None,
+        type=int,
+        dest="max_signals_per_day",
+        help="nur mit --strategy v1: max. Signale je UTC-Tag (> 0; None = aus).",
+    )
+    parser.add_argument(
         "--risk-per-trade-pct", default=0.01, type=float, dest="risk_per_trade_pct"
     )
     parser.add_argument(
@@ -184,6 +191,8 @@ def _resolve_strategy_args(args: argparse.Namespace) -> str | None:
             return "--breakout-threshold-pct ist nur mit --strategy v1 erlaubt"
         if args.cooldown_bars is not None:
             return "--cooldown-bars ist nur mit --strategy v1 erlaubt"
+        if args.max_signals_per_day is not None:
+            return "--max-signals-per-day ist nur mit --strategy v1 erlaubt"
 
     common = _V1_DEFAULTS if args.strategy == "v1" else _V0_DEFAULTS
     if args.lookback_bars is None:
@@ -220,6 +229,8 @@ def _validate_ranges(args: argparse.Namespace) -> str | None:
             return "--breakout-threshold-pct muss in [0, 0.1) liegen"
         if args.cooldown_bars < 0:
             return "--cooldown-bars muss >= 0 sein"
+        if args.max_signals_per_day is not None and args.max_signals_per_day <= 0:
+            return "--max-signals-per-day muss > 0 sein (oder weglassen)"
     if not (0.0 < args.risk_per_trade_pct <= 1.0):
         return "--risk-per-trade-pct muss in (0, 1] liegen"
     if args.max_position_size <= 0.0:
@@ -301,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
             cooldown_bars=args.cooldown_bars,
             allow_short=args.allow_short,
             min_strength=args.min_strength,
+            max_signals_per_day=args.max_signals_per_day,
         )
     else:
         strategy = MidBreakoutStrategy(
@@ -349,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
             "cooldown_bars": args.cooldown_bars,
             "allow_short": args.allow_short,
             "min_strength": args.min_strength,
+            # LQ-015: None = deaktiviert (reproduzierbarer v1-Parameter).
+            "max_signals_per_day": args.max_signals_per_day,
         }
     else:
         strategy_params = {
@@ -395,7 +409,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.strategy == "v1":
         strategy_line += (
             f" breakout_threshold_pct={args.breakout_threshold_pct} "
-            f"cooldown_bars={args.cooldown_bars}"
+            f"cooldown_bars={args.cooldown_bars} "
+            f"max_signals_per_day={args.max_signals_per_day}"
         )
     print(strategy_line)
     print(
