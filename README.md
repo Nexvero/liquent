@@ -44,7 +44,9 @@ Ausführung.
 - Strategy Protocol
 - `MomentumStubStrategy` als technischer Default-Stub
 - `MidBreakoutStrategy` als erste regelbasierte v0-Strategie (siehe
-  „Strategie v0: MidBreakoutStrategy" unten)
+  „Strategy v0: MidBreakoutStrategy" unten)
+- `MidBreakoutStrategyV1` als additive v1-Strategie mit Breakout-Threshold und
+  Cooldown (siehe „Strategy v1: MidBreakoutStrategyV1" unten)
 
 ### Metrics
 
@@ -198,6 +200,117 @@ MarketData
 - keine Profitabilitätsaussage,
 - keine Handelsempfehlung.
 
+### Strategy v1: MidBreakoutStrategyV1 (LQ-008)
+
+`MidBreakoutStrategyV1` ist eine **additive** Strategieklasse neben der
+bestehenden `MidBreakoutStrategy` (v0). v0 bleibt als **Regressionsbasis
+unverändert**; v1 liegt in `src/liquent/strategy/mid_breakout_v1.py`. Anlass war
+die im 30-Tage-Echtdatenlauf beobachtete hohe Signaldichte: v1 ergänzt zwei
+deterministische Stellschrauben (Breakout-Threshold, Cooldown), um Mikro-/Noise-
+Ausbrüche zu filtern und Trade-Cluster aufzubrechen. Wie v0 ist es ein
+Mid-/Close-Breakout-Proxy — **keine** Handelsempfehlung, **keine** Aussage über
+Profitabilität.
+
+#### Technische Unterschiede v0 / v1
+
+| Aspekt | v0 `MidBreakoutStrategy` | v1 `MidBreakoutStrategyV1` |
+|---|---|---|
+| `lookback_bars` (Default) | 3 | 12 |
+| Breakout-Auslösung | jedes strikte neue Fensterhoch/-tief | nur jenseits eines relativen Schwellwerts |
+| `breakout_threshold_pct` | — (keiner) | 0.001 (Default) |
+| `cooldown_bars` | — (keiner) | 3 (Default) |
+| `stop_distance_pct` (Default) | 0.05 (CLI) | 0.01 |
+| `allow_short` (Default) | True | True |
+| `min_strength` (Default) | 0.0 | 0.0 |
+| `max_signals_per_day` | — | None (in Phase 2 **nicht** erzwungen) |
+| `strength` | fix `1.0` | thresholdbasiert (s. u.) |
+| Signaldichte | hoch möglich | gezielt reduzierbar |
+
+#### Signal-Logik v1
+
+Für jeden ausführbaren Bar `i` (`lookback_bars <= i <= n-2`) mit
+`prev_high = max(mid[i-lookback_bars : i])` und `prev_low = min(...)`:
+
+```text
+Long:  mid[i] > prev_high * (1 + breakout_threshold_pct)
+Short: mid[i] < prev_low  * (1 - breakout_threshold_pct)
+```
+
+Short-Signale nur bei `allow_short=True`. Auf dem letzten Bar wird kein Signal
+erzeugt (der Close-to-Close-Runner braucht einen Folge-Bar für den Exit). Mit
+`breakout_threshold_pct = 0.0` entspricht das Verhalten exakt v0 (strikter
+`>`/`<`-Vergleich) — bei sonst gleichen Parametern und `cooldown_bars = 0`.
+
+#### Cooldown
+
+Nach einem **erzeugten** Signal auf Bar `i` werden die nächsten `cooldown_bars`
+Bars (`i+1 … i+cooldown_bars`) für neue Signale übersprungen. `cooldown_bars = 0`
+erlaubt ein unmittelbares Folgesignal; `cooldown_bars >= 0` wird im Konstruktor
+geprüft.
+
+#### Stop-Logik
+
+```text
+Long:  stop_price = mid[i] * (1 - stop_distance_pct)
+Short: stop_price = mid[i] * (1 + stop_distance_pct)
+```
+
+Die Stop-Logik ist unverändert zu v0 und bleibt `percent_risk`-kompatibel
+(Long-Stop strikt unter, Short-Stop strikt über dem Entry). **Wichtig:** Im
+aktuellen Close-to-Close-Runner dient `stop_price` ausschließlich als
+**Sizing-Eingang** der Risk Engine — es ist **kein ausgeführter Stop-Loss**
+(der Exit ist stets der Mid des Folge-Bars).
+
+#### Strength / min_strength
+
+```text
+breakout_threshold_pct == 0.0  →  strength = 1.0
+breakout_threshold_pct  > 0.0  →  strength = min(1.0, breakout_distance_pct / breakout_threshold_pct)
+                                   mit breakout_distance_pct = abs(mid[i] - breakout_level) / breakout_level
+                                   und breakout_level = prev_high (Long) bzw. prev_low (Short)
+```
+
+`strength` ist ausschließlich **Signalqualität/Filter**; `min_strength` wirkt als
+Signalfilter. Die `RiskEngine` skaliert die Positionsgröße **nicht** über
+`strength` (sie prüft nur `> 0`).
+
+#### Parameter
+
+- `lookback_bars: int = 12` (> 0)
+- `stop_distance_pct: float = 0.01` (0 < x < 1)
+- `breakout_threshold_pct: float = 0.001` (in `[0, 0.1)`)
+- `cooldown_bars: int = 3` (>= 0)
+- `allow_short: bool = True`
+- `min_strength: float = 0.0` (in `[0, 1]`)
+- `max_signals_per_day: int | None = None` (None oder > 0; in Phase 2 nicht erzwungen)
+
+Ungültige Werte werden bereits im Konstruktor mit `ValueError` abgelehnt
+(fail-safe).
+
+#### Tests
+
+`tests/test_strategy_v1.py` deckt ab:
+
+- Threshold blockt Mikro-Breakouts,
+- Threshold erlaubt echte Long-/Short-Breakouts,
+- Stop-Logik richtungskonsistent (Long-Stop < mid, Short-Stop > mid),
+- Cooldown an/aus (`cooldown_bars` > 0 unterdrückt, `= 0` erlaubt Folgesignal),
+- `breakout_threshold_pct = 0.0` reproduziert v0 bei gleichen Parametern,
+- kein Signal auf dem letzten Bar,
+- Determinismus (gleicher Input → identische Signale),
+- Konstruktorvalidierung aller Parameter,
+- Runner-Integration mit `percent_risk` (Risk-First End-to-End),
+- statischer Scan gegen Netzwerk-/Live-/Paper-Trading-Pfade.
+
+#### Nicht Teil von LQ-008 Phase 2/3
+
+- keine CLI-Strategieauswahl (CLI nutzt weiterhin v0),
+- keine Echtdatenläufe mit v1,
+- keine Kostenmodell-Erweiterung,
+- keine Optimierung, keine Parameter-Suche,
+- kein Paper-Trading, kein Live-Trading, keine Exchange-API,
+- keine Profitabilitätsbewertung, keine Trading-Empfehlung.
+
 ### Lokaler CLI-Backtest-Report
 
 Liquent enthält ein **rein lokales** CLI-Modul, das die aktuelle
@@ -276,7 +389,7 @@ src/liquent/domain/        Entitäten (Signal, RiskDecision, MarketData, …)
 src/liquent/risk/          Risk Engine — Pflicht-Gate, Risk-First
 src/liquent/data/          HistoricalFileSource, Validierung, Gap-/History-Reports
 src/liquent/backtesting/   Runner, Metrics, Reporting
-src/liquent/strategy/      Strategien (MidBreakoutStrategy, v0-Proxy)
+src/liquent/strategy/      Strategien (MidBreakoutStrategy v0, MidBreakoutStrategyV1)
 src/liquent/cli/           Lokales CLI (backtest_mid_breakout -> Markdown-Report)
 tests/                     stdlib-Testsuite
 tests/fixtures/            OHLCV-Test-CSV (nur Fixtures, keine Marktdaten)
@@ -300,7 +413,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-225 passed (pytest, lokale .venv)
+246 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -326,7 +439,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-225 passed
+246 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

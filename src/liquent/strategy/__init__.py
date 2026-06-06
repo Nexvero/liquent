@@ -6,5 +6,6 @@ keine Profitabilitätsaussage.
 """
 
 from liquent.strategy.mid_breakout import MidBreakoutStrategy
+from liquent.strategy.mid_breakout_v1 import MidBreakoutStrategyV1
 
-__all__ = ["MidBreakoutStrategy"]
+__all__ = ["MidBreakoutStrategy", "MidBreakoutStrategyV1"]
