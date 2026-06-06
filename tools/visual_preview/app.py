@@ -38,14 +38,20 @@ def main() -> None:
         print(_STREAMLIT_MISSING)
         return
 
+    # Header.
     st.title(_TITLE)
-    for note in SAFETY_NOTES:
-        st.caption(note)
+    st.caption("Local visual preview for synthetic signal inspection")
+    # Safety-Banner (alle Hinweise sichtbar).
+    st.info("  •  ".join(SAFETY_NOTES))
 
+    # --- Sidebar: Dataset / Strategy / Parameter ---
     datasets = build_preview_datasets()
+    st.sidebar.header("Dataset")
     dataset_key = st.sidebar.selectbox("Dataset", list(datasets.keys()))
+    st.sidebar.header("Strategy")
     strategy_key = st.sidebar.selectbox("Strategy", ["v0", "v1"])
 
+    st.sidebar.header("Shared parameters")
     params: dict[str, object] = {
         "lookback_bars": st.sidebar.number_input("lookback_bars", value=12, step=1),
         "stop_distance_pct": st.sidebar.number_input("stop_distance_pct", value=0.01),
@@ -53,22 +59,51 @@ def main() -> None:
         "min_strength": st.sidebar.number_input("min_strength", value=0.0),
     }
     if strategy_key == "v1":
+        st.sidebar.header("v1 parameters")
         params["breakout_threshold_pct"] = st.sidebar.number_input(
             "breakout_threshold_pct", value=0.0
         )
         params["cooldown_bars"] = st.sidebar.number_input("cooldown_bars", value=0, step=1)
-        use_limit = st.sidebar.checkbox("max_signals_per_day enabled", value=False)
-        if use_limit:
+        if st.sidebar.checkbox("max_signals_per_day enabled", value=False):
             params["max_signals_per_day"] = st.sidebar.number_input(
                 "max_signals_per_day", value=1, step=1
             )
+    st.sidebar.header("Cost parameters")
+    st.sidebar.caption("not used in signal-only preview")
 
     summary = generate_preview_summary(dataset_key, strategy_key, params)
-    st.metric("signals_total", summary["signals_total"])
-    st.subheader("Strategy")
-    st.json(summary["strategy"])
-    st.subheader("Signals")
-    st.table(summary["signals"])
+    tech = summary["technical_summary"]
+
+    # --- Technical Summary ---
+    st.subheader("Technical summary")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("dataset", tech["dataset_name"])
+    c2.metric("strategy", tech["strategy_key"])
+    c3.metric("bars", tech["bars"])
+    c4, c5 = st.columns(2)
+    c4.metric("signals_total", tech["signals_total"])
+    c5.caption(f"{tech['first_timestamp']} → {tech['last_timestamp']}")
+
+    # --- Mid-price chart (mit Long/Short-Markern als separate Serien) ---
+    st.subheader("Mid-price chart")
+    st.line_chart(
+        summary["chart_rows"],
+        x="timestamp",
+        y=["mid", "long_signal_price", "short_signal_price"],
+    )
+
+    # --- Signal table ---
+    st.subheader("Signal table")
+    st.dataframe(summary["signals"])
+
+    # --- Strategy metadata ---
+    st.subheader("Strategy metadata")
+    st.table([{"parameter": k, "value": v} for k, v in summary["strategy"]["params"].items()])
+
+    # --- Safety notes ---
+    st.subheader("Safety notes")
+    for note in summary["safety_notes"]:
+        st.caption(note)
 
 
 if __name__ == "__main__":

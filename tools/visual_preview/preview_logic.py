@@ -168,6 +168,67 @@ def _strategy_metadata(strategy_key: str, strategy) -> dict[str, Any]:
     }
 
 
+def build_price_rows(dataset: PreviewDataset) -> list[dict[str, Any]]:
+    """Chartfreundliche Preis-Rows je Bar (rein, deterministisch, keine I/O)."""
+    rows: list[dict[str, Any]] = []
+    for bar in dataset.market_data:
+        rows.append(
+            {
+                "timestamp": bar.timestamp.isoformat(),
+                "mid": (bar.bid + bar.ask) / 2.0,
+                "bid": bar.bid,
+                "ask": bar.ask,
+                "volume": bar.volume,
+            }
+        )
+    return rows
+
+
+def build_signal_rows(signals, *, mid_by_ts: Mapping[Any, float] | None = None) -> list[dict[str, Any]]:
+    """Signal-Rows (timestamp/side/price/stop_price/strength).
+
+    ``mid_by_ts`` ordnet jedem Bar-Timestamp seinen Mid-Preis zu; ohne Angabe
+    bleibt ``price`` ``None`` (das Signal selbst trägt keinen Preis). Keine
+    Profit-/Performance-Felder.
+    """
+    mid_lookup = dict(mid_by_ts or {})
+    rows: list[dict[str, Any]] = []
+    for sig in signals:
+        rows.append(
+            {
+                "timestamp": sig.timestamp.isoformat(),
+                "side": sig.direction.value,
+                "price": mid_lookup.get(sig.timestamp),
+                "stop_price": sig.stop_price,
+                "strength": sig.strength,
+            }
+        )
+    return rows
+
+
+def build_chart_rows(dataset: PreviewDataset, signals) -> list[dict[str, Any]]:
+    """Chart-Rows je Bar: Mid-Serie + optionale Long/Short-Marker am Signal-Bar.
+
+    ``long_signal_price`` / ``short_signal_price`` sind nur am jeweiligen
+    Signal-Bar gesetzt (= Mid dort), sonst ``None`` — so kann eine Chart-Funktion
+    Marker als separate Serien zeichnen. Pro Bar höchstens ein Signal (Modell).
+    """
+    side_by_ts = {sig.timestamp: sig.direction.value for sig in signals}
+    rows: list[dict[str, Any]] = []
+    for bar in dataset.market_data:
+        mid = (bar.bid + bar.ask) / 2.0
+        side = side_by_ts.get(bar.timestamp)
+        rows.append(
+            {
+                "timestamp": bar.timestamp.isoformat(),
+                "mid": mid,
+                "long_signal_price": mid if side == "long" else None,
+                "short_signal_price": mid if side == "short" else None,
+            }
+        )
+    return rows
+
+
 def generate_preview_summary(
     dataset_key: str, strategy_key: str, params: Mapping[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -196,26 +257,31 @@ def generate_preview_summary(
 
     signals = tuple(strategy.generate_signals(dataset.market_data))
     mid_by_ts = {bar.timestamp: (bar.bid + bar.ask) / 2.0 for bar in dataset.market_data}
-    signal_rows = [
-        {
-            "timestamp": sig.timestamp.isoformat(),
-            "side": sig.direction.value,
-            "price": mid_by_ts.get(sig.timestamp),
-            "stop_price": sig.stop_price,
-            "strength": sig.strength,
-        }
-        for sig in signals
-    ]
+    signal_rows = build_signal_rows(signals, mid_by_ts=mid_by_ts)
+    bars = dataset.market_data
+
+    technical_summary = {
+        "dataset_name": dataset.name,
+        "strategy_key": strategy_key,
+        "bars": len(bars),
+        "signals_total": len(signals),
+        "first_timestamp": bars[0].timestamp.isoformat() if bars else None,
+        "last_timestamp": bars[-1].timestamp.isoformat() if bars else None,
+    }
 
     return {
         "dataset": {
             "name": dataset.name,
             "type": "synthetic",
-            "bars": len(dataset.market_data),
+            "bars": len(bars),
             "description": dataset.description,
         },
         "strategy": _strategy_metadata(strategy_key, strategy),
         "signals_total": len(signals),
         "signals": signal_rows,
+        # LQ-021: additive, chartfreundliche Strukturen (rückwärtskompatibel).
+        "price_rows": build_price_rows(dataset),
+        "chart_rows": build_chart_rows(dataset, signals),
+        "technical_summary": technical_summary,
         "safety_notes": list(SAFETY_NOTES),
     }

@@ -517,6 +517,12 @@ Trading-Empfehlung**, keine Ergebnisinterpretation.
 - `tools/visual_preview/app.py` ist ein **optionales** Streamlit-Skeleton;
   Streamlit ist **keine** Pflicht-Dependency und wird nur in `main()` importiert.
 
+Die Preview zeigt (technisch, ohne Ergebnisinterpretation): **Technical Summary**,
+**Mid-price chart** (mit Long/Short-Signalmarkern), **Signal table**, **Strategy
+metadata** und **Safety notes**. Weiterhin gilt: **synthetic/local preview only**,
+**no live trading**, **no trading recommendation**, **no profitability
+assessment**, **no CSV upload yet**, **no report files**, **no deployment**.
+
 **Requires optional Streamlit installation** (nicht Teil der Projekt-Dependencies;
 `dependencies = []` bleibt unverändert). Streamlit ist als **optionales Extra**
 `visual` geführt:
@@ -570,7 +576,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-370 passed (pytest, lokale .venv)
+379 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -596,7 +602,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-370 passed
+379 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

@@ -78,12 +78,14 @@ def test_v0_rejects_v1_only_params():
     _expect_value_error(lambda: build_strategy("v2"))
 
 
-# 7: generate_preview_summary liefert die erwarteten Felder.
+# 7: generate_preview_summary liefert die erwarteten Felder (Basis + LQ-021 additiv).
 def test_summary_structure():
     summary = generate_preview_summary("micro_long", "v1", {})
-    assert set(summary.keys()) == {
+    # Basis-Felder (rückwärtskompatibel) + additive chartfreundliche Strukturen.
+    assert {
         "dataset", "strategy", "signals_total", "signals", "safety_notes",
-    }
+        "price_rows", "chart_rows", "technical_summary",
+    } <= set(summary.keys())
     assert summary["dataset"]["type"] == "synthetic"
     assert summary["strategy"]["key"] == "v1"
     assert isinstance(summary["signals_total"], int)
