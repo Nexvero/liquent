@@ -509,7 +509,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-333 passed (pytest, lokale .venv)
+345 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -535,7 +535,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-333 passed
+345 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
