@@ -198,6 +198,54 @@ MarketData
 - keine Profitabilitätsaussage,
 - keine Handelsempfehlung.
 
+### Lokaler CLI-Backtest-Report
+
+Liquent enthält ein **rein lokales** CLI-Modul, das die aktuelle
+`MidBreakoutStrategy` gegen eine lokale OHLCV-CSV auswertet und einen
+deterministischen Markdown-Report schreibt.
+
+Aufruf aus dem Projektwurzelverzeichnis:
+
+```bash
+. .venv/bin/activate
+
+python -m liquent.cli.backtest_mid_breakout \
+  --csv tests/fixtures/strategy_mid_breakout_long.csv \
+  --output reports/mid_breakout_example.md \
+  --symbol TESTUSDT \
+  --exchange synthetic \
+  --asset-class crypto \
+  --timeframe 5m \
+  --overwrite
+```
+
+Das CLI orchestriert ausschließlich die bestehende Pipeline:
+
+```text
+HistoricalFileSource
+→ MidBreakoutStrategy
+→ RiskEngine percent_risk
+→ BacktestRunner
+→ BacktestExperimentSummary
+→ Markdown-Report
+```
+
+Verhalten in v0:
+
+- nur lokale CSV als Eingabe,
+- `sizing_mode = percent_risk` (fest),
+- keine Netzwerk-Calls,
+- keine Exchange-Anbindung,
+- kein Live-Trading,
+- kein Paper-Trading,
+- keine API-Keys,
+- deterministischer Markdown-Output (kein Zeitstempel, kein Zufall),
+- kein Überschreiben ohne `--overwrite`.
+
+Generierte Reports werden unter `reports/` abgelegt — dieser Ordner ist von Git
+ignoriert (Ausnahme: `reports/README.md`). Das CLI ist ausschließlich für lokale
+Research-/Backtesting-Workflows gedacht und ist keine Handelsempfehlung.
+
 ## 4. Projektstruktur
 
 ```text
@@ -206,9 +254,11 @@ src/liquent/risk/          Risk Engine — Pflicht-Gate, Risk-First
 src/liquent/data/          HistoricalFileSource, Validierung, Gap-/History-Reports
 src/liquent/backtesting/   Runner, Metrics, Reporting
 src/liquent/strategy/      Strategien (MidBreakoutStrategy, v0-Proxy)
+src/liquent/cli/           Lokales CLI (backtest_mid_breakout -> Markdown-Report)
 tests/                     stdlib-Testsuite
 tests/fixtures/            OHLCV-Test-CSV (nur Fixtures, keine Marktdaten)
 data/                      Datenpolicy + Platzhalter (siehe data/README.md)
+reports/                   Lokale Report-Ausgaben (ignoriert, nur README getrackt)
 ```
 
 Hinweis: `src/liquent/bot/` und `src/liquent/ui/` existieren nur als inaktive
@@ -227,7 +277,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-199 passed (pytest, lokale .venv)
+225 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -253,7 +303,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-199 passed
+225 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

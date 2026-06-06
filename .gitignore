@@ -35,3 +35,7 @@ data/processed/**
 !data/raw/.gitkeep
 !data/processed/
 !data/processed/.gitkeep
+
+# Local backtest reports (LQ-007) — never commit generated reports
+reports/*
+!reports/README.md
