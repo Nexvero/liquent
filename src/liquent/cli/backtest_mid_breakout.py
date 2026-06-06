@@ -315,7 +315,36 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: Auswertung fehlgeschlagen: {exc}", file=sys.stderr)
         return _EXIT_RUNTIME
 
-    summary = summarize_backtest_result(result, title="Liquent MidBreakout Backtest")
+    # LQ-011: Strategie-Metadaten aus den EFFEKTIVEN (Sentinel-aufgelösten)
+    # Werten bauen — deterministische Parameter-Reihenfolge je Strategie.
+    if args.strategy == "v1":
+        strategy_params: dict[str, object] = {
+            "lookback_bars": args.lookback_bars,
+            "stop_distance_pct": args.stop_distance_pct,
+            "breakout_threshold_pct": args.breakout_threshold_pct,
+            "cooldown_bars": args.cooldown_bars,
+            "allow_short": args.allow_short,
+            "min_strength": args.min_strength,
+        }
+    else:
+        strategy_params = {
+            "lookback_bars": args.lookback_bars,
+            "stop_distance_pct": args.stop_distance_pct,
+            "allow_short": args.allow_short,
+            "min_strength": args.min_strength,
+        }
+    strategy_metadata = {
+        "family": "mid_breakout",
+        "key": args.strategy,
+        "name": type(strategy).__name__,
+        "params": strategy_params,
+    }
+
+    summary = summarize_backtest_result(
+        result,
+        title="Liquent MidBreakout Backtest",
+        strategy_metadata=strategy_metadata,
+    )
     markdown = summary_to_markdown(summary)
     content = f"{_DISCLAIMER}\n\n{markdown}\n"
 

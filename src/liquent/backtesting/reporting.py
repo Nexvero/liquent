@@ -46,6 +46,11 @@ class BacktestExperimentSummary:
         parameters:       Reproduzierbare, skalare Lauf-Parameter (Kopie).
         risk_notes:       Auditierbare Risiko-/Kontext-Hinweise (immutable).
         safety_flags:     Übernommene/Defaultete Sicherheits-Flags.
+        strategy_metadata: Optionale, additive Strategie-Metadaten (LQ-011) —
+            ``{"family", "key", "name", "params": {...}}``. Bewusst SEPARAT von
+            ``parameters`` (das skalar-typisiert ist und kein verschachteltes
+            Dict tragen darf). Default ``None`` -> kein Strategy-Abschnitt;
+            bestehende Reports bleiben byte-identisch.
     """
 
     experiment_id: str
@@ -60,16 +65,44 @@ class BacktestExperimentSummary:
     parameters: dict[str, str | int | float | bool]
     risk_notes: tuple[str, ...]
     safety_flags: dict[str, bool]
+    # Additiv, optional (Default am Ende der frozen dataclass).
+    strategy_metadata: dict[str, object] | None = None
+
+
+def _normalize_strategy_metadata(
+    strategy_metadata: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """Bringt optionale Strategie-Metadaten in eine feste, deterministische Form.
+
+    Erzwingt die Feldreihenfolge ``family, key, name, params`` (unabhängig von
+    der Reihenfolge im übergebenen Dict) und kopiert ``params`` defensiv. ``None``
+    bleibt ``None`` (kein Strategy-Abschnitt).
+    """
+    if strategy_metadata is None:
+        return None
+    params = strategy_metadata.get("params", {})
+    return {
+        "family": strategy_metadata.get("family"),
+        "key": strategy_metadata.get("key"),
+        "name": strategy_metadata.get("name"),
+        "params": dict(params) if isinstance(params, dict) else {},
+    }
 
 
 def summarize_backtest_result(
-    result: BacktestResult, title: str = "Liquent Backtest"
+    result: BacktestResult,
+    title: str = "Liquent Backtest",
+    *,
+    strategy_metadata: dict[str, object] | None = None,
 ) -> BacktestExperimentSummary:
     """Überführt ein ``BacktestResult`` in eine ``BacktestExperimentSummary``.
 
     Reine Funktion. Sicherheits-Flags werden aus ``result.parameters``
     übernommen; fehlt ein Flag, wird es defensiv auf ``False`` gesetzt und ein
     entsprechender Hinweis in ``risk_notes`` ergänzt (Audit-Transparenz).
+
+    ``strategy_metadata`` (LQ-011, optional, keyword-only): additive Strategie-
+    Metadaten. Default ``None`` lässt Output und bestehende Aufrufer unverändert.
     """
     strategy_name = str(result.parameters.get("strategy", "unknown"))
 
@@ -132,6 +165,7 @@ def summarize_backtest_result(
         parameters=dict(result.parameters),
         risk_notes=tuple(risk_notes),
         safety_flags=safety_flags,
+        strategy_metadata=_normalize_strategy_metadata(strategy_metadata),
     )
 
 
@@ -166,6 +200,27 @@ def summary_to_markdown(summary: BacktestExperimentSummary) -> str:
     lines.append(f"- Approved Signals: {summary.approved_signals}")
     lines.append(f"- Rejected Signals: {summary.rejected_signals}")
     lines.append("")
+
+    # LQ-011: additiver Strategy-Abschnitt — nur bei vorhandenen Metadaten.
+    if summary.strategy_metadata is not None:
+        meta = summary.strategy_metadata
+        lines.append("## Strategy")
+        lines.append("")
+        lines.append("| Field | Value |")
+        lines.append("|---|---|")
+        for field in ("family", "key", "name"):
+            lines.append(f"| {field} | {_format_value(meta.get(field))} |")
+        lines.append("")
+
+        params = meta.get("params")
+        if isinstance(params, dict):
+            lines.append("### Strategy Parameters")
+            lines.append("")
+            lines.append("| Parameter | Value |")
+            lines.append("|---|---|")
+            for key, value in params.items():
+                lines.append(f"| {key} | {_format_value(value)} |")
+            lines.append("")
 
     lines.append("## Metrics")
     lines.append("")
@@ -208,7 +263,7 @@ def summary_to_dict(summary: BacktestExperimentSummary) -> dict[str, object]:
     Tupel werden zu Listen, verschachtelte Dicts werden kopiert — geeignet für
     JSON-/YAML-Serialisierung in einer späteren Phase (kein I/O hier).
     """
-    return {
+    as_dict: dict[str, object] = {
         "experiment_id": summary.experiment_id,
         "title": summary.title,
         "strategy_name": summary.strategy_name,
@@ -222,3 +277,14 @@ def summary_to_dict(summary: BacktestExperimentSummary) -> dict[str, object]:
         "risk_notes": list(summary.risk_notes),
         "safety_flags": dict(summary.safety_flags),
     }
+    # LQ-011: additiv — Schlüssel nur bei vorhandenen Strategie-Metadaten.
+    if summary.strategy_metadata is not None:
+        meta = summary.strategy_metadata
+        params = meta.get("params")
+        as_dict["strategy"] = {
+            "family": meta.get("family"),
+            "key": meta.get("key"),
+            "name": meta.get("name"),
+            "params": dict(params) if isinstance(params, dict) else {},
+        }
+    return as_dict
