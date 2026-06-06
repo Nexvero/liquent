@@ -172,6 +172,9 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 
 - Visual Preview docs index: `docs/visual-preview-index.md`
 - Quickstart: `docs/lq-025-visual-preview-quickstart.md`
+- Stabilization checkpoint: `docs/lq-027-visual-preview-stabilization-checkpoint.md`
+- Status: local visual preview checkpoint documented;
+  no live/paper/exchange/API functionality.
 
 ---
 

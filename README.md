@@ -608,6 +608,7 @@ streamlit run tools/visual_preview/app.py
 - **No live trading. No trading recommendation. No profitability assessment.**
 - Docs index: `docs/visual-preview-index.md`.
 - Ausführliche Doku / Quickstart: `docs/lq-025-visual-preview-quickstart.md`.
+- Stabilization checkpoint: `docs/lq-027-visual-preview-stabilization-checkpoint.md`.
 
 ## 4. Projektstruktur
 
@@ -640,7 +641,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-444 passed (pytest, lokale .venv)
+452 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -666,7 +667,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-444 passed
+452 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine

@@ -15,6 +15,7 @@
 | LQ-023 | `docs/lq-023-visual-preview-csv-validation-ux.md`      | CSV validation UX and sample template          |
 | LQ-024 | `docs/lq-024-visual-preview-csv-schema-variants.md`    | Bid/Ask and OHLCV schema support               |
 | LQ-025 | `docs/lq-025-visual-preview-quickstart.md`             | User-facing quickstart and first-run checklist |
+| LQ-027 | `docs/lq-027-visual-preview-stabilization-checkpoint.md` | Stabilization and release checkpoint           |
 
 ## Current capabilities
 
@@ -42,6 +43,7 @@
 
 ## Recommended next steps
 
+* See the stabilization checkpoint before adding new Visual Preview features.
 * Keep the quickstart and index updated as Visual Preview evolves.
 * Keep CSV examples as code blocks, not committed CSV files.
 * Only later and only if explicitly specified: controlled local runner integration.
