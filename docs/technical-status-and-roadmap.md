@@ -231,6 +231,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - 13 additional regression tests
   - no engine production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-042 cost model / metrics hardening docs + regression coverage: `docs/lq-042-cost-metrics-hardening.md`
+- Status:
+  - CostModel / Metrics contract documented
+  - 12 additional regression tests
+  - no production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
