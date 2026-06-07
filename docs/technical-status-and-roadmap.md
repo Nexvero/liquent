@@ -269,6 +269,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - Tests: `tests/test_domain_model_hardening.py`
   - Status: domain behavior locks implemented; no production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-048 domain model invariants / validation decision: `docs/lq-048-domain-model-invariants-validation-decision.md`
+  - Status:
+    - recommendation: document invariants; no runtime validation in domain models
+    - future validation should prefer separate validator functions
+    - no production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
