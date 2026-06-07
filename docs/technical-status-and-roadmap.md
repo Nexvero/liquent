@@ -225,6 +225,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - recommended decision: pause Runner lifecycle implementation
   - current contract remains Close-to-Close and stop_price sizing-only
   - exit_reason / Stop-Exit stays a future track requiring separate approval
+- LQ-041 risk engine hardening docs + regression coverage: `docs/lq-041-risk-engine-hardening.md`
+- Status:
+  - RiskEngine contract documented
+  - 13 additional regression tests
+  - no engine production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
