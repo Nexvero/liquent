@@ -220,6 +220,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - exit_reason / stop-exit specification finalized
   - no implementation
   - Stop-Exit remains out of current Runner contract until separately approved
+- LQ-040 runner lifecycle implementation decision / pause checkpoint: `docs/lq-040-runner-lifecycle-implementation-decision.md`
+- Status:
+  - recommended decision: pause Runner lifecycle implementation
+  - current contract remains Close-to-Close and stop_price sizing-only
+  - exit_reason / Stop-Exit stays a future track requiring separate approval
 
 ---
 
