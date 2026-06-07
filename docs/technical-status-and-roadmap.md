@@ -251,6 +251,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - no production logic changes
   - no new CLI flags / defaults / exit codes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-045 strategy fixtures / scenario coverage docs + regression coverage: `docs/lq-045-strategy-fixtures-scenario-coverage.md`
+- Status:
+  - fixture / scenario catalog documented
+  - 4 additional behavior-locks (high existing coverage, deliberately small scope)
+  - no production logic changes
+  - no fixture changes; synthetic/local data only
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
