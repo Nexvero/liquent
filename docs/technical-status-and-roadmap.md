@@ -275,6 +275,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - future validation should prefer separate validator functions
     - no production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-049 domain model validator layer decision / implementation plan: `docs/lq-049-domain-model-validator-layer-plan.md`
+  - Status:
+    - recommendation: plan only; no validator implementation yet
+    - future validator layer should stay outside frozen dataclasses
+    - no production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
