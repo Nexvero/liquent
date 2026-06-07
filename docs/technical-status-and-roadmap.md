@@ -215,6 +215,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - lifecycle decision finalized
   - current decision: keep Close-to-Close and stop_price sizing-only
   - no Stop-Exit without separate specification
+- LQ-039 explicit exit reason / stop-exit specification: `docs/lq-039-explicit-exit-reason-stop-exit-spec.md`
+- Status:
+  - exit_reason / stop-exit specification finalized
+  - no implementation
+  - Stop-Exit remains out of current Runner contract until separately approved
 
 ---
 
