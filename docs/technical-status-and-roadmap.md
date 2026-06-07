@@ -198,6 +198,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - existing Runner/RiskEngine/CostModel/Reporting stack verified
   - Visual Preview remains frozen
   - next suggested action: Runner regression test plan, no UI integration
+- LQ-036 regression test plan: `docs/lq-036-backtest-runner-regression-test-plan.md`
+- Status:
+  - regression test plan finalized
+  - next suggested action: add regression tests only, no implementation unless
+    failing tests reveal a documented mismatch
 
 ---
 
