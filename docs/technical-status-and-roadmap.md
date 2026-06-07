@@ -237,6 +237,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - 12 additional regression tests
   - no production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-043 reporting / comparison stabilization docs + regression coverage: `docs/lq-043-reporting-comparison-stabilization.md`
+- Status:
+  - Reporting / Comparison contract documented
+  - 10 additional regression tests
+  - no production logic changes
+  - no ranking / evaluation / recommendation logic
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
