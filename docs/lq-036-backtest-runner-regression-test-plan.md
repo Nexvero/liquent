@@ -352,6 +352,17 @@ Visual Preview Index:
 * No reports.
 * pytest: all tests green (see README test status).
 
+## LQ-037 Follow-up Status
+
+* Regression tests implemented in `tests/test_backtest_runner_regressions.py`.
+* No production logic changed.
+* All planned test categories were covered (Groups A–H + a safety/import check).
+* `stop_price` sizing-only behavior was tested (no Stop-Exit).
+* `BacktestResult` reporting-metadata absence was tested
+  (no `generated_at`/`strategy_metadata`/`cost_metadata`).
+* Visual Preview Index unchanged.
+* pytest result: 540 passed.
+
 ---
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine

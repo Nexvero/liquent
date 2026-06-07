@@ -203,6 +203,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - regression test plan finalized
   - next suggested action: add regression tests only, no implementation unless
     failing tests reveal a documented mismatch
+- LQ-037 regression tests: `tests/test_backtest_runner_regressions.py`
+- Status:
+  - regression tests implemented
+  - existing Runner behavior locked
+  - no production logic changes
+  - next suggested action: either commit/push this test layer or plan a targeted
+    Runner lifecycle decision separately
 
 ---
 

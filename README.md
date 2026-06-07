@@ -48,6 +48,20 @@ Ausführung.
 - `MidBreakoutStrategyV1` als additive v1-Strategie mit Breakout-Threshold und
   Cooldown (siehe „Strategy v1: MidBreakoutStrategyV1" unten)
 
+#### BacktestRunner regression tests (LQ-037)
+
+`tests/test_backtest_runner_regressions.py` sichert das bestehende
+Runner-Verhalten gegen unbeabsichtigte Änderungen ab (rein synthetische
+In-Memory-Fixtures, keine CSV, kein Netzwerk):
+
+- `BacktestResult`-Contract,
+- `DataSource`/`Strategy`-Integration (`market_data()` / `generate_signals()`),
+- Risk rejected/approved behavior,
+- CostModel regression (nur Kosten-/Nettofelder),
+- metadata separation (Reporting-Layer vs. `BacktestResult`),
+- `stop_price` sizing-only (kein Stop-Exit),
+- no order/position lifecycle output.
+
 ### Metrics
 
 - `number_of_trades`
@@ -648,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-529 passed (pytest, lokale .venv)
+540 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -674,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-529 passed
+540 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
