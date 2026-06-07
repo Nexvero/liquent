@@ -210,6 +210,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - no production logic changes
   - next suggested action: either commit/push this test layer or plan a targeted
     Runner lifecycle decision separately
+- LQ-038 runner lifecycle / stop-exit semantics: `docs/lq-038-runner-lifecycle-stop-exit-semantics.md`
+- Status:
+  - lifecycle decision finalized
+  - current decision: keep Close-to-Close and stop_price sizing-only
+  - no Stop-Exit without separate specification
 
 ---
 

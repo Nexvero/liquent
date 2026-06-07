@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-540 passed (pytest, lokale .venv)
+552 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-540 passed
+552 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -723,6 +723,7 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 
 - BacktestRunner / Trade-Lifecycle Integration (Spezifikation): `docs/lq-035-backtest-runner-trade-lifecycle-integration.md`
 - BacktestRunner Regression Test Plan: `docs/lq-036-backtest-runner-regression-test-plan.md`
+- Runner Lifecycle / Stop-Exit Semantics: `docs/lq-038-runner-lifecycle-stop-exit-semantics.md`
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen
