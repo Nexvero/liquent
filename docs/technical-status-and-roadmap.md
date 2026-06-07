@@ -244,6 +244,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - no production logic changes
   - no ranking / evaluation / recommendation logic
   - Runner Lifecycle stays paused per LQ-040
+- LQ-044 cli output polish docs + regression coverage: `docs/lq-044-cli-output-polish.md`
+- Status:
+  - CLI output / validation / exit-code contract documented
+  - 13 additional regression tests
+  - no production logic changes
+  - no new CLI flags / defaults / exit codes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
