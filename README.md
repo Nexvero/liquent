@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-746 passed (pytest, lokale .venv)
+753 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-746 passed
+753 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -737,6 +737,7 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - Domain Model Validator Layer Decision / Implementation Plan (Plan-only; keine Validator-Implementierung): `docs/lq-049-domain-model-validator-layer-plan.md`
 - Domain Model Validation Track Freeze / Next-Track Decision (Track eingefroren; keine Validator-Implementierung): `docs/lq-050-domain-model-validation-track-freeze.md`
 - Liquent Milestone Review / Next-Track Decision (Meilenstein-Review; reine Entscheidungs-Doku): `docs/lq-051-liquent-milestone-review-next-track.md`
+- Architecture Review Checkpoint (Architektur-/Roadmap-Konsolidierung; reine Review-Doku): `docs/lq-052-architecture-review-checkpoint.md`
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen

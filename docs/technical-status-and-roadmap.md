@@ -293,6 +293,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - milestone review finalized
     - recommended next step: pause/architecture review or product/use-case definition
     - no production logic changes
+- LQ-052 architecture review checkpoint: `docs/lq-052-architecture-review-checkpoint.md`
+  - Status:
+    - architecture review finalized
+    - frozen tracks and parked future specs identified
+    - no production logic changes
 
 ---
 
