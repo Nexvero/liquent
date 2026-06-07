@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-681 passed (pytest, lokale .venv)
+697 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-681 passed
+697 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -731,6 +731,7 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - Reporting/Comparison Stabilization Docs + Regression Coverage (keine Produktionslogik, keine Ranking-/Bewertungs-/Empfehlungslogik): `docs/lq-043-reporting-comparison-stabilization.md`
 - CLI Output Polish Docs + Regression Coverage (keine Produktionslogik, keine neuen CLI-Flags/Exit-Codes, keine Trading-Empfehlung): `docs/lq-044-cli-output-polish.md`
 - Strategy Fixtures / Scenario Coverage Docs + Regression Coverage (keine Produktionslogik, keine Fixtures geändert, nur synthetische/lokale Daten): `docs/lq-045-strategy-fixtures-scenario-coverage.md`
+- Data-Source / CSV-Loader Hardening Docs + Regression Coverage (keine Produktionslogik, keine Fixtures geändert, nur lokale Fixtures und tmp_path): `docs/lq-046-data-source-csv-loader-hardening.md`
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen

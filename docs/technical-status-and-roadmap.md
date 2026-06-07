@@ -258,6 +258,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - no production logic changes
   - no fixture changes; synthetic/local data only
   - Runner Lifecycle stays paused per LQ-040
+- LQ-046 data-source / CSV-loader hardening docs + regression coverage: `docs/lq-046-data-source-csv-loader-hardening.md`
+- Status:
+  - DataSource / CSV-loader contract documented
+  - 4 additional behavior-locks (high existing coverage, deliberately small scope)
+  - no production logic changes
+  - no fixture changes; local fixtures and tmp_path only
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
