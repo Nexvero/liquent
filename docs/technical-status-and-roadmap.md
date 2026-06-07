@@ -265,6 +265,10 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - no production logic changes
   - no fixture changes; local fixtures and tmp_path only
   - Runner Lifecycle stays paused per LQ-040
+- LQ-047 domain model hardening: `docs/lq-047-domain-model-hardening.md`
+  - Tests: `tests/test_domain_model_hardening.py`
+  - Status: domain behavior locks implemented; no production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 
