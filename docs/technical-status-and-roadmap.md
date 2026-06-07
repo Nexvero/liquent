@@ -288,6 +288,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - future validator layer remains separate future track
     - no production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-051 liquent milestone review / next-track decision: `docs/lq-051-liquent-milestone-review-next-track.md`
+  - Status:
+    - milestone review finalized
+    - recommended next step: pause/architecture review or product/use-case definition
+    - no production logic changes
 
 ---
 
