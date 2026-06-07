@@ -281,6 +281,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - future validator layer should stay outside frozen dataclasses
     - no production logic changes
   - Runner Lifecycle stays paused per LQ-040
+- LQ-050 domain model validation track freeze / next-track decision: `docs/lq-050-domain-model-validation-track-freeze.md`
+  - Status:
+    - recommended decision: freeze Domain Validation Track
+    - no validator implementation yet
+    - future validator layer remains separate future track
+    - no production logic changes
+  - Runner Lifecycle stays paused per LQ-040
 
 ---
 

@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-732 passed (pytest, lokale .venv)
+739 passed (pytest, lokale .venv)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-732 passed
+739 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -735,6 +735,7 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - Domain Model Hardening (keine Produktionslogik geändert): `docs/lq-047-domain-model-hardening.md`, `tests/test_domain_model_hardening.py`
 - Domain Model Invariants / Validation Decision (Doku-only Entscheidung; keine Runtime-Validierung): `docs/lq-048-domain-model-invariants-validation-decision.md`
 - Domain Model Validator Layer Decision / Implementation Plan (Plan-only; keine Validator-Implementierung): `docs/lq-049-domain-model-validator-layer-plan.md`
+- Domain Model Validation Track Freeze / Next-Track Decision (Track eingefroren; keine Validator-Implementierung): `docs/lq-050-domain-model-validation-track-freeze.md`
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen
