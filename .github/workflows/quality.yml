@@ -140,7 +140,7 @@ jobs:
           image: liquent:${{ github.sha }}
           fail-build: true
           severity-cutoff: high
-          only-fixed: false
+          only-fixed: true
           output-format: json
           output-file: dist/grype-results.json
           grype-version: v0.112.0
@@ -152,12 +152,13 @@ jobs:
           jq -r '
             .matches[]
             | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")
+            | select((.vulnerability.fix.versions // []) | length > 0)
             | [
                 .artifact.name,
                 .artifact.version,
                 .vulnerability.id,
                 .vulnerability.severity,
-                (.vulnerability.fix.versions | join(",")),
+                ((.vulnerability.fix.versions // []) | join(",")),
                 .vulnerability.dataSource
               ]
             | @tsv

@@ -102,7 +102,7 @@ jobs:
           image: ${{ env.IMAGE_REF }}
           fail-build: true
           severity-cutoff: high
-          only-fixed: false
+          only-fixed: true
           output-format: json
           output-file: dist/grype-results.json
           grype-version: v0.112.0

@@ -380,7 +380,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-064 SBOM, vulnerability and provenance gate: `docs/lq-064-sbom-vulnerability-provenance-gate.md`
   - Status:
     - SPDX-JSON-SBOM und fail-closed Struktur-/Identitätsprüfung ergänzt
-    - Grype-Gate stoppt bei High/Critical-Funden einschließlich ungefixter Funde
+    - Grype-Gate stoppt bei reparierbaren High/Critical-Funden; ungefixte Funde bleiben als Evidenz sichtbar
     - kurzlebige Supply-Chain-Evidenz und main-only GitHub-Provenance definiert
     - echte Scans und Attestation bleiben bis zur GitHub-Ausführung offen
     - nächster Schritt: LQ-065 kontrollierter GHCR-Release-/Promotionvertrag

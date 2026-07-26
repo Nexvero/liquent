@@ -51,7 +51,7 @@ def test_supply_chain_tools_and_versions_are_explicit() -> None:
         "syft-version: v1.44.0",
         "grype-version: v0.112.0",
         "severity-cutoff: high",
-        "only-fixed: false",
+        "only-fixed: true",
         "verify_image_sbom.py",
     ):
         assert term in workflow

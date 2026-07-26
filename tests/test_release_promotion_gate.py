@@ -74,7 +74,7 @@ def test_release_scans_before_registry_authentication_and_push() -> None:
     login = workflow.index("Authenticate to GHCR only after all gates")
     push = workflow.index('docker push "${IMAGE_REF}"')
     assert scan < login < push
-    assert "only-fixed: false" in workflow
+    assert "only-fixed: true" in workflow
     assert "severity-cutoff: high" in workflow
 
 
