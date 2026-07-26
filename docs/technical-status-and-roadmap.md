@@ -418,6 +418,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - keine Environment-Secrets oder -Variablen hinterlegt
     - Required Reviewer bleibt bis zu einem unabhängigen zweiten Maintainer offen
     - erster GHCR-Release und jede VPS-Promotion benötigen separate Freigaben
+- LQ-070 release readiness evidence: `docs/lq-070-release-readiness-evidence.md`
+  - Status:
+    - read-only Kandidatenprüfung von Release-Metadaten und erfolgreichem `main`-Quality-Lauf ergänzt
+    - maschinenlesbarer Nachweis markiert Publication und Deployment ausdrücklich als nicht autorisiert
+    - vorgeschlagener erster Kandidat `0.1.0` bleibt bis zur separaten Releasefreigabe unveröffentlicht
 
 ---
 
