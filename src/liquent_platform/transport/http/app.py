@@ -7,12 +7,22 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from liquent_platform import __version__
 from liquent_platform.application.health import ProcessHealth
-from liquent_platform.identity.research import ExperimentId, JobId
-from liquent_platform.jobs.in_memory import InMemoryResearchJobs
+from liquent_platform.application.evidence import evidence_document
+from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
+from liquent_platform.application.start_research import (
+    ResearchRunnerResolver,
+    resolve_and_start_research_job,
+)
+from liquent_platform.identity.research import (
+    ExperimentId,
+    JobId,
+    StrategyVersionId,
+)
+from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
@@ -37,11 +47,26 @@ class ResearchJobResponse(BaseModel):
     evidence_url: str | None
 
 
+class ResearchJobStartRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    job_id: JobId
+    experiment_id: ExperimentId
+    title: str
+    dataset_ref: str
+    dataset_fingerprint: str
+    strategy_version_id: StrategyVersionId
+    strategy_parameters: dict[str, str | int | float | bool]
+    risk_parameters: dict[str, str | int | float | bool]
+    cost_parameters: dict[str, str | int | float | bool]
+
+
 def create_app(
     settings: PlatformSettings | None = None,
     health: ProcessHealth | None = None,
     metrics: ControlPlaneMetrics | None = None,
     research_jobs: InMemoryResearchJobs | None = None,
+    research_resolver: ResearchRunnerResolver | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
@@ -75,6 +100,18 @@ def create_app(
     app.state.metrics = control_metrics
     app.state.research_jobs = job_store
     app.add_middleware(ObservabilityMiddleware, metrics=control_metrics)
+
+    def job_response(job: InMemoryResearchJob) -> ResearchJobResponse:
+        evidence_url = None
+        if job.status is ResearchJobStatus.SUCCEEDED:
+            evidence_url = f"/v1/research/jobs/{job.job_id}/evidence"
+        return ResearchJobResponse(
+            job_id=job.job_id,
+            experiment_id=job.snapshot.experiment_id,
+            status=job.status,
+            error_code=job.error_code,
+            evidence_url=evidence_url,
+        )
 
     @app.get("/health/live", response_model=HealthResponse, tags=["operations"])
     def liveness() -> HealthResponse:
@@ -113,16 +150,7 @@ def create_app(
             job = job_store.get(job_id)
         except KeyError:
             raise HTTPException(404, "research_job_not_found") from None
-        evidence_url = None
-        if job.status is ResearchJobStatus.SUCCEEDED:
-            evidence_url = f"/v1/research/jobs/{job.job_id}/evidence"
-        return ResearchJobResponse(
-            job_id=job.job_id,
-            experiment_id=job.snapshot.experiment_id,
-            status=job.status,
-            error_code=job.error_code,
-            evidence_url=evidence_url,
-        )
+        return job_response(job)
 
     @app.get(
         "/v1/research/jobs/{job_id}/evidence",
@@ -135,6 +163,37 @@ def create_app(
             raise HTTPException(404, "research_job_not_found") from None
         if evidence is None:
             raise HTTPException(404, "research_evidence_not_found")
-        return evidence
+        return evidence_document(evidence)
+
+    if research_resolver is not None:
+
+        @app.post(
+            "/v1/research/jobs",
+            response_model=ResearchJobResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            tags=["research"],
+        )
+        def start_research(request: ResearchJobStartRequest) -> ResearchJobResponse:
+            try:
+                snapshot = ExperimentSnapshot(
+                    experiment_id=request.experiment_id,
+                    title=request.title,
+                    dataset_ref=request.dataset_ref,
+                    dataset_fingerprint=request.dataset_fingerprint,
+                    strategy_version_id=request.strategy_version_id,
+                    strategy_parameters=freeze_parameters(request.strategy_parameters),
+                    risk_parameters=freeze_parameters(request.risk_parameters),
+                    cost_parameters=freeze_parameters(request.cost_parameters),
+                )
+                job = resolve_and_start_research_job(
+                    InMemoryResearchJob(request.job_id, snapshot),
+                    research_resolver,
+                    job_store,
+                )
+            except ValueError as exc:
+                if str(exc).startswith("research job already exists:"):
+                    raise HTTPException(409, "research_job_conflict") from None
+                raise HTTPException(422, "research_inputs_unresolvable") from None
+            return job_response(job)
 
     return app
