@@ -56,6 +56,14 @@ class PlatformSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_environment_contract(self) -> "PlatformSettings":
+        if self.research_data_root is not None and self.environment not in {
+            Environment.LOCAL,
+            Environment.CI,
+        }:
+            raise ValueError(
+                "research data root is limited to local and ci until "
+                "authentication is implemented"
+            )
         if self.environment is Environment.PRODUCTION:
             if self.log_format != "json":
                 raise ValueError("production requires LIQUENT_LOG_FORMAT=json")

@@ -499,6 +499,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - sichere Standardeinstellung registriert keine POST-Route
     - fehlender Root stoppt den Prozess fail-fast
     - kein Upload, Download, Release oder Deployment ausgeführt
+- LQ-084 research environment gate: `docs/lq-084-research-environment-gate.md`
+  - Status:
+    - lokaler Research-Start bis zur Authentifizierung auf local/ci begrenzt
+    - preview und production scheitern mit Research-Data-Root fail-closed
+    - keine provisorischen API-Keys oder Shared-Secret-Umgehung eingeführt
+    - kein Release, VPS-Zugriff oder Deployment ausgeführt
 
 ---
 

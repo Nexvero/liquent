@@ -33,6 +33,35 @@ def test_research_data_root_is_explicit_and_path_is_not_logged(tmp_path: Path) -
     assert str(tmp_path) not in str(settings.public_summary())
 
 
+@pytest.mark.parametrize("environment", ("preview", "production"))
+def test_research_start_is_rejected_without_authentication_in_shared_environments(
+    environment: str, tmp_path: Path
+) -> None:
+    values: dict[str, object] = {
+        "environment": environment,
+        "research_data_root": tmp_path,
+    }
+    if environment == "production":
+        values.update(
+            log_format="json",
+            http_host="0.0.0.0",
+            database_url="postgresql+psycopg://liquent:test@postgres/liquent",
+        )
+
+    with pytest.raises(ValidationError, match="limited to local and ci"):
+        PlatformSettings(_secrets_dir=None, **values)
+
+
+def test_ci_may_enable_controlled_local_research(tmp_path: Path) -> None:
+    settings = PlatformSettings(
+        _secrets_dir=None,
+        environment="ci",
+        research_data_root=tmp_path,
+    )
+
+    assert settings.research_data_root == tmp_path
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (("job_concurrency", 2), ("trading_connectivity", "enabled"), ("http_port", 70000)),
