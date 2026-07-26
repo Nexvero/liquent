@@ -435,6 +435,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - kleine explizite Research-Job-Übergangstabelle implementiert
     - terminale Zustände sind unveränderlich; ungültige Sprünge scheitern fail-closed
     - keine Persistenz, Events, State-Machine-Abstraktion oder neue Abhängigkeit eingeführt
+- LQ-073 backtest application boundary: `docs/lq-073-backtest-application-boundary.md`
+  - Status:
+    - Ein-Methoden-Port und eine kleine Orchestrierungsfunktion zum vorhandenen Runner ergänzt
+    - vorhandener `BacktestResult` und vorhandene neutrale Summary werden wiederverwendet
+    - kein paralleles Evidence-Modell, keine Queue und keine Adapterhierarchie eingeführt
 
 ---
 
