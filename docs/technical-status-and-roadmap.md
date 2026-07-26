@@ -511,6 +511,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Cookie-, CSRF-, 401-/403-/404- und Audit-Grenzen festgelegt
     - Shared-Environment-Gate bleibt bis zum Ende-zu-Ende-Nachweis aktiv
     - keine Provider-, Passwort-, Token- oder Datenbankimplementierung vorgezogen
+- LQ-086 access domain types: `docs/lq-086-access-domain-types.md`
+  - Status:
+    - stabile `UserId` ohne paralleles Workspace-Modell ergänzt
+    - Membership auf `active` und `inactive` begrenzt
+    - Permission auf `research:read` und `research:write` begrenzt
+    - keine Session-, Policy-, Middleware- oder Persistenzimplementierung vorgezogen
 
 ---
 
