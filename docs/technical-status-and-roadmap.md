@@ -445,6 +445,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - bereits validierter Research-Job synchron im Speicher ausführbar
     - Erfolg liefert vorhandene Evidence; Fehler bleiben neutral und terminal
     - keine Queue, Persistenz, Worker-, Retry- oder Repository-Abstraktion eingeführt
+- LQ-075 minimal HTTP/job contract: `docs/lq-075-http-job-contract.md`
+  - Status:
+    - Start-, Status- und Evidence-Ressourcen sowie neutrale Fehlersemantik definiert
+    - bestehende Identitäten, Lifecycle und Evidence bleiben maßgeblich
+    - Routenaktivierung wartet auf vollständigen Experiment-Snapshot und minimale Job-Ablage
+    - keine Auth-, Datenbank-, Queue-, Worker- oder Produktendpunkt-Implementierung vorgezogen
 
 ---
 
