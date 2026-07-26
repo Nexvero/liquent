@@ -535,6 +535,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Treffer liefert vorhandenes Membership-Objekt, fehlender Treffer neutral `None`
     - keine Listen-, Such- oder Mutationsoperation eingeführt
     - keine konkrete Ablage, Session-, HTTP- oder Middleware-Integration vorgezogen
+- LQ-090 research authorization application: `docs/lq-090-research-authorization-application.md`
+  - Status:
+    - Membership-Lookup und reine Research-Entscheidung minimal verbunden
+    - fehlende oder inkonsistente Memberships werden fail-closed abgewiesen
+    - vorhandene Permission-Implikation ohne parallele Policy wiederverwendet
+    - keine Session-, HTTP-, Speicher- oder Deploymentintegration vorgezogen
 
 ---
 
