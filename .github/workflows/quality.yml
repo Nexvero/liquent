@@ -141,6 +141,7 @@ jobs:
           fail-build: true
           severity-cutoff: high
           only-fixed: true
+          config: .grype.yaml
           output-format: json
           output-file: dist/grype-results.json
           grype-version: v0.112.0

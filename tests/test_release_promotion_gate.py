@@ -75,6 +75,7 @@ def test_release_scans_before_registry_authentication_and_push() -> None:
     push = workflow.index('docker push "${IMAGE_REF}"')
     assert scan < login < push
     assert "only-fixed: true" in workflow
+    assert "config: .grype.yaml" in workflow
     assert "severity-cutoff: high" in workflow
 
 

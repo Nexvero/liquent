@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 import re
 
@@ -11,6 +12,7 @@ from tools.verify_image_sbom import verify
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
+GRYPE_CONFIG = ROOT / ".grype.yaml"
 
 
 def _sbom() -> dict[str, object]:
@@ -52,9 +54,23 @@ def test_supply_chain_tools_and_versions_are_explicit() -> None:
         "grype-version: v0.112.0",
         "severity-cutoff: high",
         "only-fixed: true",
+        "config: .grype.yaml",
         "verify_image_sbom.py",
     ):
         assert term in workflow
+
+
+def test_grype_exception_is_narrow_owned_and_time_bounded() -> None:
+    config = GRYPE_CONFIG.read_text(encoding="utf-8")
+    assert "exception-owner: Liquent Platform Architecture" in config
+    assert "vulnerability: CVE-2026-15308" in config
+    assert "name: python" in config
+    assert "version: 3.13.14" in config
+    assert config.count("- vulnerability:") == 1
+    expiry = date.fromisoformat(
+        config.split("exception-expires: ", 1)[1].splitlines()[0]
+    )
+    assert date.today() <= expiry <= date(2026, 9, 30)
 
 
 def test_provenance_is_push_only_and_minimally_permissioned() -> None:
