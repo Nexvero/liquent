@@ -14,13 +14,16 @@ REVISION_RE = re.compile(r"[0-9a-f]{40}")
 VERSION_RE = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 
 
-def validate(revision: str, version: str, confirmation: str, evidence: dict[str, Any]) -> None:
+def validate_metadata(revision: str, version: str) -> None:
     if not REVISION_RE.fullmatch(revision):
         raise ValueError("revision must be a lowercase 40-character commit SHA")
     if not VERSION_RE.fullmatch(version):
         raise ValueError("version must use strict X.Y.Z syntax")
-    if confirmation != "PUBLISH":
-        raise ValueError("confirmation must equal PUBLISH")
+
+
+def validate_quality_evidence(revision: str, evidence: dict[str, Any]) -> None:
+    if not REVISION_RE.fullmatch(revision):
+        raise ValueError("revision must be a lowercase 40-character commit SHA")
 
     runs = evidence.get("workflow_runs")
     if not isinstance(runs, list):
@@ -37,6 +40,13 @@ def validate(revision: str, version: str, confirmation: str, evidence: dict[str,
     )
     if not accepted:
         raise ValueError("no successful completed main-push quality run for revision")
+
+
+def validate(revision: str, version: str, confirmation: str, evidence: dict[str, Any]) -> None:
+    validate_metadata(revision, version)
+    validate_quality_evidence(revision, evidence)
+    if confirmation != "PUBLISH":
+        raise ValueError("confirmation must equal PUBLISH")
 
 
 def main() -> None:
