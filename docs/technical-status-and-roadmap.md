@@ -469,6 +469,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - vorhandenes In-Memory-Register und bestehende Evidence wiederverwendet
     - unfertige Jobs veröffentlichen keine Teil-Evidence
     - kein Start-Endpunkt, keine Authentifizierung oder Persistenz eingeführt
+- LQ-079 research job start: `docs/lq-079-research-job-start.md`
+  - Status:
+    - bereits validierter Job wird vor synchroner Ausführung registriert
+    - Erfolg und neutraler Fehler bleiben über die Lese-API beobachtbar
+    - doppelte Job-ID verhindert den Runner-Aufruf
+    - keine Factory, HTTP-POST-Route, Queue oder Persistenz eingeführt
 
 ---
 
