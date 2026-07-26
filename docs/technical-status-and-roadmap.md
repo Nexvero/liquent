@@ -547,6 +547,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Workspace und Rechte bleiben serverseitig über Membership gebunden
     - keine Cookies, Tokens oder Session-Geheimnisse in die Anwendung getragen
     - keine Provider-, Middleware-, Speicher- oder Deploymentintegration vorgezogen
+- LQ-092 principal-bound authorization: `docs/lq-092-principal-bound-authorization.md`
+  - Status:
+    - Research-Autorisierung akzeptiert nur noch den verifizierten Principal
+    - Membership-Lookup verwendet ausschließlich dessen `UserId`
+    - bestehende fail-closed Zuordnungs- und Permission-Prüfung bleibt erhalten
+    - keine Principal-Prüfung, Session-, HTTP- oder Deploymentintegration vorgezogen
 
 ---
 

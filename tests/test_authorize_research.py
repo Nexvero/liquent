@@ -6,6 +6,7 @@ from liquent_platform.identity.access import (
     WorkspaceMembership,
 )
 from liquent_platform.identity.research import WorkspaceId
+from liquent_platform.identity.session import SessionPrincipal
 
 
 class StubMembershipLookup:
@@ -33,10 +34,14 @@ def _membership(
     )
 
 
+def _principal(user_id: str = "user-1") -> SessionPrincipal:
+    return SessionPrincipal(user_id=UserId(user_id))
+
+
 def test_authorization_uses_resolved_membership_and_existing_policy() -> None:
     assert authorize_research(
         StubMembershipLookup(_membership()),
-        UserId("user-1"),
+        _principal(),
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_READ,
     )
@@ -45,7 +50,7 @@ def test_authorization_uses_resolved_membership_and_existing_policy() -> None:
 def test_missing_membership_is_denied() -> None:
     assert not authorize_research(
         StubMembershipLookup(None),
-        UserId("user-1"),
+        _principal(),
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_READ,
     )
@@ -54,7 +59,7 @@ def test_missing_membership_is_denied() -> None:
 def test_denial_from_existing_policy_is_preserved() -> None:
     assert not authorize_research(
         StubMembershipLookup(_membership()),
-        UserId("user-1"),
+        _principal(),
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_WRITE,
     )
@@ -63,13 +68,13 @@ def test_denial_from_existing_policy_is_preserved() -> None:
 def test_mismatched_membership_identity_is_denied_fail_closed() -> None:
     assert not authorize_research(
         StubMembershipLookup(_membership(user_id="another-user")),
-        UserId("user-1"),
+        _principal(),
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_READ,
     )
     assert not authorize_research(
         StubMembershipLookup(_membership(workspace_id="another-workspace")),
-        UserId("user-1"),
+        _principal(),
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_READ,
     )
