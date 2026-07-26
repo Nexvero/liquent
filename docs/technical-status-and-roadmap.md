@@ -529,6 +529,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Membership-Status und Research-Rechte gemeinsam eingefroren
     - keine zweite Workspace-Identität oder Rollenabstraktion eingeführt
     - keine Repository-, Session-, HTTP- oder Persistenzintegration vorgezogen
+- LQ-089 workspace membership lookup port: `docs/lq-089-workspace-membership-lookup-port.md`
+  - Status:
+    - genau ein Lookup über `UserId` und `WorkspaceId` definiert
+    - Treffer liefert vorhandenes Membership-Objekt, fehlender Treffer neutral `None`
+    - keine Listen-, Such- oder Mutationsoperation eingeführt
+    - keine konkrete Ablage, Session-, HTTP- oder Middleware-Integration vorgezogen
 
 ---
 
