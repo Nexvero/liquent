@@ -5,6 +5,7 @@ import pytest
 from liquent_platform.identity.research import (
     EvidenceId,
     ExperimentId,
+    JobId,
     StrategyVersionId,
     WorkspaceId,
 )
@@ -20,6 +21,7 @@ def test_research_ids_remain_strings_with_distinct_semantic_types() -> None:
     assert WorkspaceId("workspace-1") == "workspace-1"
     assert StrategyVersionId("strategy-version-1") == "strategy-version-1"
     assert ExperimentId("experiment-1") == "experiment-1"
+    assert JobId("job-1") == "job-1"
     assert EvidenceId("evidence-1") == "evidence-1"
     assert WorkspaceId is not ExperimentId
 
