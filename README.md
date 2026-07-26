@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-860 passed (pytest, lokale `.venv`, LQ-067-Checkpoint)
+861 passed (pytest, lokale `.venv`, PR-#1-CI-Checkpoint)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-860 passed
+861 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -698,10 +698,10 @@ Exchange-API-Keys und keine Netzwerk-Calls.
 
 ```text
 Remote:
-origin -> github-liquent:Nexvero/liquent.git
+origin -> git@github.com:Nexvero/liquent.git
 
 Branch:
-architecture/lq-053-platform-boundaries (noch nicht committed)
+architecture/lq-053-platform-boundaries (Pull Request #1, CI grün)
 ```
 
 Der Zugriff erfolgt über einen repo-spezifischen Deploy-Key. Es werden keine
@@ -758,4 +758,4 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen
 - Tooling: lokale `.venv` mit `pytest` eingerichtet (erledigt) — ggf. CI ergänzen
-- Optional: CI später über GitHub Actions, aber noch nicht jetzt
+- GitHub Actions für Test, Wheel, Container, SBOM und Vulnerability-Gate eingerichtet (erledigt)

@@ -6,13 +6,11 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Letzter Commit:** `7872548` — *docs: add LQ-052 architecture review checkpoint*
-  (`HEAD`, `main` und `origin/main`; Stand vor dem Plattform-Checkpoint).
-- **Teststand:** **860 passed** (lokale `.venv`, `python -m pytest`).
-- **Branch:** `architecture/lq-053-platform-boundaries`, aktuell 0 Commits vor
-  und 0 Commits hinter `origin/main`.
-- **Working Tree:** LQ-053 bis LQ-067 vollständig lokal implementiert und
-  verifiziert, aber bewusst noch nicht committed oder gepusht.
+- **Letzter Commit:** `9976fe4` — *security: time-box Python vulnerability exception*.
+- **Teststand:** **861 passed** (lokale `.venv`, `python -m pytest`).
+- **Branch:** `architecture/lq-053-platform-boundaries`, aktuell 7 Commits vor
+  und 0 Commits hinter `origin/main`; Pull Request `#1` ist offen.
+- **Working Tree:** sauber; Branch und GitHub-Remote sind synchron.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-Entscheidungen und Betriebsverträge bis LQ-067.
 
@@ -368,21 +366,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - read-only GitHub-Actions-Workflow mit Test- und Wheel-Gate angelegt
     - CI-/Build-Abhängigkeiten exakt versioniert und externe Actions SHA-gepinnt
     - Wheel-Inhalt, Entrypoints, Migrationen und SHA-256 werden geprüft
-    - Workflow noch nicht auf GitHub ausgeführt; Branch Protection bleibt externes Gate
+    - Test- und Wheel-Gate im Pull Request erfolgreich ausgeführt; Branch Protection bleibt externes Gate
     - nächster Schritt: LQ-063 OCI-Image- und Container-Smoke-Gate
 - LQ-063 OCI image and container smoke gate: `docs/lq-063-oci-image-container-smoke-gate.md`
   - Status:
     - mehrstufiges Application-Image mit digest-gepinntem Basisimage definiert
     - non-root Runtime, Liveness-Healthcheck und OCI-Commitmetadaten festgelegt
     - gehärteter Container-Smoke-Test als drittes CI-Gate ergänzt
-    - echter Image-Build/Smoke-Lauf bleibt bis zur GitHub-Ausführung offen
+    - Image-Build, Image-Vertrag und gehärteter Smoke-Test auf GitHub erfolgreich
     - nächster Schritt: LQ-064 SBOM-, Vulnerability- und Provenance-Gate
 - LQ-064 SBOM, vulnerability and provenance gate: `docs/lq-064-sbom-vulnerability-provenance-gate.md`
   - Status:
     - SPDX-JSON-SBOM und fail-closed Struktur-/Identitätsprüfung ergänzt
     - Grype-Gate stoppt bei reparierbaren High/Critical-Funden; ungefixte Funde bleiben als Evidenz sichtbar
     - kurzlebige Supply-Chain-Evidenz und main-only GitHub-Provenance definiert
-    - echte Scans und Attestation bleiben bis zur GitHub-Ausführung offen
+    - echter SBOM-/Vulnerability-Scan im Pull Request erfolgreich; Attestation bleibt main-only
     - nächster Schritt: LQ-065 kontrollierter GHCR-Release-/Promotionvertrag
 - LQ-065 controlled GHCR release and promotion contract: `docs/lq-065-controlled-ghcr-release-promotion.md`
   - Status:
@@ -411,9 +409,9 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - Status:
     - gesamter LQ-053-bis-LQ-067-Checkpoint lokal auditiert
     - Secret-, Symlink-, Großdatei-, Syntax-, Dependency- und Regression-Gates grün
-    - Branch basiert exakt auf origin/main; Änderungen bleiben uncommitted
-    - empfohlener einzelner Foundation-Commit und Nach-Commit-Prüfablauf dokumentiert
-    - Commit, Push und erster GitHub-CI-Lauf benötigen ausdrückliche Freigabe
+    - Branch ist committed, gepusht und als Pull Request `#1` reviewbar
+    - erster realer GitHub-CI-Lauf inklusive Container-/Supply-Chain-Gates grün
+    - Merge, Branch Protection, Release und Deployment bleiben externe Freigaben
 
 ---
 
