@@ -17,6 +17,10 @@ htmlcov/
 
 # Secrets — never commit real credentials (see ADR-002 / security rules)
 .env
+operations/compose/runtime.env
+operations/compose/images.env
+operations/secrets/
+operations/backup/backup.env
 *.key
 *.pem
 

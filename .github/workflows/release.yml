@@ -1,0 +1,151 @@
+name: Controlled GHCR release
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full 40-character commit SHA already verified on main
+        required: true
+        type: string
+      version:
+        description: Immutable release version in X.Y.Z form
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH to authorize registry publication
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghcr-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: registry-release
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE_NAME: ghcr.io/nexvero/liquent
+      REVISION: ${{ inputs.revision }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Check out release tooling
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch completed quality runs for candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/quality.yml/runs?head_sha=${REVISION}&status=completed&per_page=100" \
+            > /tmp/liquent-quality-runs.json
+
+      - name: Validate release inputs and successful main quality gate
+        run: |
+          python tools/validate_release_candidate.py \
+            --revision "${REVISION}" \
+            --version "${RELEASE_VERSION}" \
+            --confirmation "${CONFIRMATION}" \
+            --quality-runs /tmp/liquent-quality-runs.json
+          git fetch origin main --no-tags
+          git cat-file -e "${REVISION}^{commit}"
+          git merge-base --is-ancestor "${REVISION}" origin/main
+          git checkout --detach "${REVISION}"
+
+      - name: Build candidate image from verified commit
+        run: |
+          image_ref="${IMAGE_NAME}:${RELEASE_VERSION}-${REVISION}"
+          docker build \
+            --build-arg SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
+            --build-arg VCS_REF="${REVISION}" \
+            --tag "${image_ref}" .
+          echo "IMAGE_REF=${image_ref}" >> "${GITHUB_ENV}"
+
+      - name: Run hardened container smoke test
+        run: operations/container/smoke-test.sh "${IMAGE_REF}"
+
+      - name: Prepare release evidence directory
+        run: mkdir -p dist
+
+      - name: Generate release SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE_REF }}
+          format: spdx-json
+          output-file: dist/liquent-image.spdx.json
+          syft-version: v1.44.0
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Verify release SBOM
+        run: python tools/verify_image_sbom.py dist/liquent-image.spdx.json
+
+      - name: Fail on high or critical release vulnerabilities
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+        with:
+          image: ${{ env.IMAGE_REF }}
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          config: .grype.yaml
+          output-format: json
+          output-file: dist/grype-results.json
+          grype-version: v0.112.0
+          cache-db: false
+
+      - name: Authenticate to GHCR only after all gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "${GH_TOKEN}" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Publish immutable candidate tag and capture digest
+        run: |
+          docker push "${IMAGE_REF}"
+          repo_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGE_REF}")"
+          digest="${repo_digest#*@}"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "IMAGE_DIGEST=${digest}" >> "${GITHUB_ENV}"
+
+      - name: Attest published image digest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ env.IMAGE_DIGEST }}
+          push-to-registry: true
+
+      - name: Write release evidence manifest
+        run: |
+          python tools/write_release_manifest.py \
+            --revision "${REVISION}" \
+            --version "${RELEASE_VERSION}" \
+            --image "${IMAGE_NAME}" \
+            --digest "${IMAGE_DIGEST}" \
+            --sbom dist/liquent-image.spdx.json \
+            --output dist/release-manifest.json
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: liquent-release-${{ inputs.version }}-${{ inputs.revision }}
+          path: |
+            dist/liquent-image.spdx.json
+            dist/grype-results.json
+            dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30

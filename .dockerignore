@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+build
+dist
+reports
+data/raw
+data/processed
+operations
+tests
+docs
+*.env
+*.key
+*.pem
+**/__pycache__
+**/*.pyc

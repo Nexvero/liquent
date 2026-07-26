@@ -6,12 +6,13 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Letzter Commit:** `79392af` — *Add max signals comparison report test*
-  (auf `origin/main`).
-- **Teststand:** **345 passed** (lokale `.venv`, `python -m pytest`).
-- **Branch:** `main` synchron mit `origin/main` (kein ahead/behind).
-- **Working Tree:** clean.
-- **Doku-Inventar:** `docs/lq-009 … lq-016` (8 LQ-Specs) + diese Datei.
+- **Letzter Commit:** `9976fe4` — *security: time-box Python vulnerability exception*.
+- **Teststand:** **861 passed** (lokale `.venv`, `python -m pytest`).
+- **Branch:** `architecture/lq-053-platform-boundaries`, aktuell 7 Commits vor
+  und 0 Commits hinter `origin/main`; Pull Request `#1` ist offen.
+- **Working Tree:** sauber; Branch und GitHub-Remote sind synchron.
+- **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
+  Plattform-Entscheidungen und Betriebsverträge bis LQ-067.
 
 ## 2. Abgeschlossene Foundations / Schritte
 
@@ -298,6 +299,119 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - architecture review finalized
     - frozen tracks and parked future specs identified
     - no production logic changes
+- LQ-053 platform boundaries and evolution: `docs/lq-053-platform-boundaries-and-evolution.md`
+  - Status:
+    - Liquent Platform PRD gegen den vorhandenen Research-Kern abgeglichen
+    - modularer Monolith als evolutionäre Zielgrenze festgelegt
+    - Plattformobjekte, Ausführungsgrenzen und vertikale MVP-Slices definiert
+    - keine Technologieauswahl und keine Produktionslogik geändert
+- LQ-054 platform foundation quality and operations: `docs/lq-054-platform-foundation-quality-and-operations.md`
+  - Status:
+    - SLOs, Health/Readiness, Recovery und Observability definiert
+    - Single-VPS-Kapazitäts- und Sicherheitsgrenzen festgelegt
+    - Slice-0-Go-Live-Gates und LQ-055-Technologiekriterien dokumentiert
+    - keine Technologieauswahl und keine Produktionslogik geändert
+- LQ-055 start stack technology decision: `docs/lq-055-start-stack-technology-decision.md`
+  - Status:
+    - Python/FastAPI, React/Vite, PostgreSQL 18 und Docker Compose ausgewählt
+    - PostgreSQL-basierte Research Jobs ohne initialen Message Broker festgelegt
+    - Prometheus/Grafana, Restic/OVH Object Storage und GitHub CI/CD entschieden
+    - Repository-Zielstruktur und LQ-056-Implementierungsfolge dokumentiert
+    - keine Runtime-Abhängigkeit oder Produktionskonfiguration geändert
+- LQ-056 repository foundation and architecture guardrails: `docs/lq-056-repository-foundation-architecture-guardrails.md`
+  - Status:
+    - additive `liquent_platform`-Paketstruktur angelegt
+    - frameworkunabhängige Application-Ports für Zeit, Identitäten und Artefakte definiert
+    - AST-basierte Architekturtests schützen Research-, Application-, Adapter- und Transportgrenzen
+    - keine Runtime-Abhängigkeit, HTTP-App, Datenbank oder Tradingverbindung ergänzt
+    - nächster Schritt: LQ-057 Slice-0-Compose- und Konfigurationsvertrag
+- LQ-057 Slice-0 Compose and configuration contract: `docs/lq-057-slice-0-compose-configuration-contract.md`
+  - Status:
+    - Rollen für Control Plane, Research Worker, PostgreSQL und Observability deklariert
+    - öffentliche Portfreigaben ausgeschlossen; vorhandene isolierte VPS-Netze referenziert
+    - Image-Digests, Runtimekonfiguration und dateibasierte Secrets getrennt
+    - Ressourcenobergrenzen, persistente Volumes und lokale Logrotation festgelegt
+    - noch kein Image gebaut, Dienst gestartet oder VPS verändert
+    - nächster Schritt: LQ-058 minimale Control Plane mit Health/Readiness
+- LQ-058 minimal control plane with health and readiness: `docs/lq-058-minimal-control-plane-health-readiness.md`
+  - Status:
+    - FastAPI-App-Factory und Uvicorn-Entrypoint implementiert
+    - fail-fast Production-Konfiguration mit Pydantic Settings umgesetzt
+    - getrennte Liveness-/Readiness-Endpunkte mit 200/503-Vertrag ergänzt
+    - keine Produkt-API, Datenbankverbindung oder Tradingfunktion aktiviert
+    - nächster Schritt: LQ-059 PostgreSQL-Persistenz und Migration Gate
+- LQ-059 PostgreSQL persistence and migration gate: `docs/lq-059-postgresql-persistence-migration-gate.md`
+  - Status:
+    - SQLAlchemy/Psycopg-Engine-Adapter und Alembic-Baseline implementiert
+    - separates Compose-Migration-Gate vor Control Plane und Worker ergänzt
+    - Readiness an Datenbankerreichbarkeit und exakte Head-Revision gebunden
+    - keine fachlichen Tabellen, Produktendpunkte oder Tradingverbindungen ergänzt
+    - nächster Schritt: LQ-060 Observability und externe Health-Prüfung
+- LQ-060 observability and external health verification: `docs/lq-060-observability-external-health.md`
+  - Status:
+    - strukturierte JSON-Logs und validierte Correlation IDs implementiert
+    - begrenzte Request-/Latenz-/Readiness-/Buildmetriken ergänzt
+    - interner Prometheus-Endpunkt und HTTPS-only Smoke-Check implementiert
+    - keine externe Überwachung aktiviert und kein VPS verändert
+    - nächster Schritt: LQ-061 Backup-/Restore-Nachweis und Runbook
+- LQ-061 backup, restore and recovery contract: `docs/lq-061-backup-restore-contract.md`
+  - Status:
+    - Restic-/PostgreSQL-Backup, getrennte Retention und sichere Restore-Verifikation implementiert
+    - dateibasierte Secrets und optionales Compose-Operations-Profil ergänzt
+    - Recovery-Runbook mit RPO/RTO- und Incident-Gates dokumentiert
+    - echter OVH-Offsite-Snapshot und isolierter Vollrestore bleiben Go-live-Gate
+    - kein VPS oder externer Bucket verändert
+- LQ-062 CI quality and release artifact gate: `docs/lq-062-ci-quality-release-artifact-gate.md`
+  - Status:
+    - read-only GitHub-Actions-Workflow mit Test- und Wheel-Gate angelegt
+    - CI-/Build-Abhängigkeiten exakt versioniert und externe Actions SHA-gepinnt
+    - Wheel-Inhalt, Entrypoints, Migrationen und SHA-256 werden geprüft
+    - Test- und Wheel-Gate im Pull Request erfolgreich ausgeführt; Branch Protection bleibt externes Gate
+    - nächster Schritt: LQ-063 OCI-Image- und Container-Smoke-Gate
+- LQ-063 OCI image and container smoke gate: `docs/lq-063-oci-image-container-smoke-gate.md`
+  - Status:
+    - mehrstufiges Application-Image mit digest-gepinntem Basisimage definiert
+    - non-root Runtime, Liveness-Healthcheck und OCI-Commitmetadaten festgelegt
+    - gehärteter Container-Smoke-Test als drittes CI-Gate ergänzt
+    - Image-Build, Image-Vertrag und gehärteter Smoke-Test auf GitHub erfolgreich
+    - nächster Schritt: LQ-064 SBOM-, Vulnerability- und Provenance-Gate
+- LQ-064 SBOM, vulnerability and provenance gate: `docs/lq-064-sbom-vulnerability-provenance-gate.md`
+  - Status:
+    - SPDX-JSON-SBOM und fail-closed Struktur-/Identitätsprüfung ergänzt
+    - Grype-Gate stoppt bei reparierbaren High/Critical-Funden; ungefixte Funde bleiben als Evidenz sichtbar
+    - kurzlebige Supply-Chain-Evidenz und main-only GitHub-Provenance definiert
+    - echter SBOM-/Vulnerability-Scan im Pull Request erfolgreich; Attestation bleibt main-only
+    - nächster Schritt: LQ-065 kontrollierter GHCR-Release-/Promotionvertrag
+- LQ-065 controlled GHCR release and promotion contract: `docs/lq-065-controlled-ghcr-release-promotion.md`
+  - Status:
+    - manueller, environment-geschützter Releaseworkflow angelegt
+    - nur erfolgreiche main-Push-Quality-Commits als Kandidaten zugelassen
+    - erneuter Smoke-/SBOM-/Vulnerability-Check vor Registry-Login erzwungen
+    - commitqualifizierter Tag, Registry-Digest-Attestation und Evidenzmanifest definiert
+    - Environment-Reviewer, erster GHCR-Release und VPS-Promotion bleiben offen
+    - nächster Schritt: LQ-066 kontrollierte Staging-Promotion und Rollback
+- LQ-066 controlled staging promotion and rollback: `docs/lq-066-staging-promotion-rollback.md`
+  - Status:
+    - digestgebundener, mutierungsfreier Preflight und operatorgesteuerte Promotion implementiert
+    - Host-Lock, Laufjournal, Backup-Evidenz und externer HTTPS-Health-Nachweis ergänzt
+    - Fehlerpfad stellt vorheriges Application-Image wieder her
+    - Datenbankmigrationen werden bewusst nicht automatisch zurückgedreht
+    - Staging-Bootstrap, Domain/TLS und echter Promotionslauf bleiben offen
+    - nächster Schritt: LQ-067 Initial-Staging-Bootstrap und Edge-Routing-Plan
+- LQ-067 initial staging bootstrap and edge routing: `docs/lq-067-initial-staging-bootstrap-edge-routing.md`
+  - Status:
+    - einmaliger Initial-Staging-Bootstrap mit expliziter Bestätigung implementiert
+    - DNS-/TLS-/Release-/Backup-Preflight und Zertifikat-Key-Abgleich ergänzt
+    - Edge veröffentlicht ausschließlich HTTPS-Liveness; alle anderen Pfade bleiben geschlossen
+    - lokaler Offline-Preflight ist testbar, echter Online-Lauf bleibt offen
+    - nächster Schritt: LQ-068 Git-Checkpoint und erster GitHub-CI-Lauf
+- LQ-068 git checkpoint and first CI readiness: `docs/lq-068-git-checkpoint-ci-readiness.md`
+  - Status:
+    - gesamter LQ-053-bis-LQ-067-Checkpoint lokal auditiert
+    - Secret-, Symlink-, Großdatei-, Syntax-, Dependency- und Regression-Gates grün
+    - Branch ist committed, gepusht und als Pull Request `#1` reviewbar
+    - erster realer GitHub-CI-Lauf inklusive Container-/Supply-Chain-Gates grün
+    - Merge, Branch Protection, Release und Deployment bleiben externe Freigaben
 
 ---
 

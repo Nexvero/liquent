@@ -1,0 +1,226 @@
+name: liquent
+
+# LQ-057 deployment contract. It becomes runnable only after LQ-058 supplies
+# the application image and commands. Production image variables must contain
+# immutable digest references (repository@sha256:...).
+
+x-app-base: &app-base
+  image: ${LIQUENT_APP_IMAGE:?set an immutable application image digest}
+  restart: unless-stopped
+  init: true
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  env_file:
+    - path: ./runtime.env
+      required: true
+  secrets:
+    - database_url
+  networks:
+    - application
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  migration-gate:
+    <<: *app-base
+    command: ["liquent-migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    cpus: 0.50
+    mem_limit: 512m
+
+  control-plane:
+    <<: *app-base
+    command: ["liquent-control-plane"]
+    expose:
+      - "8000"
+    networks:
+      - public
+      - application
+      - observability
+    depends_on:
+      migration-gate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    cpus: 1.50
+    mem_limit: 1536m
+
+  research-worker:
+    <<: *app-base
+    command: ["liquent-research-worker"]
+    stop_grace_period: 60s
+    networks:
+      - application
+      - data
+      - observability
+    depends_on:
+      migration-gate:
+        condition: service_completed_successfully
+    cpus: 3.00
+    mem_limit: 4096m
+    volumes:
+      - artifacts:/var/lib/liquent/artifacts
+
+  postgres:
+    image: ${LIQUENT_POSTGRES_IMAGE:?set an immutable PostgreSQL image digest}
+    restart: unless-stopped
+    init: true
+    shm_size: 256m
+    environment:
+      POSTGRES_DB: liquent
+      POSTGRES_USER: liquent
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    networks:
+      - application
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liquent -d liquent"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cpus: 1.50
+    mem_limit: 3072m
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  prometheus:
+    image: ${LIQUENT_PROMETHEUS_IMAGE:?set an immutable Prometheus image digest}
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - observability
+    cpus: 0.35
+    mem_limit: 512m
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: ${LIQUENT_GRAFANA_IMAGE:?set an immutable Grafana image digest}
+    restart: unless-stopped
+    read_only: true
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SERVER_HTTP_ADDR: 0.0.0.0
+    secrets:
+      - grafana_admin_password
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - observability
+    cpus: 0.35
+    mem_limit: 512m
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  backup:
+    image: ${LIQUENT_BACKUP_IMAGE:?set an immutable backup image digest}
+    profiles: ["operations"]
+    command: ["/opt/liquent/backup/backup.sh"]
+    restart: "no"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    env_file:
+      - path: ../backup/backup.env
+        required: true
+    secrets:
+      - restic_password
+      - ovh_access_key
+      - ovh_secret_key
+      - pgpass
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    cpus: 1.00
+    mem_limit: 1024m
+    tmpfs:
+      - /backup-input/database:size=2048m,mode=0700
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - artifacts:/backup-input/artifacts:ro
+
+networks:
+  public:
+    external: true
+    name: liquent_public
+  application:
+    external: true
+    name: liquent_application
+  data:
+    external: true
+    name: liquent_data
+  observability:
+    external: true
+    name: liquent_observability
+
+volumes:
+  postgres-data:
+    name: liquent_postgres_data
+  artifacts:
+    name: liquent_artifacts
+  prometheus-data:
+    name: liquent_prometheus_data
+  grafana-data:
+    name: liquent_grafana_data
+
+secrets:
+  database_url:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/database_url
+  postgres_password:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/postgres_password
+  grafana_admin_password:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/grafana_admin_password
+  restic_password:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/restic_password
+  ovh_access_key:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/ovh_access_key
+  ovh_secret_key:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/ovh_secret_key
+  pgpass:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/pgpass
