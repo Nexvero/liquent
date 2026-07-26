@@ -463,6 +463,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - kanonische skalare Parameterdarstellung ohne paralleles Konfigurationssystem
     - Research-Job verwendet den gebundenen Snapshot für seine Evidence
     - keine Datenkopie, Persistenz, Factory oder HTTP-Route eingeführt
+- LQ-078 research read API: `docs/lq-078-research-read-api.md`
+  - Status:
+    - Jobstatus und erfolgreiche Evidence über zwei GET-Routen lesbar
+    - vorhandenes In-Memory-Register und bestehende Evidence wiederverwendet
+    - unfertige Jobs veröffentlichen keine Teil-Evidence
+    - kein Start-Endpunkt, keine Authentifizierung oder Persistenz eingeführt
 
 ---
 
