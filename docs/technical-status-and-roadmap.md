@@ -505,6 +505,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - preview und production scheitern mit Research-Data-Root fail-closed
     - keine provisorischen API-Keys oder Shared-Secret-Umgehung eingeführt
     - kein Release, VPS-Zugriff oder Deployment ausgeführt
+- LQ-085 authentication and authorization boundary: `docs/lq-085-authentication-authorization-boundary.md`
+  - Status:
+    - User, Session, Workspace-Membership und zwei Research-Rechte definiert
+    - Cookie-, CSRF-, 401-/403-/404- und Audit-Grenzen festgelegt
+    - Shared-Environment-Gate bleibt bis zum Ende-zu-Ende-Nachweis aktiv
+    - keine Provider-, Passwort-, Token- oder Datenbankimplementierung vorgezogen
 
 ---
 
