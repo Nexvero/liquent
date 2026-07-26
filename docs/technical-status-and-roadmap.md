@@ -475,6 +475,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Erfolg und neutraler Fehler bleiben über die Lese-API beobachtbar
     - doppelte Job-ID verhindert den Runner-Aufruf
     - keine Factory, HTTP-POST-Route, Queue oder Persistenz eingeführt
+- LQ-080 research runner resolver: `docs/lq-080-research-runner-resolver.md`
+  - Status:
+    - Ein-Methoden-Auflösung vom Experiment-Snapshot zum vorhandenen Runner-Port
+    - erfolgreiche Auflösung verwendet ausschließlich den bestehenden Startpfad
+    - Auflösungsfehler hinterlassen keinen halbfertigen Job
+    - kein generisches Factory-, Plugin- oder Resolver-Register eingeführt
 
 ---
 
