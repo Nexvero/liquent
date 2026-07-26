@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 
 from liquent.backtesting.runner import BacktestResult
-from liquent_platform.identity.research import ExperimentId, JobId
+from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
+from liquent_platform.identity.research import ExperimentId, JobId, StrategyVersionId
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 
@@ -39,10 +40,21 @@ class FailingRunner:
         raise RuntimeError("internal detail must not become the public error code")
 
 
-def test_ready_job_completes_with_existing_evidence() -> None:
-    job = InMemoryResearchJob(
-        JobId("job-1"), ExperimentId("experiment-1"), "No-signal run"
+def _snapshot(number: int, title: str) -> ExperimentSnapshot:
+    return ExperimentSnapshot(
+        experiment_id=ExperimentId(f"experiment-{number}"),
+        title=title,
+        dataset_ref="synthetic/no-signal",
+        dataset_fingerprint="sha256:test-dataset",
+        strategy_version_id=StrategyVersionId("strategy-version-1"),
+        strategy_parameters=freeze_parameters({"lookback_bars": 3}),
+        risk_parameters=freeze_parameters({"sizing_mode": "absolute"}),
+        cost_parameters=freeze_parameters({"fee_rate": 0.0}),
     )
+
+
+def test_ready_job_completes_with_existing_evidence() -> None:
+    job = InMemoryResearchJob(JobId("job-1"), _snapshot(1, "No-signal run"))
 
     job.execute(SuccessfulRunner())
 
@@ -54,7 +66,7 @@ def test_ready_job_completes_with_existing_evidence() -> None:
 
 
 def test_runner_failure_is_terminal_and_does_not_expose_internal_message() -> None:
-    job = InMemoryResearchJob(JobId("job-2"), ExperimentId("experiment-2"), "Failure run")
+    job = InMemoryResearchJob(JobId("job-2"), _snapshot(2, "Failure run"))
 
     job.execute(FailingRunner())
 
@@ -64,7 +76,7 @@ def test_runner_failure_is_terminal_and_does_not_expose_internal_message() -> No
 
 
 def test_terminal_job_cannot_be_executed_again() -> None:
-    job = InMemoryResearchJob(JobId("job-3"), ExperimentId("experiment-3"), "One run only")
+    job = InMemoryResearchJob(JobId("job-3"), _snapshot(3, "One run only"))
     job.execute(SuccessfulRunner())
 
     with pytest.raises(ValueError, match="invalid research job transition"):
@@ -73,7 +85,7 @@ def test_terminal_job_cannot_be_executed_again() -> None:
 
 def test_job_register_adds_and_returns_the_same_job() -> None:
     jobs = InMemoryResearchJobs()
-    job = InMemoryResearchJob(JobId("job-4"), ExperimentId("experiment-4"), "Lookup")
+    job = InMemoryResearchJob(JobId("job-4"), _snapshot(4, "Lookup"))
 
     jobs.add(job)
 
@@ -82,10 +94,8 @@ def test_job_register_adds_and_returns_the_same_job() -> None:
 
 def test_job_register_rejects_duplicate_identity() -> None:
     jobs = InMemoryResearchJobs()
-    first = InMemoryResearchJob(JobId("job-5"), ExperimentId("experiment-5"), "First")
-    duplicate = InMemoryResearchJob(
-        JobId("job-5"), ExperimentId("experiment-6"), "Duplicate"
-    )
+    first = InMemoryResearchJob(JobId("job-5"), _snapshot(5, "First"))
+    duplicate = InMemoryResearchJob(JobId("job-5"), _snapshot(6, "Duplicate"))
     jobs.add(first)
 
     with pytest.raises(ValueError, match="research job already exists: job-5"):

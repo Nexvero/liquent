@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from liquent.backtesting.reporting import BacktestExperimentSummary
+from liquent_platform.application.experiment import ExperimentSnapshot
 from liquent_platform.application.research import BacktestExecution, execute_local_research
-from liquent_platform.identity.research import ExperimentId, JobId
+from liquent_platform.identity.research import JobId
 from liquent_platform.jobs.lifecycle import ResearchJobStatus, transition
 
 
@@ -15,8 +16,7 @@ class InMemoryResearchJob:
     """One already-validated research job; intentionally not persistent."""
 
     job_id: JobId
-    experiment_id: ExperimentId
-    title: str
+    snapshot: ExperimentSnapshot
     status: ResearchJobStatus = ResearchJobStatus.READY
     evidence: BacktestExperimentSummary | None = None
     error_code: str | None = None
@@ -27,7 +27,7 @@ class InMemoryResearchJob:
         self.status = transition(self.status, ResearchJobStatus.QUEUED)
         self.status = transition(self.status, ResearchJobStatus.RUNNING)
         try:
-            self.evidence = execute_local_research(runner, title=self.title)
+            self.evidence = execute_local_research(runner, title=self.snapshot.title)
         except Exception:
             self.error_code = "execution_failed"
             self.status = transition(self.status, ResearchJobStatus.FAILED)

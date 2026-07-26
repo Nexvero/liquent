@@ -457,6 +457,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - prozesslokales `add`/`get` ohne Repository-Abstraktion ergänzt
     - Duplikate und unbekannte Jobs scheitern explizit
     - nächster Schritt: unveränderlicher Experiment-Snapshot
+- LQ-077 immutable experiment snapshot: `docs/lq-077-immutable-experiment-snapshot.md`
+  - Status:
+    - Dataset-Fingerprint, Strategieversion und wirksame Parameter gemeinsam eingefroren
+    - kanonische skalare Parameterdarstellung ohne paralleles Konfigurationssystem
+    - Research-Job verwendet den gebundenen Snapshot für seine Evidence
+    - keine Datenkopie, Persistenz, Factory oder HTTP-Route eingeführt
 
 ---
 
