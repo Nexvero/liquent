@@ -451,6 +451,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - bestehende Identitäten, Lifecycle und Evidence bleiben maßgeblich
     - Routenaktivierung wartet auf vollständigen Experiment-Snapshot und minimale Job-Ablage
     - keine Auth-, Datenbank-, Queue-, Worker- oder Produktendpunkt-Implementierung vorgezogen
+- LQ-076 minimal in-memory job register: `docs/lq-076-in-memory-job-register.md`
+  - Status:
+    - konkrete Job- und Experiment-Identität getrennt
+    - prozesslokales `add`/`get` ohne Repository-Abstraktion ergänzt
+    - Duplikate und unbekannte Jobs scheitern explizit
+    - nächster Schritt: unveränderlicher Experiment-Snapshot
 
 ---
 
