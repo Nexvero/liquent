@@ -541,6 +541,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlende oder inkonsistente Memberships werden fail-closed abgewiesen
     - vorhandene Permission-Implikation ohne parallele Policy wiederverwendet
     - keine Session-, HTTP-, Speicher- oder Deploymentintegration vorgezogen
+- LQ-091 session principal: `docs/lq-091-session-principal.md`
+  - Status:
+    - unveränderlicher Principal mit genau einer verifizierten `UserId` ergänzt
+    - Workspace und Rechte bleiben serverseitig über Membership gebunden
+    - keine Cookies, Tokens oder Session-Geheimnisse in die Anwendung getragen
+    - keine Provider-, Middleware-, Speicher- oder Deploymentintegration vorgezogen
 
 ---
 
