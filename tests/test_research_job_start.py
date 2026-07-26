@@ -4,7 +4,10 @@ import pytest
 
 from liquent.backtesting.runner import BacktestResult
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
-from liquent_platform.application.start_research import start_research_job
+from liquent_platform.application.start_research import (
+    resolve_and_start_research_job,
+    start_research_job,
+)
 from liquent_platform.identity.research import ExperimentId, JobId, StrategyVersionId
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
@@ -54,6 +57,21 @@ class FailingRunner:
         raise RuntimeError("private runner detail")
 
 
+class Resolver:
+    def __init__(self, runner: SuccessfulRunner) -> None:
+        self.runner = runner
+        self.snapshot: ExperimentSnapshot | None = None
+
+    def resolve(self, snapshot: ExperimentSnapshot) -> SuccessfulRunner:
+        self.snapshot = snapshot
+        return self.runner
+
+
+class FailingResolver:
+    def resolve(self, snapshot: ExperimentSnapshot) -> SuccessfulRunner:
+        raise ValueError(f"unsupported dataset: {snapshot.dataset_ref}")
+
+
 def test_start_registers_job_and_returns_terminal_success() -> None:
     jobs = InMemoryResearchJobs()
     job = _job("job-1")
@@ -85,3 +103,25 @@ def test_duplicate_job_is_rejected_before_runner_execution() -> None:
         start_research_job(_job("job-3"), runner, jobs)
 
     assert runner.calls == 0
+
+
+def test_resolver_receives_exact_snapshot_before_existing_start_path() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job("job-4")
+    resolver = Resolver(SuccessfulRunner())
+
+    result = resolve_and_start_research_job(job, resolver, jobs)
+
+    assert resolver.snapshot is job.snapshot
+    assert result.status is ResearchJobStatus.SUCCEEDED
+    assert jobs.get(JobId("job-4")) is result
+
+
+def test_resolution_failure_does_not_register_partial_job() -> None:
+    jobs = InMemoryResearchJobs()
+
+    with pytest.raises(ValueError, match="unsupported dataset"):
+        resolve_and_start_research_job(_job("job-5"), FailingResolver(), jobs)
+
+    with pytest.raises(KeyError, match="research job not found: job-5"):
+        jobs.get(JobId("job-5"))
