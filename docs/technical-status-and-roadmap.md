@@ -523,6 +523,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - inaktive Mitgliedschaften und fehlende Rechte werden immer abgewiesen
     - `research:write` umfasst Lesen, `research:read` jedoch kein Schreiben
     - keine Session-, HTTP-, Datenbank- oder Policy-Engine-Integration vorgezogen
+- LQ-088 workspace membership: `docs/lq-088-workspace-membership.md`
+  - Status:
+    - User und vorhandener Workspace in einem unveränderlichen Objekt gebunden
+    - Membership-Status und Research-Rechte gemeinsam eingefroren
+    - keine zweite Workspace-Identität oder Rollenabstraktion eingeführt
+    - keine Repository-, Session-, HTTP- oder Persistenzintegration vorgezogen
 
 ---
 
