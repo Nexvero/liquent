@@ -22,9 +22,15 @@ reviewed source + exact CI constraints + commit timestamp
  read-only smoke container with all capabilities dropped
 ```
 
-Das Basisimage ist sowohl auf Python `3.12.13` und Debian Bookworm als auch auf
+Das Basisimage ist sowohl auf Python `3.13.14` und Debian Trixie als auch auf
 den vollständigen Multi-Architecture-Digest festgelegt. Ein Basisimage-Update
 ist damit eine sichtbare, reviewpflichtige Quellcodeänderung.
+
+Die Runtime wurde nach dem ersten realen Vulnerability-Gate von Python 3.12.13
+auf 3.13.14 und von Debian Bookworm auf Trixie angehoben. Anlass waren
+blockierende High-/Critical-Funde in Python und Betriebssystempaketen; die
+Scanner-Schwelle wurde dabei nicht abgesenkt und Findings wurden nicht
+ausgeblendet.
 
 ## 2. Laufzeitgrenzen
 
@@ -43,13 +49,13 @@ Der Container-Job läuft erst nach Test- und Wheel-Gate. Er baut lokal auf dem
 GitHub-Runner, prüft Benutzer, Healthcheck und Commit-Label und startet danach
 den Container mit gehärteten Optionen. Das Image wird weder exportiert noch in
 eine Registry übertragen. Der lokale Entwicklungsrechner besitzt derzeit keine
-Docker-Laufzeit; deshalb ist der echte Build-/Smoke-Nachweis bis zum ersten
-GitHub-Lauf offen und wird nicht als bestanden behauptet.
+Docker-Laufzeit. Der echte Build, Image-Vertrag, gehärtete Smoke-Test und die
+SBOM-Struktur wurden deshalb im GitHub-Lauf nachgewiesen.
 
 ## 4. Offene Gates
 
-- Workflow auf GitHub ausführen und Container-Check als Pflichtstatus setzen,
-- Image-Inhalt und Betriebssystempakete scannen,
+- Container-Check als Pflichtstatus setzen,
+- Runtime-Basis regelmäßig über einen reviewpflichtigen PR aktualisieren,
 - SBOM sowie Provenance/Attestation erzeugen,
 - GHCR-Publish mit minimalem `packages: write` in separatem Release-Workflow,
 - Digest nach Freigabe in `operations/compose/images.env` übernehmen,
