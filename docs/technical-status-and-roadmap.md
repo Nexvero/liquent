@@ -412,6 +412,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Branch ist committed, gepusht und als Pull Request `#1` reviewbar
     - erster realer GitHub-CI-Lauf inklusive Container-/Supply-Chain-Gates grün
     - Merge, Branch Protection, Release und Deployment bleiben externe Freigaben
+- LQ-069 release environment governance: `docs/lq-069-release-environment-governance.md`
+  - Status:
+    - GitHub Environment `registry-release` angelegt und explizit auf `main` begrenzt
+    - keine Environment-Secrets oder -Variablen hinterlegt
+    - Required Reviewer bleibt bis zu einem unabhängigen zweiten Maintainer offen
+    - erster GHCR-Release und jede VPS-Promotion benötigen separate Freigaben
 
 ---
 
