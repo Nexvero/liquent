@@ -112,7 +112,7 @@ jobs:
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' "liquent:${GITHUB_SHA}")" = "10001:10001"
           test "$(docker image inspect --format '{{.Config.Healthcheck.Test}}' "liquent:${GITHUB_SHA}")" != "[]"
-          test "$(docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "liquent:${GITHUB_SHA}")" = "${GITHUB_SHA}"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "liquent:${GITHUB_SHA}")" = "${GITHUB_SHA}"
 
       - name: Run hardened container smoke test
         run: operations/container/smoke-test.sh "liquent:${GITHUB_SHA}"

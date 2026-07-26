@@ -53,6 +53,8 @@ def test_container_gate_runs_only_after_verified_wheel() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "container:\n    needs: wheel" in workflow
     assert "operations/container/smoke-test.sh" in workflow
+    assert "{{index .Config.Labels \\\"" not in workflow
+    assert '{{index .Config.Labels "org.opencontainers.image.revision"}}' in workflow
     assert "if-no-files-found: warn" in workflow
     assert "docker push" not in workflow
     assert "packages: write" not in workflow
