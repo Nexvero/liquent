@@ -423,6 +423,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - read-only Kandidatenprüfung von Release-Metadaten und erfolgreichem `main`-Quality-Lauf ergänzt
     - maschinenlesbarer Nachweis markiert Publication und Deployment ausdrücklich als nicht autorisiert
     - vorgeschlagener erster Kandidat `0.1.0` bleibt bis zur separaten Releasefreigabe unveröffentlicht
+- LQ-071 local research product workflow: `docs/lq-071-local-research-product-workflow.md`
+  - Status:
+    - Slice-1-Happy-Path von Workspace bis Evidence Summary definiert
+    - Produktobjekte, Jobzustände, Startgrenze sowie Fehler- und Leerezustände festgelegt
+    - Broker, Automation, Empfehlungen und Technologieauswahl bleiben außerhalb dieses Slices
+    - nächste Sequenz: LQ-072 Identitäten/Lifecycle, danach Anwendungsgrenze und In-Memory-Workflow
 
 ---
 
