@@ -8,20 +8,46 @@ version = "0.0.1"
 description = "Liquent — understand liquidity. Modular skeleton (analysis mode only, no live execution)."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Proprietary" }
+license = "LicenseRef-Proprietary"
 authors = [{ name = "Liquent Team" }]
-# Skeleton stage (LQ-008): no runtime trading dependencies are pulled in yet.
-# Concrete data/UI libraries are intentionally deferred to their own tasks.
-dependencies = []
+# LQ-058: minimal control-plane runtime only. These packages provide HTTP,
+# typed settings, and the ASGI server; no trading connectivity is included.
+dependencies = [
+    "alembic>=1.16,<2",
+    "fastapi>=0.115,<1",
+    "prometheus-client>=0.22,<1",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic-settings>=2.7,<3",
+    "sqlalchemy>=2.0,<2.1",
+    "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+liquent-control-plane = "liquent_platform.transport.http.main:main"
+liquent-migrate = "liquent_platform.persistence.migrate:main"
+liquent-health-check = "liquent_platform.observability.external_health:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = [
+    "build>=1.3,<2",
+    "httpx2>=2,<3",
+    "pytest>=7.0",
+    "setuptools>=80,<81",
+    "wheel>=0.45,<1",
+]
 # LQ-020: optionales Visual-Preview-Extra. KEINE Pflicht-Dependency; nur für die
 # lokale Streamlit-Preview unter tools/visual_preview/. dependencies=[] bleibt.
 visual = ["streamlit>=1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+liquent_platform = [
+    "persistence/alembic/*.py",
+    "persistence/alembic/*.mako",
+    "persistence/alembic/versions/*.py",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]

@@ -662,7 +662,7 @@ Siehe [`data/README.md`](data/README.md) für Details.
 
 ```text
 Aktueller verifizierter Teststand:
-753 passed (pytest, lokale .venv)
+860 passed (pytest, lokale `.venv`, LQ-067-Checkpoint)
 ```
 
 Frühere Läufe erfolgten über einen temporären stdlib-Harness, weil `pytest`/`pip`
@@ -688,7 +688,7 @@ werden (bereits in `.gitignore`).
 Aktueller verifizierter lokaler Teststand:
 
 ```text
-753 passed
+860 passed
 ```
 
 Die aktuelle Testsuite benötigt keine Live-Trading-Zugangsdaten, keine
@@ -701,7 +701,7 @@ Remote:
 origin -> github-liquent:Nexvero/liquent.git
 
 Branch:
-main
+architecture/lq-053-platform-boundaries (noch nicht committed)
 ```
 
 Der Zugriff erfolgt über einen repo-spezifischen Deploy-Key. Es werden keine
@@ -738,6 +738,22 @@ privaten Schlüssel, Fingerprints oder Schlüssel-Pfade im Repository dokumentie
 - Domain Model Validation Track Freeze / Next-Track Decision (Track eingefroren; keine Validator-Implementierung): `docs/lq-050-domain-model-validation-track-freeze.md`
 - Liquent Milestone Review / Next-Track Decision (Meilenstein-Review; reine Entscheidungs-Doku): `docs/lq-051-liquent-milestone-review-next-track.md`
 - Architecture Review Checkpoint (Architektur-/Roadmap-Konsolidierung; reine Review-Doku): `docs/lq-052-architecture-review-checkpoint.md`
+- Platform Boundaries and Evolution (PRD-/Repository-Abgleich; modularer Monolith, keine Technologieauswahl): `docs/lq-053-platform-boundaries-and-evolution.md`
+- Platform Foundation Quality and Operations (SLOs, Recovery, Observability und Single-VPS-Betriebsgrenzen): `docs/lq-054-platform-foundation-quality-and-operations.md`
+- Start Stack Technology Decision (FastAPI, React/Vite, PostgreSQL, Compose und schlanke Single-VPS-Observability): `docs/lq-055-start-stack-technology-decision.md`
+- Repository Foundation and Architecture Guardrails (additive Plattformhülle, Ports und statische Abhängigkeitsregeln): `docs/lq-056-repository-foundation-architecture-guardrails.md`
+- Slice-0 Compose and Configuration Contract (Prozessrollen, interne Netze, Ressourcen- und Secretgrenzen): `docs/lq-057-slice-0-compose-configuration-contract.md`
+- Minimal Control Plane with Health and Readiness (FastAPI-App-Factory, fail-fast Settings, keine Produkt-API): `docs/lq-058-minimal-control-plane-health-readiness.md`
+- PostgreSQL Persistence and Migration Gate (SQLAlchemy/Psycopg, Alembic-Baseline, revisionsgebundene Readiness): `docs/lq-059-postgresql-persistence-migration-gate.md`
+- Observability and External Health Verification (JSON-Logs, Correlation, Prometheus-Metriken, HTTPS-Smoke-Check): `docs/lq-060-observability-external-health.md`
+- Backup, Restore and Recovery Contract (Restic/OVH-S3-Vertrag, PostgreSQL-Dump, sichere Restore-Verifikation): `docs/lq-061-backup-restore-contract.md`
+- CI Quality and Release Artifact Gate (read-only GitHub Actions, gelockter Wheel-Build, Artefaktprüfung): `docs/lq-062-ci-quality-release-artifact-gate.md`
+- OCI Image and Container Smoke Gate (digest-gepinntes non-root Image, gehärteter CI-Smoke-Test): `docs/lq-063-oci-image-container-smoke-gate.md`
+- SBOM, Vulnerability and Provenance Gate (SPDX, fail-closed Image-Scan, main-only Attestation): `docs/lq-064-sbom-vulnerability-provenance-gate.md`
+- Controlled GHCR Release and Promotion Contract (main-verifizierter manueller Release, digestgebundene Attestation): `docs/lq-065-controlled-ghcr-release-promotion.md`
+- Controlled Staging Promotion and Rollback (digestgebundener Preflight, Journal, Health-Gate und Application-Rollback): `docs/lq-066-staging-promotion-rollback.md`
+- Initial Staging Bootstrap and Edge Routing (DNS-/TLS-Preflight, minimale öffentliche Liveness-Route): `docs/lq-067-initial-staging-bootstrap-edge-routing.md`
+- Git Checkpoint and First CI Readiness (vollständiger lokaler Audit, Commit-/Push-Gate): `docs/lq-068-git-checkpoint-ci-readiness.md`
 - LQ-005 Phase 6: Vault-/Obsidian-Export optional vorbereiten
 - Erste einfache Strategie nur nach separater Spezifikation
 - LQ-003 v2: echte OHLC-Speicherung prüfen
