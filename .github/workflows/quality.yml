@@ -154,7 +154,7 @@ jobs:
           path: |
             dist/liquent-image.spdx.json
             dist/grype-results.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   provenance:

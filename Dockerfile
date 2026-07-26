@@ -25,10 +25,10 @@ RUN groupadd --gid 10001 liquent \
     && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin liquent \
     && python -m venv /opt/liquent/venv
 COPY requirements/ci.lock /tmp/ci.lock
-COPY --from=builder /wheelhouse/liquent-*.whl /tmp/liquent.whl
-RUN python -m pip install --constraint /tmp/ci.lock /tmp/liquent.whl \
+COPY --from=builder /wheelhouse /wheelhouse
+RUN python -m pip install --constraint /tmp/ci.lock /wheelhouse/liquent-*.whl \
     && python -m pip check \
-    && rm -f /tmp/liquent.whl /tmp/ci.lock \
+    && rm -rf /wheelhouse /tmp/ci.lock \
     && mkdir -p /var/lib/liquent/artifacts \
     && chown -R liquent:liquent /var/lib/liquent
 USER 10001:10001

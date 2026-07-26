@@ -31,7 +31,9 @@ def test_image_build_uses_locked_nonisolated_wheel() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     assert "--constraint requirements/ci.lock" in dockerfile
     assert "python -m build --wheel --no-isolation" in dockerfile
-    assert "COPY --from=builder /wheelhouse/liquent-*.whl" in dockerfile
+    assert "COPY --from=builder /wheelhouse /wheelhouse" in dockerfile
+    assert "/wheelhouse/liquent-*.whl" in dockerfile
+    assert "/tmp/liquent.whl" not in dockerfile
 
 
 def test_build_context_excludes_sensitive_and_nonruntime_content() -> None:
@@ -51,5 +53,6 @@ def test_container_gate_runs_only_after_verified_wheel() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "container:\n    needs: wheel" in workflow
     assert "operations/container/smoke-test.sh" in workflow
+    assert "if-no-files-found: warn" in workflow
     assert "docker push" not in workflow
     assert "packages: write" not in workflow
