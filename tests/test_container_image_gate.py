@@ -55,6 +55,10 @@ def test_container_gate_runs_only_after_verified_wheel() -> None:
     assert "operations/container/smoke-test.sh" in workflow
     assert "{{index .Config.Labels \\\"" not in workflow
     assert '{{index .Config.Labels "org.opencontainers.image.revision"}}' in workflow
+    assert "Summarize blocking vulnerability findings" in workflow
+    assert "failure() && hashFiles('dist/grype-results.json') != ''" in workflow
+    for field in (".artifact.name", ".artifact.version", ".vulnerability.id", ".vulnerability.fix.versions"):
+        assert field in workflow
     assert "if-no-files-found: warn" in workflow
     assert "docker push" not in workflow
     assert "packages: write" not in workflow

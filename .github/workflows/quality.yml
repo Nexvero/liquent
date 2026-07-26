@@ -146,6 +146,23 @@ jobs:
           grype-version: v0.112.0
           cache-db: false
 
+      - name: Summarize blocking vulnerability findings
+        if: failure() && hashFiles('dist/grype-results.json') != ''
+        run: |
+          jq -r '
+            .matches[]
+            | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")
+            | [
+                .artifact.name,
+                .artifact.version,
+                .vulnerability.id,
+                .vulnerability.severity,
+                (.vulnerability.fix.versions | join(",")),
+                .vulnerability.dataSource
+              ]
+            | @tsv
+          ' dist/grype-results.json
+
       - name: Upload supply-chain evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
