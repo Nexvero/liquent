@@ -493,6 +493,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - vollständiger Snapshot startet den bestehenden synchronen Research-Pfad
     - neutrale 422-/409-Fehler ohne interne Details
     - kein Upload, Auth, Queue, externer Datenzugriff oder Deployment eingeführt
+- LQ-083 research data root gate: `docs/lq-083-research-data-root-gate.md`
+  - Status:
+    - lokaler Research-Start nur über expliziten Daten-Root aktiviert
+    - sichere Standardeinstellung registriert keine POST-Route
+    - fehlender Root stoppt den Prozess fail-fast
+    - kein Upload, Download, Release oder Deployment ausgeführt
 
 ---
 

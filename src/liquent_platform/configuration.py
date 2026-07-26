@@ -46,6 +46,7 @@ class PlatformSettings(BaseSettings):
     http_host: str = "127.0.0.1"
     http_port: int = Field(default=8000, ge=1, le=65535)
     artifact_root: Path = Path("./artifacts")
+    research_data_root: Path | None = None
     job_concurrency: Literal[1] = 1
     trading_connectivity: Literal["disabled"] = "disabled"
     database_url: SecretStr | None = Field(
@@ -77,4 +78,5 @@ class PlatformSettings(BaseSettings):
             "http_port": self.http_port,
             "job_concurrency": self.job_concurrency,
             "trading_connectivity": self.trading_connectivity,
+            "research_start_enabled": str(self.research_data_root is not None).lower(),
         }

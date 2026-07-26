@@ -13,6 +13,8 @@ def test_safe_local_defaults() -> None:
     assert settings.job_concurrency == 1
     assert settings.trading_connectivity == "disabled"
     assert settings.database_url is None
+    assert settings.research_data_root is None
+    assert settings.public_summary()["research_start_enabled"] == "false"
 
 
 def test_environment_values_use_liquent_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,6 +23,14 @@ def test_environment_values_use_liquent_prefix(monkeypatch: pytest.MonkeyPatch) 
     settings = PlatformSettings(_secrets_dir=None)
     assert settings.http_port == 8123
     assert settings.log_level.value == "WARNING"
+
+
+def test_research_data_root_is_explicit_and_path_is_not_logged(tmp_path: Path) -> None:
+    settings = PlatformSettings(_secrets_dir=None, research_data_root=tmp_path)
+
+    assert settings.research_data_root == tmp_path
+    assert settings.public_summary()["research_start_enabled"] == "true"
+    assert str(tmp_path) not in str(settings.public_summary())
 
 
 @pytest.mark.parametrize(
