@@ -481,6 +481,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - erfolgreiche Auflösung verwendet ausschließlich den bestehenden Startpfad
     - Auflösungsfehler hinterlassen keinen halbfertigen Job
     - kein generisches Factory-, Plugin- oder Resolver-Register eingeführt
+- LQ-081 local CSV resolver: `docs/lq-081-local-csv-resolver.md`
+  - Status:
+    - exakt eine lokale CSV-/MidBreakout-v0-/Absolute-Risk-Kombination unterstützt
+    - Daten-Root und SHA-256-Fingerprint werden fail-closed geprüft
+    - vorhandene Research-Komponenten ohne parallele Implementierung wiederverwendet
+    - kein Plugin-System, Upload, HTTP-POST oder externe Datenquelle eingeführt
 
 ---
 
