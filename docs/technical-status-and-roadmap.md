@@ -517,6 +517,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Membership auf `active` und `inactive` begrenzt
     - Permission auf `research:read` und `research:write` begrenzt
     - keine Session-, Policy-, Middleware- oder Persistenzimplementierung vorgezogen
+- LQ-087 research authorization decision: `docs/lq-087-research-authorization-decision.md`
+  - Status:
+    - eine reine, fail-closed Research-Entscheidung ergänzt
+    - inaktive Mitgliedschaften und fehlende Rechte werden immer abgewiesen
+    - `research:write` umfasst Lesen, `research:read` jedoch kein Schreiben
+    - keine Session-, HTTP-, Datenbank- oder Policy-Engine-Integration vorgezogen
 
 ---
 
