@@ -440,6 +440,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Ein-Methoden-Port und eine kleine Orchestrierungsfunktion zum vorhandenen Runner ergänzt
     - vorhandener `BacktestResult` und vorhandene neutrale Summary werden wiederverwendet
     - kein paralleles Evidence-Modell, keine Queue und keine Adapterhierarchie eingeführt
+- LQ-074 in-memory research job: `docs/lq-074-in-memory-research-job.md`
+  - Status:
+    - bereits validierter Research-Job synchron im Speicher ausführbar
+    - Erfolg liefert vorhandene Evidence; Fehler bleiben neutral und terminal
+    - keine Queue, Persistenz, Worker-, Retry- oder Repository-Abstraktion eingeführt
 
 ---
 
