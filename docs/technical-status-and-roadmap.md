@@ -487,6 +487,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Daten-Root und SHA-256-Fingerprint werden fail-closed geprüft
     - vorhandene Research-Komponenten ohne parallele Implementierung wiederverwendet
     - kein Plugin-System, Upload, HTTP-POST oder externe Datenquelle eingeführt
+- LQ-082 research start API: `docs/lq-082-research-start-api.md`
+  - Status:
+    - POST-Route nur bei explizit injiziertem Resolver aktiviert
+    - vollständiger Snapshot startet den bestehenden synchronen Research-Pfad
+    - neutrale 422-/409-Fehler ohne interne Details
+    - kein Upload, Auth, Queue, externer Datenzugriff oder Deployment eingeführt
 
 ---
 
