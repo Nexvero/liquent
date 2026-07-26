@@ -429,6 +429,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Produktobjekte, Jobzustände, Startgrenze sowie Fehler- und Leerezustände festgelegt
     - Broker, Automation, Empfehlungen und Technologieauswahl bleiben außerhalb dieses Slices
     - nächste Sequenz: LQ-072 Identitäten/Lifecycle, danach Anwendungsgrenze und In-Memory-Workflow
+- LQ-072 research identity and lifecycle: `docs/lq-072-research-identity-lifecycle.md`
+  - Status:
+    - vier semantische String-ID-Typen ohne eigenes ID-Framework ergänzt
+    - kleine explizite Research-Job-Übergangstabelle implementiert
+    - terminale Zustände sind unveränderlich; ungültige Sprünge scheitern fail-closed
+    - keine Persistenz, Events, State-Machine-Abstraktion oder neue Abhängigkeit eingeführt
 
 ---
 
