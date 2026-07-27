@@ -589,6 +589,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Evidence wird erst nach erfolgreicher Workspace-Autorisierung gelesen
     - unbekannte und nicht sichtbare Jobs bleiben auf beiden Routen ununterscheidbar
     - keine Start-, Session-, Membership-Speicher- oder Deploymentintegration vorgezogen
+- LQ-099 authorized research job start: `docs/lq-099-authorized-research-job-start.md`
+  - Status:
+    - `research:write` wird gegen die gespeicherte Snapshot-Workspace-ID geprüft
+    - Resolver, Registrierung und Ausführung erfolgen erst nach erfolgreicher Prüfung
+    - Read-only- und fehlende Rechte hinterlassen keinen halbfertigen Job
+    - noch keine POST-, Session-, CSRF- oder Deploymentintegration vorgezogen
 
 ---
 
