@@ -553,6 +553,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Membership-Lookup verwendet ausschließlich dessen `UserId`
     - bestehende fail-closed Zuordnungs- und Permission-Prüfung bleibt erhalten
     - keine Principal-Prüfung, Session-, HTTP- oder Deploymentintegration vorgezogen
+- LQ-093 neutral authorization error: `docs/lq-093-neutral-authorization-error.md`
+  - Status:
+    - genau ein öffentlicher Code `permission_denied` definiert
+    - Fehler akzeptiert keine IDs, Ursachen oder internen Details
+    - HTTP-Status und Ressourcen-Sichtbarkeit bleiben bewusst unberührt
+    - keine Logging-, Session-, Provider- oder Deploymentintegration vorgezogen
 
 ---
 
