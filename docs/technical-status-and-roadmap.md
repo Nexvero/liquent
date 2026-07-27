@@ -601,6 +601,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlendes `research:write` liefert neutral `403 permission_denied`
     - abgelehnte Starts lösen weder Resolver noch Registrierung aus
     - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
+- LQ-101 CSRF validation guard: `docs/lq-101-csrf-validation-guard.md`
+  - Status:
+    - exakte, nicht leere CSRF-Nachweise werden konstant verglichen
+    - fehlende, leere und abweichende Werte scheitern fail-closed
+    - Fehler enthält ausschließlich `csrf_validation_failed`
+    - noch keine Token-, Session-, HTTP- oder Deploymentintegration vorgezogen
 
 ---
 
