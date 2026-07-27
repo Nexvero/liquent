@@ -20,6 +20,7 @@ from liquent_platform.identity.research import (
 )
 from liquent_platform.identity.session import (
     ResolvedBrowserSession,
+    SessionId,
     SessionPrincipal,
 )
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
@@ -73,6 +74,16 @@ class StubMembershipLookup:
         return self.membership
 
 
+class StubBrowserSessionLookup:
+    def __init__(self, session: ResolvedBrowserSession) -> None:
+        self.session = session
+
+    def get_session(self, session_id: SessionId) -> ResolvedBrowserSession | None:
+        if session_id == SessionId("opaque-session"):
+            return self.session
+        return None
+
+
 def _membership(*, allowed: bool = True) -> WorkspaceMembership:
     return WorkspaceMembership(
         user_id=UserId("user-1"),
@@ -93,10 +104,14 @@ def _client(
     app = create_app(
         PlatformSettings(_secrets_dir=None),
         research_jobs=jobs,
-        research_session=session,
+        research_sessions=(StubBrowserSessionLookup(session) if session else None),
         research_memberships=memberships,
     )
     return TestClient(app)
+
+
+def _set_session_cookie(client: TestClient, value: str = "opaque-session") -> None:
+    client.cookies.set("liquent_session", value)
 
 
 def test_ready_job_status_has_no_evidence_link() -> None:
@@ -164,6 +179,7 @@ def test_status_route_uses_authorized_read_when_dependencies_are_injected() -> N
         ),
         memberships=StubMembershipLookup(_membership()),
     ) as client:
+        _set_session_cookie(client)
         response = client.get("/v1/research/jobs/job-1")
 
     assert response.status_code == 200
@@ -181,6 +197,7 @@ def test_status_route_hides_denied_job_as_neutral_not_found() -> None:
         ),
         memberships=StubMembershipLookup(_membership(allowed=False)),
     ) as client:
+        _set_session_cookie(client)
         denied = client.get("/v1/research/jobs/job-1")
         unknown = client.get("/v1/research/jobs/missing")
 
@@ -211,6 +228,7 @@ def test_evidence_route_uses_same_authorized_job_read() -> None:
         ),
         memberships=StubMembershipLookup(_membership()),
     ) as client:
+        _set_session_cookie(client)
         response = client.get("/v1/research/jobs/job-1/evidence")
 
     assert response.status_code == 200
@@ -230,8 +248,31 @@ def test_evidence_route_hides_denied_job_as_neutral_not_found() -> None:
         ),
         memberships=StubMembershipLookup(_membership(allowed=False)),
     ) as client:
+        _set_session_cookie(client)
         denied = client.get("/v1/research/jobs/job-1/evidence")
         unknown = client.get("/v1/research/jobs/missing/evidence")
 
     assert denied.status_code == unknown.status_code == 404
     assert denied.json() == unknown.json() == {"detail": "research_job_not_found"}
+
+
+def test_session_bound_read_requires_known_session_cookie() -> None:
+    jobs = InMemoryResearchJobs()
+    jobs.add(_job())
+    session = ResolvedBrowserSession(
+        SessionPrincipal(UserId("user-1")), "session-proof"
+    )
+
+    with _client(
+        jobs,
+        session=session,
+        memberships=StubMembershipLookup(_membership()),
+    ) as client:
+        missing = client.get("/v1/research/jobs/job-1")
+        _set_session_cookie(client, "unknown-session")
+        unknown = client.get("/v1/research/jobs/job-1")
+
+    assert missing.status_code == unknown.status_code == 401
+    assert missing.json() == unknown.json() == {
+        "detail": "authentication_required"
+    }

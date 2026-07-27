@@ -643,6 +643,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlende und unbekannte Sessions liefern `authentication_required`
     - Fehler enthält weder ID noch internen Ablehnungsgrund
     - keine Adapter-, Cookie-, HTTP- oder Deploymentintegration vorgezogen
+- LQ-108 optional session cookie HTTP boundary: `docs/lq-108-optional-session-cookie-http.md`
+  - Status:
+    - optionale HTTP-Grenze löst `liquent_session` über den Session-Port auf
+    - fehlende und unbekannte Sessions liefern `401 authentication_required`
+    - alle Research-Routen verwenden denselben aufgelösten Kontext
+    - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
 
 ---
 

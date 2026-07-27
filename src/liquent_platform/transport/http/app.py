@@ -5,11 +5,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Annotated, AsyncIterator
 
-from fastapi import FastAPI, Header, HTTPException, Response, status
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ConfigDict
 
 from liquent_platform import __version__
+from liquent_platform.application.authenticate_session import (
+    AuthenticationRequired,
+    require_browser_session,
+)
 from liquent_platform.application.health import ProcessHealth
 from liquent_platform.application.evidence import evidence_document
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
@@ -29,8 +33,11 @@ from liquent_platform.identity.research import (
     StrategyVersionId,
     WorkspaceId,
 )
-from liquent_platform.identity.ports import WorkspaceMembershipLookup
-from liquent_platform.identity.session import ResolvedBrowserSession
+from liquent_platform.identity.ports import (
+    BrowserSessionLookup,
+    WorkspaceMembershipLookup,
+)
+from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
@@ -77,15 +84,15 @@ def create_app(
     metrics: ControlPlaneMetrics | None = None,
     research_jobs: InMemoryResearchJobs | None = None,
     research_resolver: ResearchRunnerResolver | None = None,
-    research_session: ResolvedBrowserSession | None = None,
+    research_sessions: BrowserSessionLookup | None = None,
     research_memberships: WorkspaceMembershipLookup | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
     runtime_settings = settings or PlatformSettings()
-    if (research_session is None) is not (research_memberships is None):
+    if (research_sessions is None) is not (research_memberships is None):
         raise ValueError(
-            "research session and membership lookup must be provided together"
+            "research session lookup and membership lookup must be provided together"
         )
     engine = None
     if health is None and runtime_settings.database_url is not None:
@@ -129,13 +136,30 @@ def create_app(
             evidence_url=evidence_url,
         )
 
-    def visible_job(job_id: JobId) -> InMemoryResearchJob:
+    def current_research_session(
+        session_id: Annotated[
+            str | None,
+            Cookie(alias="liquent_session"),
+        ] = None,
+    ) -> ResolvedBrowserSession | None:
+        if research_sessions is None:
+            return None
         try:
-            if research_session is not None and research_memberships is not None:
+            opaque_id = SessionId(session_id) if session_id is not None else None
+            return require_browser_session(research_sessions, opaque_id)
+        except AuthenticationRequired:
+            raise HTTPException(401, "authentication_required") from None
+
+    def visible_job(
+        job_id: JobId,
+        session: ResolvedBrowserSession | None,
+    ) -> InMemoryResearchJob:
+        try:
+            if session is not None and research_memberships is not None:
                 return get_authorized_research_job(
                     job_store,
                     research_memberships,
-                    research_session.principal,
+                    session.principal,
                     job_id,
                 )
             return job_store.get(job_id)
@@ -174,15 +198,21 @@ def create_app(
         response_model=ResearchJobResponse,
         tags=["research"],
     )
-    def research_job_status(job_id: JobId) -> ResearchJobResponse:
-        return job_response(visible_job(job_id))
+    def research_job_status(
+        job_id: JobId,
+        session: ResolvedBrowserSession | None = Depends(current_research_session),
+    ) -> ResearchJobResponse:
+        return job_response(visible_job(job_id, session))
 
     @app.get(
         "/v1/research/jobs/{job_id}/evidence",
         tags=["research"],
     )
-    def research_job_evidence(job_id: JobId):
-        evidence = visible_job(job_id).evidence
+    def research_job_evidence(
+        job_id: JobId,
+        session: ResolvedBrowserSession | None = Depends(current_research_session),
+    ):
+        evidence = visible_job(job_id, session).evidence
         if evidence is None:
             raise HTTPException(404, "research_evidence_not_found")
         return evidence_document(evidence)
@@ -197,6 +227,9 @@ def create_app(
         )
         def start_research(
             request: ResearchJobStartRequest,
+            session: ResolvedBrowserSession | None = Depends(
+                current_research_session
+            ),
             csrf_token: Annotated[
                 str | None,
                 Header(alias="X-CSRF-Token"),
@@ -215,13 +248,13 @@ def create_app(
                     cost_parameters=freeze_parameters(request.cost_parameters),
                 )
                 pending_job = InMemoryResearchJob(request.job_id, snapshot)
-                if research_session is not None and research_memberships is not None:
+                if session is not None and research_memberships is not None:
                     job = csrf_authorize_resolve_and_start_research_job(
                         pending_job,
                         research_resolver,
                         job_store,
                         research_memberships,
-                        research_session,
+                        session,
                         csrf_token,
                     )
                 else:

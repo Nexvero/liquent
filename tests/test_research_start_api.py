@@ -16,6 +16,7 @@ from liquent_platform.identity.access import (
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
     ResolvedBrowserSession,
+    SessionId,
     SessionPrincipal,
 )
 from liquent_platform.jobs.in_memory import InMemoryResearchJobs
@@ -72,6 +73,16 @@ class StubMembershipLookup:
         )
 
 
+class StubBrowserSessionLookup:
+    def __init__(self, session: ResolvedBrowserSession) -> None:
+        self.session = session
+
+    def get_session(self, session_id: SessionId) -> ResolvedBrowserSession | None:
+        if session_id == SessionId("opaque-session"):
+            return self.session
+        return None
+
+
 def _client(
     *,
     resolver: bool = True,
@@ -84,10 +95,12 @@ def _client(
         research_resolver=(
             LocalCsvMidBreakoutV0Resolver(FIXTURES) if resolver else None
         ),
-        research_session=(
-            ResolvedBrowserSession(
-                SessionPrincipal(UserId("user-1")),
-                "session-proof",
+        research_sessions=(
+            StubBrowserSessionLookup(
+                ResolvedBrowserSession(
+                    SessionPrincipal(UserId("user-1")),
+                    "session-proof",
+                )
             )
             if permissions is not None
             else None
@@ -97,6 +110,12 @@ def _client(
         ),
     )
     return TestClient(app)
+
+
+def _set_session_cookie(
+    client: TestClient, value: str = "opaque-session"
+) -> None:
+    client.cookies.set("liquent_session", value)
 
 
 def test_start_route_is_absent_without_explicit_resolver() -> None:
@@ -163,6 +182,7 @@ def test_request_does_not_coerce_parameter_strings() -> None:
 
 def test_authorized_start_accepts_research_write_permission() -> None:
     with _client(permissions=frozenset({Permission.RESEARCH_WRITE})) as client:
+        _set_session_cookie(client)
         response = client.post(
             "/v1/research/jobs",
             json=_request(),
@@ -175,6 +195,7 @@ def test_authorized_start_accepts_research_write_permission() -> None:
 
 def test_authorized_start_rejects_read_only_without_registering_job() -> None:
     with _client(permissions=frozenset({Permission.RESEARCH_READ})) as client:
+        _set_session_cookie(client)
         denied = client.post(
             "/v1/research/jobs",
             json=_request(),
@@ -189,7 +210,11 @@ def test_authorized_start_rejects_read_only_without_registering_job() -> None:
 
 def test_session_bound_start_requires_matching_csrf_header() -> None:
     with _client(permissions=frozenset({Permission.RESEARCH_WRITE})) as client:
-        missing_header = client.post("/v1/research/jobs", json=_request())
+        _set_session_cookie(client)
+        missing_header = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+        )
         wrong_header = client.post(
             "/v1/research/jobs",
             json=_request(),
@@ -202,3 +227,23 @@ def test_session_bound_start_requires_matching_csrf_header() -> None:
         "detail": "csrf_validation_failed"
     }
     assert missing_job.status_code == 404
+
+
+def test_session_bound_start_requires_known_session_cookie() -> None:
+    with _client(permissions=frozenset({Permission.RESEARCH_WRITE})) as client:
+        missing = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+            headers={"X-CSRF-Token": "session-proof"},
+        )
+        _set_session_cookie(client, "unknown-session")
+        unknown = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+            headers={"X-CSRF-Token": "session-proof"},
+        )
+
+    assert missing.status_code == unknown.status_code == 401
+    assert missing.json() == unknown.json() == {
+        "detail": "authentication_required"
+    }
