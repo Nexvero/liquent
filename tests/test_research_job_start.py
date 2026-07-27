@@ -4,9 +4,19 @@ import pytest
 
 from liquent.backtesting.runner import BacktestResult
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
+from liquent_platform.application.authorization_errors import (
+    ResearchAuthorizationDenied,
+)
 from liquent_platform.application.start_research import (
+    authorize_resolve_and_start_research_job,
     resolve_and_start_research_job,
     start_research_job,
+)
+from liquent_platform.identity.access import (
+    MembershipStatus,
+    Permission,
+    UserId,
+    WorkspaceMembership,
 )
 from liquent_platform.identity.research import (
     ExperimentId,
@@ -16,6 +26,7 @@ from liquent_platform.identity.research import (
 )
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
+from liquent_platform.identity.session import SessionPrincipal
 
 
 def _job(job_id: str) -> InMemoryResearchJob:
@@ -78,6 +89,25 @@ class FailingResolver:
         raise ValueError(f"unsupported dataset: {snapshot.dataset_ref}")
 
 
+class StubMembershipLookup:
+    def __init__(self, permissions: frozenset[Permission]) -> None:
+        self.permissions = permissions
+
+    def get_membership(
+        self, user_id: UserId, workspace_id: WorkspaceId
+    ) -> WorkspaceMembership:
+        return WorkspaceMembership(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            status=MembershipStatus.ACTIVE,
+            permissions=self.permissions,
+        )
+
+
+def _principal() -> SessionPrincipal:
+    return SessionPrincipal(UserId("user-1"))
+
+
 def test_start_registers_job_and_returns_terminal_success() -> None:
     jobs = InMemoryResearchJobs()
     job = _job("job-1")
@@ -131,3 +161,46 @@ def test_resolution_failure_does_not_register_partial_job() -> None:
 
     with pytest.raises(KeyError, match="research job not found: job-5"):
         jobs.get(JobId("job-5"))
+
+
+def test_authorized_start_requires_write_and_reuses_existing_start_path() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job("job-6")
+    resolver = Resolver(SuccessfulRunner())
+
+    result = authorize_resolve_and_start_research_job(
+        job,
+        resolver,
+        jobs,
+        StubMembershipLookup(frozenset({Permission.RESEARCH_WRITE})),
+        _principal(),
+    )
+
+    assert result is job
+    assert resolver.snapshot is job.snapshot
+    assert jobs.get(job.job_id) is job
+
+
+@pytest.mark.parametrize(
+    "permissions",
+    [frozenset(), frozenset({Permission.RESEARCH_READ})],
+)
+def test_denied_start_does_not_resolve_or_register_job(
+    permissions: frozenset[Permission],
+) -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job("job-7")
+    resolver = Resolver(SuccessfulRunner())
+
+    with pytest.raises(ResearchAuthorizationDenied, match="permission_denied"):
+        authorize_resolve_and_start_research_job(
+            job,
+            resolver,
+            jobs,
+            StubMembershipLookup(permissions),
+            _principal(),
+        )
+
+    assert resolver.snapshot is None
+    with pytest.raises(KeyError, match="research job not found: job-7"):
+        jobs.get(job.job_id)
