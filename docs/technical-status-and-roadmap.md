@@ -661,6 +661,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Ablaufzeitpunkt und Widerruf liefern neutral keinen Kontext
     - Gültigkeitsprüfung ist pure und verlangt eindeutige Zeitwerte
     - Adapter, Persistenz und Shared Environments bleiben bewusst offen
+- LQ-111 in-memory browser sessions: `docs/lq-111-in-memory-browser-sessions.md`
+  - Status:
+    - read-only Lookup-Adapter erfüllt den vorhandenen Session-Port
+    - vorgegebene Records werden kopiert und mit injizierter Uhr geprüft
+    - unbekannte und ungültige Sessions liefern neutral keinen Kontext
+    - Schreib-Lifecycle, Persistenz und Shared Environments bleiben offen
 
 ---
 
