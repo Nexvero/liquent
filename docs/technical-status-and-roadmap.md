@@ -631,6 +631,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - POST verlangt in diesem Modus einen passenden `X-CSRF-Token`-Header
     - fehlende oder falsche Nachweise liefern neutral `csrf_validation_failed`
     - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
+- LQ-106 browser session lookup port: `docs/lq-106-browser-session-lookup-port.md`
+  - Status:
+    - opake `SessionId` identifiziert genau einen serverseitigen Session-Eintrag
+    - Lookup liefert aufgelösten Kontext oder neutral `None`
+    - Speicher-, Provider- und Cookie-Details bleiben außerhalb des Ports
+    - keine Adapter-, HTTP-, Shared-Environment- oder Deploymentintegration
 
 ---
 
