@@ -607,6 +607,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlende, leere und abweichende Werte scheitern fail-closed
     - Fehler enthält ausschließlich `csrf_validation_failed`
     - noch keine Token-, Session-, HTTP- oder Deploymentintegration vorgezogen
+- LQ-102 CSRF-authorized research job start: `docs/lq-102-csrf-authorized-research-job-start.md`
+  - Status:
+    - CSRF wird vor Membership, Resolver, Registrierung und Ausführung geprüft
+    - gültiger Nachweis führt in den bestehenden autorisierten Schreibpfad
+    - ungültiger Nachweis hinterlässt keinen Job und keine Folgeaufrufe
+    - Session-, Token-, HTTP- und Deploymentintegration bleiben bewusst offen
 
 ---
 

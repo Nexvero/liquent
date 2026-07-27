@@ -5,6 +5,7 @@ from typing import Protocol
 from liquent_platform.application.authorize_research import (
     require_research_authorization,
 )
+from liquent_platform.application.csrf import require_valid_csrf_token
 from liquent_platform.application.experiment import ExperimentSnapshot
 from liquent_platform.application.research import BacktestExecution
 from liquent_platform.identity.access import Permission
@@ -58,3 +59,24 @@ def authorize_resolve_and_start_research_job(
         Permission.RESEARCH_WRITE,
     )
     return resolve_and_start_research_job(job, resolver, jobs)
+
+
+def csrf_authorize_resolve_and_start_research_job(
+    job: InMemoryResearchJob,
+    resolver: ResearchRunnerResolver,
+    jobs: InMemoryResearchJobs,
+    memberships: WorkspaceMembershipLookup,
+    principal: SessionPrincipal,
+    expected_csrf_token: str | None,
+    presented_csrf_token: str | None,
+) -> InMemoryResearchJob:
+    """Validate the session-bound CSRF proof before authorization and start."""
+
+    require_valid_csrf_token(expected_csrf_token, presented_csrf_token)
+    return authorize_resolve_and_start_research_job(
+        job,
+        resolver,
+        jobs,
+        memberships,
+        principal,
+    )

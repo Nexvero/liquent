@@ -7,8 +7,10 @@ from liquent_platform.application.experiment import ExperimentSnapshot, freeze_p
 from liquent_platform.application.authorization_errors import (
     ResearchAuthorizationDenied,
 )
+from liquent_platform.application.csrf import CsrfValidationFailed
 from liquent_platform.application.start_research import (
     authorize_resolve_and_start_research_job,
+    csrf_authorize_resolve_and_start_research_job,
     resolve_and_start_research_job,
     start_research_job,
 )
@@ -92,10 +94,12 @@ class FailingResolver:
 class StubMembershipLookup:
     def __init__(self, permissions: frozenset[Permission]) -> None:
         self.permissions = permissions
+        self.calls = 0
 
     def get_membership(
         self, user_id: UserId, workspace_id: WorkspaceId
     ) -> WorkspaceMembership:
+        self.calls += 1
         return WorkspaceMembership(
             user_id=user_id,
             workspace_id=workspace_id,
@@ -203,4 +207,48 @@ def test_denied_start_does_not_resolve_or_register_job(
 
     assert resolver.snapshot is None
     with pytest.raises(KeyError, match="research job not found: job-7"):
+        jobs.get(job.job_id)
+
+
+def test_csrf_authorized_start_accepts_matching_proof() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job("job-8")
+    resolver = Resolver(SuccessfulRunner())
+    memberships = StubMembershipLookup(frozenset({Permission.RESEARCH_WRITE}))
+
+    result = csrf_authorize_resolve_and_start_research_job(
+        job,
+        resolver,
+        jobs,
+        memberships,
+        _principal(),
+        "session-proof",
+        "session-proof",
+    )
+
+    assert result is job
+    assert memberships.calls == 1
+    assert jobs.get(job.job_id) is job
+
+
+def test_invalid_csrf_stops_before_authorization_resolution_or_registration() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job("job-9")
+    resolver = Resolver(SuccessfulRunner())
+    memberships = StubMembershipLookup(frozenset({Permission.RESEARCH_WRITE}))
+
+    with pytest.raises(CsrfValidationFailed, match="csrf_validation_failed"):
+        csrf_authorize_resolve_and_start_research_job(
+            job,
+            resolver,
+            jobs,
+            memberships,
+            _principal(),
+            "session-proof",
+            "wrong-proof",
+        )
+
+    assert memberships.calls == 0
+    assert resolver.snapshot is None
+    with pytest.raises(KeyError, match="research job not found: job-9"):
         jobs.get(job.job_id)
