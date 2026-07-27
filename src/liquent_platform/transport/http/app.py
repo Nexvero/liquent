@@ -19,6 +19,7 @@ from liquent_platform.application.authorization_errors import (
 from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.start_research import (
     ResearchRunnerResolver,
+    authorize_resolve_and_start_research_job,
     resolve_and_start_research_job,
 )
 from liquent_platform.identity.research import (
@@ -206,11 +207,23 @@ def create_app(
                     risk_parameters=freeze_parameters(request.risk_parameters),
                     cost_parameters=freeze_parameters(request.cost_parameters),
                 )
-                job = resolve_and_start_research_job(
-                    InMemoryResearchJob(request.job_id, snapshot),
-                    research_resolver,
-                    job_store,
-                )
+                pending_job = InMemoryResearchJob(request.job_id, snapshot)
+                if research_principal is not None and research_memberships is not None:
+                    job = authorize_resolve_and_start_research_job(
+                        pending_job,
+                        research_resolver,
+                        job_store,
+                        research_memberships,
+                        research_principal,
+                    )
+                else:
+                    job = resolve_and_start_research_job(
+                        pending_job,
+                        research_resolver,
+                        job_store,
+                    )
+            except ResearchAuthorizationDenied:
+                raise HTTPException(403, "permission_denied") from None
             except ValueError as exc:
                 if str(exc).startswith("research job already exists:"):
                     raise HTTPException(409, "research_job_conflict") from None
