@@ -595,6 +595,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Resolver, Registrierung und Ausführung erfolgen erst nach erfolgreicher Prüfung
     - Read-only- und fehlende Rechte hinterlassen keinen halbfertigen Job
     - noch keine POST-, Session-, CSRF- oder Deploymentintegration vorgezogen
+- LQ-100 optional authorized research start route: `docs/lq-100-optional-authorized-start-route.md`
+  - Status:
+    - POST verwendet bei vollständiger Injection den autorisierten Schreibpfad
+    - fehlendes `research:write` liefert neutral `403 permission_denied`
+    - abgelehnte Starts lösen weder Resolver noch Registrierung aus
+    - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
 
 ---
 
