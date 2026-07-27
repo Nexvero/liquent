@@ -13,6 +13,10 @@ from liquent_platform import __version__
 from liquent_platform.application.health import ProcessHealth
 from liquent_platform.application.evidence import evidence_document
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
+from liquent_platform.application.authorization_errors import (
+    ResearchAuthorizationDenied,
+)
+from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.start_research import (
     ResearchRunnerResolver,
     resolve_and_start_research_job,
@@ -23,6 +27,8 @@ from liquent_platform.identity.research import (
     StrategyVersionId,
     WorkspaceId,
 )
+from liquent_platform.identity.ports import WorkspaceMembershipLookup
+from liquent_platform.identity.session import SessionPrincipal
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
@@ -69,10 +75,16 @@ def create_app(
     metrics: ControlPlaneMetrics | None = None,
     research_jobs: InMemoryResearchJobs | None = None,
     research_resolver: ResearchRunnerResolver | None = None,
+    research_principal: SessionPrincipal | None = None,
+    research_memberships: WorkspaceMembershipLookup | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
     runtime_settings = settings or PlatformSettings()
+    if (research_principal is None) is not (research_memberships is None):
+        raise ValueError(
+            "research principal and membership lookup must be provided together"
+        )
     engine = None
     if health is None and runtime_settings.database_url is not None:
         engine = build_engine(runtime_settings.database_url.get_secret_value())
@@ -149,8 +161,16 @@ def create_app(
     )
     def research_job_status(job_id: JobId) -> ResearchJobResponse:
         try:
-            job = job_store.get(job_id)
-        except KeyError:
+            if research_principal is not None and research_memberships is not None:
+                job = get_authorized_research_job(
+                    job_store,
+                    research_memberships,
+                    research_principal,
+                    job_id,
+                )
+            else:
+                job = job_store.get(job_id)
+        except (KeyError, ResearchAuthorizationDenied):
             raise HTTPException(404, "research_job_not_found") from None
         return job_response(job)
 

@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+import pytest
 
 from liquent.backtesting.runner import BacktestResult
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
 from liquent_platform.configuration import PlatformSettings
+from liquent_platform.identity.access import (
+    MembershipStatus,
+    Permission,
+    UserId,
+    WorkspaceMembership,
+)
 from liquent_platform.identity.research import (
     ExperimentId,
     JobId,
     StrategyVersionId,
     WorkspaceId,
 )
+from liquent_platform.identity.session import SessionPrincipal
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.transport.http.app import create_app
 
@@ -52,10 +60,38 @@ def _job() -> InMemoryResearchJob:
     return InMemoryResearchJob(JobId("job-1"), snapshot)
 
 
-def _client(jobs: InMemoryResearchJobs) -> TestClient:
+class StubMembershipLookup:
+    def __init__(self, membership: WorkspaceMembership | None) -> None:
+        self.membership = membership
+
+    def get_membership(
+        self, user_id: UserId, workspace_id: WorkspaceId
+    ) -> WorkspaceMembership | None:
+        return self.membership
+
+
+def _membership(*, allowed: bool = True) -> WorkspaceMembership:
+    return WorkspaceMembership(
+        user_id=UserId("user-1"),
+        workspace_id=WorkspaceId("workspace-1"),
+        status=MembershipStatus.ACTIVE,
+        permissions=(
+            frozenset({Permission.RESEARCH_READ}) if allowed else frozenset()
+        ),
+    )
+
+
+def _client(
+    jobs: InMemoryResearchJobs,
+    *,
+    principal: SessionPrincipal | None = None,
+    memberships: StubMembershipLookup | None = None,
+) -> TestClient:
     app = create_app(
         PlatformSettings(_secrets_dir=None),
         research_jobs=jobs,
+        research_principal=principal,
+        research_memberships=memberships,
     )
     return TestClient(app)
 
@@ -112,3 +148,42 @@ def test_unfinished_job_has_no_partial_evidence() -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "research_evidence_not_found"}
+
+
+def test_status_route_uses_authorized_read_when_dependencies_are_injected() -> None:
+    jobs = InMemoryResearchJobs()
+    jobs.add(_job())
+
+    with _client(
+        jobs,
+        principal=SessionPrincipal(UserId("user-1")),
+        memberships=StubMembershipLookup(_membership()),
+    ) as client:
+        response = client.get("/v1/research/jobs/job-1")
+
+    assert response.status_code == 200
+    assert response.json()["job_id"] == "job-1"
+
+
+def test_status_route_hides_denied_job_as_neutral_not_found() -> None:
+    jobs = InMemoryResearchJobs()
+    jobs.add(_job())
+
+    with _client(
+        jobs,
+        principal=SessionPrincipal(UserId("user-1")),
+        memberships=StubMembershipLookup(_membership(allowed=False)),
+    ) as client:
+        denied = client.get("/v1/research/jobs/job-1")
+        unknown = client.get("/v1/research/jobs/missing")
+
+    assert denied.status_code == unknown.status_code == 404
+    assert denied.json() == unknown.json() == {"detail": "research_job_not_found"}
+
+
+def test_status_route_rejects_partial_authorization_configuration() -> None:
+    with pytest.raises(ValueError, match="must be provided together"):
+        _client(
+            InMemoryResearchJobs(),
+            principal=SessionPrincipal(UserId("user-1")),
+        )

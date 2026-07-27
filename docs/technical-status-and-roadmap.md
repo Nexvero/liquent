@@ -577,6 +577,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Guard verwendet ausschließlich die gespeicherte Workspace-ID des Jobs
     - unbekannte Jobs und Permission-Ablehnungen bleiben getrennte neutrale Fälle
     - keine HTTP-, Session-, Membership-Speicher- oder Deploymentintegration vorgezogen
+- LQ-097 optional authorized status route: `docs/lq-097-optional-authorized-status-route.md`
+  - Status:
+    - Jobstatus-Route nutzt bei vollständiger Injection den autorisierten Lesepfad
+    - Principal und Membership-Lookup müssen gemeinsam konfiguriert sein
+    - unbekannte und nicht sichtbare Jobs liefern identisches neutrales 404
+    - Local-/CI-Pfad bleibt ohne Freigabe von Shared Environments unverändert
 
 ---
 
