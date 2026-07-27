@@ -655,6 +655,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Lookup bleibt read-only und verlängert keine Session
     - ungültige Zustände bleiben nach außen ununterscheidbar
     - konkrete Laufzeiten, Adapter, Persistenz und HTTP bleiben bewusst offen
+- LQ-110 browser session record validity: `docs/lq-110-browser-session-record-validity.md`
+  - Status:
+    - unveränderlicher serverseitiger Record bindet Kontext und Ablauf
+    - Ablaufzeitpunkt und Widerruf liefern neutral keinen Kontext
+    - Gültigkeitsprüfung ist pure und verlangt eindeutige Zeitwerte
+    - Adapter, Persistenz und Shared Environments bleiben bewusst offen
 
 ---
 
