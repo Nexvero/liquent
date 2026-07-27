@@ -28,7 +28,10 @@ from liquent_platform.identity.research import (
 )
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
-from liquent_platform.identity.session import SessionPrincipal
+from liquent_platform.identity.session import (
+    ResolvedBrowserSession,
+    SessionPrincipal,
+)
 
 
 def _job(job_id: str) -> InMemoryResearchJob:
@@ -110,6 +113,10 @@ class StubMembershipLookup:
 
 def _principal() -> SessionPrincipal:
     return SessionPrincipal(UserId("user-1"))
+
+
+def _session() -> ResolvedBrowserSession:
+    return ResolvedBrowserSession(_principal(), "session-proof")
 
 
 def test_start_registers_job_and_returns_terminal_success() -> None:
@@ -221,8 +228,7 @@ def test_csrf_authorized_start_accepts_matching_proof() -> None:
         resolver,
         jobs,
         memberships,
-        _principal(),
-        "session-proof",
+        _session(),
         "session-proof",
     )
 
@@ -243,8 +249,7 @@ def test_invalid_csrf_stops_before_authorization_resolution_or_registration() ->
             resolver,
             jobs,
             memberships,
-            _principal(),
-            "session-proof",
+            _session(),
             "wrong-proof",
         )
 

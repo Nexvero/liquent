@@ -10,7 +10,10 @@ from liquent_platform.application.experiment import ExperimentSnapshot
 from liquent_platform.application.research import BacktestExecution
 from liquent_platform.identity.access import Permission
 from liquent_platform.identity.ports import WorkspaceMembershipLookup
-from liquent_platform.identity.session import SessionPrincipal
+from liquent_platform.identity.session import (
+    ResolvedBrowserSession,
+    SessionPrincipal,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 
 
@@ -66,17 +69,16 @@ def csrf_authorize_resolve_and_start_research_job(
     resolver: ResearchRunnerResolver,
     jobs: InMemoryResearchJobs,
     memberships: WorkspaceMembershipLookup,
-    principal: SessionPrincipal,
-    expected_csrf_token: str | None,
+    session: ResolvedBrowserSession,
     presented_csrf_token: str | None,
 ) -> InMemoryResearchJob:
     """Validate the session-bound CSRF proof before authorization and start."""
 
-    require_valid_csrf_token(expected_csrf_token, presented_csrf_token)
+    require_valid_csrf_token(session.expected_csrf_token, presented_csrf_token)
     return authorize_resolve_and_start_research_job(
         job,
         resolver,
         jobs,
         memberships,
-        principal,
+        session.principal,
     )
