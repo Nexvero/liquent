@@ -59,3 +59,19 @@ def resolve_valid_session(
     if record.revoked_at is not None or now >= record.expires_at:
         return None
     return record.session
+
+
+@dataclass(frozen=True, slots=True)
+class IssuedBrowserSession:
+    """New opaque browser-session material returned by a lifecycle command."""
+
+    session_id: SessionId = field(repr=False)
+    csrf_token: str = field(repr=False)
+    expires_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.session_id:
+            raise ValueError("session id must not be empty")
+        if not self.csrf_token:
+            raise ValueError("csrf token must not be empty")
+        _require_aware(self.expires_at, "expires_at")
