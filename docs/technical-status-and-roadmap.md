@@ -559,6 +559,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Fehler akzeptiert keine IDs, Ursachen oder internen Details
     - HTTP-Status und Ressourcen-Sichtbarkeit bleiben bewusst unberührt
     - keine Logging-, Session-, Provider- oder Deploymentintegration vorgezogen
+- LQ-094 research authorization guard: `docs/lq-094-research-authorization-guard.md`
+  - Status:
+    - dünner Guard über der vorhandenen booleschen Entscheidung ergänzt
+    - alle Ablehnungsgründe erzeugen denselben neutralen Fehler
+    - Membership- und Permission-Regeln werden nicht dupliziert
+    - keine HTTP-, Session-, Audit- oder Deploymentintegration vorgezogen
 
 ---
 

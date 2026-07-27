@@ -1,5 +1,8 @@
 """Application-level research authorization orchestration."""
 
+from liquent_platform.application.authorization_errors import (
+    ResearchAuthorizationDenied,
+)
 from liquent_platform.identity.access import Permission
 from liquent_platform.identity.authorization import permits_research
 from liquent_platform.identity.ports import WorkspaceMembershipLookup
@@ -28,3 +31,20 @@ def authorize_research(
         membership.permissions,
         required_permission,
     )
+
+
+def require_research_authorization(
+    memberships: WorkspaceMembershipLookup,
+    principal: SessionPrincipal,
+    workspace_id: WorkspaceId,
+    required_permission: Permission,
+) -> None:
+    """Return for allowed access or raise the neutral authorization error."""
+
+    if not authorize_research(
+        memberships,
+        principal,
+        workspace_id,
+        required_permission,
+    ):
+        raise ResearchAuthorizationDenied

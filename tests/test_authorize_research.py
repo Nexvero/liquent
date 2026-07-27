@@ -1,4 +1,12 @@
-from liquent_platform.application.authorize_research import authorize_research
+import pytest
+
+from liquent_platform.application.authorization_errors import (
+    ResearchAuthorizationDenied,
+)
+from liquent_platform.application.authorize_research import (
+    authorize_research,
+    require_research_authorization,
+)
 from liquent_platform.identity.access import (
     MembershipStatus,
     Permission,
@@ -78,3 +86,39 @@ def test_mismatched_membership_identity_is_denied_fail_closed() -> None:
         WorkspaceId("workspace-1"),
         Permission.RESEARCH_READ,
     )
+
+
+def test_guard_returns_none_for_allowed_access() -> None:
+    assert (
+        require_research_authorization(
+            StubMembershipLookup(_membership()),
+            _principal(),
+            WorkspaceId("workspace-1"),
+            Permission.RESEARCH_READ,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        StubMembershipLookup(None),
+        StubMembershipLookup(_membership(status=MembershipStatus.INACTIVE)),
+        StubMembershipLookup(_membership(permissions=frozenset())),
+        StubMembershipLookup(_membership(user_id="another-user")),
+        StubMembershipLookup(_membership(workspace_id="another-workspace")),
+    ],
+)
+def test_guard_uses_same_neutral_error_for_every_denial(
+    lookup: StubMembershipLookup,
+) -> None:
+    with pytest.raises(ResearchAuthorizationDenied) as captured:
+        require_research_authorization(
+            lookup,
+            _principal(),
+            WorkspaceId("workspace-1"),
+            Permission.RESEARCH_READ,
+        )
+
+    assert str(captured.value) == "permission_denied"
