@@ -187,3 +187,38 @@ def test_status_route_rejects_partial_authorization_configuration() -> None:
             InMemoryResearchJobs(),
             principal=SessionPrincipal(UserId("user-1")),
         )
+
+
+def test_evidence_route_uses_same_authorized_job_read() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job()
+    job.execute(NoSignalRunner())
+    jobs.add(job)
+
+    with _client(
+        jobs,
+        principal=SessionPrincipal(UserId("user-1")),
+        memberships=StubMembershipLookup(_membership()),
+    ) as client:
+        response = client.get("/v1/research/jobs/job-1/evidence")
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "No-signal evidence"
+
+
+def test_evidence_route_hides_denied_job_as_neutral_not_found() -> None:
+    jobs = InMemoryResearchJobs()
+    job = _job()
+    job.execute(NoSignalRunner())
+    jobs.add(job)
+
+    with _client(
+        jobs,
+        principal=SessionPrincipal(UserId("user-1")),
+        memberships=StubMembershipLookup(_membership(allowed=False)),
+    ) as client:
+        denied = client.get("/v1/research/jobs/job-1/evidence")
+        unknown = client.get("/v1/research/jobs/missing/evidence")
+
+    assert denied.status_code == unknown.status_code == 404
+    assert denied.json() == unknown.json() == {"detail": "research_job_not_found"}

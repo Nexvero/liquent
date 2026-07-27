@@ -127,6 +127,19 @@ def create_app(
             evidence_url=evidence_url,
         )
 
+    def visible_job(job_id: JobId) -> InMemoryResearchJob:
+        try:
+            if research_principal is not None and research_memberships is not None:
+                return get_authorized_research_job(
+                    job_store,
+                    research_memberships,
+                    research_principal,
+                    job_id,
+                )
+            return job_store.get(job_id)
+        except (KeyError, ResearchAuthorizationDenied):
+            raise HTTPException(404, "research_job_not_found") from None
+
     @app.get("/health/live", response_model=HealthResponse, tags=["operations"])
     def liveness() -> HealthResponse:
         return HealthResponse(status="ok")
@@ -160,29 +173,14 @@ def create_app(
         tags=["research"],
     )
     def research_job_status(job_id: JobId) -> ResearchJobResponse:
-        try:
-            if research_principal is not None and research_memberships is not None:
-                job = get_authorized_research_job(
-                    job_store,
-                    research_memberships,
-                    research_principal,
-                    job_id,
-                )
-            else:
-                job = job_store.get(job_id)
-        except (KeyError, ResearchAuthorizationDenied):
-            raise HTTPException(404, "research_job_not_found") from None
-        return job_response(job)
+        return job_response(visible_job(job_id))
 
     @app.get(
         "/v1/research/jobs/{job_id}/evidence",
         tags=["research"],
     )
     def research_job_evidence(job_id: JobId):
-        try:
-            evidence = job_store.get(job_id).evidence
-        except KeyError:
-            raise HTTPException(404, "research_job_not_found") from None
+        evidence = visible_job(job_id).evidence
         if evidence is None:
             raise HTTPException(404, "research_evidence_not_found")
         return evidence_document(evidence)
