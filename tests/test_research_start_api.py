@@ -14,7 +14,10 @@ from liquent_platform.identity.access import (
     WorkspaceMembership,
 )
 from liquent_platform.identity.research import WorkspaceId
-from liquent_platform.identity.session import SessionPrincipal
+from liquent_platform.identity.session import (
+    ResolvedBrowserSession,
+    SessionPrincipal,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJobs
 from liquent_platform.transport.http.app import create_app
 
@@ -81,8 +84,13 @@ def _client(
         research_resolver=(
             LocalCsvMidBreakoutV0Resolver(FIXTURES) if resolver else None
         ),
-        research_principal=(
-            SessionPrincipal(UserId("user-1")) if permissions is not None else None
+        research_session=(
+            ResolvedBrowserSession(
+                SessionPrincipal(UserId("user-1")),
+                "session-proof",
+            )
+            if permissions is not None
+            else None
         ),
         research_memberships=(
             StubMembershipLookup(permissions) if permissions is not None else None
@@ -155,7 +163,11 @@ def test_request_does_not_coerce_parameter_strings() -> None:
 
 def test_authorized_start_accepts_research_write_permission() -> None:
     with _client(permissions=frozenset({Permission.RESEARCH_WRITE})) as client:
-        response = client.post("/v1/research/jobs", json=_request())
+        response = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+            headers={"X-CSRF-Token": "session-proof"},
+        )
 
     assert response.status_code == 202
     assert response.json()["status"] == "succeeded"
@@ -163,9 +175,30 @@ def test_authorized_start_accepts_research_write_permission() -> None:
 
 def test_authorized_start_rejects_read_only_without_registering_job() -> None:
     with _client(permissions=frozenset({Permission.RESEARCH_READ})) as client:
-        denied = client.post("/v1/research/jobs", json=_request())
+        denied = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+            headers={"X-CSRF-Token": "session-proof"},
+        )
         missing = client.get("/v1/research/jobs/job-1")
 
     assert denied.status_code == 403
     assert denied.json() == {"detail": "permission_denied"}
     assert missing.status_code == 404
+
+
+def test_session_bound_start_requires_matching_csrf_header() -> None:
+    with _client(permissions=frozenset({Permission.RESEARCH_WRITE})) as client:
+        missing_header = client.post("/v1/research/jobs", json=_request())
+        wrong_header = client.post(
+            "/v1/research/jobs",
+            json=_request(),
+            headers={"X-CSRF-Token": "wrong-proof"},
+        )
+        missing_job = client.get("/v1/research/jobs/job-1")
+
+    assert missing_header.status_code == wrong_header.status_code == 403
+    assert missing_header.json() == wrong_header.json() == {
+        "detail": "csrf_validation_failed"
+    }
+    assert missing_job.status_code == 404

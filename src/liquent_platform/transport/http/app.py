@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI, Header, HTTPException, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ConfigDict
 
@@ -16,10 +16,11 @@ from liquent_platform.application.experiment import ExperimentSnapshot, freeze_p
 from liquent_platform.application.authorization_errors import (
     ResearchAuthorizationDenied,
 )
+from liquent_platform.application.csrf import CsrfValidationFailed
 from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.start_research import (
     ResearchRunnerResolver,
-    authorize_resolve_and_start_research_job,
+    csrf_authorize_resolve_and_start_research_job,
     resolve_and_start_research_job,
 )
 from liquent_platform.identity.research import (
@@ -29,7 +30,7 @@ from liquent_platform.identity.research import (
     WorkspaceId,
 )
 from liquent_platform.identity.ports import WorkspaceMembershipLookup
-from liquent_platform.identity.session import SessionPrincipal
+from liquent_platform.identity.session import ResolvedBrowserSession
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
@@ -76,15 +77,15 @@ def create_app(
     metrics: ControlPlaneMetrics | None = None,
     research_jobs: InMemoryResearchJobs | None = None,
     research_resolver: ResearchRunnerResolver | None = None,
-    research_principal: SessionPrincipal | None = None,
+    research_session: ResolvedBrowserSession | None = None,
     research_memberships: WorkspaceMembershipLookup | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
     runtime_settings = settings or PlatformSettings()
-    if (research_principal is None) is not (research_memberships is None):
+    if (research_session is None) is not (research_memberships is None):
         raise ValueError(
-            "research principal and membership lookup must be provided together"
+            "research session and membership lookup must be provided together"
         )
     engine = None
     if health is None and runtime_settings.database_url is not None:
@@ -130,11 +131,11 @@ def create_app(
 
     def visible_job(job_id: JobId) -> InMemoryResearchJob:
         try:
-            if research_principal is not None and research_memberships is not None:
+            if research_session is not None and research_memberships is not None:
                 return get_authorized_research_job(
                     job_store,
                     research_memberships,
-                    research_principal,
+                    research_session.principal,
                     job_id,
                 )
             return job_store.get(job_id)
@@ -194,7 +195,13 @@ def create_app(
             status_code=status.HTTP_202_ACCEPTED,
             tags=["research"],
         )
-        def start_research(request: ResearchJobStartRequest) -> ResearchJobResponse:
+        def start_research(
+            request: ResearchJobStartRequest,
+            csrf_token: Annotated[
+                str | None,
+                Header(alias="X-CSRF-Token"),
+            ] = None,
+        ) -> ResearchJobResponse:
             try:
                 snapshot = ExperimentSnapshot(
                     experiment_id=request.experiment_id,
@@ -208,13 +215,14 @@ def create_app(
                     cost_parameters=freeze_parameters(request.cost_parameters),
                 )
                 pending_job = InMemoryResearchJob(request.job_id, snapshot)
-                if research_principal is not None and research_memberships is not None:
-                    job = authorize_resolve_and_start_research_job(
+                if research_session is not None and research_memberships is not None:
+                    job = csrf_authorize_resolve_and_start_research_job(
                         pending_job,
                         research_resolver,
                         job_store,
                         research_memberships,
-                        research_principal,
+                        research_session,
+                        csrf_token,
                     )
                 else:
                     job = resolve_and_start_research_job(
@@ -224,6 +232,8 @@ def create_app(
                     )
             except ResearchAuthorizationDenied:
                 raise HTTPException(403, "permission_denied") from None
+            except CsrfValidationFailed:
+                raise HTTPException(403, "csrf_validation_failed") from None
             except ValueError as exc:
                 if str(exc).startswith("research job already exists:"):
                     raise HTTPException(409, "research_job_conflict") from None
