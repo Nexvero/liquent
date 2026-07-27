@@ -667,6 +667,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - vorgegebene Records werden kopiert und mit injizierter Uhr geprüft
     - unbekannte und ungültige Sessions liefern neutral keinen Kontext
     - Schreib-Lifecycle, Persistenz und Shared Environments bleiben offen
+- LQ-112 session lifecycle command contract: `docs/lq-112-session-lifecycle-command-contract.md`
+  - Status:
+    - Lifecycle ist auf Erzeugen, Rotieren und Widerrufen begrenzt
+    - Rotation muss neuen Eintrag und alten Widerruf atomar verbinden
+    - Widerruf ist idempotent; unbekannte oder ungültige Quellen bleiben neutral
+    - Ports, Store, HTTP und Shared Environments bleiben bewusst offen
 
 ---
 
