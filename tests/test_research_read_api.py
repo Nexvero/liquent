@@ -18,7 +18,10 @@ from liquent_platform.identity.research import (
     StrategyVersionId,
     WorkspaceId,
 )
-from liquent_platform.identity.session import SessionPrincipal
+from liquent_platform.identity.session import (
+    ResolvedBrowserSession,
+    SessionPrincipal,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.transport.http.app import create_app
 
@@ -84,13 +87,13 @@ def _membership(*, allowed: bool = True) -> WorkspaceMembership:
 def _client(
     jobs: InMemoryResearchJobs,
     *,
-    principal: SessionPrincipal | None = None,
+    session: ResolvedBrowserSession | None = None,
     memberships: StubMembershipLookup | None = None,
 ) -> TestClient:
     app = create_app(
         PlatformSettings(_secrets_dir=None),
         research_jobs=jobs,
-        research_principal=principal,
+        research_session=session,
         research_memberships=memberships,
     )
     return TestClient(app)
@@ -156,7 +159,9 @@ def test_status_route_uses_authorized_read_when_dependencies_are_injected() -> N
 
     with _client(
         jobs,
-        principal=SessionPrincipal(UserId("user-1")),
+        session=ResolvedBrowserSession(
+            SessionPrincipal(UserId("user-1")), "session-proof"
+        ),
         memberships=StubMembershipLookup(_membership()),
     ) as client:
         response = client.get("/v1/research/jobs/job-1")
@@ -171,7 +176,9 @@ def test_status_route_hides_denied_job_as_neutral_not_found() -> None:
 
     with _client(
         jobs,
-        principal=SessionPrincipal(UserId("user-1")),
+        session=ResolvedBrowserSession(
+            SessionPrincipal(UserId("user-1")), "session-proof"
+        ),
         memberships=StubMembershipLookup(_membership(allowed=False)),
     ) as client:
         denied = client.get("/v1/research/jobs/job-1")
@@ -185,7 +192,9 @@ def test_status_route_rejects_partial_authorization_configuration() -> None:
     with pytest.raises(ValueError, match="must be provided together"):
         _client(
             InMemoryResearchJobs(),
-            principal=SessionPrincipal(UserId("user-1")),
+            session=ResolvedBrowserSession(
+                SessionPrincipal(UserId("user-1")), "session-proof"
+            ),
         )
 
 
@@ -197,7 +206,9 @@ def test_evidence_route_uses_same_authorized_job_read() -> None:
 
     with _client(
         jobs,
-        principal=SessionPrincipal(UserId("user-1")),
+        session=ResolvedBrowserSession(
+            SessionPrincipal(UserId("user-1")), "session-proof"
+        ),
         memberships=StubMembershipLookup(_membership()),
     ) as client:
         response = client.get("/v1/research/jobs/job-1/evidence")
@@ -214,7 +225,9 @@ def test_evidence_route_hides_denied_job_as_neutral_not_found() -> None:
 
     with _client(
         jobs,
-        principal=SessionPrincipal(UserId("user-1")),
+        session=ResolvedBrowserSession(
+            SessionPrincipal(UserId("user-1")), "session-proof"
+        ),
         memberships=StubMembershipLookup(_membership(allowed=False)),
     ) as client:
         denied = client.get("/v1/research/jobs/job-1/evidence")

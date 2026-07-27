@@ -625,6 +625,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Principal und erwarteter CSRF-Wert sind keine losen Parameter mehr
     - gültiger Nachweis führt unverändert in die Schreibautorisierung
     - Session-Auflösung, HTTP und Deployment bleiben bewusst offen
+- LQ-105 optional session-bound CSRF HTTP path: `docs/lq-105-optional-session-csrf-http.md`
+  - Status:
+    - optionale HTTP-Autorisierung nutzt den gebundenen Session-Kontext
+    - POST verlangt in diesem Modus einen passenden `X-CSRF-Token`-Header
+    - fehlende oder falsche Nachweise liefern neutral `csrf_validation_failed`
+    - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
 
 ---
 
