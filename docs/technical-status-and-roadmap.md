@@ -637,6 +637,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Lookup liefert aufgelösten Kontext oder neutral `None`
     - Speicher-, Provider- und Cookie-Details bleiben außerhalb des Ports
     - keine Adapter-, HTTP-, Shared-Environment- oder Deploymentintegration
+- LQ-107 browser session guard: `docs/lq-107-browser-session-guard.md`
+  - Status:
+    - Guard löst opake Session-ID über den bestehenden Port auf
+    - fehlende und unbekannte Sessions liefern `authentication_required`
+    - Fehler enthält weder ID noch internen Ablehnungsgrund
+    - keine Adapter-, Cookie-, HTTP- oder Deploymentintegration vorgezogen
 
 ---
 
