@@ -613,6 +613,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - gültiger Nachweis führt in den bestehenden autorisierten Schreibpfad
     - ungültiger Nachweis hinterlässt keinen Job und keine Folgeaufrufe
     - Session-, Token-, HTTP- und Deploymentintegration bleiben bewusst offen
+- LQ-103 resolved browser session: `docs/lq-103-resolved-browser-session.md`
+  - Status:
+    - verifizierter Principal und erwarteter CSRF-Wert werden gemeinsam gebunden
+    - CSRF-Wert ist nicht leer und wird nicht in der Darstellung ausgegeben
+    - bestehender `SessionPrincipal` bleibt auf die `UserId` begrenzt
+    - keine Session-Auflösung, Speicherung, HTTP- oder Deploymentintegration
 
 ---
 
