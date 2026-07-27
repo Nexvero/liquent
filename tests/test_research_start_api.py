@@ -19,6 +19,7 @@ def _request(**changes: object) -> dict[str, object]:
     request: dict[str, object] = {
         "job_id": "job-1",
         "experiment_id": "experiment-1",
+        "workspace_id": "workspace-1",
         "title": "Local CSV run",
         "dataset_ref": CSV_PATH.name,
         "dataset_fingerprint": (

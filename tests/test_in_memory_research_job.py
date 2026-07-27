@@ -4,7 +4,12 @@ import pytest
 
 from liquent.backtesting.runner import BacktestResult
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
-from liquent_platform.identity.research import ExperimentId, JobId, StrategyVersionId
+from liquent_platform.identity.research import (
+    ExperimentId,
+    JobId,
+    StrategyVersionId,
+    WorkspaceId,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 
@@ -43,6 +48,7 @@ class FailingRunner:
 def _snapshot(number: int, title: str) -> ExperimentSnapshot:
     return ExperimentSnapshot(
         experiment_id=ExperimentId(f"experiment-{number}"),
+        workspace_id=WorkspaceId("workspace-1"),
         title=title,
         dataset_ref="synthetic/no-signal",
         dataset_fingerprint="sha256:test-dataset",

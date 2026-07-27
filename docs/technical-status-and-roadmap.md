@@ -565,6 +565,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - alle Ablehnungsgründe erzeugen denselben neutralen Fehler
     - Membership- und Permission-Regeln werden nicht dupliziert
     - keine HTTP-, Session-, Audit- oder Deploymentintegration vorgezogen
+- LQ-095 research workspace binding: `docs/lq-095-research-workspace-binding.md`
+  - Status:
+    - jeder Experiment-Snapshot verpflichtend an einen Workspace gebunden
+    - jeder Job übernimmt diese unveränderliche serverseitige Zuordnung
+    - leere Workspace-Identität wird als ungültige Pflichtreferenz abgewiesen
+    - noch keine HTTP-Guard-, Session- oder Deploymentintegration vorgezogen
 
 ---
 

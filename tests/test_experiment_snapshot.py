@@ -5,12 +5,13 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
-from liquent_platform.identity.research import ExperimentId, StrategyVersionId
+from liquent_platform.identity.research import ExperimentId, StrategyVersionId, WorkspaceId
 
 
 def _snapshot() -> ExperimentSnapshot:
     return ExperimentSnapshot(
         experiment_id=ExperimentId("experiment-1"),
+        workspace_id=WorkspaceId("workspace-1"),
         title="Controlled no-signal run",
         dataset_ref="synthetic/no-signal",
         dataset_fingerprint="sha256:dataset-1",
@@ -32,6 +33,7 @@ def test_snapshot_is_immutable_and_parameters_are_canonical() -> None:
 @pytest.mark.parametrize(
     ("field", "message"),
     [
+        ("workspace_id", "workspace_id must not be empty"),
         ("title", "title must not be empty"),
         ("dataset_ref", "dataset_ref must not be empty"),
         ("dataset_fingerprint", "dataset_fingerprint must not be empty"),

@@ -21,6 +21,7 @@ from liquent_platform.identity.research import (
     ExperimentId,
     JobId,
     StrategyVersionId,
+    WorkspaceId,
 )
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
@@ -52,6 +53,7 @@ class ResearchJobStartRequest(BaseModel):
 
     job_id: JobId
     experiment_id: ExperimentId
+    workspace_id: WorkspaceId
     title: str
     dataset_ref: str
     dataset_fingerprint: str
@@ -177,6 +179,7 @@ def create_app(
             try:
                 snapshot = ExperimentSnapshot(
                     experiment_id=request.experiment_id,
+                    workspace_id=request.workspace_id,
                     title=request.title,
                     dataset_ref=request.dataset_ref,
                     dataset_fingerprint=request.dataset_fingerprint,

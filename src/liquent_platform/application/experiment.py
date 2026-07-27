@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, TypeAlias
 
-from liquent_platform.identity.research import ExperimentId, StrategyVersionId
+from liquent_platform.identity.research import (
+    ExperimentId,
+    StrategyVersionId,
+    WorkspaceId,
+)
 
 
 ParameterValue: TypeAlias = str | int | float | bool
@@ -23,6 +27,7 @@ class ExperimentSnapshot:
     """Validated references and effective inputs used by one research run."""
 
     experiment_id: ExperimentId
+    workspace_id: WorkspaceId
     title: str
     dataset_ref: str
     dataset_fingerprint: str
@@ -34,6 +39,7 @@ class ExperimentSnapshot:
     def __post_init__(self) -> None:
         for name, value in (
             ("experiment_id", self.experiment_id),
+            ("workspace_id", self.workspace_id),
             ("title", self.title),
             ("dataset_ref", self.dataset_ref),
             ("dataset_fingerprint", self.dataset_fingerprint),

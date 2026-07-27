@@ -7,7 +7,7 @@ import pytest
 
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
 from liquent_platform.application.local_csv import LocalCsvMidBreakoutV0Resolver
-from liquent_platform.identity.research import ExperimentId, StrategyVersionId
+from liquent_platform.identity.research import ExperimentId, StrategyVersionId, WorkspaceId
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -21,6 +21,7 @@ def _snapshot(**changes: object) -> ExperimentSnapshot:
     csv_path = FIXTURES / "ohlcv_valid.csv"
     values: dict[str, object] = {
         "experiment_id": ExperimentId("experiment-1"),
+        "workspace_id": WorkspaceId("workspace-1"),
         "title": "Local CSV run",
         "dataset_ref": csv_path.name,
         "dataset_fingerprint": _fingerprint(csv_path),

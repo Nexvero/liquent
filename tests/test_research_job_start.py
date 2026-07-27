@@ -8,7 +8,12 @@ from liquent_platform.application.start_research import (
     resolve_and_start_research_job,
     start_research_job,
 )
-from liquent_platform.identity.research import ExperimentId, JobId, StrategyVersionId
+from liquent_platform.identity.research import (
+    ExperimentId,
+    JobId,
+    StrategyVersionId,
+    WorkspaceId,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 
@@ -16,6 +21,7 @@ from liquent_platform.jobs.lifecycle import ResearchJobStatus
 def _job(job_id: str) -> InMemoryResearchJob:
     snapshot = ExperimentSnapshot(
         experiment_id=ExperimentId("experiment-1"),
+        workspace_id=WorkspaceId("workspace-1"),
         title="Controlled run",
         dataset_ref="synthetic/controlled",
         dataset_fingerprint="sha256:dataset-1",
