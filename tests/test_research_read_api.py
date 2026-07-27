@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from liquent.backtesting.runner import BacktestResult
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
 from liquent_platform.configuration import PlatformSettings
-from liquent_platform.identity.research import ExperimentId, JobId, StrategyVersionId
+from liquent_platform.identity.research import (
+    ExperimentId,
+    JobId,
+    StrategyVersionId,
+    WorkspaceId,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.transport.http.app import create_app
 
@@ -35,6 +40,7 @@ class NoSignalRunner:
 def _job() -> InMemoryResearchJob:
     snapshot = ExperimentSnapshot(
         experiment_id=ExperimentId("experiment-1"),
+        workspace_id=WorkspaceId("workspace-1"),
         title="No-signal evidence",
         dataset_ref="synthetic/no-signal",
         dataset_fingerprint="sha256:dataset-1",
