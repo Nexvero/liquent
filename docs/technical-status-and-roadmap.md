@@ -649,6 +649,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlende und unbekannte Sessions liefern `401 authentication_required`
     - alle Research-Routen verwenden denselben aufgelösten Kontext
     - Local-/CI-Pfad bleibt unverändert; Shared Environments bleiben gesperrt
+- LQ-109 browser session validity contract: `docs/lq-109-browser-session-validity-contract.md`
+  - Status:
+    - nur vorhandene, nicht widerrufene und nicht abgelaufene Einträge sind gültig
+    - Lookup bleibt read-only und verlängert keine Session
+    - ungültige Zustände bleiben nach außen ununterscheidbar
+    - konkrete Laufzeiten, Adapter, Persistenz und HTTP bleiben bewusst offen
 
 ---
 
