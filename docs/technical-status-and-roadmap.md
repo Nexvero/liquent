@@ -619,6 +619,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - CSRF-Wert ist nicht leer und wird nicht in der Darstellung ausgegeben
     - bestehender `SessionPrincipal` bleibt auf die `UserId` begrenzt
     - keine Session-Auflösung, Speicherung, HTTP- oder Deploymentintegration
+- LQ-104 session-bound CSRF research start: `docs/lq-104-session-bound-csrf-research-start.md`
+  - Status:
+    - CSRF-Start akzeptiert den gebundenen `ResolvedBrowserSession`-Kontext
+    - Principal und erwarteter CSRF-Wert sind keine losen Parameter mehr
+    - gültiger Nachweis führt unverändert in die Schreibautorisierung
+    - Session-Auflösung, HTTP und Deployment bleiben bewusst offen
 
 ---
 
