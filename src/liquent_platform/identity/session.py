@@ -1,6 +1,7 @@
 """Verified session identity passed into application use cases."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import NewType
 
 from liquent_platform.identity.access import UserId
@@ -26,3 +27,35 @@ class ResolvedBrowserSession:
     def __post_init__(self) -> None:
         if not self.expected_csrf_token:
             raise ValueError("expected csrf token must not be empty")
+
+
+def _require_aware(value: datetime, name: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{name} must be timezone-aware")
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserSessionRecord:
+    """Server-side session state awaiting a validity decision."""
+
+    session: ResolvedBrowserSession
+    expires_at: datetime
+    revoked_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        _require_aware(self.expires_at, "expires_at")
+        if self.revoked_at is not None:
+            _require_aware(self.revoked_at, "revoked_at")
+
+
+def resolve_valid_session(
+    record: BrowserSessionRecord,
+    *,
+    now: datetime,
+) -> ResolvedBrowserSession | None:
+    """Return the bound context only while the record remains valid."""
+
+    _require_aware(now, "now")
+    if record.revoked_at is not None or now >= record.expires_at:
+        return None
+    return record.session
