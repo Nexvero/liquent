@@ -1,8 +1,12 @@
 """Verified session identity passed into application use cases."""
 
 from dataclasses import dataclass, field
+from typing import NewType
 
 from liquent_platform.identity.access import UserId
+
+
+SessionId = NewType("SessionId", str)
 
 
 @dataclass(frozen=True, slots=True)
