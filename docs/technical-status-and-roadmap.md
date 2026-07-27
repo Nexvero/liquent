@@ -583,6 +583,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Principal und Membership-Lookup müssen gemeinsam konfiguriert sein
     - unbekannte und nicht sichtbare Jobs liefern identisches neutrales 404
     - Local-/CI-Pfad bleibt ohne Freigabe von Shared Environments unverändert
+- LQ-098 optional authorized evidence route: `docs/lq-098-optional-authorized-evidence-route.md`
+  - Status:
+    - Status und Evidence verwenden denselben sichtbaren-Job-Helfer
+    - Evidence wird erst nach erfolgreicher Workspace-Autorisierung gelesen
+    - unbekannte und nicht sichtbare Jobs bleiben auf beiden Routen ununterscheidbar
+    - keine Start-, Session-, Membership-Speicher- oder Deploymentintegration vorgezogen
 
 ---
 
