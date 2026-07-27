@@ -571,6 +571,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - jeder Job übernimmt diese unveränderliche serverseitige Zuordnung
     - leere Workspace-Identität wird als ungültige Pflichtreferenz abgewiesen
     - noch keine HTTP-Guard-, Session- oder Deploymentintegration vorgezogen
+- LQ-096 authorized research job read: `docs/lq-096-authorized-research-job-read.md`
+  - Status:
+    - Job wird vor der Autorisierung geladen
+    - Guard verwendet ausschließlich die gespeicherte Workspace-ID des Jobs
+    - unbekannte Jobs und Permission-Ablehnungen bleiben getrennte neutrale Fälle
+    - keine HTTP-, Session-, Membership-Speicher- oder Deploymentintegration vorgezogen
 
 ---
 
