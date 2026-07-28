@@ -8,6 +8,7 @@ from liquent_platform.identity.session import IssuedBrowserSession
 
 
 SESSION_COOKIE_NAME = "liquent_session"
+CSRF_RESPONSE_HEADER_NAME = "X-CSRF-Token"
 
 
 def set_session_cookie(
@@ -48,3 +49,17 @@ def clear_session_cookie(response: Response) -> None:
         samesite="lax",
     )
     response.headers["Cache-Control"] = "no-store"
+
+
+def set_issued_session(
+    response: Response,
+    issued: IssuedBrowserSession,
+    *,
+    now: datetime,
+) -> None:
+    """Attach one issued session using its separate cookie and CSRF channels."""
+
+    if not all(0x21 <= ord(character) <= 0x7E for character in issued.csrf_token):
+        raise ValueError("csrf token must be an HTTP-header-safe ASCII value")
+    set_session_cookie(response, issued, now=now)
+    response.headers[CSRF_RESPONSE_HEADER_NAME] = issued.csrf_token

@@ -716,6 +716,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - gebundener CSRF-Nachweis wird ausschließlich als Response-Header geliefert
     - beide Werte bleiben aus Body, URL, Logs, Telemetrie und Web Storage fern
     - Routen, Provider-Wiring, Refresh und Shared Environments bleiben offen
+- LQ-120 session issuance response helper:
+  `docs/lq-120-session-issuance-response-helper.md`
+  - Status:
+    - ein Helfer gibt Cookie und gebundenen CSRF-Header gemeinsam aus
+    - unsichere Headerwerte und abgelaufenes Material mutieren keine Response
+    - Session-ID und CSRF-Nachweis bleiben aus dem Response-Body fern
+    - Routen, Provider-Wiring, CORS und Shared Environments bleiben offen
 
 ---
 
