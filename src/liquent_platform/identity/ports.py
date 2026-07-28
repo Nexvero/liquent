@@ -47,3 +47,11 @@ class BrowserSessionCreationStore(Protocol):
         session_id: SessionId,
         record: BrowserSessionRecord,
     ) -> bool: ...
+
+
+class BrowserSessionMaterialGenerator(Protocol):
+    """Generate independent opaque material for one new browser session."""
+
+    def new_session_id(self) -> SessionId: ...
+
+    def new_csrf_token(self) -> str: ...
