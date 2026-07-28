@@ -4,6 +4,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
 
+from liquent_platform.identity.access import UserId
+from liquent_platform.identity.admission import (
+    IdentityAdmissionId,
+    IdentityAdmissionRecord,
+)
+from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
     IssuedBrowserSession,
@@ -106,3 +112,72 @@ class InMemoryBrowserSessions:
         snapshot = dict(self._records)
         snapshot[session_id] = replace(record, revoked_at=now)
         self._records = snapshot
+
+
+class InMemoryExternalIdentities:
+    """External-identity lookup and admission store for tests and local execution."""
+
+    def __init__(
+        self,
+        admissions: Mapping[IdentityAdmissionId, IdentityAdmissionRecord],
+        bindings: Mapping[ExternalIdentity, UserId],
+        *,
+        now: Callable[[], datetime],
+    ) -> None:
+        self._admissions = dict(admissions)
+        self._bindings = dict(bindings)
+        self._now = now
+
+    def get_user_id(self, identity: ExternalIdentity) -> UserId | None:
+        """Resolve one exact external identity to its bound user, read-only."""
+
+        return self._bindings.get(identity)
+
+    def consume_admission_and_bind(
+        self,
+        admission_id: IdentityAdmissionId,
+        identity: ExternalIdentity,
+    ) -> UserId | None:
+        """Atomically consume one admission and create its first identity binding.
+
+        The target user comes solely from the admission record. Structural
+        neutral cases and an exact idempotent repeat are resolved before the
+        clock is read; the clock is read at most once and only for a still
+        active, unconsumed admission. Any failure returns a neutral None and
+        leaves admission and binding state unchanged.
+        """
+
+        record = self._admissions.get(admission_id)
+        if record is None:
+            return None  # unknown admission; no clock read
+
+        if record.consumed_at is not None:
+            # Exact idempotent repeat: same identity and same existing binding.
+            if (
+                record.bound_identity == identity
+                and self._bindings.get(identity) == record.target_user_id
+            ):
+                return record.target_user_id
+            return None  # any other use of a consumed admission; no clock read
+
+        # Unconsumed admission: structural neutral cases, still without the clock.
+        if identity in self._bindings:
+            return None  # identity already bound (possibly to another user)
+        target_user_id = record.target_user_id
+        if target_user_id in self._bindings.values():
+            return None  # target already bound to another identity; no linking
+
+        now = self._now()  # single clock read, only for an active unconsumed admission
+        if now >= record.expires_at:
+            return None  # expired (also exactly at expiry); state unchanged
+
+        # Success: fully prepare both new snapshots, then adopt them together.
+        new_admissions = dict(self._admissions)
+        new_admissions[admission_id] = replace(
+            record, consumed_at=now, bound_identity=identity
+        )
+        new_bindings = dict(self._bindings)
+        new_bindings[identity] = target_user_id
+        self._admissions = new_admissions
+        self._bindings = new_bindings
+        return target_user_id

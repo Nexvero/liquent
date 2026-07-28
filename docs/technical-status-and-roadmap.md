@@ -821,6 +821,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - expires_at/consumed_at timezone-aware; consumed_at und bound_identity nur gemeinsam gesetzt; konsumierter Record bewahrt die exakte Identität
     - Zweck durch Modelltyp definiert (keine Purpose-Enum); keine Normalisierung, keine Validitäts-/Konsum-Logik, keine Mutation
     - Ziel-Workspace erzeugt keine Mitgliedschaft/Rolle/Berechtigung; keine Claims/Tokens/Rollen/Session-Felder; kein Store/Adapter/Route
+- LQ-135 in-memory external identities:
+  `docs/lq-135-in-memory-external-identities.md`
+  - Status:
+    - lokaler flüchtiger Adapter InMemoryExternalIdentities erfüllt ExternalIdentityLookup und ExternalIdentityAdmissionStore
+    - Konstruktor kopiert beide Mappings; get_user_id rein lesend, exakt/opak, ohne Uhr
+    - consume_admission_and_bind: Ziel-UserId nur aus Admission; strukturelle Neutralfälle/idempotente Wiederholung vor Uhr-Lesen; Uhr höchstens einmal
+    - Erfolg tauscht beide Snapshots gemeinsam (consumed_at=now + exakte bound_identity); jeder Fehlerfall unverändert, neutral None; kein Linking/Persistenz
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
