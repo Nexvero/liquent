@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from liquent_platform.identity.access import UserId, WorkspaceMembership
+from liquent_platform.identity.admission import IdentityAdmissionId
 from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
@@ -32,6 +33,26 @@ class ExternalIdentityLookup(Protocol):
     """Resolve one verified external identity to an internal user, read-only."""
 
     def get_user_id(self, identity: ExternalIdentity) -> UserId | None: ...
+
+
+class ExternalIdentityAdmissionStore(Protocol):
+    """Atomically consume one admission and create its first identity binding.
+
+    The target user is taken solely from the internally stored admission; the
+    caller never supplies a UserId, so a login/callback caller cannot bind an
+    external identity to a freely chosen or foreign user. Admission validity,
+    expiry, single-use consumption, and the first binding happen atomically. On
+    success the internally determined UserId is returned; an exact repeat of the
+    same completed operation is idempotent and returns the same UserId. An
+    unknown, expired, or otherwise consumed admission, an identity collision, or
+    a binding to a different user all fail neutrally to None, indistinguishably.
+    """
+
+    def consume_admission_and_bind(
+        self,
+        admission_id: IdentityAdmissionId,
+        identity: ExternalIdentity,
+    ) -> UserId | None: ...
 
 
 class BrowserSessionLifecycle(Protocol):
