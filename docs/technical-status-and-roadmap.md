@@ -807,6 +807,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - gebundene ExternalIdentity löst nur auf vorhandenen UserId; ungebundene bindet nur nach gültiger interner Admission
     - Admission-Prüfung, Einmal-Konsum und eindeutige Bindungsanlage sind atomar und idempotent; Umbiegen auf anderen UserId verboten
     - Kollision/konsumierte/abgelaufene Admission/anderweitig gebunden → neutraler Fehler; Account-Linking/Rebinding/Merge/Multi-Issuer bleiben offen
+- LQ-133 external identity admission port:
+  `docs/lq-133-external-identity-admission-port.md`
+  - Status:
+    - opakes IdentityAdmissionId-Wertobjekt (value nicht leer, exakt/opak, unveränderlich/hashbar) und Port-Grenze
+    - ExternalIdentityAdmissionStore.consume_admission_and_bind(admission_id, identity) -> UserId | None; kein UserId-Parameter
+    - Ziel-UserId nur aus der Admission; Prüfung/Ablauf/Einmal-Konsum/erstmalige Bindung atomar, exakte Wiederholung idempotent
+    - unbekannt/abgelaufen/konsumiert/Kollision/anderweitig gebunden → identisch None; kein Adapter/Persistenz/User-/Workspace-Erzeugung
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
