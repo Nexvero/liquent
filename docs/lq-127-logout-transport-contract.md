@@ -41,8 +41,10 @@ identisch; sie verraten nicht, ob eine Session existierte oder gültig war.
   (nur dann existiert ein zu schützender zustandsändernder Effekt).
 - Die Prüfung nutzt den vorhandenen CSRF-Validierungspfad: der Request muss den an
   die Session gebundenen `X-CSRF-Token` mitführen. Fehlt er oder passt er nicht,
-  wird der Request über die bestehende neutrale CSRF-Ablehnung zurückgewiesen;
-  es findet **kein** Widerruf und **keine** Cookie-Löschung statt.
+  liefert die Logout-Grenze explizit `403 Forbidden` mit leerem Body und
+  `Cache-Control: no-store`. Es findet **kein** Widerruf und **keine**
+  Cookie-Löschung statt. Die bestehende CSRF-Validierungslogik wird verwendet,
+  nicht jedoch deren bisherige JSON-HTTP-Darstellung.
 - Da keine CORS-Freigabe existiert, kann ein Cross-Origin-Aufrufer die Antwort
   (Status/Body) nicht lesen; die CSRF-Ablehnung ist damit kein
   Session-Existenz-Orakel für fremde Ursprünge.
@@ -50,8 +52,8 @@ identisch; sie verraten nicht, ob eine Session existierte oder gültig war.
 ### Statuscodes
 
 - Erfolgreicher Widerruf und bereits zustandsloser Logout: `204 No Content`.
-- CSRF-Ablehnung einer gültigen aktiven Session: bestehende neutrale
-  CSRF-Antwort (kein Session-Material).
+- CSRF-Ablehnung einer gültigen aktiven Session: `403 Forbidden`, leerer Body,
+  `Cache-Control: no-store`, kein Widerruf und keine Cookie-Löschung.
 - Store-/Infrastrukturfehler beim Widerruf: neutraler `500`-Endzustand (siehe
   „Store-Fehler"). Es werden keine unterscheidenden `401`/`404` verwendet.
 
@@ -64,8 +66,9 @@ identisch; sie verraten nicht, ob eine Session existierte oder gültig war.
 
 ### Cache-Control
 
-- Jede Antwort trägt `Cache-Control: no-store`. Der Body bleibt leer und nicht
-  cachebar. Der `clear_session_cookie`-Helfer setzt `no-store` bereits mit.
+- Jede Logout-Antwort (`204`, `403` und `500`) trägt
+  `Cache-Control: no-store` und einen leeren, nicht cachebaren Body. Der
+  `clear_session_cookie`-Helfer setzt `no-store` für den `204`-Pfad bereits mit.
 
 ### Reihenfolge von Widerruf und Cookie-Löschung
 
