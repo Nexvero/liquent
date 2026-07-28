@@ -723,6 +723,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - unsichere Headerwerte und abgelaufenes Material mutieren keine Response
     - Session-ID und CSRF-Nachweis bleiben aus dem Response-Body fern
     - Routen, Provider-Wiring, CORS und Shared Environments bleiben offen
+- LQ-121 in-memory session creation store:
+  `docs/lq-121-in-memory-session-creation-store.md`
+  - Status:
+    - lokaler Session-Adapter erfüllt Lookup- und Creation-Store-Port
+    - neue Session-IDs werden ergänzt, bestehende niemals überschrieben
+    - Gültigkeitsprüfung und injizierte Uhr bleiben unverändert
+    - Rotation, Persistenz, HTTP-Wiring und Shared Environments bleiben offen
 
 ---
 

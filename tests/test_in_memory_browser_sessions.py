@@ -2,7 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 from liquent_platform.identity.access import UserId
 from liquent_platform.identity.in_memory import InMemoryBrowserSessions
-from liquent_platform.identity.ports import BrowserSessionLookup
+from liquent_platform.identity.ports import (
+    BrowserSessionCreationStore,
+    BrowserSessionLookup,
+)
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
     ResolvedBrowserSession,
@@ -27,6 +30,14 @@ def _lookup(
     session_id: SessionId,
 ) -> ResolvedBrowserSession | None:
     return port.get_session(session_id)
+
+
+def _add(
+    port: BrowserSessionCreationStore,
+    session_id: SessionId,
+    record: BrowserSessionRecord,
+) -> bool:
+    return port.add_session(session_id, record)
 
 
 def test_active_record_resolves_through_lookup_port() -> None:
@@ -86,3 +97,38 @@ def test_constructor_copies_supplied_records() -> None:
     records.clear()
 
     assert sessions.get_session(SESSION_ID) is session
+
+
+def test_add_session_is_available_through_creation_store_port() -> None:
+    session = _session()
+    record = BrowserSessionRecord(session, NOW + timedelta(minutes=1))
+    sessions = InMemoryBrowserSessions({}, now=lambda: NOW)
+
+    assert _add(sessions, SESSION_ID, record) is True
+    assert _lookup(sessions, SESSION_ID) is session
+
+
+def test_add_session_does_not_replace_existing_identifier() -> None:
+    original = _session()
+    replacement = ResolvedBrowserSession(
+        SessionPrincipal(UserId("user-2")),
+        "replacement-proof",
+    )
+    sessions = InMemoryBrowserSessions(
+        {
+            SESSION_ID: BrowserSessionRecord(
+                original,
+                NOW + timedelta(minutes=1),
+            )
+        },
+        now=lambda: NOW,
+    )
+
+    assert (
+        sessions.add_session(
+            SESSION_ID,
+            BrowserSessionRecord(replacement, NOW + timedelta(minutes=2)),
+        )
+        is False
+    )
+    assert sessions.get_session(SESSION_ID) is original
