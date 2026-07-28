@@ -744,6 +744,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Uhr und positive Laufzeit werden explizit injiziert und vorab geprüft
     - kein Principal-Argument; der Store bindet den bestehenden Principal, Store-False bleibt neutral
     - In-Memory-Rotation, HTTP und Shared Environments bleiben bewusst offen
+- LQ-124 in-memory rotation:
+  `docs/lq-124-in-memory-rotation.md`
+  - Status:
+    - lokaler Adapter erfüllt zusätzlich den atomaren Rotation-Store-Port
+    - Erfolg übernimmt den bestehenden Principal und tauscht einen Snapshot in einem Schritt
+    - unbekannte/abgelaufene/widerrufene Quelle, Kollision und identische ID liefern neutral False
+    - Uhr wird höchstens einmal gelesen; Persistenz und Shared Environments bleiben offen
 
 ---
 
