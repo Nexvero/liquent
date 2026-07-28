@@ -14,18 +14,20 @@ atomaren `BrowserSessionRotationStore`. Er nutzt den vorhandenen
   Generator noch der Store werden aufgerufen.
 - Session-ID und CSRF-Nachweis werden unabhängig und nicht leer erzeugt; leeres
   Material scheitert vor dem Store.
-- Der Replacement-Record behält denselben Principal wie die bestehende Session;
-  die Identität stammt vom äußeren, bereits verifizierten Aufrufer und niemals
-  aus der Session-ID.
+- Der Anwendungsfall übergibt dem Store **nur** die aktuelle Session-ID und das
+  neue `IssuedBrowserSession`-Material — **keinen** Principal. Der Store übernimmt
+  den Principal aus dem bestehenden Record, sodass hier konstruktiv kein fremder
+  Principal gebunden werden kann.
 - Liefert der Store `False` (unbekannte, ungültige Quelle oder Ziel-ID-Kollision),
   wird ausschließlich der neutrale `SessionLifecycleConflict` ausgelöst.
 - Bei Erfolg wird das ausgegebene `IssuedBrowserSession` zurückgegeben.
 
 ## Grenzen
 
-Die Atomarität von Widerruf und Neuanlage liegt vollständig im Store; dieser
-Anwendungsfall führt keine eigene Gültigkeits- oder Widerrufslogik aus. Cookie-
-Ausgabe und Transport bleiben getrennte, spätere Slices.
+Die Atomarität von Widerruf und Neuanlage sowie die Übernahme des bestehenden
+Principals liegen vollständig im Store; dieser Anwendungsfall führt keine eigene
+Gültigkeits-, Widerrufs- oder Principal-Logik aus. Cookie-Ausgabe und Transport
+bleiben getrennte, spätere Slices.
 
 ## Bewusst nicht enthalten
 
