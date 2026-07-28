@@ -751,6 +751,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Erfolg übernimmt den bestehenden Principal und tauscht einen Snapshot in einem Schritt
     - unbekannte/abgelaufene/widerrufene Quelle, Kollision und identische ID liefern neutral False
     - Uhr wird höchstens einmal gelesen; Persistenz und Shared Environments bleiben offen
+- LQ-125 session revocation port and use case:
+  `docs/lq-125-session-revocation.md`
+  - Status:
+    - speicherneutraler Revocation-Store-Port mit idempotentem revoke_session(id) -> None
+    - unbekannte, bereits widerrufene oder abgelaufene Sessions sind neutrale No-ops
+    - kein Rückgabewert verrät Existenz oder Gültigkeit; kein internes Material nach außen
+    - Anwendungsfall delegiert genau einmal; Adapter, HTTP-Logout und Shared Environments bleiben offen
 
 ---
 
