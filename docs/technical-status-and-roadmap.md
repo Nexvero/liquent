@@ -758,6 +758,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - unbekannte, bereits widerrufene oder abgelaufene Sessions sind neutrale No-ops
     - kein Rückgabewert verrät Existenz oder Gültigkeit; kein internes Material nach außen
     - Anwendungsfall delegiert genau einmal; Adapter, HTTP-Logout und Shared Environments bleiben offen
+- LQ-126 in-memory revocation:
+  `docs/lq-126-in-memory-revocation.md`
+  - Status:
+    - lokaler Adapter erfüllt zusätzlich den idempotenten Revocation-Store-Port
+    - unbekannte und bereits widerrufene Sessions bleiben neutral ohne Uhr-Lesevorgang
+    - aktive Session wird mit genau einem Uhrzeitwert per Snapshot in einem Schritt widerrufen
+    - abgelaufene Session bleibt unverändert; HTTP-Logout und Shared Environments bleiben offen
 
 ---
 
