@@ -779,6 +779,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Route nur bei gepaarten optionalen create_app-Deps; genau eine gesetzt ist ein Konfigurationsfehler
     - fünf Vertragspfade: 204/204/403/204/500, leere Bodies, no-store, Cookie-Löschung bzw. Nicht-Löschung
     - nur CsrfValidationFailed und SessionRevocationUnavailable werden gefangen; bestehende Pfade unverändert
+- LQ-129 provider-neutral identity boundary:
+  `docs/lq-129-identity-boundary-contract.md`
+  - Status:
+    - externe Authentifizierung später über OIDC Authorization Code + PKCE, ohne eigene Passwörter
+    - ausschließlich verifiziertes `(issuer, subject)` bindet eine externe Identität an `UserId`
+    - Anmeldung erteilt keine Workspace-Rolle; Autorisierung und Onboarding bleiben intern
+    - Anbieter, Routen, Persistenz, Wiring und Shared Environments bleiben bewusst offen
 
 ---
 
