@@ -20,8 +20,15 @@ from liquent_platform.application.experiment import ExperimentSnapshot, freeze_p
 from liquent_platform.application.authorization_errors import (
     ResearchAuthorizationDenied,
 )
-from liquent_platform.application.csrf import CsrfValidationFailed
+from liquent_platform.application.csrf import (
+    CsrfValidationFailed,
+    require_valid_csrf_token,
+)
 from liquent_platform.application.read_research_job import get_authorized_research_job
+from liquent_platform.application.revoke_session import revoke_browser_session
+from liquent_platform.application.session_lifecycle_errors import (
+    SessionRevocationUnavailable,
+)
 from liquent_platform.application.start_research import (
     ResearchRunnerResolver,
     csrf_authorize_resolve_and_start_research_job,
@@ -35,9 +42,11 @@ from liquent_platform.identity.research import (
 )
 from liquent_platform.identity.ports import (
     BrowserSessionLookup,
+    BrowserSessionRevocationStore,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
+from liquent_platform.transport.http.session_cookie import clear_session_cookie
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
@@ -86,6 +95,8 @@ def create_app(
     research_resolver: ResearchRunnerResolver | None = None,
     research_sessions: BrowserSessionLookup | None = None,
     research_memberships: WorkspaceMembershipLookup | None = None,
+    logout_sessions: BrowserSessionLookup | None = None,
+    logout_revocations: BrowserSessionRevocationStore | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
@@ -93,6 +104,10 @@ def create_app(
     if (research_sessions is None) is not (research_memberships is None):
         raise ValueError(
             "research session lookup and membership lookup must be provided together"
+        )
+    if (logout_sessions is None) is not (logout_revocations is None):
+        raise ValueError(
+            "logout session lookup and revocation store must be provided together"
         )
     engine = None
     if health is None and runtime_settings.database_url is not None:
@@ -272,5 +287,47 @@ def create_app(
                     raise HTTPException(409, "research_job_conflict") from None
                 raise HTTPException(422, "research_inputs_unresolvable") from None
             return job_response(job)
+
+    if logout_sessions is not None and logout_revocations is not None:
+
+        def _neutral_cleared() -> Response:
+            cleared = Response(status_code=status.HTTP_204_NO_CONTENT)
+            clear_session_cookie(cleared)  # deletes cookie + Cache-Control: no-store
+            return cleared
+
+        def _no_store(status_code: int) -> Response:
+            result = Response(status_code=status_code)
+            result.headers["Cache-Control"] = "no-store"
+            return result
+
+        @app.post("/v1/session/logout", tags=["session"])
+        def logout(
+            session_cookie: Annotated[
+                str | None,
+                Cookie(alias="liquent_session"),
+            ] = None,
+            csrf_token: Annotated[
+                str | None,
+                Header(alias="X-CSRF-Token"),
+            ] = None,
+        ) -> Response:
+            # Missing cookie: no lookup, no revocation, neutral cleared 204.
+            if session_cookie is None:
+                return _neutral_cleared()
+            # Unknown, expired, or revoked all resolve to None: neutral cleared 204.
+            session = logout_sessions.get_session(SessionId(session_cookie))
+            if session is None:
+                return _neutral_cleared()
+            # Valid active session: the bound CSRF proof is mandatory.
+            try:
+                require_valid_csrf_token(session.expected_csrf_token, csrf_token)
+            except CsrfValidationFailed:
+                return _no_store(status.HTTP_403_FORBIDDEN)  # no revoke, keep cookie
+            # CSRF valid: revoke exactly once, then clear the cookie.
+            try:
+                revoke_browser_session(logout_revocations, SessionId(session_cookie))
+            except SessionRevocationUnavailable:
+                return _no_store(status.HTTP_500_INTERNAL_SERVER_ERROR)  # keep cookie
+            return _neutral_cleared()
 
     return app
