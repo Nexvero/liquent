@@ -1,0 +1,63 @@
+# LQ-137 — Secure OIDC Login Material
+
+## Ergebnis
+
+Providerneutrale Erzeugung des kurzlebigen Kryptomaterials für einen
+OIDC-Login-Start: ein unveränderliches `OidcLoginMaterial`-Modell und ein
+`SecureOidcLoginMaterialGenerator`. Kein Store, keine Route, kein OIDC-Client und
+kein Production-Wiring. Der bestehende Session-Material-Generator bleibt unberührt.
+
+## OidcLoginMaterial
+
+```
+@dataclass(frozen=True, slots=True)
+class OidcLoginMaterial:
+    state: str = field(repr=False)
+    nonce: str = field(repr=False)
+    code_verifier: str = field(repr=False)
+    code_challenge: str
+```
+
+- Alle vier Werte müssen **nicht leer** sein.
+- `state`, `nonce` und `code_verifier` gelten als **sensibel** und erscheinen
+  **nicht** im `repr`; `code_challenge` ist kein Geheimnis und **darf** im `repr`
+  erscheinen.
+- Keine Tokens, Claims, Issuer-, User-, Admission-, Workspace- oder Session-Daten.
+- Keine Normalisierung irgendeines Wertes.
+
+## SecureOidcLoginMaterialGenerator
+
+```
+class SecureOidcLoginMaterialGenerator:
+    def __init__(self, entropy_bytes: int = 32) -> None: ...
+    def new_login_material(self) -> OidcLoginMaterial: ...
+```
+
+- Mindestens **32 Entropie-Bytes** je Zufallswert; `bool`, Nicht-Integer und Werte
+  unter 32 werden abgewiesen.
+- `state`, `nonce` und `code_verifier` entstehen aus **drei unabhängigen**
+  Aufrufen eines kryptografisch sicheren URL-safe Generators — keine Ableitung
+  oder Wiederverwendung zwischen diesen drei Werten.
+- PKCE **ausschließlich `S256`**:
+  `code_challenge = BASE64URL-ENCODE(SHA256(ASCII(code_verifier)))`, Base64url
+  **ohne** abschließendes `=`.
+- Keine `plain`-PKCE-Unterstützung, keine konfigurierbare Hashfunktion, keine
+  Protokoll- oder Netzwerkanfrage, kein Logging von Werten.
+
+## Bewusst nicht enthalten
+
+- kein Generator-Port ohne konkreten Anwendungsfall,
+- kein Login-Transaktionsmodell oder Store,
+- keine Admission-Verknüpfung,
+- keine Login-Start-/Callback-Route,
+- keine OIDC-/OAuth-Bibliothek,
+- keine Discovery-, JWKS- oder Tokenlogik,
+- keine Datenbank oder Migration,
+- kein Provider,
+- kein Production-Wiring oder Deployment.
+
+## Nächster Schritt
+
+Ein späterer Slice kann dieses Material innerhalb eines Login-Start-Anwendungsfalls
+an eine kurzlebige Login-Transaktion (LQ-136) binden — mit eigener Persistenz- und
+Wiring-Entscheidung.
