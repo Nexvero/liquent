@@ -828,6 +828,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Konstruktor kopiert beide Mappings; get_user_id rein lesend, exakt/opak, ohne Uhr
     - consume_admission_and_bind: Ziel-UserId nur aus Admission; strukturelle Neutralfälle/idempotente Wiederholung vor Uhr-Lesen; Uhr höchstens einmal
     - Erfolg tauscht beide Snapshots gemeinsam (consumed_at=now + exakte bound_identity); jeder Fehlerfall unverändert, neutral None; kein Linking/Persistenz
+- LQ-136 oidc login transaction contract:
+  `docs/lq-136-oidc-login-transaction-contract.md`
+  - Status:
+    - nur Vertrag: Authorization Code Flow + PKCE (nur S256), unabhängige state/nonce/code_verifier, code_verifier bleibt serverseitig
+    - optionale IdentityAdmissionId beim Start an die Transaktion gebunden; optionales Rückkehrziel nur als validierter interner relativer Pfad
+    - Callback prüft vollständig (state/Issuer/Signatur/Audience/nonce/PKCE/(issuer,subject)); atomarer Einmal-Konsum vor Code-Einlösung, fail-closed
+    - Fehler neutral ohne Bestandsleak; keine IdP-Tokens als Session; Reihenfolge Verifizieren→Lookup→Admission→Autorisierung→Session; keine Modelle/Ports/Route
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
