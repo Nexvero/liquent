@@ -5,6 +5,7 @@ from typing import Protocol
 from liquent_platform.identity.access import UserId, WorkspaceMembership
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
+    BrowserSessionRecord,
     IssuedBrowserSession,
     ResolvedBrowserSession,
     SessionId,
@@ -36,3 +37,13 @@ class BrowserSessionLifecycle(Protocol):
     ) -> IssuedBrowserSession | None: ...
 
     def revoke_session(self, session_id: SessionId) -> None: ...
+
+
+class BrowserSessionCreationStore(Protocol):
+    """Atomically add one new session without replacing an existing record."""
+
+    def add_session(
+        self,
+        session_id: SessionId,
+        record: BrowserSessionRecord,
+    ) -> bool: ...

@@ -679,6 +679,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Ausgabeobjekt schützt opake Session- und CSRF-Werte vor Darstellung
     - ungültige Rotation und Widerruf verraten keinen internen Bestand
     - Implementierung, Store, HTTP und Shared Environments bleiben offen
+- LQ-114 create browser session: `docs/lq-114-create-browser-session.md`
+  - Status:
+    - Anwendungsfall bindet ausgegebenes Session-Material an den Principal
+    - atomarer Store-Port verhindert stilles Überschreiben
+    - Kollision liefert ausschließlich den neutralen Lifecycle-Konflikt
+    - konkreter Store, Generatoren und HTTP bleiben bewusst offen
 
 ---
 
