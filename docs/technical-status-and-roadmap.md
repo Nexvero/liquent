@@ -833,7 +833,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - Status:
     - nur Vertrag: Authorization Code Flow + PKCE (nur S256), unabhängige state/nonce/code_verifier, code_verifier bleibt serverseitig
     - optionale IdentityAdmissionId beim Start an die Transaktion gebunden; optionales Rückkehrziel nur als validierter interner relativer Pfad
-    - Callback prüft vollständig (state/Issuer/Signatur/Audience/nonce/PKCE/(issuer,subject)); atomarer Einmal-Konsum vor Code-Einlösung, fail-closed
+    - Callback prüft vollständig (state/aktuell vertrauenswürdiger Issuer/Signatur/Audience/nonce/PKCE/(issuer,subject)); atomarer Einmal-Konsum vor Code-Einlösung, fail-closed
     - Fehler neutral ohne Bestandsleak; keine IdP-Tokens als Session; Reihenfolge Verifizieren→Lookup→Admission→Autorisierung→Session; keine Modelle/Ports/Route
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine

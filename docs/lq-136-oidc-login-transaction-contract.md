@@ -41,8 +41,8 @@ konkreten Python-Modelle, Felder oder Persistenztechnologie):
 - sicheren Lookup-Bezug für `state`,
 - erwarteten `nonce`,
 - retrievbaren PKCE-`code_verifier`,
-- erwarteten Issuer bzw. die beim Start ausgewählte vertrauenswürdige
-  Issuer-Konfiguration,
+- erwarteten Issuer bzw. dessen stabile Identität; die Transaktion friert
+  **keinen** Trust-Status vom Login-Start dauerhaft ein,
 - exakte Redirect-URI bzw. deren stabile interne Referenz,
 - Erstellungs-/Ablaufzeit,
 - Konsumzustand,
@@ -58,7 +58,12 @@ werden:
 - Transaktion vorhanden, nicht abgelaufen und nicht bereits konsumiert,
 - **atomarer Einmal-Konsum** der Login-Transaktion,
 - Authorization Code nur einmal verarbeitet,
-- Token-Antwort stammt vom erwarteten Issuer,
+- erwarteter Issuer ist auch beim Callback nach der **aktuell aktiven**
+  Liquent-Trust-Konfiguration weiterhin vertrauenswürdig; eine seit dem
+  Login-Start entzogene oder deaktivierte Freigabe endet neutral,
+- Tokenaustausch erfolgt ausschließlich gegen den Token-Endpunkt der aktuell
+  vertrauenswürdigen Issuer-Konfiguration,
+- ID-Token wurde vom erwarteten, weiterhin vertrauenswürdigen Issuer ausgestellt,
 - Signatur und erlaubter Algorithmus,
 - exakter Issuer,
 - erwartete Audience und gegebenenfalls `azp`,
@@ -87,8 +92,15 @@ werden:
   Anwendungsdaten.
 - Authorization Code, `state`, `nonce` und `code_verifier` werden **niemals**
   geloggt oder in Telemetrie aufgenommen.
-- `state` erscheint protokollbedingt im Authorization Request und Callback, darf
-  aber darüber hinaus **nicht** weitergegeben werden.
+- `state` und `nonce` erscheinen protokollbedingt im Authorization Request;
+  Authorization Code und `state` erscheinen abhängig vom gewählten Response
+  Mode im Callback-Transport. Diese notwendige Protokollübertragung erlaubt
+  keine Aufnahme in Logs, Telemetrie, Fehlerseiten, Weiterleitungen oder
+  Anwendungsdaten.
+- Zugriffslogs und Fehlerbehandlung müssen sensible Authorization- und
+  Callback-Parameter aussparen oder redigieren.
+- Der `code_verifier` bleibt ausschließlich serverseitig und erscheint niemals
+  im Browsertransport.
 - Der `code_verifier` muss bis zum Callback retrievbar und geschützt serverseitig
   gespeichert werden.
 - Persistente Hash-/Verschlüsselungsdetails bleiben LQ-130 bzw. einem späteren
