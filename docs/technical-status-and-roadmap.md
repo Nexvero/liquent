@@ -703,6 +703,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Cookie bleibt host-only, Secure, HttpOnly, SameSite=Lax und Path=/
     - Browser-Lebensdauer überschreitet den serverseitigen Ablauf nicht
     - Helfer, Routen, CSRF-Ausgabe und Shared Environments bleiben offen
+- LQ-118 session cookie helpers: `docs/lq-118-session-cookie-helpers.md`
+  - Status:
+    - kleine HTTP-Helfer setzen und löschen ausschließlich `liquent_session`
+    - Ausgabe bleibt host-only, Secure, HttpOnly, SameSite=Lax und Path=/
+    - abgerundete Browser-Lebensdauer überschreitet den Serverablauf nicht
+    - Routen, Store-Wiring, CSRF-Ausgabe und Shared Environments bleiben offen
 
 ---
 
