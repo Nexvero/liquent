@@ -786,6 +786,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - ausschließlich verifiziertes `(issuer, subject)` bindet eine externe Identität an `UserId`
     - Anmeldung erteilt keine Workspace-Rolle; Autorisierung und Onboarding bleiben intern
     - Anbieter, Routen, Persistenz, Wiring und Shared Environments bleiben bewusst offen
+- LQ-130 persistence boundary:
+  `docs/lq-130-persistence-boundary.md`
+  - Status:
+    - Persistenzgrenze für Identitätsbindungen, Login-Transaktionen und Browser-Sessions; keine Technologie/Schema
+    - neue Bindung nur nach Admission; Issuer-Trust wird bei jeder Anmeldung gegen die aktive Konfiguration geprüft
+    - atomare Session-Erzeugung/Rotation/Widerruf und Einmal-Konsum der Login-Transaktion; Tokens/Session-IDs/CSRF nie geloggt
+    - Hash-only ist Zielrichtung (spätere Validierungsgrenze, nicht Teil von LQ-130); Restore ist fail-closed; Local/Test bleibt In-Memory
 
 ---
 
