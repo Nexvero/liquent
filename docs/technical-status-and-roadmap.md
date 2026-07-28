@@ -691,6 +691,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - positive Laufzeit bestimmt einen eindeutigen Ablaufzeitpunkt
     - ungültige Eingaben erreichen den atomaren Store nicht
     - konkrete Zufallsquelle, Store und HTTP bleiben bewusst offen
+- LQ-116 secure session material generator: `docs/lq-116-secure-session-material-generator.md`
+  - Status:
+    - Standardgenerator verwendet unabhängige URL-sichere Zufallswerte
+    - mindestens 32 Zufallsbytes schützen jeweils Session-ID und CSRF-Wert
+    - schwächere oder ungültige Konfigurationen werden abgewiesen
+    - Wiring, Store, HTTP und Shared Environments bleiben bewusst offen
 
 ---
 
