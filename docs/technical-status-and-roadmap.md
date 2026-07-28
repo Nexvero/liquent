@@ -793,8 +793,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - neue Bindung nur nach Admission; Issuer-Trust wird bei jeder Anmeldung gegen die aktive Konfiguration geprüft
     - atomare Session-Erzeugung/Rotation/Widerruf und Einmal-Konsum der Login-Transaktion; Tokens/Session-IDs/CSRF nie geloggt
     - Hash-only ist Zielrichtung (spätere Validierungsgrenze, nicht Teil von LQ-130); Restore ist fail-closed; Local/Test bleibt In-Memory
-
----
+- LQ-131 external identity lookup:
+  `docs/lq-131-external-identity-lookup.md`
+  - Status:
+    - unveränderliches ExternalIdentity-Wertobjekt (issuer, subject), beide nicht leer, exakt/opak
+    - kein Lowercasing, keine Slash-Entfernung, keine E-Mail-Normalisierung; keine Claims/Tokens/Rollen im Modell
+    - read-only ExternalIdentityLookup: get_user_id(identity) -> UserId | None
+    - kein schreibender Binding-Port, keine Admission, kein Adapter/Schema/Persistenz-Wiring
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
