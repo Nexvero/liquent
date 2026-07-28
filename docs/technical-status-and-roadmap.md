@@ -800,6 +800,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - kein Lowercasing, keine Slash-Entfernung, keine E-Mail-Normalisierung; keine Claims/Tokens/Rollen im Modell
     - read-only ExternalIdentityLookup: get_user_id(identity) -> UserId | None
     - kein schreibender Binding-Port, keine Admission, kein Adapter/Schema/Persistenz-Wiring
+- LQ-132 identity admission and binding contract:
+  `docs/lq-132-identity-admission-binding-contract.md`
+  - Status:
+    - nur Vertrag: externe Auth allein erzeugt nie User, Bindung, Mitgliedschaft, Rolle oder Berechtigung
+    - gebundene ExternalIdentity löst nur auf vorhandenen UserId; ungebundene bindet nur nach gültiger interner Admission
+    - Admission-Prüfung, Einmal-Konsum und eindeutige Bindungsanlage sind atomar und idempotent; Umbiegen auf anderen UserId verboten
+    - Kollision/konsumierte/abgelaufene Admission/anderweitig gebunden → neutraler Fehler; Account-Linking/Rebinding/Merge/Multi-Issuer bleiben offen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
