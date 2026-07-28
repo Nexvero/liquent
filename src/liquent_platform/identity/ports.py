@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from liquent_platform.identity.access import UserId, WorkspaceMembership
+from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
@@ -25,6 +26,12 @@ class BrowserSessionLookup(Protocol):
     """Resolve one opaque session identifier without exposing storage details."""
 
     def get_session(self, session_id: SessionId) -> ResolvedBrowserSession | None: ...
+
+
+class ExternalIdentityLookup(Protocol):
+    """Resolve one verified external identity to an internal user, read-only."""
+
+    def get_user_id(self, identity: ExternalIdentity) -> UserId | None: ...
 
 
 class BrowserSessionLifecycle(Protocol):
