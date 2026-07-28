@@ -737,6 +737,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Erfolg widerruft die alte Session und legt den Ersatz gemeinsam an
     - unbekannte/ungültige Quelle und Ziel-ID-Kollision liefern neutral False
     - Adapter, Rotate-Anwendungsfall, HTTP und Shared Environments bleiben offen
+- LQ-123 rotate session use case:
+  `docs/lq-123-rotate-session-use-case.md`
+  - Status:
+    - Anwendungsfall erzeugt unabhängiges Ersatzmaterial über den Rotation-Store
+    - Uhr und positive Laufzeit werden explizit injiziert und vorab geprüft
+    - Replacement-Record behält denselben Principal; Store-False bleibt neutral
+    - In-Memory-Rotation, HTTP und Shared Environments bleiben bewusst offen
 
 ---
 
