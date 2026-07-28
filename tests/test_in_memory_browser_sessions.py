@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from liquent_platform.identity.access import UserId
@@ -5,6 +6,7 @@ from liquent_platform.identity.in_memory import InMemoryBrowserSessions
 from liquent_platform.identity.ports import (
     BrowserSessionCreationStore,
     BrowserSessionLookup,
+    BrowserSessionRevocationStore,
     BrowserSessionRotationStore,
 )
 from liquent_platform.identity.session import (
@@ -320,3 +322,109 @@ def test_rotation_is_available_through_rotation_store_port() -> None:
 
     assert result is True
     assert isinstance(result, bool)
+
+
+def _revoke(port: BrowserSessionRevocationStore, session_id: SessionId) -> None:
+    return port.revoke_session(session_id)
+
+
+def _counting_clock() -> tuple[Callable[[], datetime], Callable[[], int]]:
+    reads = 0
+
+    def now() -> datetime:
+        nonlocal reads
+        reads += 1
+        return NOW
+
+    return now, lambda: reads
+
+
+def test_revocation_makes_active_session_unresolvable() -> None:
+    sessions = _with_active_source()
+
+    assert _revoke(sessions, SESSION_ID) is None
+    assert sessions.get_session(SESSION_ID) is None
+
+
+def test_revocation_of_unknown_session_is_neutral_without_clock() -> None:
+    now, reads = _counting_clock()
+    sessions = InMemoryBrowserSessions({}, now=now)
+
+    assert _revoke(sessions, SESSION_ID) is None
+    assert reads() == 0
+
+
+def test_revocation_of_already_revoked_session_is_neutral_without_clock() -> None:
+    now, reads = _counting_clock()
+    first = NOW - timedelta(minutes=5)
+    sessions = InMemoryBrowserSessions(
+        {
+            SESSION_ID: BrowserSessionRecord(
+                _session(), NOW + timedelta(minutes=1), revoked_at=first
+            )
+        },
+        now=now,
+    )
+
+    assert _revoke(sessions, SESSION_ID) is None
+    assert reads() == 0
+    assert sessions._records[SESSION_ID].revoked_at == first
+
+
+def test_revocation_of_expired_session_leaves_state_unchanged() -> None:
+    record = BrowserSessionRecord(_session(), NOW)
+    sessions = InMemoryBrowserSessions({SESSION_ID: record}, now=lambda: NOW)
+
+    assert _revoke(sessions, SESSION_ID) is None
+    assert sessions._records[SESSION_ID] is record
+    assert sessions._records[SESSION_ID].revoked_at is None
+
+
+def test_repeated_revocation_keeps_first_timestamp_without_further_clock() -> None:
+    times = [NOW, NOW + timedelta(minutes=1)]
+    sessions = InMemoryBrowserSessions(
+        {SESSION_ID: BrowserSessionRecord(_session(), NOW + timedelta(minutes=10))},
+        now=lambda: times.pop(0),
+    )
+
+    _revoke(sessions, SESSION_ID)
+    first_ts = sessions._records[SESSION_ID].revoked_at
+    assert first_ts == NOW
+
+    _revoke(sessions, SESSION_ID)
+    assert sessions._records[SESSION_ID].revoked_at == first_ts
+    assert times == [NOW + timedelta(minutes=1)]  # second clock value untouched
+
+
+def test_revocation_leaves_other_records_unchanged() -> None:
+    other = _session()
+    other_record = BrowserSessionRecord(other, NOW + timedelta(minutes=1))
+    sessions = InMemoryBrowserSessions(
+        {
+            SESSION_ID: BrowserSessionRecord(_session(), NOW + timedelta(minutes=1)),
+            REPLACEMENT_ID: other_record,
+        },
+        now=lambda: NOW,
+    )
+
+    _revoke(sessions, SESSION_ID)
+
+    assert sessions._records[REPLACEMENT_ID] is other_record
+    assert sessions.get_session(REPLACEMENT_ID) is other
+
+
+def test_revocation_of_active_session_reads_clock_once() -> None:
+    now, reads = _counting_clock()
+    sessions = _with_active_source(now=now)
+
+    _revoke(sessions, SESSION_ID)
+
+    assert reads() == 1
+
+
+def test_revocation_is_available_through_port_and_returns_none() -> None:
+    port: BrowserSessionRevocationStore = _with_active_source()
+
+    result = port.revoke_session(SESSION_ID)
+
+    assert result is None

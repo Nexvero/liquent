@@ -83,3 +83,26 @@ class InMemoryBrowserSessions:
         snapshot[replacement.session_id] = new_record
         self._records = snapshot
         return True
+
+    def revoke_session(self, session_id: SessionId) -> None:
+        """Idempotently revoke one session without revealing its state.
+
+        Unknown and already revoked sessions are neutral no-ops that do not read
+        the clock. An expired session is left unchanged. An active session is
+        revoked with a single clock read; a fully built records snapshot is
+        swapped in one step so all other records stay unchanged. Returns nothing.
+        """
+
+        record = self._records.get(session_id)
+        if record is None:
+            return
+        if record.revoked_at is not None:
+            return
+
+        now = self._now()
+        if resolve_valid_session(record, now=now) is None:
+            return
+
+        snapshot = dict(self._records)
+        snapshot[session_id] = replace(record, revoked_at=now)
+        self._records = snapshot
