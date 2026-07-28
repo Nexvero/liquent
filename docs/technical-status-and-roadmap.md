@@ -765,6 +765,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - unbekannte und bereits widerrufene Sessions bleiben neutral ohne Uhr-Lesevorgang
     - aktive Session wird mit genau einem Uhrzeitwert per Snapshot in einem Schritt widerrufen
     - abgelaufene Session bleibt unverändert; HTTP-Logout und Shared Environments bleiben offen
+- LQ-127 logout transport contract:
+  `docs/lq-127-logout-transport-contract.md`
+  - Status:
+    - nur Vertrag: POST /v1/session/logout, keine Route, keine Ports, keine Tests
+    - erfolgreicher und bereits zustandsloser Logout liefern neutral 204 mit gelöschtem Cookie
+    - CSRF nur bei gültiger aktiver Session; Widerruf vor Cookie-Löschung; Store-Fehler täuscht keinen Erfolg vor
+    - keine Session-/CSRF-Werte in Body/URL/Logs/Telemetrie; CORS/Provider/Deployment bleiben offen
 
 ---
 
