@@ -673,6 +673,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Rotation muss neuen Eintrag und alten Widerruf atomar verbinden
     - Widerruf ist idempotent; unbekannte oder ungültige Quellen bleiben neutral
     - Ports, Store, HTTP und Shared Environments bleiben bewusst offen
+- LQ-113 session lifecycle ports: `docs/lq-113-session-lifecycle-ports.md`
+  - Status:
+    - Port enthält ausschließlich Erzeugen, Rotieren und Widerrufen
+    - Ausgabeobjekt schützt opake Session- und CSRF-Werte vor Darstellung
+    - ungültige Rotation und Widerruf verraten keinen internen Bestand
+    - Implementierung, Store, HTTP und Shared Environments bleiben offen
 
 ---
 

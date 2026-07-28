@@ -4,7 +4,12 @@ from typing import Protocol
 
 from liquent_platform.identity.access import UserId, WorkspaceMembership
 from liquent_platform.identity.research import WorkspaceId
-from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
+from liquent_platform.identity.session import (
+    IssuedBrowserSession,
+    ResolvedBrowserSession,
+    SessionId,
+    SessionPrincipal,
+)
 
 
 class WorkspaceMembershipLookup(Protocol):
@@ -19,3 +24,15 @@ class BrowserSessionLookup(Protocol):
     """Resolve one opaque session identifier without exposing storage details."""
 
     def get_session(self, session_id: SessionId) -> ResolvedBrowserSession | None: ...
+
+
+class BrowserSessionLifecycle(Protocol):
+    """Create, rotate, and revoke server-side browser sessions."""
+
+    def create_session(self, principal: SessionPrincipal) -> IssuedBrowserSession: ...
+
+    def rotate_session(
+        self, session_id: SessionId
+    ) -> IssuedBrowserSession | None: ...
+
+    def revoke_session(self, session_id: SessionId) -> None: ...
