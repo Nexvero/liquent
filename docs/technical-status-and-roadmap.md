@@ -772,6 +772,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - erfolgreicher und bereits zustandsloser Logout liefern neutral 204 mit gelöschtem Cookie
     - CSRF nur bei gültiger aktiver Session; Widerruf vor Cookie-Löschung; Store-Fehler täuscht keinen Erfolg vor
     - keine Session-/CSRF-Werte in Body/URL/Logs/Telemetrie; CORS/Provider/Deployment bleiben offen
+- LQ-128 logout route:
+  `docs/lq-128-logout-route.md`
+  - Status:
+    - dünne POST /v1/session/logout verbindet Lookup, CSRF-Pfad, Revocation und Clear-Cookie-Helfer
+    - Route nur bei gepaarten optionalen create_app-Deps; genau eine gesetzt ist ein Konfigurationsfehler
+    - fünf Vertragspfade: 204/204/403/204/500, leere Bodies, no-store, Cookie-Löschung bzw. Nicht-Löschung
+    - nur CsrfValidationFailed und SessionRevocationUnavailable werden gefangen; bestehende Pfade unverändert
 
 ---
 
