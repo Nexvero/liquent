@@ -14,7 +14,7 @@ from liquent_platform.identity.session import (
 
 
 class InMemoryBrowserSessions:
-    """Browser-session lookup, creation, and rotation store for local execution."""
+    """Browser-session lookup, creation, rotation, and revocation store for local execution."""
 
     def __init__(
         self,
