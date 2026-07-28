@@ -64,6 +64,16 @@ class BrowserSessionRotationStore(Protocol):
     ) -> bool: ...
 
 
+class BrowserSessionRevocationStore(Protocol):
+    """Idempotently revoke one browser session without revealing its state.
+
+    Unknown, already revoked, or expired sessions are neutral no-ops. The
+    return value never signals whether a session existed or was valid.
+    """
+
+    def revoke_session(self, session_id: SessionId) -> None: ...
+
+
 class BrowserSessionMaterialGenerator(Protocol):
     """Generate independent opaque material for one new browser session."""
 
