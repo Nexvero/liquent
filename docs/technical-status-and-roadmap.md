@@ -685,6 +685,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - atomarer Store-Port verhindert stilles Überschreiben
     - Kollision liefert ausschließlich den neutralen Lifecycle-Konflikt
     - konkreter Store, Generatoren und HTTP bleiben bewusst offen
+- LQ-115 browser session issuance: `docs/lq-115-browser-session-issuance.md`
+  - Status:
+    - Generator-Port trennt opake Session-ID und CSRF-Wert
+    - positive Laufzeit bestimmt einen eindeutigen Ablaufzeitpunkt
+    - ungültige Eingaben erreichen den atomaren Store nicht
+    - konkrete Zufallsquelle, Store und HTTP bleiben bewusst offen
 
 ---
 
