@@ -709,6 +709,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Ausgabe bleibt host-only, Secure, HttpOnly, SameSite=Lax und Path=/
     - abgerundete Browser-Lebensdauer überschreitet den Serverablauf nicht
     - Routen, Store-Wiring, CSRF-Ausgabe und Shared Environments bleiben offen
+- LQ-119 session issuance transport contract:
+  `docs/lq-119-session-issuance-transport-contract.md`
+  - Status:
+    - Session-ID wird ausschließlich im sicheren HttpOnly-Cookie ausgegeben
+    - gebundener CSRF-Nachweis wird ausschließlich als Response-Header geliefert
+    - beide Werte bleiben aus Body, URL, Logs, Telemetrie und Web Storage fern
+    - Routen, Provider-Wiring, Refresh und Shared Environments bleiben offen
 
 ---
 
