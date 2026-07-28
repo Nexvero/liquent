@@ -814,6 +814,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - ExternalIdentityAdmissionStore.consume_admission_and_bind(admission_id, identity) -> UserId | None; kein UserId-Parameter
     - Ziel-UserId nur aus der Admission; Prüfung/Ablauf/Einmal-Konsum/erstmalige Bindung atomar, exakte Wiederholung idempotent
     - unbekannt/abgelaufen/konsumiert/Kollision/anderweitig gebunden → identisch None; kein Adapter/Persistenz/User-/Workspace-Erzeugung
+- LQ-134 identity admission record:
+  `docs/lq-134-identity-admission-record.md`
+  - Status:
+    - unveränderliches IdentityAdmissionRecord (target_user_id, target_workspace_id, expires_at, consumed_at, bound_identity)
+    - expires_at/consumed_at timezone-aware; consumed_at und bound_identity nur gemeinsam gesetzt; konsumierter Record bewahrt die exakte Identität
+    - Zweck durch Modelltyp definiert (keine Purpose-Enum); keine Normalisierung, keine Validitäts-/Konsum-Logik, keine Mutation
+    - Ziel-Workspace erzeugt keine Mitgliedschaft/Rolle/Berechtigung; keine Claims/Tokens/Rollen/Session-Felder; kein Store/Adapter/Route
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
