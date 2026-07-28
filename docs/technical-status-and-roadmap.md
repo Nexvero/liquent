@@ -697,6 +697,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - mindestens 32 Zufallsbytes schützen jeweils Session-ID und CSRF-Wert
     - schwächere oder ungültige Konfigurationen werden abgewiesen
     - Wiring, Store, HTTP und Shared Environments bleiben bewusst offen
+- LQ-117 session cookie contract: `docs/lq-117-session-cookie-contract.md`
+  - Status:
+    - `liquent_session` transportiert ausschließlich die opake Session-ID
+    - Cookie bleibt host-only, Secure, HttpOnly, SameSite=Lax und Path=/
+    - Browser-Lebensdauer überschreitet den serverseitigen Ablauf nicht
+    - Helfer, Routen, CSRF-Ausgabe und Shared Environments bleiben offen
 
 ---
 
