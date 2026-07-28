@@ -2,13 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from liquent_platform.identity.access import UserId
 from liquent_platform.identity.ports import BrowserSessionRotationStore
 from liquent_platform.identity.session import (
-    BrowserSessionRecord,
-    ResolvedBrowserSession,
+    IssuedBrowserSession,
     SessionId,
-    SessionPrincipal,
 )
 
 
@@ -20,30 +17,27 @@ REPLACEMENT_ID = SessionId("replacement-session")
 class StubRotationStore:
     def __init__(self, *, rotated: bool = True) -> None:
         self.rotated = rotated
-        self.calls: list[tuple[SessionId, SessionId, BrowserSessionRecord]] = []
+        self.calls: list[tuple[SessionId, IssuedBrowserSession]] = []
 
     def rotate_session(
         self,
         current_id: SessionId,
-        replacement_id: SessionId,
-        replacement: BrowserSessionRecord,
+        replacement: IssuedBrowserSession,
     ) -> bool:
-        self.calls.append((current_id, replacement_id, replacement))
+        self.calls.append((current_id, replacement))
         return self.rotated
 
 
-def _replacement() -> BrowserSessionRecord:
-    return BrowserSessionRecord(
-        ResolvedBrowserSession(
-            SessionPrincipal(UserId("user-1")),
-            "replacement-csrf-proof",
-        ),
+def _replacement() -> IssuedBrowserSession:
+    return IssuedBrowserSession(
+        REPLACEMENT_ID,
+        "replacement-csrf-proof",
         NOW + timedelta(minutes=1),
     )
 
 
 def _rotate(port: BrowserSessionRotationStore) -> bool:
-    return port.rotate_session(CURRENT_ID, REPLACEMENT_ID, _replacement())
+    return port.rotate_session(CURRENT_ID, _replacement())
 
 
 def test_rotation_store_port_accepts_atomic_rotate_contract() -> None:
@@ -51,11 +45,22 @@ def test_rotation_store_port_accepts_atomic_rotate_contract() -> None:
 
     assert _rotate(store) is True
     assert len(store.calls) == 1
-    current_id, replacement_id, replacement = store.calls[0]
+    current_id, replacement = store.calls[0]
     assert current_id == CURRENT_ID
-    assert replacement_id == REPLACEMENT_ID
-    assert replacement.session.expected_csrf_token == "replacement-csrf-proof"
-    assert replacement.revoked_at is None
+    assert replacement.session_id == REPLACEMENT_ID
+    assert replacement.csrf_token == "replacement-csrf-proof"
+
+
+def test_rotation_store_receives_only_issued_material_no_principal() -> None:
+    # The port carries current id and issued replacement material only; there is
+    # no principal argument, so a caller cannot bind a foreign principal.
+    store = StubRotationStore()
+
+    _rotate(store)
+
+    _current_id, replacement = store.calls[0]
+    assert isinstance(replacement, IssuedBrowserSession)
+    assert not hasattr(replacement, "principal")
 
 
 @pytest.mark.parametrize("reason", ["invalid_source", "target_collision"])

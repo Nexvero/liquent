@@ -50,13 +50,17 @@ class BrowserSessionCreationStore(Protocol):
 
 
 class BrowserSessionRotationStore(Protocol):
-    """Atomically revoke one valid session and add its replacement in one step."""
+    """Atomically revoke a valid session and add a replacement bound to its principal.
+
+    The store reads the current record, reuses its unchanged principal for the
+    replacement, revokes the old record, and adds the new one in one step. The
+    caller never supplies a principal, so a replacement cannot bind a foreign one.
+    """
 
     def rotate_session(
         self,
         current_id: SessionId,
-        replacement_id: SessionId,
-        replacement: BrowserSessionRecord,
+        replacement: IssuedBrowserSession,
     ) -> bool: ...
 
 
