@@ -49,6 +49,17 @@ class BrowserSessionCreationStore(Protocol):
     ) -> bool: ...
 
 
+class BrowserSessionRotationStore(Protocol):
+    """Atomically revoke one valid session and add its replacement in one step."""
+
+    def rotate_session(
+        self,
+        current_id: SessionId,
+        replacement_id: SessionId,
+        replacement: BrowserSessionRecord,
+    ) -> bool: ...
+
+
 class BrowserSessionMaterialGenerator(Protocol):
     """Generate independent opaque material for one new browser session."""
 

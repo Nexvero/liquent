@@ -730,6 +730,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - neue Session-IDs werden ergänzt, bestehende niemals überschrieben
     - Gültigkeitsprüfung und injizierte Uhr bleiben unverändert
     - Rotation, Persistenz, HTTP-Wiring und Shared Environments bleiben offen
+- LQ-122 atomic rotation store port:
+  `docs/lq-122-atomic-rotation-store-port.md`
+  - Status:
+    - speicherneutraler Rotation-Store-Port beschreibt genau eine atomare Operation
+    - Erfolg widerruft die alte Session und legt den Ersatz gemeinsam an
+    - unbekannte/ungültige Quelle und Ziel-ID-Kollision liefern neutral False
+    - Adapter, Rotate-Anwendungsfall, HTTP und Shared Environments bleiben offen
 
 ---
 
