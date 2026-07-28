@@ -8,8 +8,9 @@ class IdentityAdmissionId:
     """An opaque handle to a previously issued internal admission.
 
     The value is stored verbatim: no trimming, lowercasing, or normalization.
-    The object carries nothing else — it references admission state that lives
-    entirely inside Liquent and is never supplied by an external caller.
+    The object carries no admission state. Presenting this handle determines
+    neither the target user nor any permission; target, validity, expiry, and
+    consumption state are resolved exclusively from Liquent's internal state.
     """
 
     value: str

@@ -103,7 +103,10 @@ def test_already_consumed_admission_is_neutral_none() -> None:
 
 
 def test_identity_bound_to_another_user_is_neutral_none() -> None:
-    store = StubAdmissionStore({ADMISSION: TARGET, OTHER_ADMISSION: TARGET})
+    other_target = UserId("user-2")
+    store = StubAdmissionStore(
+        {ADMISSION: TARGET, OTHER_ADMISSION: other_target}
+    )
 
     assert _consume(store, ADMISSION, IDENTITY) == TARGET
     # Same identity via a different admission -> already bound elsewhere.
@@ -118,7 +121,7 @@ def test_target_user_collision_is_neutral_none() -> None:
     assert _consume(store, OTHER_ADMISSION, OTHER_IDENTITY) is None
 
 
-def test_all_failure_cases_are_indistinguishable_none() -> None:
+def test_representative_failure_cases_are_indistinguishable_none() -> None:
     outcomes = [
         StubAdmissionStore({ADMISSION: TARGET}).consume_admission_and_bind(
             OTHER_ADMISSION, IDENTITY
