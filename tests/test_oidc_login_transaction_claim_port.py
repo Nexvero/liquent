@@ -100,8 +100,8 @@ class StubClaimStore:
     """Test-only stub modelling the atomic single-use claim contract.
 
     It reads its own clock, fixed at construction; the caller passes no ``now``.
-    Only a successful claim removes the pending state. It is not a production
-    adapter.
+    An expired transaction is removed in the same step as its neutral None, so
+    its secrets do not stay reachable. It is not a production adapter.
     """
 
     def __init__(
@@ -120,9 +120,17 @@ class StubClaimStore:
         if pending is None:
             return None  # unknown or already claimed
         if self._now >= pending.expires_at:
-            return None  # expired, decided by the store's own clock
+            # Expired, decided by the store's own clock. The secret-bearing
+            # pending state is dropped in the same step as the neutral None.
+            del self._transactions[state]
+            return None
         del self._transactions[state]  # fail-closed single-use consumption
         return pending
+
+    def remaining_states(self) -> set[OidcLoginState]:
+        """Test-only inspection of what pending state is left behind."""
+
+        return set(self._transactions)
 
 
 def _claim(
@@ -157,19 +165,45 @@ def test_unknown_state_is_neutral_none() -> None:
     assert _claim(store, OTHER_STATE) is None
 
 
-def test_expired_state_is_neutral_none() -> None:
-    store = StubClaimStore(
+def _expired_store() -> StubClaimStore:
+    return StubClaimStore(
         {EXPIRED_STATE: _transaction()}, now=NOW + timedelta(hours=1)
     )
 
+
+def test_expired_state_is_neutral_none() -> None:
+    assert _claim(_expired_store(), EXPIRED_STATE) is None
+
+
+def test_expired_pending_record_is_removed_fail_closed() -> None:
+    store = _expired_store()
+
+    assert _claim(store, EXPIRED_STATE) is None
+    assert store.remaining_states() == set()
+
+
+def test_second_claim_of_an_expired_state_stays_none() -> None:
+    store = _expired_store()
+
+    first = _claim(store, EXPIRED_STATE)
+    second = _claim(store, EXPIRED_STATE)
+
+    assert [first, second] == [None, None]
+
+
+def test_expired_callback_secrets_are_no_longer_reachable_via_the_store() -> None:
+    store = _expired_store()
+
+    # Neither the claim nor any later claim hands out expected_nonce or
+    # code_verifier once the transaction has expired.
+    assert _claim(store, EXPIRED_STATE) is None
+    assert store.remaining_states() == set()
     assert _claim(store, EXPIRED_STATE) is None
 
 
-def test_unknown_and_expired_are_indistinguishable() -> None:
+def test_unknown_expired_and_already_claimed_are_indistinguishable() -> None:
     unknown = StubClaimStore({STATE: _transaction()}).claim_transaction(OTHER_STATE)
-    expired = StubClaimStore(
-        {EXPIRED_STATE: _transaction()}, now=NOW + timedelta(hours=1)
-    ).claim_transaction(EXPIRED_STATE)
+    expired = _expired_store().claim_transaction(EXPIRED_STATE)
     claimed_store = StubClaimStore({STATE: _transaction()})
     claimed_store.claim_transaction(STATE)
     already_claimed = claimed_store.claim_transaction(STATE)
@@ -185,6 +219,7 @@ def test_successful_result_carries_the_callback_secrets_once() -> None:
     assert claimed is not None
     assert claimed.expected_nonce == "nonce-y"
     assert claimed.code_verifier == "verifier-z"
+    assert store.remaining_states() == set()  # consumed fail-closed
     assert _claim(store, STATE) is None  # not available a second time
 
 

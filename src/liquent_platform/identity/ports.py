@@ -72,6 +72,13 @@ class OidcLoginTransactionClaimStore(Protocol):
     states are indistinguishable None, revealing nothing about an admission,
     issuer, user, or transaction state.
 
+    An existing but expired transaction returns None outwardly and its
+    secret-bearing pending state is atomically removed or permanently treated as
+    consumed in the same step: expected_nonce and code_verifier must not become
+    available again through that state. A persistent implementation may instead
+    leave a secret-free consumption proof or tombstone behind. No secrets are
+    kept in an expired pending state.
+
     This port verifies no OIDC token and no current issuer-trust configuration.
     The successful result briefly carries the secrets needed for exactly this
     callback; their further use belongs to a later use case. A persistent

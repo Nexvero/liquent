@@ -856,6 +856,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - OidcLoginTransactionClaimStore.claim_transaction(state) -> PendingOidcLoginTransaction | None; Signatur nur self/state
     - Claim atomar und einmalig: vorhanden/pending/nicht abgelaufen, Erfolg konsumiert fail-closed und liefert den Record genau einmal
     - unbekannt/abgelaufen/bereits konsumiert identisch None; Store liest Uhr intern; keine Token-/Issuer-Trust-Prüfung; kein Adapter/Creation-Port/Tombstone/Route
+    - vorhandene abgelaufene Transaktion wird beim Claim fail-closed entfernt oder geheimnisfrei tombstoned; keine Geheimnisse in einem abgelaufenen Pending-Zustand
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

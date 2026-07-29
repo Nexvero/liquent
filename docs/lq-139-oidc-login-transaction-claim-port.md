@@ -52,6 +52,13 @@ class OidcLoginTransactionClaimStore(Protocol):
 - Ein **zweiter Claim** desselben State liefert neutral `None`.
 - **Unbekannt, abgelaufen oder bereits konsumiert** liefern nach außen
   **identisch** `None`.
+- Eine **vorhandene, aber abgelaufene** Pending-Transaktion liefert nach außen
+  neutral `None`; ihr geheimnistragender Pending-Zustand wird dabei **atomar
+  entfernt** beziehungsweise **dauerhaft als konsumiert** behandelt.
+  `expected_nonce` und `code_verifier` dürfen danach **nicht erneut** über diesen
+  State verfügbar sein. Ein persistenter Adapter kann stattdessen einen
+  **geheimnisfreien** Konsumnachweis/Tombstone hinterlassen. In einem
+  abgelaufenen Pending-Zustand bleiben **keine Geheimnisse** erhalten.
 - Fehlerfälle geben **keine** Information über Admission, Issuer, User oder
   Transaktionszustand preis.
 - Der Store liest seine **Uhr intern**; der Aufrufer liefert weder `now` noch
@@ -69,7 +76,7 @@ class OidcLoginTransactionClaimStore(Protocol):
 
 ## Tests
 
-`tests/test_oidc_login_transaction_claim_port.py` — 32 fokussierte Tests.
+`tests/test_oidc_login_transaction_claim_port.py` — 35 fokussierte Tests.
 
 **OidcLoginState:** gültiger Wert exakt bewahrt · leerer Wert abgewiesen · Case,
 Slashes und Whitespace werden nicht normalisiert (parametrisiert) ·
@@ -80,16 +87,25 @@ Issuer-, User- oder Session-Felder.
 **Claim-Port:** strukturelle Protocol-Kompatibilität mit einem minimalen
 Test-Stub · Signatur exakt `["self", "state"]` · kein `now`-, `clock`-, Issuer-,
 Nonce-, Verifier-, Admission- oder User-Parameter (parametrisiert) ·
-erfolgreicher Claim liefert den pending Record · zweiter Claim liefert `None` ·
-unbekannt, abgelaufen und bereits konsumiert sind ununterscheidbar `None` ·
-erfolgreiches Ergebnis trägt die Callback-Geheimnisse genau einmal ·
-Rückgabeannotation ist ausschließlich `PendingOidcLoginTransaction | None` ·
-`ports.py` enthält keine Token-, Trust-, HTTP- oder Persistenzlogik.
+erfolgreicher Claim liefert den pending Record und bleibt unverändert einmalig ·
+zweiter Claim liefert `None` · unbekannt, abgelaufen und bereits konsumiert sind
+ununterscheidbar `None` · erfolgreiches Ergebnis trägt die Callback-Geheimnisse
+genau einmal · Rückgabeannotation ist ausschließlich
+`PendingOidcLoginTransaction | None` · `ports.py` enthält keine Token-, Trust-,
+HTTP- oder Persistenzlogik.
+
+**Abgelaufener Pfad:** abgelaufener State liefert `None` · der abgelaufene
+Pending-Record ist danach aus dem Stub **entfernt** · ein zweiter Claim liefert
+weiterhin `None` · seine Callback-Geheimnisse sind über den Store **nicht mehr
+verfügbar**.
 
 Der Stub liest seine Uhr **intern** (fest bei Konstruktion) und belegt damit,
-dass der Aufrufer keine Ablaufentscheidung liefert. Er bleibt **ausschließlich**
-in der Testdatei und wird weder von `ports.py` noch vom `identity`-Paket
-exportiert — **kein produktiver Adapter**.
+dass der Aufrufer keine Ablaufentscheidung liefert. Sein abgelaufener Pfad
+entfernt den Record **im selben Schritt** wie die neutrale Rückgabe und bildet so
+den fail-closed Claim ab. Die Test-only Methode `remaining_states()` macht den
+verbleibenden Pending-Zustand prüfbar. Der Stub bleibt **ausschließlich** in der
+Testdatei und wird weder von `ports.py` noch vom `identity`-Paket exportiert —
+**kein produktiver Adapter**.
 
 ## Bewusst nicht enthalten
 
