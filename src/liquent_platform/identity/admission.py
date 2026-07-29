@@ -1,6 +1,6 @@
 """Internal identity-admission types: an opaque handle and its stored record."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from liquent_platform.identity.access import UserId
@@ -12,13 +12,18 @@ from liquent_platform.identity.research import WorkspaceId
 class IdentityAdmissionId:
     """An opaque handle to a previously issued internal admission.
 
+    The value is a sensitive capability handle: it can reference a single-use
+    onboarding or binding operation, so it is hidden from ``repr`` and must not
+    reach logs or error diagnostics through an object representation. It stays
+    available via ``.value`` for authorized internal processing.
+
     The value is stored verbatim: no trimming, lowercasing, or normalization.
     The object carries no admission state. Presenting this handle determines
     neither the target user nor any permission; target, validity, expiry, and
     consumption state are resolved exclusively from Liquent's internal state.
     """
 
-    value: str
+    value: str = field(repr=False)
 
     def __post_init__(self) -> None:
         if not self.value:
