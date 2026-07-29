@@ -63,7 +63,7 @@ Kollisionsvermeidung.
 
 ## Tests
 
-`tests/test_oidc_login_transaction_creation_port.py` — 25 fokussierte Tests, nur
+`tests/test_oidc_login_transaction_creation_port.py` — 24 fokussierte Tests, nur
 Portvertrag und Test-Stub, **kein produktiver Adapter**.
 
 **Erfolg:** freier State → `True` · gespeicherter Record ist **dasselbe**
@@ -83,11 +83,17 @@ Rückgabeannotation ist ein reines `bool` · Stub weder aus `ports.py` noch aus 
 Slice **keine** `add_transaction`-Methode.
 
 **Keine Retry-, Generator-, Token-, Trust-, HTTP- oder Persistenzlogik** wird
-**strukturell über den AST** belegt, nicht über Textsuche: Jede Portmethode in
-`ports.py` besteht aus genau einem `...`-Rumpf, und das Modul importiert
-ausschließlich `typing` und `liquent_platform.*`. Eine reine Textprüfung wäre
-hier irreführend gewesen, weil der Vertragsdocstring Retries und Tokens
-ausdrücklich benennt, um sie auszuschließen.
+**strukturell über den AST** belegt, nicht über Textsuche: Geparst wird
+ausschließlich `inspect.getsource(OidcLoginTransactionCreationStore)`, und
+`add_transaction` besteht dort aus genau einem `...`-Rumpf. Eine reine
+Textprüfung wäre hier irreführend gewesen, weil der Vertragsdocstring Retries
+und Tokens ausdrücklich benennt, um sie auszuschließen.
+
+Der Test ist bewusst **auf diesen Port begrenzt** und trifft **keine Aussage**
+über andere Klassen, Methoden oder Importe in `ports.py`. LQ-142 hat keine
+Imports ergänzt; ein globales Importverbot für das gesamte Portmodul gehört
+nicht zum Creation-Port-Vertrag und würde spätere legitime
+Standardbibliotheksimporte oder Portentwicklungen unnötig blockieren.
 
 Der Stub führt neben dem Pending-Mapping einen **geheimnisfreien** `used`-Satz,
 der einen Konsumnachweis/Tombstone vertritt — der Creation-Port selbst hat keine

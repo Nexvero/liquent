@@ -201,48 +201,31 @@ def test_return_annotation_is_a_plain_bool() -> None:
     assert annotation is bool
 
 
-def test_ports_module_declares_only_protocol_methods() -> None:
+def test_creation_port_declares_add_transaction_without_a_body() -> None:
     # Structural, not textual: the contract docstring legitimately mentions
     # retries and tokens while ruling them out, so inspect the AST instead.
-    tree = ast.parse(inspect.getsource(ports_mod))
-    bodies = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    # Scoped to this port only - it says nothing about the rest of ports.py.
+    tree = ast.parse(inspect.getsource(OidcLoginTransactionCreationStore))
+    methods = [
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
     ]
 
-    assert any(node.name == "add_transaction" for node in bodies)
-    for node in bodies:
-        statements = [
-            statement
-            for statement in node.body
-            if not (
-                isinstance(statement, ast.Expr)
-                and isinstance(statement.value, ast.Constant)
-                and isinstance(statement.value.value, str)
-            )
-        ]
-        # Every port method is a bare `...` declaration: no retry loop, no
-        # generation, no token, trust, HTTP, or persistence logic.
-        assert len(statements) == 1
-        assert isinstance(statements[0], ast.Expr)
-        assert isinstance(statements[0].value, ast.Constant)
-        assert statements[0].value.value is Ellipsis
-
-
-def test_ports_module_imports_no_library_or_framework() -> None:
-    tree = ast.parse(inspect.getsource(ports_mod))
-    modules: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            modules.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            modules.add(node.module)
-
-    assert all(
-        module == "typing" or module.startswith("liquent_platform.")
-        for module in modules
-    ), modules
+    assert [node.name for node in methods] == ["add_transaction"]
+    statements = [
+        statement
+        for statement in methods[0].body
+        if not (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        )
+    ]
+    # A bare `...` declaration: no retry loop, no generation, no token, trust,
+    # HTTP, or persistence logic in this port.
+    assert len(statements) == 1
+    assert isinstance(statements[0], ast.Expr)
+    assert isinstance(statements[0].value, ast.Constant)
+    assert statements[0].value.value is Ellipsis
 
 
 def test_stub_is_test_only_and_not_exported() -> None:
