@@ -10,6 +10,10 @@ from liquent_platform.identity.admission import (
     IdentityAdmissionRecord,
 )
 from liquent_platform.identity.external_identity import ExternalIdentity
+from liquent_platform.identity.oidc_login_transaction import (
+    OidcLoginState,
+    PendingOidcLoginTransaction,
+)
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
     IssuedBrowserSession,
@@ -181,3 +185,50 @@ class InMemoryExternalIdentities:
         self._admissions = new_admissions
         self._bindings = new_bindings
         return target_user_id
+
+
+class InMemoryOidcLoginTransactions:
+    """Pending OIDC login transaction claim store for local execution.
+
+    The transactions are fixed at construction: there is no way to add or create
+    one, and nothing outlives the process.
+    """
+
+    def __init__(
+        self,
+        transactions: Mapping[OidcLoginState, PendingOidcLoginTransaction],
+        *,
+        now: Callable[[], datetime],
+    ) -> None:
+        self._transactions = dict(transactions)
+        self._now = now
+
+    def claim_transaction(
+        self,
+        state: OidcLoginState,
+    ) -> PendingOidcLoginTransaction | None:
+        """Atomically claim one pending login transaction exactly once.
+
+        An unknown or already claimed state is a neutral None resolved without
+        reading the clock and leaves all state unchanged. For a present record
+        the clock is read once and the pending state is dropped before any
+        result is returned, so success and expiry share the same fail-closed
+        removal and an expired record's secrets stay unreachable through the
+        store. Unknown, expired, and already claimed are indistinguishable.
+        """
+
+        pending = self._transactions.get(state)
+        if pending is None:
+            return None  # unknown or already claimed; no clock read
+
+        now = self._now()  # single clock read, only for a present pending record
+
+        # Drop the secret-bearing state first: build the full snapshot without
+        # it and adopt it before deciding success or expiry.
+        snapshot = dict(self._transactions)
+        del snapshot[state]
+        self._transactions = snapshot
+
+        if now >= pending.expires_at:
+            return None  # expired (also exactly at expiry); secrets now gone
+        return pending
