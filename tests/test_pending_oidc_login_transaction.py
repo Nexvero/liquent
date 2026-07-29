@@ -129,21 +129,27 @@ def test_record_is_hashable() -> None:
     )
 
 
-def test_repr_hides_nonce_and_code_verifier() -> None:
+def test_repr_hides_nonce_code_verifier_and_admission_id() -> None:
+    # An IdentityAdmissionId can reference a single-use onboarding or binding
+    # operation, so it is a sensitive capability handle.
     text = repr(
-        _pending(expected_nonce="secret-nonce", code_verifier="secret-verifier")
+        _pending(
+            expected_nonce="secret-nonce",
+            code_verifier="secret-verifier",
+            admission_id=IdentityAdmissionId("secret-admission"),
+        )
     )
 
     assert "secret-nonce" not in text
     assert "secret-verifier" not in text
+    assert "secret-admission" not in text
 
 
 def test_repr_may_show_non_sensitive_metadata() -> None:
-    text = repr(_pending(admission_id=ADMISSION, return_path="/workspaces/w-1"))
+    text = repr(_pending(return_path="/workspaces/w-1"))
 
     assert "https://issuer.example" in text
     assert "https://app.example/v1/session/oidc/callback" in text
-    assert "admission-1" in text
     assert "/workspaces/w-1" in text
 
 

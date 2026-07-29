@@ -18,8 +18,11 @@ class PendingOidcLoginTransaction:
     The opaque ``state`` is the later store key and is not stored redundantly in
     the record; the ``code_challenge`` is only needed for the authorization
     request and is likewise not kept server-side. Values are stored verbatim and
-    nothing is normalized. ``expected_nonce`` and ``code_verifier`` are sensitive
-    and are hidden from ``repr``.
+    nothing is normalized. ``expected_nonce``, ``code_verifier``, and
+    ``admission_id`` are sensitive and are hidden from ``repr``: an
+    IdentityAdmissionId can reference a single-use onboarding or binding
+    operation, so it is treated as a capability handle that must not reach logs
+    or error diagnostics through an object representation.
 
     The record carries no IdP tokens, authorization codes, claims, UserId,
     workspace membership, roles, permissions, or Liquent session data. It
@@ -37,7 +40,7 @@ class PendingOidcLoginTransaction:
     redirect_uri: str
     created_at: datetime
     expires_at: datetime
-    admission_id: IdentityAdmissionId | None = None
+    admission_id: IdentityAdmissionId | None = field(default=None, repr=False)
     return_path: str | None = None
 
     def __post_init__(self) -> None:

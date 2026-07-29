@@ -19,7 +19,7 @@ class PendingOidcLoginTransaction:
     redirect_uri: str
     created_at: datetime
     expires_at: datetime
-    admission_id: IdentityAdmissionId | None = None
+    admission_id: IdentityAdmissionId | None = field(default=None, repr=False)
     return_path: str | None = None
 ```
 
@@ -35,9 +35,14 @@ class PendingOidcLoginTransaction:
   **nicht leer** sein.
 - Werte werden **exakt** gespeichert und **nicht normalisiert** (kein Trimmen,
   kein Lowercasing, keine Slash-Entfernung).
-- `expected_nonce` und `code_verifier` sind **sensibel** und erscheinen **nicht**
-  im `repr`; `expected_issuer`, `redirect_uri`, Zeiten, `admission_id` und
+- `expected_nonce`, `code_verifier` und `admission_id` sind **sensibel** und
+  erscheinen **nicht** im `repr`; `expected_issuer`, `redirect_uri`, Zeiten und
   `return_path` dürfen im `repr` erscheinen.
+- Eine `IdentityAdmissionId` kann einen **einmalig konsumierbaren**
+  Onboarding-/Binding-Vorgang referenzieren und ist deshalb als sensibler
+  **Capability-Handle** zu behandeln. Sie darf nicht versehentlich über
+  Objekt-Repräsentationen in Logs oder Fehlerdiagnosen gelangen. Der Wert bleibt
+  im Modell verfügbar und wird weiterhin exakt bewahrt.
 - `created_at` und `expires_at` müssen **timezone-aware** sein.
 - `expires_at` muss **strikt nach** `created_at` liegen.
 - `admission_id` ist optional und wurde bereits beim Login-Start **serverseitig
@@ -93,8 +98,9 @@ scheitert damit an der vertraglichen `ValueError` statt an einem
 - optionale Admission-ID und optionaler Return-Pfad werden exakt bewahrt,
 - gesetzter leerer Return-Pfad wird abgewiesen,
 - Modell unveränderlich und hashbar,
-- `expected_nonce` und `code_verifier` fehlen im `repr`; nicht-sensitive
-  Metadaten erscheinen im `repr`,
+- `expected_nonce`, `code_verifier` und `admission_id` fehlen im `repr`;
+  nicht-sensitive Metadaten (`expected_issuer`, `redirect_uri`, validierter
+  interner `return_path`) erscheinen im `repr`,
 - exakt die acht vereinbarten Felder in vereinbarter Reihenfolge,
 - kein `state`- und kein `code_challenge`-Feld,
 - keine Token-, Code-, Claim-, User-, Workspace-, Rollen- oder Session-Felder,
