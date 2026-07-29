@@ -864,6 +864,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - unveränderlich/hashbar, exakt/opak, keine Normalisierung, Leerprüfung, Gleichheit und Hashverhalten unverändert
     - Wert bleibt über .value für autorisierte interne Verarbeitung verfügbar; Klassenname darf im repr erscheinen
     - keine Änderung an IdentityAdmissionRecord, Ports, Adaptern, Login-Modellen, Persistenz oder CI-Workflow
+- LQ-141 in-memory oidc login transaction claims:
+  `docs/lq-141-in-memory-oidc-login-transaction-claims.md`
+  - Status:
+    - lokaler flüchtiger Adapter InMemoryOidcLoginTransactions erfüllt OidcLoginTransactionClaimStore
+    - Konstruktor kopiert das Mapping und speichert die injizierte Uhr; keine Add-/Create-Methode, kein Tombstone
+    - unbekannter/bereits entfernter State liefert None ohne Uhr-Lesen; vorhandener State liest die Uhr genau einmal
+    - Snapshot ohne den State wird vor jedem Ergebnis übernommen, daher Erfolg und Ablauf gleichermaßen fail-closed entfernt; keine Threads/Locks/Persistenz
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
