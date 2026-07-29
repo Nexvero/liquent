@@ -109,9 +109,34 @@ def test_stronger_entropy_is_used_for_all_three_draws(
     assert calls == [48, 48, 48]
 
 
-@pytest.mark.parametrize("entropy_bytes", [True, False, 31, 16, "32", 32.0])
+def test_minimum_32_bytes_is_accepted() -> None:
+    material = SecureOidcLoginMaterialGenerator(32).new_login_material()
+
+    assert material.code_verifier  # constructed successfully
+
+
+def test_maximum_96_bytes_used_for_all_three_draws(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _record_draws(monkeypatch)
+
+    SecureOidcLoginMaterialGenerator(96).new_login_material()
+
+    assert calls == [96, 96, 96]
+
+
+def test_maximum_96_bytes_produces_128_char_verifier() -> None:
+    # RFC 7636 allows 43..128 chars; token_urlsafe(96) yields exactly 128.
+    material = SecureOidcLoginMaterialGenerator(96).new_login_material()
+
+    assert len(material.code_verifier) == 128
+
+
+@pytest.mark.parametrize("entropy_bytes", [True, False, 31, 16, 97, 128, "32", 32.0])
 def test_weak_or_invalid_entropy_is_rejected(entropy_bytes: object) -> None:
-    with pytest.raises(ValueError, match="at least 32 bytes"):
+    with pytest.raises(
+        ValueError, match="login material entropy must be between 32 and 96 bytes"
+    ):
         SecureOidcLoginMaterialGenerator(entropy_bytes)  # type: ignore[arg-type]
 
 

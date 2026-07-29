@@ -33,8 +33,14 @@ class SecureOidcLoginMaterialGenerator:
     def new_login_material(self) -> OidcLoginMaterial: ...
 ```
 
-- Mindestens **32 Entropie-Bytes** je Zufallswert; `bool`, Nicht-Integer und Werte
-  unter 32 werden abgewiesen.
+- Die Entropie liegt je Zufallswert bei **32 bis einschließlich 96 Bytes**;
+  `bool`, Nicht-Integer sowie Werte unter 32 oder über 96 werden abgewiesen
+  (`login material entropy must be between 32 and 96 bytes`).
+- **Begründung der Obergrenze:** RFC 7636 erlaubt für den `code_verifier` 43 bis
+  128 Zeichen. `token_urlsafe(32)` ergibt 43 Zeichen, `token_urlsafe(96)` ergibt
+  128 Zeichen; mehr als 96 Bytes kann einen nicht interoperablen, zu langen
+  Verifier erzeugen. Die Grenze gilt für **alle drei** unabhängigen Ziehungen,
+  da der konfigurierte Wert weiterhin gemeinsam verwendet wird.
 - `state`, `nonce` und `code_verifier` entstehen aus **drei unabhängigen**
   Aufrufen eines kryptografisch sicheren URL-safe Generators — keine Ableitung
   oder Wiederverwendung zwischen diesen drei Werten.

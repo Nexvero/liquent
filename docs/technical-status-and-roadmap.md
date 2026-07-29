@@ -839,7 +839,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-137-secure-oidc-login-material.md`
   - Status:
     - unveränderliches OidcLoginMaterial (state/nonce/code_verifier sensibel/repr-frei, code_challenge sichtbar); genau vier Felder
-    - SecureOidcLoginMaterialGenerator: drei unabhängige URL-safe Ziehungen, min. 32 Bytes, bool/Nicht-int/<32 abgewiesen
+    - SecureOidcLoginMaterialGenerator: drei unabhängige URL-safe Ziehungen, 32–96 Bytes (RFC-7636-Verifier 43–128 Zeichen), bool/Nicht-int/<32/>96 abgewiesen
     - PKCE nur S256: code_challenge = base64url(sha256(ascii(code_verifier))) ohne Padding; keine plain-Option, keine konfigurierbare Hashfunktion
     - keine Tokens/Claims/Issuer/User/Admission/Session im Modell; kein Port/Store/Adapter/Route/Netzwerk/Logging
 

@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 
 
 MINIMUM_ENTROPY_BYTES = 32
+# RFC 7636 allows a code_verifier of 43 to 128 characters. token_urlsafe(32)
+# yields 43 characters and token_urlsafe(96) yields 128, so more than 96 bytes
+# could produce a non-interoperable, over-long verifier. The bound applies to all
+# three independent draws because the configured value is shared across them.
+MAXIMUM_ENTROPY_BYTES = 96
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,8 +55,11 @@ class SecureOidcLoginMaterialGenerator:
             isinstance(entropy_bytes, bool)
             or not isinstance(entropy_bytes, int)
             or entropy_bytes < MINIMUM_ENTROPY_BYTES
+            or entropy_bytes > MAXIMUM_ENTROPY_BYTES
         ):
-            raise ValueError("login material entropy must be at least 32 bytes")
+            raise ValueError(
+                "login material entropy must be between 32 and 96 bytes"
+            )
         self._entropy_bytes = entropy_bytes
 
     def new_login_material(self) -> OidcLoginMaterial:
