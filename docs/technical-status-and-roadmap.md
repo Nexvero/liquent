@@ -849,6 +849,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - vier Pflichtstrings nicht leer, exakt gespeichert; expected_nonce/code_verifier/admission_id sensibel und repr-frei; kein state-, kein code_challenge-Feld
     - created_at/expires_at timezone-aware, Awareness vor Vergleich; expires_at strikt nach created_at; gesetzter return_path nicht leer
     - keine URL-/Redirect-Validierung, keine Issuer-Trust-Entscheidung, keine Mutation/Konsum; kein Store/Port/Route/Tokenverarbeitung
+- LQ-139 oidc login transaction claim port:
+  `docs/lq-139-oidc-login-transaction-claim-port.md`
+  - Status:
+    - opakes OidcLoginState-Wertobjekt (value nicht leer, exakt/opak, repr-frei, unveränderlich/hashbar); genau ein Feld
+    - OidcLoginTransactionClaimStore.claim_transaction(state) -> PendingOidcLoginTransaction | None; Signatur nur self/state
+    - Claim atomar und einmalig: vorhanden/pending/nicht abgelaufen, Erfolg konsumiert fail-closed und liefert den Record genau einmal
+    - unbekannt/abgelaufen/bereits konsumiert identisch None; Store liest Uhr intern; keine Token-/Issuer-Trust-Prüfung; kein Adapter/Creation-Port/Tombstone/Route
+    - vorhandene abgelaufene Transaktion wird beim Claim fail-closed entfernt oder geheimnisfrei tombstoned; keine Geheimnisse in einem abgelaufenen Pending-Zustand
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

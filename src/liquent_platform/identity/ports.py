@@ -5,6 +5,10 @@ from typing import Protocol
 from liquent_platform.identity.access import UserId, WorkspaceMembership
 from liquent_platform.identity.admission import IdentityAdmissionId
 from liquent_platform.identity.external_identity import ExternalIdentity
+from liquent_platform.identity.oidc_login_transaction import (
+    OidcLoginState,
+    PendingOidcLoginTransaction,
+)
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
@@ -53,6 +57,38 @@ class ExternalIdentityAdmissionStore(Protocol):
         admission_id: IdentityAdmissionId,
         identity: ExternalIdentity,
     ) -> UserId | None: ...
+
+
+class OidcLoginTransactionClaimStore(Protocol):
+    """Atomically claim one pending login transaction exactly once.
+
+    Before succeeding the store checks that the transaction exists, is still
+    pending, and has not expired. It reads its own clock: the caller supplies
+    neither ``now`` nor any expiry decision, and beyond the state it supplies no
+    issuer, nonce, verifier, admission handle, or other transaction material.
+    Success consumes or removes the pending state fail-closed and hands the
+    PendingOidcLoginTransaction to the callback process exactly once; a second
+    claim of the same state returns None. Unknown, expired, and already claimed
+    states are indistinguishable None, revealing nothing about an admission,
+    issuer, user, or transaction state.
+
+    An existing but expired transaction returns None outwardly and its
+    secret-bearing pending state is atomically removed or permanently treated as
+    consumed in the same step: expected_nonce and code_verifier must not become
+    available again through that state. A persistent implementation may instead
+    leave a secret-free consumption proof or tombstone behind. No secrets are
+    kept in an expired pending state.
+
+    This port verifies no OIDC token and no current issuer-trust configuration.
+    The successful result briefly carries the secrets needed for exactly this
+    callback; their further use belongs to a later use case. A persistent
+    implementation may keep a separate consumption proof or tombstone.
+    """
+
+    def claim_transaction(
+        self,
+        state: OidcLoginState,
+    ) -> PendingOidcLoginTransaction | None: ...
 
 
 class BrowserSessionLifecycle(Protocol):

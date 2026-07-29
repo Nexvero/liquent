@@ -6,6 +6,24 @@ from datetime import datetime
 from liquent_platform.identity.admission import IdentityAdmissionId
 
 
+@dataclass(frozen=True, slots=True)
+class OidcLoginState:
+    """The opaque OIDC state issued at login start, later the store key.
+
+    The value is stored verbatim: no trimming, lowercasing, or normalization.
+    It is opaque and hidden from ``repr``, and it carries no transaction,
+    admission, token, user, or session data. Presenting this value alone proves
+    neither identity nor permission; it only correlates one callback with one
+    server-side login transaction.
+    """
+
+    value: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.value:
+            raise ValueError("login state must not be empty")
+
+
 def _require_aware(value: datetime, name: str) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} must be timezone-aware")
