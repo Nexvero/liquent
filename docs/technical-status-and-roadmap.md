@@ -835,6 +835,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - optionale IdentityAdmissionId beim Start an die Transaktion gebunden; optionales Rückkehrziel nur als validierter interner relativer Pfad
     - Callback prüft vollständig (state/aktuell vertrauenswürdiger Issuer/Signatur/Audience/nonce/PKCE/(issuer,subject)); atomarer Einmal-Konsum vor Code-Einlösung, fail-closed
     - Fehler neutral ohne Bestandsleak; keine IdP-Tokens als Session; Reihenfolge Verifizieren→Lookup→Admission→Autorisierung→Session; keine Modelle/Ports/Route
+- LQ-137 secure oidc login material:
+  `docs/lq-137-secure-oidc-login-material.md`
+  - Status:
+    - unveränderliches OidcLoginMaterial (state/nonce/code_verifier sensibel/repr-frei, code_challenge sichtbar); genau vier Felder
+    - SecureOidcLoginMaterialGenerator: drei unabhängige URL-safe Ziehungen, 32–96 Bytes (RFC-7636-Verifier 43–128 Zeichen), bool/Nicht-int/<32/>96 abgewiesen
+    - PKCE nur S256: code_challenge = base64url(sha256(ascii(code_verifier))) ohne Padding; keine plain-Option, keine konfigurierbare Hashfunktion
+    - keine Tokens/Claims/Issuer/User/Admission/Session im Modell; kein Port/Store/Adapter/Route/Netzwerk/Logging
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
