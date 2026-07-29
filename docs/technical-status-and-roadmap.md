@@ -871,6 +871,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Konstruktor kopiert das Mapping und speichert die injizierte Uhr; keine Add-/Create-Methode, kein Tombstone
     - unbekannter/bereits entfernter State liefert None ohne Uhr-Lesen; vorhandener State liest die Uhr genau einmal
     - Snapshot ohne den State wird vor jedem Ergebnis übernommen, daher Erfolg und Ablauf gleichermaßen fail-closed entfernt; keine Threads/Locks/Persistenz
+- LQ-142 oidc login transaction creation port:
+  `docs/lq-142-oidc-login-transaction-creation-port.md`
+  - Status:
+    - OidcLoginTransactionCreationStore.add_transaction(state, transaction) -> bool; Signatur nur self/state/transaction
+    - Erfolg speichert exakt den unveränderlichen Record unter dem exakten/opaken State; keine Normalisierung, kein Überschreiben
+    - bereits pending und bereits beansprucht/konsumiert/abgelaufen (Konsumnachweis/Tombstone) liefern identisch False; Replay-Schutz gegen Wiederbelegung eines State
+    - kein now-Parameter, keine Issuer-Trust-/Token-/Admission-Entscheidung, keine Retry-/Materialerzeugung; kein Adapter/Generator-Port/Anwendungsfall/Route
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
