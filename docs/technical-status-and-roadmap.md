@@ -842,6 +842,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - SecureOidcLoginMaterialGenerator: drei unabhängige URL-safe Ziehungen, 32–96 Bytes (RFC-7636-Verifier 43–128 Zeichen), bool/Nicht-int/<32/>96 abgewiesen
     - PKCE nur S256: code_challenge = base64url(sha256(ascii(code_verifier))) ohne Padding; keine plain-Option, keine konfigurierbare Hashfunktion
     - keine Tokens/Claims/Issuer/User/Admission/Session im Modell; kein Port/Store/Adapter/Route/Netzwerk/Logging
+- LQ-138 pending oidc login transaction:
+  `docs/lq-138-pending-oidc-login-transaction.md`
+  - Status:
+    - unveränderliche PendingOidcLoginTransaction (expected_issuer, expected_nonce, code_verifier, redirect_uri, created_at, expires_at, admission_id?, return_path?)
+    - vier Pflichtstrings nicht leer, exakt gespeichert; expected_nonce/code_verifier/admission_id sensibel und repr-frei; kein state-, kein code_challenge-Feld
+    - created_at/expires_at timezone-aware, Awareness vor Vergleich; expires_at strikt nach created_at; gesetzter return_path nicht leer
+    - keine URL-/Redirect-Validierung, keine Issuer-Trust-Entscheidung, keine Mutation/Konsum; kein Store/Port/Route/Tokenverarbeitung
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
