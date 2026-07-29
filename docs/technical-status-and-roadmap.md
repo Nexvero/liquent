@@ -857,6 +857,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Claim atomar und einmalig: vorhanden/pending/nicht abgelaufen, Erfolg konsumiert fail-closed und liefert den Record genau einmal
     - unbekannt/abgelaufen/bereits konsumiert identisch None; Store liest Uhr intern; keine Token-/Issuer-Trust-Prüfung; kein Adapter/Creation-Port/Tombstone/Route
     - vorhandene abgelaufene Transaktion wird beim Claim fail-closed entfernt oder geheimnisfrei tombstoned; keine Geheimnisse in einem abgelaufenen Pending-Zustand
+- LQ-140 identity admission id repr hardening:
+  `docs/lq-140-identity-admission-id-repr-hardening.md`
+  - Status:
+    - IdentityAdmissionId.value ist jetzt field(repr=False); sensibler Capability-Handle im Docstring benannt
+    - unveränderlich/hashbar, exakt/opak, keine Normalisierung, Leerprüfung, Gleichheit und Hashverhalten unverändert
+    - Wert bleibt über .value für autorisierte interne Verarbeitung verfügbar; Klassenname darf im repr erscheinen
+    - keine Änderung an IdentityAdmissionRecord, Ports, Adaptern, Login-Modellen, Persistenz oder CI-Workflow
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

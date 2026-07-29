@@ -49,3 +49,24 @@ def test_model_holds_only_value() -> None:
     names = [field.name for field in fields(IdentityAdmissionId)]
 
     assert names == ["value"]
+
+
+def test_value_is_absent_from_repr() -> None:
+    # A sensitive capability handle must not reach logs or error diagnostics
+    # through an object representation.
+    text = repr(IdentityAdmissionId("secret-admission"))
+
+    assert "secret-admission" not in text
+
+
+def test_class_name_may_appear_in_repr() -> None:
+    text = repr(IdentityAdmissionId("secret-admission"))
+
+    assert "IdentityAdmissionId" in text
+
+
+def test_value_stays_available_for_authorized_internal_processing() -> None:
+    admission = IdentityAdmissionId("secret-admission")
+
+    # Hidden from repr, but unchanged via the attribute.
+    assert admission.value == "secret-admission"
