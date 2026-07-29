@@ -91,6 +91,34 @@ class OidcLoginTransactionClaimStore(Protocol):
     ) -> PendingOidcLoginTransaction | None: ...
 
 
+class OidcLoginTransactionCreationStore(Protocol):
+    """Atomically store one new pending login transaction without reusing a state.
+
+    Success returns True and keeps exactly the given immutable record under the
+    exact opaque state; neither is normalized or altered. An existing pending
+    record is never overwritten, so a state that is already pending returns a
+    neutral False. A state that was previously claimed, consumed, or dropped on
+    expiry and is known through a consumption proof or tombstone must not be
+    reused and returns the same neutral False: an old callback can therefore
+    never meet a new login transaction by re-occupying its state. False does not
+    distinguish a pending collision from an already used state. A persistent
+    store must secure that non-reuse atomically; a later local adapter may keep
+    an internal, secret-free reserved/used state set for it.
+
+    The caller supplies no ``now``, and this port decides nothing about issuer
+    trust, OIDC tokens, admission, or authorization. Ensuring the record has not
+    already expired at creation time belongs to the later login-start use case.
+    The store performs no automatic retry and generates no material, and no
+    secrets are logged or carried in a failure result.
+    """
+
+    def add_transaction(
+        self,
+        state: OidcLoginState,
+        transaction: PendingOidcLoginTransaction,
+    ) -> bool: ...
+
+
 class BrowserSessionLifecycle(Protocol):
     """Create, rotate, and revoke server-side browser sessions."""
 
