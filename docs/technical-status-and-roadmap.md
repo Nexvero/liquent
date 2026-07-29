@@ -846,7 +846,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-138-pending-oidc-login-transaction.md`
   - Status:
     - unveränderliche PendingOidcLoginTransaction (expected_issuer, expected_nonce, code_verifier, redirect_uri, created_at, expires_at, admission_id?, return_path?)
-    - vier Pflichtstrings nicht leer, exakt gespeichert; expected_nonce/code_verifier sensibel und repr-frei; kein state-, kein code_challenge-Feld
+    - vier Pflichtstrings nicht leer, exakt gespeichert; expected_nonce/code_verifier/admission_id sensibel und repr-frei; kein state-, kein code_challenge-Feld
     - created_at/expires_at timezone-aware, Awareness vor Vergleich; expires_at strikt nach created_at; gesetzter return_path nicht leer
     - keine URL-/Redirect-Validierung, keine Issuer-Trust-Entscheidung, keine Mutation/Konsum; kein Store/Port/Route/Tokenverarbeitung
 
