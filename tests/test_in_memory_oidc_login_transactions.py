@@ -9,7 +9,10 @@ from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
 )
-from liquent_platform.identity.ports import OidcLoginTransactionClaimStore
+from liquent_platform.identity.ports import (
+    OidcLoginTransactionClaimStore,
+    OidcLoginTransactionCreationStore,
+)
 
 
 CREATED = datetime(2026, 7, 29, 12, tzinfo=UTC)
@@ -51,6 +54,20 @@ def _stored_states(store: InMemoryOidcLoginTransactions) -> set[OidcLoginState]:
     return set(store._transactions)  # noqa: SLF001
 
 
+def _reserved_states(store: InMemoryOidcLoginTransactions) -> set[OidcLoginState]:
+    """Test-only read-only inspection of the local reservation set."""
+
+    return set(store._reserved_states)  # noqa: SLF001
+
+
+def _stored_record(
+    store: InMemoryOidcLoginTransactions, state: OidcLoginState
+) -> PendingOidcLoginTransaction | None:
+    """Test-only read-only inspection of one stored pending record."""
+
+    return store._transactions.get(state)  # noqa: SLF001
+
+
 def _store(
     transactions: dict[OidcLoginState, PendingOidcLoginTransaction] | None = None,
     at: datetime = BEFORE_EXPIRY,
@@ -81,6 +98,159 @@ def test_later_changes_to_the_input_mapping_do_not_affect_the_adapter() -> None:
     del source[STATE]
 
     assert _stored_states(store) == {STATE}
+    assert _reserved_states(store) == {STATE}
+
+
+def test_initial_pending_states_are_reserved_automatically() -> None:
+    store, _clock = _store({STATE: _transaction(), OTHER_STATE: _transaction()})
+
+    assert _reserved_states(store) == {STATE, OTHER_STATE}
+
+
+# --- Creation --------------------------------------------------------------
+
+def test_free_state_is_added_and_returns_true() -> None:
+    store, _clock = _store({})
+
+    assert store.add_transaction(STATE, _transaction()) is True
+
+
+def test_added_record_is_the_exact_same_immutable_object() -> None:
+    pending = _transaction()
+    store, _clock = _store({})
+
+    store.add_transaction(STATE, pending)
+
+    assert _stored_record(store, STATE) is pending
+
+
+def test_added_state_is_reserved_afterwards() -> None:
+    store, _clock = _store({})
+
+    store.add_transaction(STATE, _transaction())
+
+    assert _reserved_states(store) == {STATE}
+
+
+def test_add_does_not_read_the_clock() -> None:
+    store, clock = _store({})
+
+    store.add_transaction(STATE, _transaction())
+    store.add_transaction(STATE, _transaction())  # rejected, still no clock
+
+    assert clock.reads == 0
+
+
+def test_already_pending_state_is_rejected() -> None:
+    store, _clock = _store()
+
+    assert store.add_transaction(STATE, _transaction("second")) is False
+
+
+def test_collision_does_not_overwrite_the_existing_record() -> None:
+    first = _transaction("first-nonce")
+    store, _clock = _store({STATE: first})
+
+    store.add_transaction(STATE, _transaction("second-nonce"))
+
+    assert _stored_record(store, STATE) is first
+
+
+def test_another_free_state_stays_addable_after_a_collision() -> None:
+    store, _clock = _store()
+
+    assert store.add_transaction(STATE, _transaction()) is False
+    assert store.add_transaction(OTHER_STATE, _transaction()) is True
+
+
+def test_added_state_and_record_stay_exact_and_opaque() -> None:
+    raw_state = OidcLoginState("  State/MiXeD//  ")
+    pending = _transaction()
+    store, _clock = _store({})
+
+    assert store.add_transaction(raw_state, pending) is True
+    assert _stored_record(store, raw_state) is pending
+    assert _stored_record(store, raw_state) == _transaction()  # record unchanged
+    # The exact state is the key; a normalized variant is not.
+    assert _stored_record(store, OidcLoginState("state/mixed/")) is None
+
+
+# --- Creation and claim together -------------------------------------------
+
+def test_added_transaction_is_claimable_exactly_once() -> None:
+    pending = _transaction()
+    store, _clock = _store({})
+
+    store.add_transaction(STATE, pending)
+
+    assert store.claim_transaction(STATE) is pending
+    assert store.claim_transaction(STATE) is None
+
+
+def test_state_stays_reserved_after_a_successful_claim() -> None:
+    store, _clock = _store()
+
+    store.claim_transaction(STATE)
+
+    assert _stored_states(store) == set()
+    assert _reserved_states(store) == {STATE}
+
+
+def test_re_add_after_a_successful_claim_is_rejected() -> None:
+    store, _clock = _store()
+
+    store.claim_transaction(STATE)
+
+    assert store.add_transaction(STATE, _transaction("replay")) is False
+    assert _stored_states(store) == set()
+
+
+def test_state_stays_reserved_after_an_expired_claim() -> None:
+    store, _clock = _store(at=AFTER_EXPIRY)
+
+    store.claim_transaction(STATE)
+
+    assert _stored_states(store) == set()
+    assert _reserved_states(store) == {STATE}
+
+
+def test_re_add_after_an_expired_claim_is_rejected() -> None:
+    store, _clock = _store(at=AFTER_EXPIRY)
+
+    store.claim_transaction(STATE)
+
+    assert store.add_transaction(STATE, _transaction("replay")) is False
+
+
+def test_failed_claim_of_an_unknown_state_does_not_reserve_it() -> None:
+    store, _clock = _store()
+
+    assert store.claim_transaction(UNKNOWN_STATE) is None
+    assert _reserved_states(store) == {STATE}
+    # A previously unknown state may still be added later.
+    assert store.add_transaction(UNKNOWN_STATE, _transaction()) is True
+
+
+def test_other_pending_and_reserved_states_are_unchanged_by_a_claim() -> None:
+    other = _transaction("other-nonce")
+    store, _clock = _store({STATE: _transaction(), OTHER_STATE: other})
+
+    store.claim_transaction(STATE)
+
+    assert _stored_states(store) == {OTHER_STATE}
+    assert _reserved_states(store) == {STATE, OTHER_STATE}
+    assert _stored_record(store, OTHER_STATE) is other
+
+
+def test_other_states_are_unchanged_by_a_rejected_add() -> None:
+    other = _transaction("other-nonce")
+    store, _clock = _store({STATE: _transaction(), OTHER_STATE: other})
+
+    store.add_transaction(STATE, _transaction("second"))
+
+    assert _stored_states(store) == {STATE, OTHER_STATE}
+    assert _reserved_states(store) == {STATE, OTHER_STATE}
+    assert _stored_record(store, OTHER_STATE) is other
 
 
 # --- Successful claim ------------------------------------------------------
@@ -236,6 +406,23 @@ def test_adapter_is_structurally_compatible_with_the_claim_port() -> None:
     assert port.claim_transaction(STATE) is pending
 
 
+def test_adapter_is_structurally_compatible_with_the_creation_port() -> None:
+    store, _clock = _store({})
+    port: OidcLoginTransactionCreationStore = store
+
+    assert port.add_transaction(STATE, _transaction()) is True
+
+
+def test_one_instance_satisfies_both_ports() -> None:
+    store, _clock = _store({})
+    creation: OidcLoginTransactionCreationStore = store
+    claim: OidcLoginTransactionClaimStore = store
+    pending = _transaction()
+
+    assert creation.add_transaction(STATE, pending) is True
+    assert claim.claim_transaction(STATE) is pending
+
+
 def test_claim_signature_takes_only_state() -> None:
     parameters = inspect.signature(
         InMemoryOidcLoginTransactions.claim_transaction
@@ -244,11 +431,21 @@ def test_claim_signature_takes_only_state() -> None:
     assert list(parameters) == ["self", "state"]
 
 
+def test_add_signature_takes_only_state_and_transaction() -> None:
+    parameters = inspect.signature(
+        InMemoryOidcLoginTransactions.add_transaction
+    ).parameters
+
+    assert list(parameters) == ["self", "state", "transaction"]
+
+
 @pytest.mark.parametrize(
     "name",
-    ["add_transaction", "create_transaction", "add", "create", "put", "store"],
+    ["create_transaction", "add", "create", "put", "store", "reserved_states"],
 )
-def test_adapter_has_no_add_or_create_method(name: str) -> None:
+def test_adapter_has_no_further_management_or_inspection_api(name: str) -> None:
+    # add_transaction is the one creation entry point (LQ-143); nothing beyond
+    # the two port methods is public.
     store, _clock = _store()
 
     assert not hasattr(store, name)
