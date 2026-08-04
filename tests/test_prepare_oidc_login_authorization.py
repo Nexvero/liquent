@@ -1,4 +1,5 @@
 import inspect
+from dataclasses import FrozenInstanceError, fields
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
@@ -14,6 +15,7 @@ from liquent_platform.application.oidc_login_errors import (
     OidcLoginUnavailable,
 )
 from liquent_platform.application.prepare_oidc_login_authorization import (
+    PreparedOidcLoginAuthorization,
     prepare_oidc_login_authorization,
 )
 from liquent_platform.identity.admission import IdentityAdmissionId
@@ -141,7 +143,7 @@ class StubStore:
 
 def _prepare(
     lookup: Any, store: Any, generator: Any, **overrides: Any
-) -> OidcAuthorizationRequest:
+) -> PreparedOidcLoginAuthorization:
     arguments: dict[str, Any] = {"now": NOW, "lifetime": LIFETIME}
     arguments.update(overrides)
     return prepare_oidc_login_authorization(
@@ -149,21 +151,23 @@ def _prepare(
     )
 
 
-def _parameters(request: OidcAuthorizationRequest) -> dict[str, str]:
-    return dict(parse_qsl(urlsplit(request.url).query, keep_blank_values=True))
+def _parameters(prepared: PreparedOidcLoginAuthorization) -> dict[str, str]:
+    query = urlsplit(prepared.request.url).query
+    return dict(parse_qsl(query, keep_blank_values=True))
 
 
 # --- Success flow -----------------------------------------------------------
 
-def test_success_returns_an_authorization_request() -> None:
+def test_success_returns_a_prepared_authorization() -> None:
     recorder = Recorder()
-    request = _prepare(
+    prepared = _prepare(
         StubLookup(recorder, _configuration()),
         StubStore(recorder),
         StubGenerator(recorder),
     )
 
-    assert isinstance(request, OidcAuthorizationRequest)
+    assert isinstance(prepared, PreparedOidcLoginAuthorization)
+    assert isinstance(prepared.request, OidcAuthorizationRequest)
 
 
 def test_every_dependency_is_used_exactly_once_and_in_order() -> None:
@@ -241,14 +245,14 @@ def test_the_pending_record_carries_the_configured_issuer_and_redirect_uri() -> 
 
 def test_the_request_carries_the_same_configuration_values() -> None:
     recorder = Recorder()
-    request = _prepare(
+    prepared = _prepare(
         StubLookup(recorder, _configuration()),
         StubStore(recorder),
         StubGenerator(recorder),
     )
 
-    assert request.url.split("?", 1)[0] == ENDPOINT
-    parameters = _parameters(request)
+    assert prepared.request.url.split("?", 1)[0] == ENDPOINT
+    parameters = _parameters(prepared)
     assert parameters["client_id"] == CLIENT_ID
     assert parameters["redirect_uri"] == REDIRECT_URI
     assert parameters["scope"] == "openid email"
@@ -289,7 +293,7 @@ def test_admission_and_return_path_are_bound_server_side() -> None:
 
 def test_admission_and_return_path_never_reach_the_request() -> None:
     recorder = Recorder()
-    request = _prepare(
+    prepared = _prepare(
         StubLookup(recorder, _configuration()),
         StubStore(recorder),
         StubGenerator(recorder),
@@ -297,39 +301,206 @@ def test_admission_and_return_path_never_reach_the_request() -> None:
         return_path=RETURN_PATH,
     )
 
-    parameters = _parameters(request)
+    parameters = _parameters(prepared)
     assert "admission_id" not in parameters
     assert "return_path" not in parameters
-    assert ADMISSION.value not in request.url
-    assert RETURN_PATH not in request.url
+    assert ADMISSION.value not in prepared.request.url
+    assert RETURN_PATH not in prepared.request.url
 
 
 def test_the_code_verifier_stays_in_the_pending_record_only() -> None:
     recorder = Recorder()
     store = StubStore(recorder)
 
-    request = _prepare(
+    prepared = _prepare(
         StubLookup(recorder, _configuration()), store, StubGenerator(recorder)
     )
 
     _state, pending = store.calls[0]
     assert pending.code_verifier == "generated-verifier"
-    assert "generated-verifier" not in request.url
-    assert "code_verifier" not in _parameters(request)
+    assert "generated-verifier" not in prepared.request.url
+    assert "code_verifier" not in _parameters(prepared)
 
 
-def test_the_returned_repr_hides_the_url_state_and_nonce() -> None:
+def test_the_request_repr_hides_the_url_state_and_nonce() -> None:
     recorder = Recorder()
-    request = _prepare(
+    prepared = _prepare(
         StubLookup(recorder, _configuration()),
         StubStore(recorder),
         StubGenerator(recorder),
     )
-    text = repr(request)
+    text = repr(prepared.request)
 
     assert "OidcAuthorizationRequest" in text
-    for secret in (request.url, "generated-state", "generated-nonce", ENDPOINT):
+    for secret in (
+        prepared.request.url,
+        "generated-state",
+        "generated-nonce",
+        ENDPOINT,
+    ):
         assert secret not in text
+
+
+# --- Prepared result: the state handed to the transport boundary ------------
+
+def test_the_result_model_is_frozen_with_slots() -> None:
+    parameters = PreparedOidcLoginAuthorization.__dataclass_params__
+
+    assert parameters.frozen is True
+    assert hasattr(PreparedOidcLoginAuthorization, "__slots__")
+
+
+def test_the_result_model_has_exactly_request_and_state() -> None:
+    names = [field.name for field in fields(PreparedOidcLoginAuthorization)]
+
+    assert names == ["request", "state"]
+
+
+def test_the_result_is_immutable() -> None:
+    recorder = Recorder()
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        prepared.state = OidcLoginState("other")  # type: ignore[misc]
+
+
+def test_the_result_carries_the_builder_result_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorder = Recorder()
+    built: list[OidcAuthorizationRequest] = []
+    original = module.build_oidc_authorization_request
+
+    def spy(configuration: Any, started: Any) -> OidcAuthorizationRequest:
+        request = original(configuration, started)
+        built.append(request)
+        return request
+
+    monkeypatch.setattr(module, "build_oidc_authorization_request", spy)
+
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    assert prepared.request is built[0]
+
+
+def test_the_result_state_matches_the_stored_transaction_key() -> None:
+    recorder = Recorder()
+    store = StubStore(recorder)
+
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()), store, StubGenerator(recorder)
+    )
+
+    stored_key, _pending = store.calls[0]
+    assert prepared.state == stored_key
+    assert prepared.state.value == "generated-state"
+
+
+def test_the_result_state_matches_the_decoded_query_parameter() -> None:
+    recorder = Recorder()
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    assert prepared.state.value == _parameters(prepared)["state"]
+
+
+def test_the_state_value_stays_available_for_the_transport_boundary() -> None:
+    recorder = Recorder()
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    assert isinstance(prepared.state, OidcLoginState)
+    assert prepared.state.value == "generated-state"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # A different state in the URL...
+        "https://idp.example.test/authorize?state=tampered-state",
+        # ...and no state parameter at all.
+        "https://idp.example.test/authorize?response_type=code",
+    ],
+)
+def test_the_state_is_not_recovered_from_the_authorization_url(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    # Focused double: the builder returns a URL whose state disagrees with the
+    # generated one. If the state were parsed back out of the URL, this fails.
+    recorder = Recorder()
+    monkeypatch.setattr(
+        module,
+        "build_oidc_authorization_request",
+        lambda *_a, **_k: OidcAuthorizationRequest(url),
+    )
+
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    assert prepared.state.value == "generated-state"
+    assert prepared.request.url == url
+
+
+def test_the_result_repr_hides_the_state_and_the_url() -> None:
+    recorder = Recorder()
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+    text = repr(prepared)
+
+    assert "PreparedOidcLoginAuthorization" in text
+    for secret in (
+        "generated-state",
+        "generated-nonce",
+        prepared.request.url,
+        ENDPOINT,
+    ):
+        assert secret not in text
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "nonce",
+        "code_verifier",
+        "code_challenge",
+        "admission_id",
+        "return_path",
+        "configuration",
+        "transaction",
+        "pending",
+        "client_id",
+        "issuer",
+    ],
+)
+def test_the_result_carries_no_further_material(name: str) -> None:
+    recorder = Recorder()
+    prepared = _prepare(
+        StubLookup(recorder, _configuration()),
+        StubStore(recorder),
+        StubGenerator(recorder),
+    )
+
+    assert not hasattr(prepared, name)
 
 
 # --- Structural protection --------------------------------------------------
@@ -382,12 +553,12 @@ def test_the_signature_is_exactly_the_agreed_one() -> None:
     assert parameters["return_path"].default is None
 
 
-def test_the_return_annotation_is_the_authorization_request() -> None:
+def test_the_return_annotation_is_the_prepared_authorization() -> None:
     annotation = inspect.signature(
         prepare_oidc_login_authorization
     ).return_annotation
 
-    assert annotation is OidcAuthorizationRequest
+    assert annotation is PreparedOidcLoginAuthorization
 
 
 # --- No active configuration ------------------------------------------------
