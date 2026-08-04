@@ -933,6 +933,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - OidcAuthorizationRequest ist frozen/slots/hashbar mit exakt einem Feld url und repr=False; Klassenname sichtbar, URL/State/Nonce/Client-ID/Redirect-URI/Challenge nicht
     - kein code_verifier, keine Admission-ID, kein return_path, keine Deny-by-default-Parameter; offline_access nur innerhalb des konfigurierten scope-Werts
     - keine Trust-Auswahl, kein Store, keine Materialerzeugung, kein Netzwerk, keine Route; Callback prüft Issuer-Trust weiterhin erneut
+- LQ-148 active oidc client configuration lookup port:
+  `docs/lq-148-active-oidc-client-configuration-lookup-port.md`
+  - Status:
+    - ActiveOidcClientConfigurationLookup.get_active_configuration() -> TrustedOidcClientConfiguration | None; Signatur exakt self
+    - genau eine aktive Konfiguration an dieser Grenze; kein get_by_issuer/get_by_provider/list_configurations, kein Multi-Issuer- oder Tenant-Routing, kein Fallback
+    - struktureller Schutz: ohne Auswahlparameter kann eine spätere HTTP-Grenze keinen browsergewählten Issuer/Provider/Client/Tenant/Host/Header/Cookie durchreichen
+    - Erfolg liefert exakt das gespeicherte unveränderliche Objekt; keine Kopie, Normalisierung, Ergänzung, kein eingefrorener Trust, kein Secret
+    - None heißt nur "derzeit keine aktive Konfiguration"; keine Unterscheidung nie-konfiguriert/deaktiviert/entzogen, keine Liste, kein Default-Fallback, keine Detailursache
+    - echter Lese-/Infrastrukturfehler wird nicht zu None umgedeutet; der Port definiert keinen eigenen Fehlertyp und keine Fehlerbehandlung
+    - read-only: aktiviert/deaktiviert/erzeugt/aktualisiert/löscht nichts, keine Secret-Rotation, keine Discovery/JWKS/Netzwerk, kein Caching als Vertrag
+    - jeder Login-Start liest erneut; Callback prüft aktuellen Issuer-Trust weiterhin separat; kein Adapter, kein Store, keine Route, kein redundanter Anwendungsfall
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

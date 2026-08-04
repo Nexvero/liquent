@@ -5,6 +5,9 @@ from typing import Protocol
 from liquent_platform.identity.access import UserId, WorkspaceMembership
 from liquent_platform.identity.admission import IdentityAdmissionId
 from liquent_platform.identity.external_identity import ExternalIdentity
+from liquent_platform.identity.oidc_client_configuration import (
+    TrustedOidcClientConfiguration,
+)
 from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
@@ -117,6 +120,46 @@ class OidcLoginTransactionCreationStore(Protocol):
         state: OidcLoginState,
         transaction: PendingOidcLoginTransaction,
     ) -> bool: ...
+
+
+class ActiveOidcClientConfigurationLookup(Protocol):
+    """Read the one currently active OIDC client configuration, read-only.
+
+    The method takes no argument beyond ``self``. Liquent supports exactly one
+    active configuration at this boundary, so no issuer, provider, client id,
+    tenant, workspace, user, host, header, query value, cookie, admission
+    handle, return path, or other selector can be passed. A later HTTP boundary
+    therefore cannot hand a browser-chosen provider to this port at all: the
+    protection is structural, not a runtime check.
+
+    A returned configuration is exactly the stored immutable object — not a
+    copy with altered values, nothing normalized, nothing added, no secret
+    attached. Holding it freezes no trust status: every login start reads the
+    current configuration again, and the callback must still re-check the
+    current issuer trust separately.
+
+    ``None`` means only that no active OIDC client configuration is available
+    for login right now. It never distinguishes "never configured" from
+    "deactivated" or "approval revoked", and it reveals no previously
+    configured issuer or client; a later transport boundary must keep that
+    neutrality. The port returns no list, no deactivated configuration, no
+    alternative or default fallback, and no detail reason.
+
+    A genuine read, configuration, or infrastructure failure must not be
+    silently turned into ``None``. This port defines no error type and no error
+    handling of its own; a later application or transport boundary handles
+    failures neutrally without faking an empty state.
+
+    The port only reads. It activates and deactivates nothing, creates,
+    updates, deletes, and rotates nothing, runs no discovery, loads no signing
+    key set, performs no network call, requires no caching, and decides no
+    workspace permission. Supporting several trusted issuers later needs its
+    own contract and must not silently change the meaning of this method.
+    """
+
+    def get_active_configuration(
+        self,
+    ) -> TrustedOidcClientConfiguration | None: ...
 
 
 class BrowserSessionLifecycle(Protocol):
