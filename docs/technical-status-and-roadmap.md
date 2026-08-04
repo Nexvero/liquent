@@ -1000,6 +1000,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Logging ohne URL/Location/State/Nonce/Cookie/Client-ID/Redirect-URI/Admission/Return-Path; keine Metriklabels mit Issuer, Client-ID, State oder Origin
     - no-store auf allen Pfaden, zusätzlich Pragma: no-cache und Referrer-Policy: no-referrer beim Erfolg; keine Speicherung in Web Storage
     - erfolgreicher Redirect heißt nur: kurzlebige Login-Transaktion sicher gestartet; keine Session, keine Mitgliedschaft, keine Berechtigung
+- LQ-153 prepared oidc login authorization:
+  `docs/lq-153-prepared-oidc-login-authorization.md`
+  - Status:
+    - Ergebnisgrenzen-Erweiterung von LQ-151 und notwendige Vorbedingung für die LQ-152-Route; Eingabesignatur unverändert, nur der Rückgabetyp ändert sich
+    - PreparedOidcLoginAuthorization(request, state) — frozen, slots, exakt zwei Felder; state ist repr=False, die URL bleibt durch den LQ-147-Vertrag repr-frei
+    - der Handler erhält den State direkt und darf ihn niemals aus der Authorization-URL parsen; das wäre eine zweite, schwächere Quelle für einen kritischen Wert
+    - state wird verbatim aus started.state in OidcLoginState verpackt; gleich zum Store-Key (==, gleicher Hash, gleicher .value), keine Ableitung/Normalisierung/Kopie
+    - derselbe opake State für Pending-Transaktionsschlüssel, state-Queryparameter und Ergebnisfeld, aus einem Generatoraufruf innerhalb eines Starts
+    - .state.value bleibt exakt verfügbar; das Objekt trägt keine Nonce, Verifier, Challenge, Admission, Konfiguration, Transaktion, Tokens oder Identitätsdaten und autorisiert nichts
+    - Aufrufreihenfolge, Fehlerarten und Aufrufzahlen unverändert: OidcLoginUnavailable, OidcLoginStartConflict, keine zweite Uhr/Lookup/Materialerzeugung
+    - Nachweis kein URL-Parsing über fokussiertes Builder-Double mit abweichendem bzw. fehlendem state; keine Route, kein Cookie, kein Callback
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

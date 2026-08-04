@@ -1,5 +1,6 @@
 """Connect the three login-start steps into one transport-free use case."""
 
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from liquent_platform.application.build_oidc_authorization_request import (
@@ -12,10 +13,39 @@ from liquent_platform.identity.admission import IdentityAdmissionId
 from liquent_platform.identity.oidc_login_material import (
     SecureOidcLoginMaterialGenerator,
 )
+from liquent_platform.identity.oidc_login_transaction import OidcLoginState
 from liquent_platform.identity.ports import (
     ActiveOidcClientConfigurationLookup,
     OidcLoginTransactionCreationStore,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedOidcLoginAuthorization:
+    """The finished authorization request together with its own login state.
+
+    The later login-start route needs both: it redirects to ``request.url`` and
+    binds ``state`` into the ``__Host-liquent_oidc_state`` cookie (LQ-152).
+    Handing the state over directly is the point of this object — the handler
+    must **never** recover it by parsing the authorization URL, which would be a
+    second and weaker source for a security-critical value.
+
+    ``state`` is the very same opaque value that keys the stored pending
+    transaction and travels as the request's ``state`` parameter; it is only
+    wrapped in the existing value object, never normalized, copied, or derived.
+    It is a short-lived browser-binding value and is therefore hidden from
+    ``repr``, and the authorization URL stays hidden by the existing
+    ``OidcAuthorizationRequest`` contract, so neither reaches logs or error
+    diagnostics through an object representation. ``state.value`` stays
+    available for the later transport boundary.
+
+    The object holds exactly these two fields — no nonce, code verifier,
+    admission id, client configuration, pending transaction, token, claim,
+    user, workspace, or session data — and it authorizes nothing.
+    """
+
+    request: OidcAuthorizationRequest
+    state: OidcLoginState = field(repr=False)
 
 
 def prepare_oidc_login_authorization(
@@ -27,7 +57,7 @@ def prepare_oidc_login_authorization(
     lifetime: timedelta,
     admission_id: IdentityAdmissionId | None = None,
     return_path: str | None = None,
-) -> OidcAuthorizationRequest:
+) -> PreparedOidcLoginAuthorization:
     """Read the active configuration once, start the login, and shape the request.
 
     The signature accepts no issuer, authorization endpoint, client id,
@@ -82,4 +112,8 @@ def prepare_oidc_login_authorization(
     )
     # Built only after the transaction was stored, from the very same
     # configuration object the lookup returned.
-    return build_oidc_authorization_request(configuration, started)
+    request = build_oidc_authorization_request(configuration, started)
+    # The state is taken verbatim from the start result and merely wrapped in
+    # the existing value object, so it equals the key the transaction is stored
+    # under. It is never read back out of request.url.
+    return PreparedOidcLoginAuthorization(request, OidcLoginState(started.state))
