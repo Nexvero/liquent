@@ -922,6 +922,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Validierung nur via urllib.parse.urlsplit; kein Netzwerk, keine DNS-Auflösung, keine Discovery, keine normalisierte Rückgabe; Fehler nennen nur Feldnamen
     - kein Trust-/Enabled-Flag: Besitz beweist keine aktive Freigabe, Auswahl bleibt einer späteren Trust-Grenze, Callback prüft Issuer-Trust erneut
     - kein Client-Secret, keine Tokens/Claims/Admission/Session/State/Nonce/Verifier/Discovery-Daten; kein Port, Adapter, Store oder URL-Builder
+- LQ-147 oidc authorization request builder:
+  `docs/lq-147-oidc-authorization-request-builder.md`
+  - Status:
+    - build_oidc_authorization_request(configuration, started) -> OidcAuthorizationRequest; deterministisch, seiteneffektfrei, transportfrei
+    - exakt neun Parameter, je genau einmal, feste Reihenfolge: response_type, response_mode, client_id, redirect_uri, scope, state, nonce, code_challenge, code_challenge_method
+    - Konstanten code/query/S256 ohne Alternativen; scope aus der Tupelreihenfolge mit einzelnen Leerzeichen, ohne Sortierung/Dedup/Ergänzung
+    - Kodierung ausschließlich über urlencode auf einer geordneten Paarliste; reservierte Zeichen und Unicode rundlaufen, kein Fragment, keine Parameterinjektion
+    - Ziel-URL ist der unveränderte Endpoint plus genau ein ?; keine Neukanonisierung, kein urlunsplit, keine Wiederholung der LQ-146-/LQ-144-Validierungen
+    - OidcAuthorizationRequest ist frozen/slots/hashbar mit exakt einem Feld url und repr=False; Klassenname sichtbar, URL/State/Nonce/Client-ID/Redirect-URI/Challenge nicht
+    - kein code_verifier, keine Admission-ID, kein return_path, keine Deny-by-default-Parameter; offline_access nur innerhalb des konfigurierten scope-Werts
+    - keine Trust-Auswahl, kein Store, keine Materialerzeugung, kein Netzwerk, keine Route; Callback prüft Issuer-Trust weiterhin erneut
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
