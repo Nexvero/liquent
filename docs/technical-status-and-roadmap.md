@@ -966,6 +966,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - parameterlose Portsignatur bleibt; Konfiguration wird ausschließlich beim serverseitigen Aufbau festgelegt, keine browsergesteuerte Auswahl
     - Konstruktor nimmt exakt (self, configuration): keine Uhr, kein Generator, kein Netzwerk-Client, keine Discovery; keine erneute Validierung der LQ-146-Invarianten
     - lokaler Composition-Snapshot, kein lebender Trust: kein Aktivierungsstatus, keine dynamische Aktualisierung; Callback prüft Issuer-Trust weiterhin separat
+- LQ-151 prepare oidc login authorization:
+  `docs/lq-151-prepare-oidc-login-authorization.md`
+  - Status:
+    - prepare_oidc_login_authorization(configuration_lookup, transaction_store, generator, *, now, lifetime, admission_id=None, return_path=None) -> OidcAuthorizationRequest
+    - verbindet LQ-148/150 (Konfiguration lesen), LQ-144 (Transaktion starten) und LQ-147 (Request bauen); transportfrei, keine Route, kein HTTP-Redirect
+    - Signatur nimmt keinen Issuer/Endpoint/Client-ID/Redirect-URI/Scope/Provider/Tenant/Workspace/User/Request/Response; alle Werte kommen nur aus dem Lookup
+    - Aufruffolge exakt lookup -> generator -> store -> builder, jede Abhängigkeit genau einmal; Request wird erst nach erfolgreicher Speicherung gebaut
+    - Snapshot-Konsistenz: genau eine Konfigurationslesung speist Pending-Record (expected_issuer, redirect_uri) und Request (Endpoint, Client-ID, Redirect-URI, Scopes)
+    - kein zweiter Lookup innerhalb eines Starts; zwei getrennte Aufrufe dürfen jeweils einen neueren Snapshot lesen
+    - fehlende aktive Konfiguration -> neuer neutraler OidcLoginUnavailable (eigener Code, detailfrei); Generator, Store und Builder bleiben unberührt, kein Fallback, kein Retry
+    - OidcLoginStartConflict, Lookup-, Store-, Generator- und Builderfehler propagieren unverändert und werden nie umgedeutet; kein partieller Request
+    - Zeitvalidierung bleibt bei LQ-144 und wird nicht dupliziert: bei ungültiger Zeitgrenze kann der read-only Lookup schon erfolgt sein, Generator und Store nicht
+    - Rückgabe ausschließlich OidcAuthorizationRequest mit unverändertem repr-Schutz; code_verifier, admission_id und return_path bleiben serverseitig
+    - keine eigene Trust-Entscheidung, keine erneute Validierung, keine Discovery, keine Signaturschlüssel, keine Token-/Claim-Prüfung; Callback prüft Issuer-Trust separat
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
