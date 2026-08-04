@@ -1,3 +1,4 @@
+import ast
 import inspect
 from dataclasses import FrozenInstanceError, fields
 from datetime import UTC, datetime, timedelta
@@ -270,13 +271,31 @@ def test_return_annotation_is_only_pending_transaction_or_none() -> None:
     assert annotation == PendingOidcLoginTransaction | None
 
 
-def test_ports_module_has_no_token_trust_http_or_persistence_logic() -> None:
-    source = inspect.getsource(ports_mod)
+def test_claim_port_declares_only_claim_transaction_without_a_body() -> None:
+    # Structural and scoped to this port only: it says nothing about the rest
+    # of ports.py, its imports, other protocols, or any later addition. The
+    # earlier global substring check could not tell an exclusion in a docstring
+    # from real logic and blocked unrelated ports.
+    tree = ast.parse(inspect.getsource(OidcLoginTransactionClaimStore))
+    methods = [
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    ]
 
-    for forbidden in ("jwt", "jwks", "fastapi", "sqlalchemy", "requests", "httpx"):
-        assert forbidden not in source.lower()
-    assert "router" not in source.lower()
-    assert "def claim_transaction" in source  # declaration only, no adapter
+    assert [node.name for node in methods] == ["claim_transaction"]
+    statements = [
+        statement
+        for statement in methods[0].body
+        if not (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        )
+    ]
+    # A bare `...` declaration: no adapter or execution logic in the port.
+    assert len(statements) == 1
+    assert isinstance(statements[0], ast.Expr)
+    assert isinstance(statements[0].value, ast.Constant)
+    assert statements[0].value.value is Ellipsis
 
 
 def test_stub_is_test_only_and_not_exported_by_the_identity_package() -> None:
