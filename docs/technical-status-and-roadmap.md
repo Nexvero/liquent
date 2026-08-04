@@ -980,6 +980,26 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Zeitvalidierung bleibt bei LQ-144 und wird nicht dupliziert: bei ungültiger Zeitgrenze kann der read-only Lookup schon erfolgt sein, Generator und Store nicht
     - Rückgabe ausschließlich OidcAuthorizationRequest mit unverändertem repr-Schutz; code_verifier, admission_id und return_path bleiben serverseitig
     - keine eigene Trust-Entscheidung, keine erneute Validierung, keine Discovery, keine Signaturschlüssel, keine Token-/Claim-Prüfung; Callback prüft Issuer-Trust separat
+- LQ-152 oidc login start route contract:
+  `docs/lq-152-oidc-login-start-route-contract.md`
+  - Status:
+    - ADR/Transportvertrag, keine Implementierung, keine Route, keine Cookie-Helfer, keine Änderung an LQ-151
+    - Browserbindung als kritische Entscheidung: erzeugter state zusätzlich im kurzlebigen host-only Cookie; Callback vergleicht Query-state konstantzeitlich VOR dem Claim
+    - fehlendes oder falsches Binding-Cookie bricht neutral ab, ohne Claim, ohne Token, ohne Session; dabei wird nichts gelöscht
+    - erst nach erfolgreichem konstantzeitlichem Match wird geclaimt und das Cookie danach auf jedem weiteren Endpfad gelöscht
+    - Mismatch löscht bewusst nicht: der eine Cookie-Slot gehört dann einer neueren Transaktion, sonst wäre ein alter Callback ein Login-Denial-of-Service
+    - last-start-wins: neuer Start überschreibt das Cookie, älterer Pending-Record läuft fail-closed ab, älterer Callback mismatched und lässt das neuere Cookie unberührt
+    - Route POST /v1/session/oidc/login (erzeugt Serverzustand, kein sicheres GET); GET /v1/session/oidc/callback reserviert, kein Issuer/Provider im Pfad
+    - Eingabegrenze: keine Query, kein Body, keine Admission-ID, kein return_path; Handler ruft LQ-151 mit serverseitiger Uhr, fester Lebensdauer und None/None
+    - unauthentifiziert, daher Origin-Pflicht gegen konfigurierte vertrauenswürdige Origin, Sec-Fetch-Site falls vorhanden same-origin, kein Referer-Ersatz, kein CORS, kein Fallback
+    - Erfolg: prüfen, LQ-151 genau einmal, erst nach atomarer Speicherung Cookie setzen und 303 See Other mit URL nur im Location-Header; kein 302/307/308, leerer Body
+    - Cookie __Host-liquent_oidc_state: Secure, HttpOnly, SameSite=Lax, Path=/, kein Domain, Max-Age <= Transaktionslebensdauer; bewusste Abweichung vom präfixlosen liquent_session
+    - notwendige Vorbedingung: Folgeslice muss den State separat bereitstellen (PreparedOidcLoginAuthorization, repr-frei); kein Rückgewinnen durch URL-Parsen
+    - Fehler: 405 mit Allow, 400 bei nicht leerer Eingabe, 403 cross-site, 503 einheitlich für OidcLoginUnavailable und OidcLoginStartConflict, 500 neutral; nie Cookie oder Redirect
+    - kein Retry-After ohne belastbare Retryzeit; kein Rollback des atomaren Stores, verwaiste Pending-Transaktionen laufen fail-closed ab
+    - Logging ohne URL/Location/State/Nonce/Cookie/Client-ID/Redirect-URI/Admission/Return-Path; keine Metriklabels mit Issuer, Client-ID, State oder Origin
+    - no-store auf allen Pfaden, zusätzlich Pragma: no-cache und Referrer-Policy: no-referrer beim Erfolg; keine Speicherung in Web Storage
+    - erfolgreicher Redirect heißt nur: kurzlebige Login-Transaktion sicher gestartet; keine Session, keine Mitgliedschaft, keine Berechtigung
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
