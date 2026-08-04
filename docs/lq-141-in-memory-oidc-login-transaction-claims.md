@@ -36,6 +36,9 @@ class InMemoryOidcLoginTransactions:
 - **keine** globale Uhr und **kein** Netzwerk,
 - die Transaktionen stehen bei Konstruktion fest: es gibt **keine** Methode zum
   nachträglichen Hinzufügen oder Erzeugen.
+  **Überholt durch LQ-143** — der Adapter erfüllt inzwischen zusätzlich den
+  Creation-Port und besitzt `add_transaction`; siehe
+  `docs/lq-143-in-memory-oidc-login-transaction-creation.md`.
 
 ## Zustandsübergänge
 
@@ -67,6 +70,10 @@ erreichbar.
 - **Kein** Tombstone im lokalen Adapter — persistente Implementierungen dürfen
   laut LQ-139 einen geheimnisfreien Konsumnachweis führen, dieser Adapter tut es
   nicht.
+  **Teilweise überholt durch LQ-143** — der Adapter führt seither einen internen
+  Reserved-State-Satz, der verbrauchte States festhält. Er ist **nicht**
+  geheimnisfrei (er hält rohe `OidcLoginState`-Objekte) und **kein** persistenter
+  Tombstone; persistentes Hashing bleibt weiterhin außerhalb.
 - Die Uhr wird **höchstens einmal** und **nur** für einen vorhandenen
   Pending-Record gelesen.
 
@@ -95,6 +102,10 @@ Ablauf unverändert und weiterhin claimbar.
 ausschließlich `state` · keine Add-/Create-Methode (parametrisiert) · Modul ohne
 Thread-, Lock-, Async-, Persistenz- oder Tombstone-Simulation.
 
+> **LQ-143:** Der Test „keine Add-/Create-Methode" prüft seither nur noch
+> weitere Verwaltungs-/Inspektions-API; `add_transaction` ist der eine
+> Creation-Einstiegspunkt.
+
 Uhr-Lesevorgänge werden über eine zählende Test-Uhr belegt. Zustandsprüfungen
 laufen über den **ausschließlich lokalen, read-only** Testhelfer
 `_stored_states(store)`; am Adapter wurde **keine** produktive Verwaltungs-API
@@ -103,7 +114,8 @@ ergänzt.
 ## Bewusst nicht enthalten
 
 - kein Creation-/Add-Port,
-- keine Methode zum Erzeugen oder Einfügen von Transaktionen,
+- keine Methode zum Erzeugen oder Einfügen von Transaktionen
+  (**überholt durch LQ-143**),
 - kein Login-Start-Anwendungsfall,
 - kein Callback-Anwendungsfall,
 - keine Login-/Callback-Route,

@@ -878,6 +878,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Erfolg speichert exakt den unveränderlichen Record unter dem exakten/opaken State; keine Normalisierung, kein Überschreiben
     - bereits pending und bereits beansprucht/konsumiert/abgelaufen (Konsumnachweis/Tombstone) liefern identisch False; Replay-Schutz gegen Wiederbelegung eines State
     - kein now-Parameter, keine Issuer-Trust-/Token-/Admission-Entscheidung, keine Retry-/Materialerzeugung; kein Adapter/Generator-Port/Anwendungsfall/Route
+- LQ-143 in-memory oidc login transaction creation:
+  `docs/lq-143-in-memory-oidc-login-transaction-creation.md`
+  - Status:
+    - dieselbe InMemoryOidcLoginTransactions-Instanz erfüllt jetzt Creation- und Claim-Port; Konstruktorsignatur unverändert
+    - interner _reserved_states-Satz: initiale Keys automatisch reserviert, erfolgreicher Add reserviert mit, Claim entfernt nur den Pending-Record
+    - reservierter State wird nie erneut akzeptiert (Replay-Schutz); fehlgeschlagener Claim eines unbekannten State reserviert ihn nicht
+    - Add liest keine Uhr und bereitet beide Snapshots vor dem Attributtausch vor; Reserved-Satz hält rohe sensible States, kein Hashing/Tombstone/Persistenz
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

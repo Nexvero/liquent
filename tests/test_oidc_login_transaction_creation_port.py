@@ -230,9 +230,6 @@ def test_creation_port_declares_add_transaction_without_a_body() -> None:
 
 def test_stub_is_test_only_and_not_exported() -> None:
     import liquent_platform.identity as identity_pkg
-    import liquent_platform.identity.in_memory as in_memory_mod
 
     assert not hasattr(ports_mod, "StubCreationStore")
     assert not hasattr(identity_pkg, "StubCreationStore")
-    # The existing local claim adapter gains no creation method in this slice.
-    assert not hasattr(in_memory_mod.InMemoryOidcLoginTransactions, "add_transaction")

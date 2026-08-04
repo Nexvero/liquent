@@ -188,10 +188,14 @@ class InMemoryExternalIdentities:
 
 
 class InMemoryOidcLoginTransactions:
-    """Pending OIDC login transaction claim store for local execution.
+    """Pending OIDC login transaction creation and claim store for local execution.
 
-    The transactions are fixed at construction: there is no way to add or create
-    one, and nothing outlives the process.
+    Every state used by this instance stays reserved for its lifetime: claiming
+    a transaction drops only the pending record, so a state is never accepted
+    again and an old callback can never meet a new transaction under it. The
+    reserved set holds raw OidcLoginState objects, which remain sensitive
+    handles; they are never returned or logged. Persistent hashing stays outside
+    this adapter, and nothing outlives the process.
     """
 
     def __init__(
@@ -201,7 +205,35 @@ class InMemoryOidcLoginTransactions:
         now: Callable[[], datetime],
     ) -> None:
         self._transactions = dict(transactions)
+        self._reserved_states = set(self._transactions)
         self._now = now
+
+    def add_transaction(
+        self,
+        state: OidcLoginState,
+        transaction: PendingOidcLoginTransaction,
+    ) -> bool:
+        """Atomically store one new pending transaction under an unused state.
+
+        A state that is still pending or was already used in this instance is a
+        neutral False that overwrites nothing and reads no clock. For a free
+        state both snapshots are fully prepared before either attribute is
+        replaced, and exactly the given immutable record is kept under the exact
+        state; neither is normalized. Nothing is retried or generated here, and
+        expiry is not decided at creation time: the later login-start use case
+        must supply a record that has not expired.
+        """
+
+        if state in self._reserved_states:
+            return False  # still pending or already used; no reuse, no clock read
+
+        new_transactions = dict(self._transactions)
+        new_transactions[state] = transaction
+        new_reserved_states = set(self._reserved_states)
+        new_reserved_states.add(state)
+        self._transactions = new_transactions
+        self._reserved_states = new_reserved_states
+        return True
 
     def claim_transaction(
         self,
@@ -210,11 +242,13 @@ class InMemoryOidcLoginTransactions:
         """Atomically claim one pending login transaction exactly once.
 
         An unknown or already claimed state is a neutral None resolved without
-        reading the clock and leaves all state unchanged. For a present record
-        the clock is read once and the pending state is dropped before any
-        result is returned, so success and expiry share the same fail-closed
-        removal and an expired record's secrets stay unreachable through the
-        store. Unknown, expired, and already claimed are indistinguishable.
+        reading the clock and leaves all state unchanged; an unknown state is
+        not reserved by a failed claim. For a present record the clock is read
+        once and the pending state is dropped before any result is returned, so
+        success and expiry share the same fail-closed removal and an expired
+        record's secrets stay unreachable through the store. The state itself
+        stays reserved in both cases. Unknown, expired, and already claimed are
+        indistinguishable.
         """
 
         pending = self._transactions.get(state)
