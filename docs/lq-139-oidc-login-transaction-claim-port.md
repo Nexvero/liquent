@@ -91,8 +91,21 @@ erfolgreicher Claim liefert den pending Record und bleibt unverändert einmalig 
 zweiter Claim liefert `None` · unbekannt, abgelaufen und bereits konsumiert sind
 ununterscheidbar `None` · erfolgreiches Ergebnis trägt die Callback-Geheimnisse
 genau einmal · Rückgabeannotation ist ausschließlich
-`PendingOidcLoginTransaction | None` · `ports.py` enthält keine Token-, Trust-,
-HTTP- oder Persistenzlogik.
+`PendingOidcLoginTransaction | None` · `OidcLoginTransactionClaimStore`
+deklariert ausschließlich `claim_transaction` mit einem reinen Protocol-Rumpf
+und enthält selbst keine Adapter- oder Ausführungslogik.
+
+> **Korrigiert durch LQ-149:** Die letzte Zusicherung lautete früher
+> „`ports.py` enthält keine Token-, Trust-, HTTP- oder Persistenzlogik" und war
+> als globale Substring-Suche über die **gesamte** Datei umgesetzt. Sie koppelte
+> damit einen LQ-139-Test an jeden späteren, unabhängigen Portvertrag und konnte
+> echte Logik nicht von legitimen Importen, Typnamen oder Docstrings
+> unterscheiden, die etwas ausdrücklich **ausschließen** — sie blockierte
+> deshalb LQ-148, dessen Docstring gerade sagte, dass keine JWKS-Logik
+> ausgeführt wird. Der globale Test wurde bewusst entfernt und durch einen
+> fokussierten AST-Test ersetzt, der ausschließlich diesen Protocol-Typ
+> untersucht. Die fachliche LQ-139-Semantik bleibt unverändert; siehe
+> `docs/lq-149-scope-oidc-claim-port-contract-test.md`.
 
 **Abgelaufener Pfad:** abgelaufener State liefert `None` · der abgelaufene
 Pending-Record ist danach aus dem Stub **entfernt** · ein zweiter Claim liefert

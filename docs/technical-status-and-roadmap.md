@@ -944,6 +944,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - echter Lese-/Infrastrukturfehler wird nicht zu None umgedeutet; der Port definiert keinen eigenen Fehlertyp und keine Fehlerbehandlung
     - read-only: aktiviert/deaktiviert/erzeugt/aktualisiert/löscht nichts, keine Secret-Rotation, keine Discovery/JWKS/Netzwerk, kein Caching als Vertrag
     - jeder Login-Start liest erneut; Callback prüft aktuellen Issuer-Trust weiterhin separat; kein Adapter, kein Store, keine Route, kein redundanter Anwendungsfall
+- LQ-149 scope oidc claim port contract test:
+  `docs/lq-149-scope-oidc-claim-port-contract-test.md`
+  - Status:
+    - reiner Test-Wartungsslice; keine Datei unter src/, keine Änderung an ports.py, fachliche LQ-139-Semantik unverändert
+    - überbreiter test_ports_module_has_no_token_trust_http_or_persistence_logic entfernt: las via inspect.getsource(ports_mod) die ganze Datei und suchte Substrings
+    - der globale Test koppelte LQ-139 an jeden späteren unabhängigen Portvertrag und blockierte LQ-148, dessen Docstring JWKS-Logik gerade ausschloss
+    - Ersatz test_claim_port_declares_only_claim_transaction_without_a_body prüft ausschließlich inspect.getsource(OidcLoginTransactionClaimStore) per AST
+    - belegt genau eine Methode claim_transaction mit reinem Ellipsis-Rumpf, also keine Adapter-/Ausführungslogik im Port; nachweislich nicht leerlaufend
+    - keine Aussage über andere Klassen, Importe, Docstring-Wortwahl, Modulfläche oder künftige Adapter; vorhandene Signatur-/Annotations-/Stub-Tests unverändert
+    - Testzahl netto null: ein Test entfernt, ein fokussierter ergänzt (Datei 35, Suite 1494)
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
