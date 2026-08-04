@@ -1,4 +1,23 @@
-"""Neutral application errors for OIDC login start conflicts."""
+"""Neutral application errors raised while starting an OIDC login."""
+
+
+class OidcLoginUnavailable(Exception):
+    """Report that no active OIDC client configuration is available for login.
+
+    Kept apart from OidcLoginStartConflict on purpose: a missing active
+    configuration and a rejected state are different situations, and merging
+    them would make two unrelated causes indistinguishable to the caller.
+
+    The error carries the neutrality of the lookup forward. It never says
+    whether a configuration was never present, was deactivated, or had its
+    approval revoked, and it holds no issuer, endpoint, client id, redirect
+    uri, or any other configuration or existence detail.
+    """
+
+    code = "oidc_login_unavailable"
+
+    def __init__(self) -> None:
+        super().__init__(self.code)
 
 
 class OidcLoginStartConflict(Exception):
