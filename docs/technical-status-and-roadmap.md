@@ -895,6 +895,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - lifetime strikt positiv und now timezone-aware werden vor der Materialerzeugung geprüft; expires_at ist exakt now + lifetime, keine eigene Systemuhr
     - abgelehnter Store liefert den neutralen OidcLoginStartConflict ohne State/Nonce/Verifier/Issuer/Admission; Store-Ausnahmen bleiben unverändert
     - kein neuer Port, keine Authorization-URL, keine Route, kein Provider, keine Discovery-/JWKS-/Token-/Claim-/Issuer-Trust-Logik, keine Session
+- LQ-145 oidc authorization request contract:
+  `docs/lq-145-oidc-authorization-request-contract.md`
+  - Status:
+    - ADR/Vertrag, providerneutral; keine Implementierung, keine URL-Erzeugung, keine Route, keine Konfigurationstypen
+    - vier strikt getrennte Quellen: vertrauenswürdige Serverkonfiguration und StartedOidcLogin speisen den Request; Browsertransport und Pending-Record sind ausgeschlossen
+    - Issuer/Authorization Endpoint/Client-ID/Redirect-URI/Scopes ausschließlich serverseitig; der Browser wählt oder überschreibt keinen davon
+    - Issuer-Trust ist Laufzeitzustand: die Transaktion hält den erwarteten Issuer, keinen eingefrorenen Trust; Callback prüft erneut gemäß LQ-136
+    - Endpoint nur absolut HTTPS ohne Fragment/Userinfo; ein Endpoint mit Query oder Fragment wird abgewiesen, keine stille Parameterzusammenführung
+    - verbindlich: response_type=code, response_mode=query, code_challenge_method=S256, client_id, redirect_uri, scope mit openid, state, nonce, code_challenge
+    - kein Plain-PKCE, kein impliziter/hybrider Flow, keine doppelten sicherheitsrelevanten Parameter, standardkonforme Kodierung statt Konkatenation
+    - Scopes nur aus Konfiguration, eindeutig und nicht leer; kein automatisches email/profile/offline_access; Scope-Gewährung erzeugt keine Liquent-Berechtigung
+    - Zusatzparameter deny-by-default (login_hint, prompt, max_age, acr_values, hd, ...); jeder braucht Entscheidung, Allowlist, Kollisionsschutz und Datenschutzprüfung
+    - code_verifier, admission_id, return_path, created_at und expires_at bleiben serverseitig; Request-URL nicht vollständig in Logs, Telemetrie oder Analytics
+    - Redirect-URI exakt wie im Pending-Record, keine Ableitung aus Host/Forwarded/X-Forwarded-Host; return_path erreicht den IdP nie
+    - Weiterleitung erst nach erfolgreicher Speicherung, leerer Response mit Cache-Control: no-store; Route-Pfad, Methode und Status ausdrücklich in einen späteren Route-Slice verschoben
+    - neutraler Abbruch ohne Offenlegung von Issuer-, Client-, Admission-, State-, User- oder Workspace-Existenz; keine stillen Fallbacks
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
