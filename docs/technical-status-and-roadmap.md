@@ -954,6 +954,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - belegt genau eine Methode claim_transaction mit reinem Ellipsis-Rumpf, also keine Adapter-/Ausführungslogik im Port; nachweislich nicht leerlaufend
     - keine Aussage über andere Klassen, Importe, Docstring-Wortwahl, Modulfläche oder künftige Adapter; vorhandene Signatur-/Annotations-/Stub-Tests unverändert
     - Testzahl netto null: ein Test entfernt, ein fokussierter ergänzt (Datei 35, Suite 1494)
+- LQ-150 in-memory active oidc client configuration:
+  `docs/lq-150-in-memory-active-oidc-client-configuration.md`
+  - Status:
+    - InMemoryActiveOidcClientConfiguration erfüllt ActiveOidcClientConfigurationLookup; frozen/slots, nach Konstruktion unveränderlich
+    - Singular-Name, weil genau eine Konfiguration gehalten wird; frozen dataclass statt einfacher Klasse, weil der Adapter anders als die übrigen nicht mutiert
+    - mit Konfiguration: get_active_configuration() liefert bei jedem Aufruf exakt dasselbe Objekt; keine Kopie/Normalisierung/Ergänzung/Rekonstruktion, kein Trust-Flag
+    - ohne Argument oder mit None: neutrales None, keine Exception, kein Default, kein Fallback, keine Information über frühere Konfigurationen
+    - keine set/replace/activate/deactivate/delete/clear/reload/refresh/discover-Methode und keine sonstige öffentliche Verwaltungs-API
+    - Konfiguration ist repr-frei; der repr lautet in beiden Fällen identisch InMemoryActiveOidcClientConfiguration() und verrät nicht einmal, ob eine gesetzt ist
+    - parameterlose Portsignatur bleibt; Konfiguration wird ausschließlich beim serverseitigen Aufbau festgelegt, keine browsergesteuerte Auswahl
+    - Konstruktor nimmt exakt (self, configuration): keine Uhr, kein Generator, kein Netzwerk-Client, keine Discovery; keine erneute Validierung der LQ-146-Invarianten
+    - lokaler Composition-Snapshot, kein lebender Trust: kein Aktivierungsstatus, keine dynamische Aktualisierung; Callback prüft Issuer-Trust weiterhin separat
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

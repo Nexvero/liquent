@@ -1,7 +1,7 @@
 """Local identity adapters with no persistence or shared-environment role."""
 
 from collections.abc import Callable, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from liquent_platform.identity.access import UserId
@@ -10,6 +10,9 @@ from liquent_platform.identity.admission import (
     IdentityAdmissionRecord,
 )
 from liquent_platform.identity.external_identity import ExternalIdentity
+from liquent_platform.identity.oidc_client_configuration import (
+    TrustedOidcClientConfiguration,
+)
 from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
@@ -266,3 +269,49 @@ class InMemoryOidcLoginTransactions:
         if now >= pending.expires_at:
             return None  # expired (also exactly at expiry); secrets now gone
         return pending
+
+
+@dataclass(frozen=True, slots=True)
+class InMemoryActiveOidcClientConfiguration:
+    """One locally composed active OIDC client configuration, read-only.
+
+    The configuration is fixed when the instance is built server-side and the
+    adapter is immutable afterwards: there is no setter, replace, activate,
+    deactivate, delete, clear, reload, refresh, or discover method, and no
+    other public management API. The lookup keeps the port's parameterless
+    signature, so no caller can pass an issuer, provider, client, tenant,
+    workspace, user, host, header, query value, cookie, admission handle, or
+    return path.
+
+    The stored value is returned exactly as given: the same object on every
+    call, never copied, normalized, extended, or rebuilt, with no trust flag
+    and no secret added. Without a configuration the lookup returns ``None`` —
+    no exception, no default, no fallback, nothing generated, and no hint about
+    any earlier configuration. Nothing here re-validates the issuer,
+    authorization endpoint, client id, redirect uri, or scopes; those
+    invariants belong to TrustedOidcClientConfiguration.
+
+    The configuration is hidden from ``repr``. Issuer, endpoint, client id, and
+    redirect uri are not authentication secrets, but they are internal security
+    and provider configuration and should not reach logs through a debug or
+    error representation. The class name may appear.
+
+    This adapter is for local, throwaway composition only. It makes no trust
+    decision, checks no current issuer trust, holds no activation status, runs
+    no discovery, loads no signing keys, and never refreshes itself: what it
+    holds is a local composition snapshot, not live trust. Production use or
+    dynamic revocation needs a real current configuration and trust boundary
+    later, the callback must still re-check the current issuer trust
+    separately, and this adapter must never justify ignoring an approval that
+    was revoked in the meantime. Nothing outlives the process.
+    """
+
+    configuration: TrustedOidcClientConfiguration | None = field(
+        default=None,
+        repr=False,
+    )
+
+    def get_active_configuration(
+        self,
+    ) -> TrustedOidcClientConfiguration | None:
+        return self.configuration
