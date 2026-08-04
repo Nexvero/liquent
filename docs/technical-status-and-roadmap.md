@@ -1011,6 +1011,25 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - .state.value bleibt exakt verfügbar; das Objekt trägt keine Nonce, Verifier, Challenge, Admission, Konfiguration, Transaktion, Tokens oder Identitätsdaten und autorisiert nichts
     - Aufrufreihenfolge, Fehlerarten und Aufrufzahlen unverändert: OidcLoginUnavailable, OidcLoginStartConflict, keine zweite Uhr/Lookup/Materialerzeugung
     - Nachweis kein URL-Parsing über fokussiertes Builder-Double mit abweichendem bzw. fehlendem state; keine Route, kein Cookie, kein Callback
+- LQ-154 oidc login start route:
+  `docs/lq-154-oidc-login-start-route.md`
+  - Status:
+    - Umsetzung des LQ-152-Vertrags als eine Route POST /v1/session/oidc/login; kein Callback, keine Token-Einlösung, keine Session, keine Persistenz
+    - sechs neue create_app-Parameter (Lookup, Creation-Store, Generator, Uhr, Lebensdauer, vertrauenswürdige Origin); Default-App hat die Route nicht (404)
+    - jede echte Teilmenge, nicht positive Lebensdauer sowie leere oder mit Leerraum/Komma mehrwertige Origin werden beim App-Aufbau mit ValueError abgelehnt
+    - keine versteckte Systemuhr, keine Default-Origin, keine Ableitung aus Host/Forwarded/X-Forwarded-Host/Query/Body; Referer ist kein Ersatz, kein CORS
+    - Reihenfolge: Methode, leere Query, leerer Body, Origin exakt gleich, Sec-Fetch-Site falls vorhanden same-origin; Eingabeablehnung schlägt Origin-Ablehnung
+    - Uhr genau einmal, derselbe now für Transaktion und Cookie; prepare_oidc_login_authorization genau einmal mit admission_id=None und return_path=None
+    - Erfolg: leerer 303 mit Location=prepared.request.url, no-store, Pragma no-cache, Referrer-Policy no-referrer, kein Content-Type, keine URL im Body
+    - Cookie __Host-liquent_oidc_state ausschließlich aus prepared.state.value; Secure, HttpOnly, SameSite=Lax, Path=/, kein Domain, Max-Age <= Lebensdauer
+    - eigenes Modul transport/http/oidc_state_cookie.py, weil der Callback denselben Slot löschen muss; session_cookie.py und liquent_session bleiben unverändert
+    - expires wird nach UTC normalisiert, damit eine nicht-UTC Uhr nicht nach erfolgreicher Speicherung scheitert und einen verwaisten Pending-Record hinterlässt
+    - der State wird nie aus der Authorization-URL geparst; nachgewiesen über vier Builder-Doubles mit abweichendem, leerem oder fehlendem URL-state, gegenprobiert
+    - alle Ablehnungen ohne Uhrabfrage, ohne Use-Case-Aufruf, ohne Cookie, ohne Redirect, ohne reflektierte Origin und ohne Retry-After
+    - OidcLoginUnavailable und OidcLoginStartConflict byte-identisch als 503; jeder sonstige interne Fehler als neutraler leerer 500 ohne Exceptiontext
+    - die Route besitzt jede Methode selbst, weil FastAPIs 405 sonst einen JSON-Body hätte; keine globale Fehlerbehandlung für andere Routen
+    - Responsefehler nach erfolgreicher Speicherung bleibt neutraler 500 ohne Rollback; verwaiste Pending-Transaktion läuft fail-closed ab
+    - last-start-wins über den einen Cookie-Slot; 87 fokussierte Tests, keine globalen AST-, Import- oder Substring-Verbote
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
