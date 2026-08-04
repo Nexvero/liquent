@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 
-from liquent_platform.identity import oidc_client_configuration as module
 from liquent_platform.identity.oidc_client_configuration import (
     TrustedOidcClientConfiguration,
 )
@@ -167,6 +166,91 @@ def test_redirect_uri_is_not_derived_from_issuer_or_endpoint() -> None:
     assert configuration.authorization_endpoint == AUTHORIZATION_ENDPOINT
 
 
+# --- URL syntax hardening, all three URL fields ----------------------------
+
+URL_FIELDS = ["issuer", "authorization_endpoint", "redirect_uri"]
+
+
+@pytest.mark.parametrize("field", URL_FIELDS)
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "https://idp.example.test/a b",
+        "https://idp.example.test/a\tb",
+        "https://idp.example.test/a\nb",
+        "https://idp.example.test/a\rb",
+        # urlsplit strips this newline and would report the clean host, while
+        # the unsafe original string is what the model would store.
+        "https://idp.example\n.test/a",
+    ],
+)
+def test_raw_whitespace_or_control_characters_are_rejected(
+    field: str, raw: str
+) -> None:
+    with pytest.raises(ValueError, match="must not contain whitespace or control"):
+        _configuration(**{field: raw})
+
+
+@pytest.mark.parametrize("field", URL_FIELDS)
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "https://idp.example.test:notaport/a",
+        "https://idp.example.test:65536/a",
+    ],
+)
+def test_invalid_port_is_rejected(field: str, raw: str) -> None:
+    with pytest.raises(ValueError, match="must have a valid port"):
+        _configuration(**{field: raw})
+
+
+@pytest.mark.parametrize("field", URL_FIELDS)
+def test_valid_explicit_port_is_accepted_and_kept_verbatim(field: str) -> None:
+    raw = "https://idp.example.test:8443/a"
+
+    assert getattr(_configuration(**{field: raw}), field) == raw
+
+
+@pytest.mark.parametrize("field", ["issuer", "authorization_endpoint"])
+def test_empty_query_separator_is_rejected_for_issuer_and_endpoint(
+    field: str,
+) -> None:
+    with pytest.raises(ValueError, match="must not contain a query"):
+        _configuration(**{field: "https://idp.example.test/authorize?"})
+
+
+@pytest.mark.parametrize("field", URL_FIELDS)
+def test_empty_fragment_separator_is_always_rejected(field: str) -> None:
+    with pytest.raises(ValueError, match="must not contain a fragment"):
+        _configuration(**{field: "https://idp.example.test/authorize#"})
+
+
+def test_empty_query_separator_stays_allowed_and_exact_for_redirect_uri() -> None:
+    raw = "https://app.example.test/v1/oidc/callback?"
+
+    assert _configuration(redirect_uri=raw).redirect_uri == raw
+
+
+@pytest.mark.parametrize(
+    ("field", "raw"),
+    [
+        ("issuer", "https://idp.example.test:notaport/private-tenant"),
+        ("authorization_endpoint", "https://idp.example.test/authorize?leak=1"),
+        ("redirect_uri", "https://app.example.test/cb#leak"),
+    ],
+)
+def test_rejected_url_never_appears_in_the_error_message(
+    field: str, raw: str
+) -> None:
+    with pytest.raises(ValueError) as raised:
+        _configuration(**{field: raw})
+
+    message = str(raised.value)
+    assert message.startswith(field)
+    for secret in (raw, "idp.example.test", "app.example.test", "notaport", "leak"):
+        assert secret not in message
+
+
 # --- Scopes ---------------------------------------------------------------
 
 @pytest.mark.parametrize(
@@ -226,11 +310,3 @@ def test_offline_access_is_never_added_automatically() -> None:
 )
 def test_model_carries_no_secret_trust_flag_or_session_data(name: str) -> None:
     assert not hasattr(_configuration(), name)
-
-
-def test_module_exposes_only_the_configuration_model() -> None:
-    # No port, adapter, store, network call, or authorization URL builder is
-    # added by this slice.
-    public = {name for name in vars(module) if not name.startswith("_")}
-
-    assert public == {"dataclass", "urlsplit", "TrustedOidcClientConfiguration"}

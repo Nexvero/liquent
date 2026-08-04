@@ -58,6 +58,18 @@ URL-Bibliothek.
 | `authorization_endpoint` | zwingend | zwingend | verboten | **verboten** | verboten | erlaubt |
 | `redirect_uri` | zwingend | zwingend | verboten | **erlaubt** | verboten | erlaubt |
 
+Zusätzlich für **alle drei** URL-Felder:
+
+- **Rohe Whitespace- und Steuerzeichen sind verboten** — insbesondere
+  Leerzeichen, Tab, Zeilenumbruch und Carriage Return.
+- Ein **vorhandener Port** muss syntaktisch gültig und im Bereich `0–65535`
+  liegen. Es wird **kein** Default-Port ergänzt und **kein** gültiger Port
+  normalisiert.
+- **Leere Trenner** folgen denselben Regeln wie nicht leere: `…/authorize?` und
+  `…/authorize#` werden für Issuer und Authorization Endpoint abgewiesen; bei
+  der Redirect-URI bleibt `…/cb?` erlaubt und exakt erhalten, `…/cb#` wird
+  abgewiesen.
+
 Begründungen:
 
 - Issuer und Authorization Endpoint dürfen **keine** Query tragen: Ein
@@ -69,6 +81,25 @@ Begründungen:
   bleibt unverändert Teil der URI.
 - Userinfo wird gegen `None` geprüft, nicht gegen Truthiness, damit auch
   `https://@host/` abgewiesen wird.
+
+**Zwei Prüfungen laufen bewusst gegen den Originalstring statt gegen das
+Parse-Ergebnis, weil der Parser genau das verbirgt, wonach sie suchen:**
+
+- `urlsplit` **entfernt Tab, Zeilenumbruch und Carriage Return stillschweigend**
+  — auch **innerhalb des Hosts**. `https://idp.example\n.test/a` parst zum
+  sauberen Host `idp.example.test`. Ohne Vorabprüfung auf dem Rohwert würden
+  alle Parse-Prüfungen bestehen, während das Modell anschließend den
+  **unsicheren Originalstring** speichert. Die Prüfung erfolgt daher **vor**
+  `urlsplit`.
+- Bei `…/a?` und `…/a#` sind `parsed.query` und `parsed.fragment` **beide leere
+  Strings**. Eine Truthiness-Prüfung würde leere Trenner unsichtbar machen,
+  daher wird die Anwesenheit des Trenners am Rohwert erkannt.
+
+Der Port wird über einen kontrollierten Zugriff auf `parsed.port` validiert. Die
+Meldung des Parsers zitiert den fehlerhaften Portwert und wird deshalb durch
+eine **neutrale** ersetzt. Es findet **keine** URL-Normalisierung und **keine**
+manuelle URL-Rekonstruktion statt — der Originalwert wird weiterhin unverändert
+gespeichert.
 
 **Validierung und Speicherung sind getrennt:** Der Helfer prüft und gibt
 **nichts** zurück; das Modell speichert den Originalstring. Es gibt **kein**
@@ -142,7 +173,7 @@ nicht über eine Fehlermeldung nach außen dringt.
 
 ## Tests
 
-`tests/test_oidc_client_configuration.py` — 57 fokussierte Tests.
+`tests/test_oidc_client_configuration.py` — 89 fokussierte Tests.
 
 **Erfolg:** gültige Konfiguration · Unveränderlichkeit · Hashbarkeit · exakt
 fünf Felder in festgelegter Reihenfolge · alle Werte verbatim · Issuerpfad und
@@ -163,12 +194,26 @@ aus Issuer oder Endpoint abgeleitet.
 **Scopes:** neun Ablehnungen · Standard-Scopes nur bei ausdrücklicher
 Konfiguration · `offline_access` wird nie automatisch ergänzt.
 
+**URL-Syntaxhärtung, über alle drei URL-Felder parametrisiert:** Leerzeichen,
+Tab, Zeilenumbruch und Carriage Return abgewiesen — einschließlich eines
+Zeilenumbruchs **im Host**, den `urlsplit` sonst stillschweigend entfernt ·
+nicht numerischer Port und Port `65536` abgewiesen · ein gültiger expliziter
+Port bleibt akzeptiert und exakt erhalten · leerer Fragment-Trenner `#` immer
+abgewiesen · leerer Query-Trenner `?` bei Issuer und Endpoint abgewiesen, bei
+der Redirect-URI erlaubt und exakt erhalten · ein abgewiesener URL-Wert
+erscheint **nicht** im Fehlertext (geprüft gegen den Rohwert, beide Hostnamen,
+den Portwert und den Query-/Fragmentinhalt).
+
 **Strukturgrenzen:** parametrisiert kein `client_secret`, `secret`, `enabled`,
 `trusted`, `is_active`, `state`, `nonce`, `code_verifier`, `code_challenge`,
-`admission_id`, `return_path`, `session_id`, `user_id`, `workspace_id` · die
-öffentliche Modulfläche ist exakt `TrustedOidcClientConfiguration` (plus die
-beiden Importe), womit kein Port, Adapter, Store, Netzwerkaufruf oder
-URL-Builder ergänzt wurde.
+`admission_id`, `return_path`, `session_id`, `user_id`, `workspace_id`.
+
+Es gibt **keinen** Test, der die öffentliche Modulfläche oder die Importe des
+Moduls festschreibt: Eine solche Zusicherung würde bei einem späteren
+legitimen Import oder einem kleinen internen Helfer scheitern, ohne einen
+Vertragsbruch anzuzeigen. Dass dieser Slice keinen Port, Adapter oder Store
+ergänzt, ist stattdessen am PR-Diff und an den exakt vier geänderten Dateien
+belegt.
 
 Geprüft wird ausschließlich der LQ-146-Vertrag; es gibt **keine** globalen
 Import-, AST- oder Substring-Verbote über bestehende Module.

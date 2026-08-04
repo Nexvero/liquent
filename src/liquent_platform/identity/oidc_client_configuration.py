@@ -12,10 +12,24 @@ def _require_https_url(value: str, name: str, *, allow_query: bool) -> None:
     no DNS lookup, and no discovery happens here. Messages name the field but
     never echo the value, so a rejected configuration cannot leak through an
     error.
+
+    Two checks deliberately run against the raw string rather than the parse
+    result, because the parser hides what they look for: it strips raw control
+    characters, and it reports an empty query or fragment identically to an
+    absent one. A present port is validated but neither added nor normalized.
     """
 
     if not value:
         raise ValueError(f"{name} must not be empty")
+    # Checked on the raw value *before* parsing: urlsplit silently removes tab,
+    # newline, and carriage return anywhere in the URL, even inside the host, so
+    # a cleaned parse would otherwise validate while the unsafe original string
+    # is what gets stored.
+    if any(
+        character.isspace() or ord(character) < 0x20 or ord(character) == 0x7F
+        for character in value
+    ):
+        raise ValueError(f"{name} must not contain whitespace or control characters")
     parsed = urlsplit(value)
     if parsed.scheme != "https":
         raise ValueError(f"{name} must be an absolute https url")
@@ -25,9 +39,18 @@ def _require_https_url(value: str, name: str, *, allow_query: bool) -> None:
     # "https://@host/" is rejected too.
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain userinfo")
-    if parsed.query and not allow_query:
+    try:
+        parsed.port  # noqa: B018 - the access itself validates the port syntax
+    except ValueError:
+        # The parser's own message quotes the offending port, so it is replaced
+        # by a neutral one. No default port is added and none is normalized.
+        raise ValueError(f"{name} must have a valid port") from None
+    # Separators are detected on the raw value: for "https://host/a?" and
+    # "https://host/a#" both parsed.query and parsed.fragment are empty strings,
+    # so a truthiness check would let an empty separator through.
+    if "?" in value and not allow_query:
         raise ValueError(f"{name} must not contain a query")
-    if parsed.fragment:
+    if "#" in value:
         raise ValueError(f"{name} must not contain a fragment")
 
 
