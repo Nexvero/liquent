@@ -63,14 +63,26 @@ def test_supply_chain_tools_and_versions_are_explicit() -> None:
 def test_grype_exception_is_narrow_owned_and_time_bounded() -> None:
     config = GRYPE_CONFIG.read_text(encoding="utf-8")
     assert "exception-owner: Liquent Platform Architecture" in config
-    assert "vulnerability: CVE-2026-15308" in config
-    assert "name: python" in config
-    assert "version: 3.13.14" in config
-    assert config.count("- vulnerability:") == 1
+
+    # One block per ignore entry, so package and version are checked per CVE
+    # rather than anywhere in the file.
+    entries = re.split(r"^\s*- vulnerability:", config, flags=re.MULTILINE)[1:]
+    assert len(entries) == 3
+    for entry in entries:
+        assert re.search(r"^\s+name: python$", entry, flags=re.MULTILINE)
+        assert re.search(r"^\s+version: 3\.13\.14$", entry, flags=re.MULTILINE)
+    assert {entry.splitlines()[0].strip() for entry in entries} == {
+        "CVE-2026-15308",
+        "CVE-2026-11940",
+        "CVE-2026-11972",
+    }
+
     expiry = date.fromisoformat(
-        config.split("exception-expires: ", 1)[1].splitlines()[0]
+        config.split("exception-expires: ", 1)[1].splitlines()[0].strip()
     )
-    assert date.today() <= expiry <= date(2026, 9, 30)
+    assert expiry <= date(2026, 8, 31)
+    # Fail closed on and after the expiry date, not only after it.
+    assert date.today() < expiry
 
 
 def test_provenance_is_push_only_and_minimally_permissioned() -> None:
