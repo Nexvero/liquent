@@ -885,6 +885,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - interner _reserved_states-Satz: initiale Keys automatisch reserviert, erfolgreicher Add reserviert mit, Claim entfernt nur den Pending-Record
     - reservierter State wird nie erneut akzeptiert (Replay-Schutz); fehlgeschlagener Claim eines unbekannten State reserviert ihn nicht
     - Add liest keine Uhr und bereitet beide Snapshots vor dem Attributtausch vor; Reserved-Satz hält rohe sensible States, kein Hashing/Tombstone/Persistenz
+- LQ-144 oidc login start use case:
+  `docs/lq-144-oidc-login-start-use-case.md`
+  - Status:
+    - start_oidc_login(store, generator, *, expected_issuer, redirect_uri, now, lifetime, admission_id=None, return_path=None) -> StartedOidcLogin; transportfrei
+    - Material genau einmal erzeugt, Record über den bestehenden Creation-Port genau einmal gespeichert; kein Retry, kein zweiter Generatoraufruf
+    - StartedOidcLogin trägt exakt state/nonce/code_challenge; code_verifier bleibt serverseitig im Pending-Record, admission_id verlässt den Server nie
+    - state und nonce sind repr-frei, code_challenge darf im repr erscheinen; Rückgabe unveränderlich
+    - lifetime strikt positiv und now timezone-aware werden vor der Materialerzeugung geprüft; expires_at ist exakt now + lifetime, keine eigene Systemuhr
+    - abgelehnter Store liefert den neutralen OidcLoginStartConflict ohne State/Nonce/Verifier/Issuer/Admission; Store-Ausnahmen bleiben unverändert
+    - kein neuer Port, keine Authorization-URL, keine Route, kein Provider, keine Discovery-/JWKS-/Token-/Claim-/Issuer-Trust-Logik, keine Session
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
