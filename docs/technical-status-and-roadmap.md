@@ -985,7 +985,10 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - Status:
     - ADR/Transportvertrag, keine Implementierung, keine Route, keine Cookie-Helfer, keine Änderung an LQ-151
     - Browserbindung als kritische Entscheidung: erzeugter state zusätzlich im kurzlebigen host-only Cookie; Callback vergleicht Query-state konstantzeitlich VOR dem Claim
-    - fehlendes oder falsches Binding-Cookie bricht neutral ab, ohne Claim, ohne Token, ohne Session; Cookie wird auf jedem Callback-Endpfad gelöscht
+    - fehlendes oder falsches Binding-Cookie bricht neutral ab, ohne Claim, ohne Token, ohne Session; dabei wird nichts gelöscht
+    - erst nach erfolgreichem konstantzeitlichem Match wird geclaimt und das Cookie danach auf jedem weiteren Endpfad gelöscht
+    - Mismatch löscht bewusst nicht: der eine Cookie-Slot gehört dann einer neueren Transaktion, sonst wäre ein alter Callback ein Login-Denial-of-Service
+    - last-start-wins: neuer Start überschreibt das Cookie, älterer Pending-Record läuft fail-closed ab, älterer Callback mismatched und lässt das neuere Cookie unberührt
     - Route POST /v1/session/oidc/login (erzeugt Serverzustand, kein sicheres GET); GET /v1/session/oidc/callback reserviert, kein Issuer/Provider im Pfad
     - Eingabegrenze: keine Query, kein Body, keine Admission-ID, kein return_path; Handler ruft LQ-151 mit serverseitiger Uhr, fester Lebensdauer und None/None
     - unauthentifiziert, daher Origin-Pflicht gegen konfigurierte vertrauenswürdige Origin, Sec-Fetch-Site falls vorhanden same-origin, kein Referer-Ersatz, kein CORS, kein Fallback

@@ -34,7 +34,9 @@ den Login gestartet hat.
   Abbruch.
 - **Erst nach** erfolgreicher Bindungsprüfung darf der State über den atomaren
   Claim-Port beansprucht werden.
-- Das Binding-Cookie wird beim Callback auf **jedem** Endpfad gelöscht.
+- Das Binding-Cookie wird **ausschließlich nach einem erfolgreichen Match**
+  gelöscht — dann aber auf **jedem** weiteren Endpfad. Ein fehlendes Cookie und
+  ein Mismatch löschen **nichts** (siehe Abschnitt 9).
 
 Diese Entscheidung ist hier abschließend getroffen und wird **nicht** an einen
 späteren Implementierer verschoben. Die konkrete Callback-Implementierung bleibt
@@ -231,14 +233,55 @@ Für den späteren Callback verbindlich:
 1. Die Query enthält **genau einen** nicht leeren `state`.
 2. Das Binding-Cookie ist vorhanden und nicht leer.
 3. Query-State und Cookie-State werden **konstantzeitlich** verglichen.
-4. Bei fehlendem oder falschem Cookie: **neutral** abbrechen, Claim-Port
-   **nicht** aufrufen, **keine** Token-Einlösung, **keine** Session,
-   Binding-Cookie **löschen**.
-5. **Erst** bei erfolgreichem Vergleich: `OidcLoginState` bilden und die
+4. **Fehlendes** Binding-Cookie: **neutral** abbrechen, Claim-Port **nicht**
+   aufrufen, **keine** Token-Einlösung, **keine** Session — und **nichts
+   löschen**.
+5. **Mismatch** zwischen Query-State und Cookie-State: konstantzeitlich
+   vergleichen, **neutral** abbrechen, Claim-Port **nicht** aufrufen — und das
+   vorhandene Binding-Cookie ausdrücklich **nicht löschen**.
+6. **Erst nach erfolgreichem Match**: `OidcLoginState` bilden und die
    Transaktion atomar **genau einmal** claimen.
-6. Das Cookie wird auf **jedem** Callback-Endpfad gelöscht: Erfolg, unbekannter
-   State, abgelaufen, bereits konsumiert, Mismatch, Token-/Claimfehler und
-   interne Fehlerantwort.
+7. **Nach** erfolgreichem Match wird das Cookie auf **jedem** weiteren Endpfad
+   gelöscht: Erfolg, unbekannter State, abgelaufen, bereits konsumiert,
+   Token-/Claimfehler und interne Fehlerantwort.
+
+### Warum ein Mismatch nichts löschen darf
+
+Es gibt genau **einen** Cookie-Slot: gleicher Name, `Path=/`, kein `Domain`. Ein
+vorhandenes Cookie, das **nicht** zum Query-State passt, gehört daher zu einer
+**anderen — typischerweise neueren und legitimen — Login-Transaktion**.
+
+Würde der Callback bei Mismatch löschen, könnte ein veralteter, gespeicherter
+oder untergeschobener Callback-Link die Bindung eines gerade laufenden Logins
+entfernen. Der Nutzer käme dann selbst mit korrektem Ablauf nicht mehr durch —
+ein **Login-Denial-of-Service**, ausgelöst durch einen Aufruf, der die
+Bindungsprüfung gerade **nicht** bestanden hat. Ein fehlgeschlagener Callback
+darf den Zustand eines erfolgreichen Starts nicht beeinflussen.
+
+Ein fehlendes Cookie löscht aus demselben Grund nichts: Ein `Set-Cookie` mit
+Ablauf in der Vergangenheit ist eine Schreiboperation auf denselben Slot und
+könnte ein zwischenzeitlich gesetztes, gültiges Cookie treffen.
+
+Der Löschvorgang nach erfolgreichem Match ist dagegen sicher **und**
+erforderlich: Das Cookie hat dann nachweislich zu genau dieser Transaktion
+gehört, sie ist verbraucht, und ein zurückbleibendes Cookie wäre ein
+wiederverwendbarer Bindungsnachweis.
+
+### `last-start-wins`
+
+Weil es nur einen Cookie-Slot gibt, gilt:
+
+- Ein **neuer** Login-Start **überschreibt** das einzelne Binding-Cookie.
+- Der **ältere** Pending-Record bleibt serverseitig bestehen und läuft gemäß
+  LQ-139 **fail-closed** ab; er wird nie wiederverwendet.
+- Ein **älterer** Callback trifft damit auf einen Mismatch und bricht **neutral**
+  ab.
+- Dieser ältere Callback löscht das **neuere** Cookie **nicht**.
+- Der **neuere** Login bleibt dadurch vollständig abschließbar.
+
+Das ist die bewusste Auflösung paralleler Login-Starts im selben Browser: Der
+zuletzt gestartete Login gewinnt, ältere verfallen still, und kein verfallener
+Start kann den aktuellen sabotieren.
 
 **Kein** Logging der Query oder des Cookie-Werts. Die genaue Callback-Route und
 die Tokenlogik bleiben spätere Implementierungen; der Pfad ist als
