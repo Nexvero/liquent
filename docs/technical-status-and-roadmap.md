@@ -911,6 +911,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Redirect-URI exakt wie im Pending-Record, keine Ableitung aus Host/Forwarded/X-Forwarded-Host; return_path erreicht den IdP nie
     - Weiterleitung erst nach erfolgreicher Speicherung, leerer Response mit Cache-Control: no-store; Route-Pfad, Methode und Status ausdrücklich in einen späteren Route-Slice verschoben
     - neutraler Abbruch ohne Offenlegung von Issuer-, Client-, Admission-, State-, User- oder Workspace-Existenz; keine stillen Fallbacks
+- LQ-146 trusted oidc client configuration:
+  `docs/lq-146-trusted-oidc-client-configuration.md`
+  - Status:
+    - TrustedOidcClientConfiguration(issuer, authorization_endpoint, client_id, redirect_uri, scopes) — frozen, slots, hashbar, exakt fünf Pflichtfelder
+    - Issuer und Authorization Endpoint: absolute HTTPS-URL mit Host, ohne Userinfo, ohne Query, ohne Fragment; Pfad und Port erlaubt
+    - Redirect-URI: absolute HTTPS-URL mit Host, ohne Userinfo, ohne Fragment; fest konfigurierte Query erlaubt und exakt bewahrt
+    - Scopes: Tupel, nicht leer, openid zwingend, jeder Eintrag nicht leer/eindeutig/ohne Whitespace, Reihenfolge exakt, keine Sortierung/Dedup/Ergänzung
+    - alle Werte nach Prüfung verbatim: kein Trimmen, kein Lowercasing, kein Slash-Entfernen, keine Kanonisierung, keine Ableitung eines Feldes aus einem anderen
+    - Validierung nur via urllib.parse.urlsplit; kein Netzwerk, keine DNS-Auflösung, keine Discovery, keine normalisierte Rückgabe; Fehler nennen nur Feldnamen
+    - kein Trust-/Enabled-Flag: Besitz beweist keine aktive Freigabe, Auswahl bleibt einer späteren Trust-Grenze, Callback prüft Issuer-Trust erneut
+    - kein Client-Secret, keine Tokens/Claims/Admission/Session/State/Nonce/Verifier/Discovery-Daten; kein Port, Adapter, Store oder URL-Builder
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
