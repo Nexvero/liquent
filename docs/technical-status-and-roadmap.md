@@ -1087,6 +1087,25 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Nachbartests rein mechanisch um vier gültige Werte ergänzt, keine fachliche Semantik geändert; test_build_oidc_authorization_request zusätzlich configuration_keys erweitert
     - Modelltests von 89 auf 196; jede der vier neuen Validierungen per Gegenprobe abgesichert, keine globalen AST-, Import- oder Substring-Verbote
     - LQ-146 erhielt einen Nachtrag zur historischen Aussage „exakt fünf Felder", LQ-155 eine kurze Umsetzungsnotiz; sonst keine Entscheidung umgeschrieben
+- LQ-157 oidc authorization code verifier port:
+  `docs/lq-157-oidc-authorization-code-verifier-port.md`
+  - Status:
+    - Ebene 3 aus LQ-155 als Eingabeobjekt, Port und detailfreie Infrastruktur-Fehlerklasse; kein Adapter, keine Tokenlogik, kein HTTP-Client, keine Signatur- oder Claimprüfung
+    - neues Modul identity/oidc_verification.py mit OidcAuthorizationCodeVerification und OidcVerificationUnavailable; neuer Port OidcAuthorizationCodeVerifier in ports.py
+    - Eingabeobjekt: exakt fünf Pflichtfelder (authorization_code, expected_issuer, expected_nonce, code_verifier, redirect_uri), alle nicht leer, frozen, slots, hashbar
+    - alle fünf Werte exakt und opak, ohne Trimmen, Lowercasing, URL-Parsen, Percent-Decoding oder sonstige Normalisierung; Code und Redirect-URI müssen den Token-Endpunkt byteweise erreichen
+    - alle fünf Werte vollständig aus repr ausgeblendet, repr lautet OidcAuthorizationCodeVerification(); Validierungsmeldungen nennen nur den Feldnamen, nie den Wert
+    - state bleibt bei Browserbindung und Claim, admission_id ist ein Capability-Handle und darf eine reine Beweisgrenze nicht erreichen, return_path ist Transportsache
+    - aktive Konfiguration, Token-Endpunkt, JWKS-URI, Allowlist und Clock-Skew werden in der späteren Implementierung erneut gelesen und kommen nie vom Aufrufer oder Browser
+    - Portsignatur exakt self und verification; kein separater Code, State, Konfiguration, Uhr, Issuer, Provider, Tenant, Client, Host, Header, Cookie, Request, admission_id oder return_path
+    - Erfolg nur nach vollständiger Kette: Konfiguration genau einmal lesen, Issuer bytegenau, Code genau einmal einlösen, gespeicherten verifier und redirect_uri exakt, Signatur und erlaubter Algorithmus, Schlüssel nur aus konfiguriertem JWKS, iss/aud/azp/exp/nbf/iat/nonce vollständig, nicht leeres sub
+    - None ist die einzige fachliche Ablehnung und unterscheidet neun Ursachen nicht; bewusst keine zweite Fehlerklasse, die zum Verzweigen auf eine Ursache einlüde
+    - OidcVerificationUnavailable nur für technische Nichtverfügbarkeit, ohne Konstruktorparameter und ohne Code, State, Nonce, Verifier, Issuer, Redirect-URI, Token, Claim, Providertext oder Konfigurationsdetail
+    - spätere Adapter müssen interne Netzwerk-, Konfigurations-, JWKS- und Bibliotheksfehler neutral übersetzen statt eine sensible Exception durchzureichen
+    - die neutrale HTTP-Abbildung beider Kanäle bleibt gemäß LQ-155 §12 dem späteren Callback-Transportvertrag überlassen; LQ-157 nimmt sie nicht vorweg
+    - Konsumregel: der Port claimt nichts, sieht keinen State, rollt nichts zurück, wird erst nach dem atomaren Claim aufgerufen und macht weder None noch die Exception retrybar
+    - 180 fokussierte Tests in zwei Dateien; AST-Prüfung auf diese Protokollklasse begrenzt, Stub bleibt testlokal, keine globalen AST-, Import- oder Substring-Verbote
+    - vier Gegenproben abgesichert: sichtbares repr-Feld, entfallene Leerprüfung, Detailparameter an der Exception und ein zusätzlicher Portparameter lassen genau die zugehörigen Tests scheitern
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
