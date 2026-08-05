@@ -1185,15 +1185,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - Status:
     - kleines providerneutrales Wertobjekt für die von LQ-160 verlangten technischen Grenzen, per Composition an den späteren Adapter übergeben; kein Netzwerkcode, kein Adapter, kein Cache
     - OidcVerificationPolicy mit exakt sechs Feldern in fester Reihenfolge: connect_timeout, read_timeout, total_timeout, token_response_max_bytes, jwks_response_max_bytes, jwks_cache_ttl; frozen, slots, hashbar
-    - Zeitwerte müssen echte timedelta und strikt positiv sein; Größenwerte echte int, strikt positiv, bool ausdrücklich abgelehnt, weil bool eine int-Unterklasse ist und True sonst ein Byte bedeutete
+    - Zeitwerte echte timedelta und strikt positiv, Größenwerte echte int und strikt positiv mit ausdrücklich abgelehntem bool; Werte werden verbatim gespeichert
     - connect_timeout <= total_timeout und read_timeout <= total_timeout; bewusst keine Regel connect plus read <= total, das spätere Deadline-Modell entscheidet die Ablaufsteuerung
-    - Endlichkeit und Mikrosekundendarstellbarkeit sind durch den Typ garantiert: ein timedelta kann weder unendlich noch NaN sein und ist begrenzt; eine separate Prüfung wäre unerreichbarer Code
-    - Sub-Mikrosekunden-Eingaben rundet timedelta bereits beim Aufrufer zu timedelta(0) und scheitern damit an der Positivitätsregel; das Modell selbst normalisiert nichts
-    - keine Defaults, weil ein Default-Timeout oder eine Default-Größe eine betriebliche Entscheidung wäre, die niemand bewusst getroffen hat
-    - keine willkürlichen Obergrenzen für Bytes, Timeouts oder Cache-Dauer; geprüft wird strukturelle Gültigkeit, nicht betriebliches Tuning, konkrete Werte kommen aus der Composition
-    - ausschließlich technische Limits: keine URL, Issuer, Client, Redirect, Algorithmus, Schlüssel, Token, Code, Nonce, State, Identity, Admission, Session oder Providerdaten
-    - keine Uhrabfrage, keine Netzwerkoperation, kein httpx2.Timeout, kein Cache, keine Retry- oder Redirect-Entscheidung; Fehlermeldungen nennen den Feldnamen, nie den Wert
-    - LQ-161-Bibliotheken werden nicht genutzt: das Modul importiert nur dataclasses und datetime; das Redirect-Verbot ist keine Zahl und bleibt Adapterregel aus LQ-160 §4
+    - keine Defaults und keine Obergrenzen für Bytes, Timeouts oder Cache-Dauer; geprüft wird strukturelle Gültigkeit, konkrete Werte kommen aus der Composition
+    - ausschließlich technische Limits ohne Issuer, Client, Schlüssel, Token, Code, Nonce, State, Identity, Admission oder Session; keine Uhrabfrage, kein Cache, keine Retry- oder Redirect-Entscheidung
+    - Fehlermeldungen nennen den Feldnamen, nie den Wert; das Modul importiert nur dataclasses und datetime, das Redirect-Verbot bleibt Adapterregel aus LQ-160 §4
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
