@@ -1178,7 +1178,8 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Supply-Chain geprüft: saubere Lock-Umgebung nach CI-Schrittfolge, pip check, Importe jwt/cryptography/httpx2, volle Suite, Wheel-Bau und Installation in zweiter sauberer Umgebung außerhalb des Quellbaums
     - Requires-Dist deklariert PyJWT[crypto] und httpx2 als Runtime, httpx2 nicht mehr unter extra dev; Entry Points unverändert vorhanden
     - keine Netzwerk-, Token-, JWKS- oder Kryptografieoperation gegen reale Systeme; .grype.yaml unverändert, Container-/SBOM-/Grype-Gate über die PR-CI beobachtet
-    - Tests nur eng ergänzt (crypto-Extra, httpx2 runtime statt dev, Obergrenze/keine URL/kein Preview, Lock-Abdeckung); exakte Pins und Stabilität prüft der bestehende zentrale Vertrag weiterhin
+    - Tests ausschließlich auf PyJWT und httpx2 begrenzt (crypto-Extra, begrenzte Spezifikation ohne URL und Preview, keine Doppelung im Dev-Extra, Lock-Abdeckung); keine allgemeine Regel für jede Laufzeitabhängigkeit
+    - pyproject wird mit tomllib gelesen und die beiden Anforderungen mit packaging.requirements.Requirement geparst; exakte Pins, Stabilität und Eindeutigkeit prüft weiterhin der bestehende zentrale Locktest
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -139,10 +139,20 @@ werden deshalb **nicht** zusätzlich an anderer Stelle festgeschrieben. Ergänzt
 wurden nur drei enge Prüfungen:
 
 - PyJWT ist Laufzeitabhängigkeit **und trägt das `crypto`-Extra**,
-- `httpx2` ist Laufzeit- und **nicht mehr** Dev-Abhängigkeit,
-- jede Laufzeitabhängigkeit hat eine Obergrenze, keine direkte URL und kein
+- `httpx2` ist Laufzeitabhängigkeit,
+- **genau diese beiden** Anforderungen sind begrenzt, ohne direkte URL und ohne
   Preview-Release,
+- weder `httpx2` noch PyJWT stehen zusätzlich im Dev-Extra,
 - PyJWT, `httpx2` und die Kryptokette sind vom Lock **abgedeckt**.
+
+Die Prüfungen sind **auf diese beiden Bibliotheken begrenzt** und stellen
+**keine** allgemeine Regel für jede Laufzeitabhängigkeit auf: Ein späterer
+legitimer Slice könnte eine andere Abhängigkeit anders, aber weiterhin
+kontrolliert spezifizieren, ohne an einem OIDC-Test zu scheitern.
+
+`pyproject.toml` wird mit **`tomllib`** gelesen und die beiden Anforderungen mit
+**`packaging.requirements.Requirement`** geparst — kein selbst gebauter
+TOML-Parser und keine Namenserkennung über Stringpräfixe.
 
 ## Bewusst nicht enthalten
 

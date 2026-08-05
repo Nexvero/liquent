@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import tomllib
+
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,17 +16,26 @@ PYPROJECT = ROOT / "pyproject.toml"
 VERIFIER = ROOT / "tools" / "verify_release_wheel.py"
 
 
-def _requirements(section: str) -> list[str]:
-    """Return the requirement strings of one pyproject list, e.g. dependencies.
+def _pyproject() -> dict:
+    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
 
-    The block ends at a ``]`` in the first column, because a requirement may
-    itself contain brackets, as ``psycopg[binary]`` does.
-    """
 
-    text = PYPROJECT.read_text(encoding="utf-8")
-    block = re.search(rf"^{section} = \[$(.*?)^\]$", text, re.MULTILINE | re.DOTALL)
-    assert block is not None, section
-    return re.findall(r'"([^"]+)"', block.group(1))
+def _find(requirements: list[str], name: str) -> Requirement | None:
+    """Return one parsed requirement by canonical distribution name."""
+
+    for raw in requirements:
+        parsed = Requirement(raw)
+        if canonicalize_name(parsed.name) == canonicalize_name(name):
+            return parsed
+    return None
+
+
+def _runtime(name: str) -> Requirement | None:
+    return _find(_pyproject()["project"]["dependencies"], name)
+
+
+def _dev(name: str) -> Requirement | None:
+    return _find(_pyproject()["project"]["optional-dependencies"]["dev"], name)
 
 
 def _locked_names() -> set[str]:
@@ -70,31 +84,36 @@ def test_lock_contains_only_exact_stable_registry_versions() -> None:
     assert len({line.split("==", 1)[0].lower() for line in lines}) == len(lines)
 
 
-def test_oidc_verification_libraries_are_bounded_runtime_dependencies() -> None:
-    """LQ-161: PyJWT needs the crypto extra, and httpx2 moved out of dev."""
+def test_pyjwt_is_a_bounded_runtime_dependency_with_the_crypto_extra() -> None:
+    """LQ-161. Scoped to PyJWT: this is not a policy for every dependency."""
 
-    runtime = _requirements("dependencies")
-    dev = _requirements("dev")
+    pyjwt = _runtime("PyJWT")
 
-    pyjwt = [r for r in runtime if r.lower().startswith("pyjwt")]
-    assert pyjwt, "PyJWT must be a runtime dependency"
+    assert pyjwt is not None, "PyJWT must be a runtime dependency"
     # The extra is what pulls the maintained cryptography implementation;
     # bare PyJWT cannot verify asymmetric signatures.
-    assert "[crypto]" in pyjwt[0]
+    assert pyjwt.extras == {"crypto"}
+    assert pyjwt.url is None
+    assert {specifier.operator for specifier in pyjwt.specifier} >= {">=", "<"}
+    assert not any(Version(s.version).is_prerelease for s in pyjwt.specifier)
 
-    assert any(r.lower().startswith("httpx2") for r in runtime)
-    # Runtime only — never declared twice.
-    assert not any(r.lower().startswith("httpx2") for r in dev)
+
+def test_httpx2_is_a_bounded_runtime_dependency() -> None:
+    """LQ-161. Scoped to httpx2, which moved out of the dev extra."""
+
+    httpx2 = _runtime("httpx2")
+
+    assert httpx2 is not None, "httpx2 must be a runtime dependency"
+    assert httpx2.url is None
+    assert {specifier.operator for specifier in httpx2.specifier} >= {">=", "<"}
+    assert not any(Version(s.version).is_prerelease for s in httpx2.specifier)
 
 
-def test_runtime_dependencies_are_registry_versions_with_an_upper_bound() -> None:
-    for requirement in _requirements("dependencies"):
-        # A PEP 508 direct reference is "name @ url"; a package may legitimately
-        # be named httpx2, so the scheme is what identifies a URL, not a prefix.
-        assert "@" not in requirement, requirement
-        assert "://" not in requirement, requirement
-        assert ">=" in requirement and "<" in requirement, requirement
-        assert not re.search(r"(rc|a|b|dev)\d", requirement), requirement
+def test_the_verification_libraries_are_not_also_declared_for_dev() -> None:
+    """httpx2 moved rather than being duplicated, and PyJWT is runtime only."""
+
+    assert _dev("httpx2") is None
+    assert _dev("PyJWT") is None
 
 
 def test_verification_libraries_and_their_crypto_chain_are_locked() -> None:
