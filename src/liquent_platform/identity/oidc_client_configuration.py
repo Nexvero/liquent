@@ -75,13 +75,14 @@ class TrustedOidcClientConfiguration:
     comes from active server-side configuration, and the later login start and
     authorization request must use exactly these strings.
 
-    All five values are kept verbatim after validation: no trimming, no
-    lowercasing, no slash removal, no URL canonicalization, and no scope
-    sorting, deduplication, or completion. Two differently spelled issuers stay
-    two different configurations, so the calling trust boundary must already
-    supply the canonical value. The issuer is never derived from the
+    The five original login-start values are kept verbatim after validation: no
+    trimming, no lowercasing, no slash removal, no URL canonicalization, and no
+    scope sorting, deduplication, or completion. Two differently spelled issuers
+    stay two different configurations, so the calling trust boundary must
+    already supply the canonical value. The issuer is never derived from the
     authorization endpoint, and the redirect URI is never derived from any
-    other field, header, or request value.
+    other field, header, or request value. The model holds nine fields in total;
+    the four verification values LQ-156 added are described separately below.
 
     The object carries nothing else — no client secret, private key, tokens,
     claims, subject, user, admission, workspace, role, session data, state,
