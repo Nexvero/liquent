@@ -1143,6 +1143,27 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - reine Response-Mutation ohne Uhr, Lebensdauer, State-Wert oder Lesen des Request-Cookies; kein Bestandsorakel
     - Aufrufreihenfolge gehört zum späteren Callback-Slice; laut LQ-158 §7 erst nach erfolgreichem State-/Cookie-Match, während fehlendes Cookie und Mismatch den Helfer gerade nicht aufrufen
     - set_oidc_state_cookie semantisch unverändert, liquent_session und app.py unberührt
+- LQ-160 oidc verification adapter contract:
+  `docs/lq-160-oidc-verification-adapter-contract.md`
+  - Status:
+    - ADR/Vertrag, wie ein späterer Adapter den LQ-157-Port erfüllen darf, ohne einen konkreten Provider zu wählen; nur Dokumentation, keine Implementierung, keine Dependency-Änderung
+    - keine eigene Kryptografie: keine selbst implementierte JWT-/JWS-/ASN.1-/RSA-/EC-Prüfung, keine manuelle Schlüsselinterpretation; eine gepflegte Bibliothek muss JOSE/JWT übernehmen
+    - Code-Austausch ausschließlich serverseitig mit grant_type, code, redirect_uri und code_verifier aus dem Verifikationsobjekt sowie client_id aus der aktiven Konfiguration; keine Werte aus Headern, Query, Host, Origin oder Cookies
+    - Client-Authentifizierung bleibt spätere Erweiterung, kein Client-Secret-Modell in diesem Slice
+    - Netzwerkgrenze: nur die exakt konfigurierte token_endpoint-URL, keine Discovery, Redirects verboten, explizite Zeitgrenzen, begrenzte Antwortgröße, keine automatische Wiederholung des Code-Austauschs
+    - Tokenantwort: erwartet id_token; Access-/Refresh-Token werden nicht in Domainmodelle übernommen und nicht persistiert; keine Token und keine Providertexte in URL, Cookie, Log, Telemetrie, Trace, Metriklabel oder Fehlertext
+    - verbindliche Klassenregel statt Fallliste: belastbar geführtes Urteil mit Ablehnung ergibt None, technisch nicht belastbar abschließbare Prüfung ergibt OidcVerificationUnavailable; keine Detailunterklassen nach außen
+    - eine erfolgreiche Antwort ohne id_token sowie ein leeres oder nicht stringförmiges id_token ergeben Unavailable, weil ohne Token keine Signatur-, Issuer-, Audience-, Nonce-, Ablauf- oder Subject-Prüfung stattfinden kann
+    - None bedeutet, dass ein vorhandener Identitätsbeweis belastbar geprüft und abgelehnt wurde; ein fehlender Beweis wurde nicht geprüft und gilt nicht als negatives Prüfurteil
+    - ein vorhandenes, belastbar geprüftes, aber ungültiges Token ergibt None, ebenso eine gültige Fehlerantwort des Token-Endpunkts, die den einmaligen Code ablehnt
+    - JWKS nur vom exakt konfigurierten jwks_uri; jku, x5u und jwk aus dem Token werden ignoriert, nur allowlistete Algorithmen, alg=none verboten, keine Algorithmusverwechslung, kid wählt nur innerhalb des geladenen Sets
+    - Cache-Zielvertrag: begrenzter In-Memory-Cache je konfigurierter jwks_uri, begrenzte Laufzeit, bei unbekanntem kid höchstens ein Refresh, danach keine Retry-Schleife und kein erneuter Token-Endpunkt-Aufruf; persistenter Cache bleibt offen
+    - ID-Token-Prüfung wie LQ-155 §7 bestätigt, exp/nbf ausschließlich mit dem konfigurierten clock_skew, nonce byte-genau und konstantzeitlich; Ergebnis nur ExternalIdentity, keine User-, Binding-, Membership-, Rollen- oder Session-Erzeugung
+    - genau ein Konfigurationssnapshot je Verifikationsvorgang; keine Mischung aus Token-Endpunkt einer und JWKS/Issuer/Client einer anderen Konfiguration, Rotation darf keinen gemischten Snapshot erzeugen; keine Portänderung
+    - Bibliotheksbewertung als ausdrücklich vorläufige Empfehlung anhand der PyPI-Metadaten und des JWKS-Client-Quelltexts vom 2026-08-05: PyJWT vor joserfc vor Authlib, python-jose nicht empfohlen; keine CVE- oder Sicherheitsbehauptungen
+    - geprüfte Folge: eingebaute JWKS-Fetcher regeln Timeouts, aber weder Redirects noch Antwortgröße, deshalb muss der Adapter beide Grenzen selbst durchsetzen und der Bibliothek fertiges Schlüsselmaterial übergeben
+    - geprüfte Folge: die sieben deklarierten Laufzeitabhängigkeiten enthalten keinen HTTP-Client, httpx ist nicht deklariert; der Client für Token-Endpunkt und JWKS ist eine eigene spätere Entscheidung
+    - pyproject.toml und Lockfiles bleiben unverändert; vertagt bleiben Bibliotheksaufnahme, HTTP-Client, Client-Authentifizierung, mTLS/DPoP/Private-Key-JWT, Cache-Implementierung, Snapshot-Injektion, Provider und Discovery
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
