@@ -1106,6 +1106,34 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Konsumregel: der Port claimt nichts, sieht keinen State, rollt nichts zurück, wird erst nach dem atomaren Claim aufgerufen und macht weder None noch die Exception retrybar
     - 180 fokussierte Tests in zwei Dateien; AST-Prüfung auf diese Protokollklasse begrenzt, Stub bleibt testlokal, keine globalen AST-, Import- oder Substring-Verbote
     - vier Gegenproben abgesichert: sichtbares repr-Feld, entfallene Leerprüfung, Detailparameter an der Exception und ein zusätzlicher Portparameter lassen genau die zugehörigen Tests scheitern
+- LQ-158 oidc callback ingress contract:
+  `docs/lq-158-oidc-callback-ingress-contract.md`
+  - Status:
+    - ADR/Transportvertrag für GET /v1/session/oidc/callback vom ungeprüften Browserrequest bis zu verifizierter ExternalIdentity, neutraler fachlicher Ablehnung oder neutraler technischer Nichtverfügbarkeit
+    - keine Route, keine Implementierung, kein Querymodell, kein Parser, kein Cookie-Helfer, kein Adapter
+    - verbindliche Reihenfolge: Methode, genau ein state, konstantzeitliche Bindung, atomarer Claim, Cookie löschen, restliche Queryform, Verifikationsobjekt, Verifier genau einmal, nur ExternalIdentity weiterreichen
+    - ausschließlich GET, kein POST-Callback, kein Fragmenttransport; andere Methoden später als leerer 405 mit Allow: GET und no-store, ohne Abhängigkeit und ohne Cookie-Änderung
+    - zwei erlaubte Queryformen: state+code oder state+error mit je höchstens einem error_description und error_uri; alles andere neutral abgelehnt
+    - neun ungültige Formen benannt: fehlender, leerer oder doppelter state, doppelter code/error, code und error zugleich, weder noch, leerer code/error, unbekannte Parameter, mehrfaches error_description/error_uri
+    - Duplikate müssen über die echte Query-Multimap erkannt werden; QueryParams[...], .get(...) und dict(parse_qsl(...)) liefern nachgemessen den letzten Wert und verbergen das Duplikat, ein skalarer FastAPI-Query-Parameter ebenso
+    - leere Werte müssen sichtbar sein, nicht erschlossen: parse_qsl entfernt ohne keep_blank_values einen leeren Parameter ganz und ließe leeren error als fehlenden error erscheinen
+    - zweiphasiges Querylesen: erst nur genau einen nicht leeren state bestimmen, dann Cookie prüfen, dann claimen, dann löschen, erst danach die Form abschließend bewerten
+    - bewusster Trade-off dokumentiert: nach erfolgreichem Match verbraucht auch eine malformed Antwort den Login; die Alternative erlaubte beliebiges Sondieren an einer weiterhin gültigen Transaktion
+    - das HttpOnly-Cookie bleibt für einen Angreifer nicht lesbar, muss aber weder gelesen noch verändert noch kontrolliert werden; es genügt state-Kenntnis plus Auslösen des Requests in genau dem Browserkontext, der das Cookie hält und mitsendet
+    - nach Offenlegung des state oder durch einen bösartigen bzw. kompromittierten IdP kann ein gezielt malformed Callback denselben Login fail-closed verbrauchen
+    - die Browserbindung verhindert nicht jeden Verfügbarkeitsangriff: sie schützt Einmaligkeit, verhindert erneute Verarbeitung und vermeidet Store-Rollback, garantiert aber keine vollständige DoS-Immunität
+    - der Schaden bleibt auf die betroffene einzelne Login-Transaktion begrenzt, ohne Zugriff, Session oder Identitätsbindung; ein neuer Login-Start ist jederzeit möglich
+    - fehlendes Cookie und Mismatch brechen neutral ab, claimen nicht und löschen nichts; das schützt den neueren Login bei last-start-wins vor einem Login-Denial-of-Service
+    - nach erfolgreichem Match wird auf acht benannten Endpfaden gelöscht, einschließlich späterer Identitäts-, Admission- und Sessionfehler; kein zweiter Claim, kein Rollback, kein erneutes Setzen
+    - Cookie-Löschvertrag clear_oidc_state_cookie(response) auf denselben Slot mit Secure, HttpOnly, SameSite=Lax, Path=/, ohne Domain und mit no-store; Name folgt clear_session_cookie, Ort neben set_oidc_state_cookie; liquent_session unverändert
+    - Claim genau einmal ohne browsergeliefertes now; None vereinheitlicht unbekannt, abgelaufen und konsumiert, beendet neutral, ruft den Verifier nicht und lässt die Transaktion verbraucht; der state verlässt die Bindungs-/Store-Ebene nicht
+    - Providerfehler durchläuft Bindung und Claim, löscht das Cookie, ruft den Verifier nicht und wird nicht differenziert; keine Verzweigung auf access_denied, login_required, interaction_required oder temporarily_unavailable, keine Providertexte
+    - Verifikationsobjekt nur aus Query-Code und geclaimtem Record, ohne Normalisierung, ohne Konfigurationswerte, ohne state, admission_id oder return_path; admission_id und return_path bleiben serverseitig beim Aufrufer
+    - alle drei Verifier-Ergebnisse lassen Cookie gelöscht und Transaktion verbraucht, ohne Identitätsauflösung, Admission, Session oder Retry derselben Transaktion
+    - jeder Ausgang mit no-store, Pragma no-cache, Referrer-Policy no-referrer, leerem Body, ohne Queryreflexion, ohne Code/State/Providertext in Location, ohne Callback-URL in Logs, Traces oder Metriklabels
+    - nach behandeltem Callback muss die spätere Route per 303 See Other von der Code und State tragenden URL wegführen, Ziele nur serverseitig festgelegte oder validierte interne relative Pfade
+    - noch nicht entschieden: konkrete Ziele, gemeinsames oder getrenntes Ziel für Ablehnung und Nichtverfügbarkeit, Frontend-Darstellung, CSRF-Ausgabe — alle brauchen zuerst die Completion-/Session-Grenze
+    - harte Blockade dokumentiert: Route erst nach transportfreiem Callback-Anwendungsfall, sicherer Session-/CSRF-Ausgabe und validierten internen Zielen; eine halbe Route verbrauchte Transaktionen ohne erreichbares Ergebnis
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
