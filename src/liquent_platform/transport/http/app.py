@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncIterator
+from datetime import datetime, timedelta
+from typing import Annotated, AsyncIterator, Callable
+from urllib.parse import urlsplit
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Response, status
+from fastapi import (
+    Cookie,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ConfigDict
 
@@ -24,6 +35,13 @@ from liquent_platform.application.csrf import (
     CsrfValidationFailed,
     require_valid_csrf_token,
 )
+from liquent_platform.application.oidc_login_errors import (
+    OidcLoginStartConflict,
+    OidcLoginUnavailable,
+)
+from liquent_platform.application.prepare_oidc_login_authorization import (
+    prepare_oidc_login_authorization,
+)
 from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.revoke_session import revoke_browser_session
 from liquent_platform.application.session_lifecycle_errors import (
@@ -40,12 +58,18 @@ from liquent_platform.identity.research import (
     StrategyVersionId,
     WorkspaceId,
 )
+from liquent_platform.identity.oidc_login_material import (
+    SecureOidcLoginMaterialGenerator,
+)
 from liquent_platform.identity.ports import (
+    ActiveOidcClientConfigurationLookup,
     BrowserSessionLookup,
     BrowserSessionRevocationStore,
+    OidcLoginTransactionCreationStore,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
+from liquent_platform.transport.http.oidc_state_cookie import set_oidc_state_cookie
 from liquent_platform.transport.http.session_cookie import clear_session_cookie
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
@@ -87,6 +111,73 @@ class ResearchJobStartRequest(BaseModel):
     cost_parameters: dict[str, str | int | float | bool]
 
 
+def _require_trusted_https_origin(value: str) -> None:
+    """Validate the one trusted origin without ever rewriting it.
+
+    An ``Origin`` header is a scheme, host, and optional port and nothing else,
+    and the later comparison is exact. A configured value carrying a path, a
+    query, a fragment, or userinfo could therefore never match any browser and
+    would fail closed silently, so it is rejected while the app is built instead
+    of surfacing later as "login is broken".
+
+    The value is only inspected: nothing is normalized, canonicalized, defaulted,
+    or returned, so the exact configured string stays what the handler compares
+    against. Messages name the setting but never echo the value.
+
+    Three checks run against the raw string on purpose, because the parser hides
+    what they look for: it strips tab, newline, and carriage return anywhere in
+    the URL, it lowercases the scheme, and it reports an empty query or fragment
+    identically to an absent one.
+    """
+
+    if not value:
+        raise ValueError("trusted oidc login origin must not be empty")
+    # Raw value: a separator would smuggle a list into a single-origin setting,
+    # and urlsplit would silently clean control characters the handler keeps.
+    if any(
+        character.isspace()
+        or ord(character) < 0x20
+        or ord(character) == 0x7F
+        or character == ","
+        for character in value
+    ):
+        raise ValueError(
+            "trusted oidc login origin must be exactly one origin without "
+            "whitespace, control characters, or separators"
+        )
+    # Raw value: urlsplit lowercases the scheme, so "HTTPS://host" would parse as
+    # https while the stored string could never equal a browser's Origin header.
+    if not value.startswith("https://"):
+        raise ValueError("trusted oidc login origin must be an absolute https origin")
+    # Raw value: for "https://host?" and "https://host#" the parsed query and
+    # fragment are both empty strings, so a truthiness check would let an empty
+    # separator through.
+    if "?" in value:
+        raise ValueError("trusted oidc login origin must not contain a query")
+    if "#" in value:
+        raise ValueError("trusted oidc login origin must not contain a fragment")
+    parsed = urlsplit(value)
+    if not parsed.hostname:
+        raise ValueError("trusted oidc login origin must have a host")
+    # Checked against None rather than truthiness so an empty userinfo such as
+    # "https://@host" is rejected too.
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("trusted oidc login origin must not contain userinfo")
+    # An origin has no path at all, not even the bare "/" a browser omits.
+    if parsed.path:
+        raise ValueError("trusted oidc login origin must not contain a path")
+    try:
+        port = parsed.port  # the access itself validates the port syntax
+    except ValueError:
+        # The parser's own message quotes the offending port, so it is replaced
+        # by a neutral one. No default port is added and none is normalized.
+        raise ValueError("trusted oidc login origin must have a valid port") from None
+    # A bare "https://host:" leaves the port empty and port 0 is never a real
+    # listener; both would only ever fail the exact header comparison.
+    if parsed.netloc.endswith(":") or port == 0:
+        raise ValueError("trusted oidc login origin must have a valid port")
+
+
 def create_app(
     settings: PlatformSettings | None = None,
     health: ProcessHealth | None = None,
@@ -97,6 +188,12 @@ def create_app(
     research_memberships: WorkspaceMembershipLookup | None = None,
     logout_sessions: BrowserSessionLookup | None = None,
     logout_revocations: BrowserSessionRevocationStore | None = None,
+    oidc_login_configurations: ActiveOidcClientConfigurationLookup | None = None,
+    oidc_login_transactions: OidcLoginTransactionCreationStore | None = None,
+    oidc_login_material: SecureOidcLoginMaterialGenerator | None = None,
+    oidc_login_clock: Callable[[], datetime] | None = None,
+    oidc_login_lifetime: timedelta | None = None,
+    oidc_login_origin: str | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
@@ -109,6 +206,38 @@ def create_app(
         raise ValueError(
             "logout session lookup and revocation store must be provided together"
         )
+    # The login-start route is unauthenticated and creates server-side state, so
+    # it exists only when every dependency it needs was injected explicitly. A
+    # partial combination is a configuration error, never a route that silently
+    # falls back to a system clock or a guessed trusted origin.
+    oidc_login_dependencies = (
+        oidc_login_configurations,
+        oidc_login_transactions,
+        oidc_login_material,
+        oidc_login_clock,
+        oidc_login_lifetime,
+        oidc_login_origin,
+    )
+    oidc_login_enabled = all(
+        dependency is not None for dependency in oidc_login_dependencies
+    )
+    if not oidc_login_enabled and any(
+        dependency is not None for dependency in oidc_login_dependencies
+    ):
+        raise ValueError(
+            "oidc login start requires configuration lookup, transaction store, "
+            "material generator, clock, lifetime, and trusted origin together"
+        )
+    if oidc_login_enabled:
+        # Rejected fail-fast on the whole-second Max-Age the cookie would carry,
+        # not merely on a positive timedelta: a sub-second lifetime truncates to
+        # Max-Age=0, which a browser treats as an immediately expired cookie. A
+        # start that cannot bind the browser must never look successful.
+        if int(oidc_login_lifetime.total_seconds()) <= 0:
+            raise ValueError(
+                "oidc login transaction lifetime must be at least one whole second"
+            )
+        _require_trusted_https_origin(oidc_login_origin)
     engine = None
     if health is None and runtime_settings.database_url is not None:
         engine = build_engine(runtime_settings.database_url.get_secret_value())
@@ -329,5 +458,114 @@ def create_app(
             except SessionRevocationUnavailable:
                 return _no_store(status.HTTP_500_INTERNAL_SERVER_ERROR)  # keep cookie
             return _neutral_cleared()
+
+    if oidc_login_enabled:
+
+        def _rejected(status_code: int) -> Response:
+            """One neutral empty rejection: no cookie, no redirect, no detail."""
+
+            rejected = Response(status_code=status_code)
+            rejected.headers["Cache-Control"] = "no-store"
+            return rejected
+
+        # Every method on this path is owned deliberately. Registering POST alone
+        # would let Starlette raise HTTPException(405), which FastAPI renders as a
+        # JSON body — that contradicts the empty-body contract. Owning the path
+        # keeps the answer empty without installing a global exception handler
+        # that would change unrelated routes. TRACE and CONNECT are listed for the
+        # same reason: they are ordinary HTTP methods a client can send at this
+        # path, and they must meet the same empty 405 as every other non-POST.
+        @app.api_route(
+            "/v1/session/oidc/login",
+            methods=[
+                "POST",
+                "GET",
+                "HEAD",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
+            tags=["session"],
+        )
+        async def start_oidc_login_route(request: Request) -> Response:
+            if request.method != "POST":
+                # A login start creates server-side state and is never a safe
+                # method; prefetching or a link scanner must not open one.
+                not_allowed = _rejected(status.HTTP_405_METHOD_NOT_ALLOWED)
+                not_allowed.headers["Allow"] = "POST"
+                return not_allowed
+            # The route takes no browser-supplied business value at all: no
+            # issuer, provider, client id, redirect uri, scope, admission id, or
+            # return path. Anything sent is a contract violation, not an input.
+            if request.url.query:
+                return _rejected(status.HTTP_400_BAD_REQUEST)
+            if await request.body():
+                return _rejected(status.HTTP_400_BAD_REQUEST)
+            # Unauthenticated, so no Liquent CSRF token exists yet. The trusted
+            # origin is injected and never derived from Host, Forwarded,
+            # X-Forwarded-Host, query, or body; Referer is no substitute. A
+            # missing header and the opaque "null" both fail this comparison.
+            if request.headers.get("origin") != oidc_login_origin:
+                return _rejected(status.HTTP_403_FORBIDDEN)
+            fetch_site = request.headers.get("sec-fetch-site")
+            if fetch_site is not None and fetch_site != "same-origin":
+                # cross-site, same-site, none, and any unknown value are refused.
+                return _rejected(status.HTTP_403_FORBIDDEN)
+            # Only now is the clock read, at most once, and the same value bounds
+            # both the stored transaction and the binding cookie. A failing clock
+            # is an internal fault like any other: it answers neutrally and the
+            # use case is never reached, so no transaction is started with a time
+            # nobody could vouch for.
+            try:
+                now = oidc_login_clock()
+            except Exception:
+                return _rejected(status.HTTP_500_INTERNAL_SERVER_ERROR)
+            try:
+                prepared = prepare_oidc_login_authorization(
+                    oidc_login_configurations,
+                    oidc_login_transactions,
+                    oidc_login_material,
+                    now=now,
+                    lifetime=oidc_login_lifetime,
+                    admission_id=None,
+                    return_path=None,
+                )
+            except (OidcLoginUnavailable, OidcLoginStartConflict):
+                # Unified on purpose: telling the two apart would reveal whether
+                # an active configuration exists or whether a state collided.
+                # No Retry-After — there is no defensible retry time to state.
+                return _rejected(status.HTTP_503_SERVICE_UNAVAILABLE)
+            except Exception:
+                # Route-local and neutral: no exception text, no internal detail.
+                return _rejected(status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Reached only after the transaction was stored atomically. A failure
+            # from here on still answers neutrally and empty; the store is never
+            # rolled back, because a rollback would itself be a reuse path. The
+            # orphaned pending record expires fail-closed and is never reused.
+            try:
+                started = Response(status_code=status.HTTP_303_SEE_OTHER)
+                # 303 makes the browser follow with GET; a method-preserving
+                # 307/308 would repeat the POST at the identity provider. The URL
+                # travels in Location only and must stay out of logs.
+                started.headers["Location"] = prepared.request.url
+                started.headers["Cache-Control"] = "no-store"
+                started.headers["Pragma"] = "no-cache"
+                # Without this the identity provider would see the previous
+                # Liquent URL in Referer.
+                started.headers["Referrer-Policy"] = "no-referrer"
+                # Straight from the use-case result, never parsed back out of the
+                # authorization URL.
+                set_oidc_state_cookie(
+                    started,
+                    prepared.state.value,
+                    now=now,
+                    lifetime=oidc_login_lifetime,
+                )
+            except Exception:
+                return _rejected(status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return started
 
     return app
