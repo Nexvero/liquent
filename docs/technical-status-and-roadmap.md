@@ -1164,6 +1164,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - geprüfte Folge: eingebaute JWKS-Fetcher regeln Timeouts, aber weder Redirects noch Antwortgröße, deshalb muss der Adapter beide Grenzen selbst durchsetzen und der Bibliothek fertiges Schlüsselmaterial übergeben
     - geprüfte Folge: die sieben deklarierten Laufzeitabhängigkeiten enthalten keinen HTTP-Client, httpx ist nicht deklariert; der Client für Token-Endpunkt und JWKS ist eine eigene spätere Entscheidung
     - pyproject.toml und Lockfiles bleiben unverändert; vertagt bleiben Bibliotheksaufnahme, HTTP-Client, Client-Authentifizierung, mTLS/DPoP/Private-Key-JWT, Cache-Implementierung, Snapshot-Injektion, Provider und Discovery
+- LQ-161 oidc verification dependencies:
+  `docs/lq-161-oidc-verification-dependencies.md`
+  - Status:
+    - geprüfte Runtime-Dependency-Grundlage für den späteren Verifikationsadapter; PyJWT[crypto]>=2.13,<3 neu, httpx2>=2,<3 von Dev nach Runtime verschoben, keine weitere Dependency geändert
+    - die Bibliotheken werden noch nicht verwendet und nicht verdrahtet; kein Adapter, kein Tokenaustausch, kein JWKS-Fetch, kein Cache, kein Netzwerkaufruf, keine JWT-Prüflogik
+    - das crypto-Extra ist nicht optional, sondern der Punkt: bares PyJWT prüft keine asymmetrischen Signaturen; nachgewiesen durch Auflösung mit und ohne Extra und durch has_crypto True in der Installation
+    - httpx2 wird nicht doppelt geführt; starlette deklariert es selbst unter seinem full-Extra, ein bares httpx ist im Lock gar nicht enthalten, die Tests bleiben lauffähig
+    - eingebaute JWKS-Fetcher dürfen laut LQ-160 §12a nicht automatisch genutzt werden; Redirect-Verbot, Größenlimit, Timeouts und Cacheverhalten setzt erst der Adapter selbst durch
+    - keine eigene Kryptografie, keine selbst implementierte JWT-, JWS-, ASN.1-, RSA-, EC- oder Signaturprüfung
+    - Lock erhält genau vier neue exakte Pins (PyJWT, cryptography, cffi, pycparser) an namenssortierter Position; kein bestehender Pin nebenbei aktualisiert, httpx2 und httpcore2 unverändert
+    - Auflösung unter Python 3.12 passend zu CI und Lock-Kopfzeile; unter 3.9 ergäbe die Kette abweichende cffi-/pycparser-Versionen
+    - Supply-Chain geprüft: saubere Lock-Umgebung nach CI-Schrittfolge, pip check, Importe jwt/cryptography/httpx2, volle Suite, Wheel-Bau und Installation in zweiter sauberer Umgebung außerhalb des Quellbaums
+    - Requires-Dist deklariert PyJWT[crypto] und httpx2 als Runtime, httpx2 nicht mehr unter extra dev; Entry Points unverändert vorhanden
+    - keine Netzwerk-, Token-, JWKS- oder Kryptografieoperation gegen reale Systeme; .grype.yaml unverändert, Container-/SBOM-/Grype-Gate über die PR-CI beobachtet
+    - Tests ausschließlich auf PyJWT und httpx2 begrenzt (crypto-Extra, begrenzte Spezifikation ohne URL und Preview, keine Doppelung im Dev-Extra, Lock-Abdeckung); keine allgemeine Regel für jede Laufzeitabhängigkeit
+    - pyproject wird mit tomllib gelesen und die beiden Anforderungen mit packaging.requirements.Requirement geparst; exakte Pins, Stabilität und Eindeutigkeit prüft weiterhin der bestehende zentrale Locktest
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
