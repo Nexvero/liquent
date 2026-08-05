@@ -1036,6 +1036,35 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - GET, HEAD, PUT, PATCH, DELETE, OPTIONS, TRACE und CONNECT antworten identisch mit leerem 405, Allow: POST und no-store, ohne jede Abhängigkeit aufzurufen
     - Responsefehler nach erfolgreicher Speicherung bleibt neutraler 500 ohne Rollback; verwaiste Pending-Transaktion läuft fail-closed ab
     - last-start-wins über den einen Cookie-Slot; 144 fokussierte Tests, keine globalen AST-, Import- oder Substring-Verbote
+- LQ-155 oidc callback verification boundary:
+  `docs/lq-155-oidc-callback-verification-boundary.md`
+  - Status:
+    - ADR/Sicherheitsvertrag, providerneutral; keine Route, kein Modell, kein Port, kein Adapter, keine Bibliothek, keine Discovery- oder JWKS-Implementierung
+    - drei getrennte Callback-Ebenen: HTTP-/Browserbindung, atomarer Claim, externe OIDC-Verifikation; LQ-155 entscheidet ausschließlich Ebene 3 und ihre Schnittstelle zu Ebene 2
+    - Eingabegrenze Ebene 3: nur Authorization Code plus expected_issuer, expected_nonce, code_verifier und redirect_uri aus der geclaimten Transaktion
+    - admission_id, return_path und state überschreiten die Grenze bewusst nicht; der Admission-Handle ist ein Capability-Wert, den eine reine Beweisgrenze nicht tragen darf
+    - Ablauf und Einmal-Konsum bleiben abschließend auf Ebene 2; keine zweite Ablaufprüfung an der Verifikationsgrenze
+    - expected_issuer ist eine Erwartung, kein eingefrorener Trust; beim Callback wird die aktive Konfiguration genau einmal gelesen und ihr issuer byteweise exakt verglichen
+    - deaktivierter, entfernter oder ersetzter Issuer endet neutral; kein Fallback, keine Trust-Entscheidung aus Tokenclaims, kein browserwählbarer Issuer/Endpunkt/Algorithmus
+    - notwendige Vorbedingung: LQ-146 trägt heute keinen Token-Endpunkt, keine Schlüsselquelle, keine erlaubten Algorithmen und keine Clock-Skew; die Konfigurationsgrenze muss zuerst erweitert werden
+    - diese vier Werte gehören in serverseitige Konfiguration, nie in die Transaktion, in Browserwerte oder in ungeprüfte Tokeninhalte; keine ungesicherte Laufzeit-Discovery als zweiter Trust-Pfad
+    - Code-Einlösung genau einmal, PKCE S256, Redirect-URI und code_verifier aus dem Pending-Record, Client-Identität aus der aktuell aktiven Konfiguration, kein Retry
+    - transienter Netzwerkfehler nach dem Claim verbraucht die Transaktion; kein Rollback, der Nutzer startet einen neuen Login
+    - Konfigurationsrotation zwischen Start und Callback endet fail-closed: geänderte Redirect-URI lehnt der Provider ab, geänderte Client-ID lässt die aud-Prüfung scheitern
+    - verpflichtende ID-Token-Prüfungen: Format, Signatur, erlaubter Algorithmus, Schlüssel aus aktueller Trust-Konfiguration, exakter iss, aud, azp bei mehreren Audiences, exp, nbf, iat, exakter nonce, nicht leeres opakes sub
+    - Clock-Skew klein, explizit serverseitig konfiguriert, nie aus dem Token; kein veränderlicher Claim wird Identitätsschlüssel
+    - keine Prüfung wird wegen eines erfolgreichen Token-Endpunkt-Response übersprungen; die von OIDC Core erlaubte Signaturauslassung im Code Flow wird bewusst nicht genutzt, UserInfo ersetzt nichts
+    - Algorithmen als serverseitige Allow-List; alg darf auswählen, nie einführen; alg none verboten; jku, x5u und jwk werden nie befolgt; kid wählt nur innerhalb des vertrauenswürdigen Schlüsselsets
+    - Ergebnis ausschließlich ExternalIdentity(issuer, subject), exakt und opak, ohne Tokens, Rohclaims, Admission, Session, Rollen oder Berechtigung; erzeugt weder User noch Binding noch Mitgliedschaft
+    - Assurance: eine spätere Policy darf verifizierte acr/amr verlangen, ohne Policy entsteht daraus keine Rolle; Repräsentation und Policy bleiben ein eigener Slice
+    - Providerfehler durchlaufen zuerst Bindung und Claim, danach keine Code-Einlösung; Transaktion bleibt verbraucht, Providertexte nie ungefiltert, gemischte code/error-Antworten neutral abgelehnt
+    - zwei Fehlerklassen (neutrale Verifikationsablehnung, Infrastrukturfehler) bleiben intern getrennt; beide lassen die geclaimte Transaktion verbraucht, erlauben keinen Retry derselben Transaktion und kein Store-Rollback
+    - neutral heißt detail- und bestandsfrei, nicht zwingend derselbe HTTP-Status für fachliche Ablehnung und technische Nichtverfügbarkeit
+    - eine Verifikationsablehnung bleibt innerhalb ihrer Klasse einheitlich; ein Infrastrukturfehler darf später als generische temporäre Nichtverfügbarkeit ohne technische Details behandelt werden
+    - gleiche oder unterschiedliche neutrale Statuscodes bzw. Benutzerpfade bleiben ausdrücklich dem späteren Callback-Transportvertrag überlassen; LQ-155 nimmt das nicht vorweg
+    - keine Klasse legt jemals Code, Token, Nonce, Verifier, State, Claims, Providertexte oder Trust-Konfigurationsdetails offen
+    - Geheimnisgrenze: Code, code_verifier und alle Tokens nie in URL, Cookies, Web Storage, Logs, Telemetrie, Traces, Metriklabels, Fehlertexten oder Anwendungsdaten; keine Tokenpersistenz, keine unnötigen Claims in inneren Modellen
+    - Reihenfolge: Konfiguration erweitern, Verifikationsport, Callback-Transportvertrag, Callback-Route, danach Identitätsauflösung und Session
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
