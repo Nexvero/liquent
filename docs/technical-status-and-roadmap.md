@@ -1058,7 +1058,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Ergebnis ausschließlich ExternalIdentity(issuer, subject), exakt und opak, ohne Tokens, Rohclaims, Admission, Session, Rollen oder Berechtigung; erzeugt weder User noch Binding noch Mitgliedschaft
     - Assurance: eine spätere Policy darf verifizierte acr/amr verlangen, ohne Policy entsteht daraus keine Rolle; Repräsentation und Policy bleiben ein eigener Slice
     - Providerfehler durchlaufen zuerst Bindung und Claim, danach keine Code-Einlösung; Transaktion bleibt verbraucht, Providertexte nie ungefiltert, gemischte code/error-Antworten neutral abgelehnt
-    - zwei Fehlerklassen (neutrale Verifikationsablehnung, Infrastrukturfehler) intern trennbar, nach außen einheitlich; keine Exception trägt Code, Token, Nonce, Verifier, State, Konfigurationsdetails oder Claims
+    - zwei Fehlerklassen (neutrale Verifikationsablehnung, Infrastrukturfehler) bleiben intern getrennt; beide lassen die geclaimte Transaktion verbraucht, erlauben keinen Retry derselben Transaktion und kein Store-Rollback
+    - neutral heißt detail- und bestandsfrei, nicht zwingend derselbe HTTP-Status für fachliche Ablehnung und technische Nichtverfügbarkeit
+    - eine Verifikationsablehnung bleibt innerhalb ihrer Klasse einheitlich; ein Infrastrukturfehler darf später als generische temporäre Nichtverfügbarkeit ohne technische Details behandelt werden
+    - gleiche oder unterschiedliche neutrale Statuscodes bzw. Benutzerpfade bleiben ausdrücklich dem späteren Callback-Transportvertrag überlassen; LQ-155 nimmt das nicht vorweg
+    - keine Klasse legt jemals Code, Token, Nonce, Verifier, State, Claims, Providertexte oder Trust-Konfigurationsdetails offen
     - Geheimnisgrenze: Code, code_verifier und alle Tokens nie in URL, Cookies, Web Storage, Logs, Telemetrie, Traces, Metriklabels, Fehlertexten oder Anwendungsdaten; keine Tokenpersistenz, keine unnötigen Claims in inneren Modellen
     - Reihenfolge: Konfiguration erweitern, Verifikationsport, Callback-Transportvertrag, Callback-Route, danach Identitätsauflösung und Session
 

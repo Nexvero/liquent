@@ -343,8 +343,24 @@ Die genaue Query-Form, HTTP-Antwort und Benutzerweiterleitung bleiben dem
 
 ## 12. Fehlerklassen
 
-Der Vertrag unterscheidet **konzeptionell zwei** Klassen, **ohne** interne
-Details nach außen offenzulegen.
+Der Vertrag unterscheidet **konzeptionell zwei** Klassen. Beide bleiben
+**intern getrennt**, und **keine** von beiden legt interne Details nach außen
+offen.
+
+### Was „neutral" hier bedeutet
+
+**Neutral heißt detail- und bestandsfrei — nicht zwingend derselbe HTTP-Status
+für eine fachliche Ablehnung und eine technische Nichtverfügbarkeit.**
+
+Eine Antwort ist neutral, wenn sie keine Auskunft darüber gibt, ob eine
+Identität, ein Subject, ein Nutzer, eine Bindung, eine Admission, ein
+Workspace, eine Login-Transaktion oder eine bestimmte Issuer-Konfiguration
+existiert, und wenn sie keine technischen Interna, Providertexte oder
+Konfigurationswerte durchreicht. Diese Eigenschaft ist verbindlich.
+
+Ob beide Klassen darüber hinaus **denselben** oder **unterschiedliche** neutrale
+HTTP-Statuscodes beziehungsweise Benutzerpfade erhalten, ist **ausdrücklich
+keine** Entscheidung von LQ-155.
 
 ### 1. Neutrale Verifikationsablehnung
 
@@ -354,7 +370,10 @@ Details nach außen offenzulegen.
 - Signatur-, Claim-, Nonce- oder Audiencefehler,
 - fehlendes oder leeres Subject.
 
-Nach außen **einheitlich**, **keine** Bestandsinformation.
+**Innerhalb dieser Klasse einheitlich:** Die aufgeführten Fälle sind nach außen
+**nicht voneinander** unterscheidbar und verraten **keine**
+Bestandsinformation. Sonst würde erkennbar, ob ein bestimmter Issuer aktiv ist,
+ob ein Code akzeptiert wurde oder ob ein Subject existiert.
 
 ### 2. Infrastrukturfehler
 
@@ -363,21 +382,42 @@ Nach außen **einheitlich**, **keine** Bestandsinformation.
 - JWKS-/Schlüsselmaterial technisch nicht verfügbar,
 - interner Adapterfehler.
 
-Darf **intern getrennt** behandelt werden, aber **ohne** Tokens, Codes oder
-Claims in Fehlermeldungen.
+Darf **intern getrennt** behandelt werden — Diagnose, Alarmierung, Metriken —
+aber **ohne** Tokens, Codes oder Claims in Fehlermeldungen.
+
+Ein Infrastrukturfehler **darf später als generische temporäre
+Nichtverfügbarkeit behandelt werden**, ohne technische Details offenzulegen.
+Das ist kein Widerspruch zur Neutralität: „gerade technisch nicht verfügbar"
+sagt nichts darüber aus, ob eine Identität, ein Nutzer oder eine Konfiguration
+existiert.
 
 ### Gemeinsame Regeln
 
-**Keine Exception darf** Authorization Code, Token, Nonce, Verifier, State,
-Issuer-Konfigurationsdetails oder Claims enthalten.
+Verbindlich für **beide** Klassen:
 
-Beide Klassen lassen die Transaktion **verbraucht** zurück und sind **nicht**
-wiederholbar. Der Unterschied ist ausschließlich eine **interne** Frage von
-Diagnose und Alarmierung: Nach außen darf er nicht sichtbar werden, weil sonst
-unterscheidbar würde, ob ein Issuer aktiv ist, ob ein Code akzeptiert wurde oder
-ob ein Schlüsselset erreichbar ist — alles Bestandsinformationen.
+- Beide bleiben **intern getrennt**.
+- Beide lassen die bereits geclaimte Transaktion **verbraucht** zurück.
+- **Keine** Klasse erlaubt einen Retry **derselben** Transaktion oder ein
+  Store-Rollback. Der Nutzer startet einen **neuen** Login.
+- **Keine** von beiden legt jemals Authorization Code, Tokens, Nonce, Verifier,
+  State, Claims, Providertexte oder Trust-Konfigurationsdetails offen — weder
+  in einer Exception noch in einer Antwort, einem Log, einer Telemetrie oder
+  einem Metriklabel.
 
-Die spätere konkrete **Python-Rückgabe- und Fehlerform** wird in einem
+### Was LQ-155 hier bewusst nicht entscheidet
+
+Die **Transportabbildung** der beiden Klassen gehört dem **späteren
+Callback-Transportvertrag**: konkrete HTTP-Statuscodes, Benutzerweiterleitung,
+Fehlerseite und die Frage, ob eine temporäre Nichtverfügbarkeit anders
+beantwortet wird als eine fachliche Ablehnung.
+
+LQ-155 **darf diese Transportentscheidung nicht vorwegnehmen**. Die
+Verifikationsgrenze liefert eine verifizierte Identität oder eine Ablehnung der
+jeweiligen Klasse; wie eine spätere Route daraus eine Antwort formt, ist dort zu
+entscheiden — mit den hier festgelegten Detail- und Bestandsfreiheitsregeln als
+verbindlicher Untergrenze.
+
+Die spätere konkrete **Python-Rückgabe- und Fehlerform** wird ebenso in einem
 **eigenen Port-Slice** entschieden.
 
 ## 13. Geheimnis- und Aufbewahrungsgrenze
