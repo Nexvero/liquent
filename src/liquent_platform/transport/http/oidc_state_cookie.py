@@ -61,3 +61,22 @@ def set_oidc_state_cookie(
         httponly=True,
         samesite="lax",
     )
+
+
+def clear_oidc_state_cookie(response: Response) -> None:
+    """Expire the binding cookie on the same slot and attributes as the setter.
+
+    A browser matches a deletion by name, path, and domain, so any drift there
+    would leave the original cookie in place. This is a pure response mutation;
+    when it is called is decided by the later callback slice (LQ-158 §7).
+    """
+
+    response.delete_cookie(
+        key=OIDC_STATE_COOKIE_NAME,
+        path="/",
+        # No domain, exactly as when set: the __Host- prefix forbids it.
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+    response.headers["Cache-Control"] = "no-store"
