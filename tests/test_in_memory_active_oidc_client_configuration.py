@@ -1,5 +1,6 @@
 import inspect
 from dataclasses import FrozenInstanceError
+from datetime import timedelta
 
 import pytest
 
@@ -26,6 +27,10 @@ def _configuration() -> TrustedOidcClientConfiguration:
         client_id=CLIENT_ID,
         redirect_uri=REDIRECT_URI,
         scopes=SCOPES,
+        token_endpoint="https://idp.example.test/token",
+        jwks_uri="https://idp.example.test/jwks",
+        allowed_signing_algorithms=("RS256",),
+        clock_skew=timedelta(seconds=30),
     )
 
 
@@ -108,6 +113,10 @@ def test_the_stored_configuration_cannot_be_replaced() -> None:
             client_id="other",
             redirect_uri="https://other.example.test/cb",
             scopes=("openid",),
+            token_endpoint="https://other.example.test/token",
+            jwks_uri="https://other.example.test/jwks",
+            allowed_signing_algorithms=("RS256",),
+            clock_skew=timedelta(seconds=30),
         )
     assert adapter.get_active_configuration() is configuration
 

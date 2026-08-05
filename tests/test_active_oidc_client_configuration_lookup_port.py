@@ -1,5 +1,6 @@
 import ast
 import inspect
+from datetime import timedelta
 
 import pytest
 
@@ -19,6 +20,10 @@ def _configuration(
         client_id=client_id,
         redirect_uri="https://app.example.test/v1/oidc/callback",
         scopes=("openid",),
+        token_endpoint="https://idp.example.test/token",
+        jwks_uri="https://idp.example.test/jwks",
+        allowed_signing_algorithms=("RS256",),
+        clock_skew=timedelta(seconds=30),
     )
 
 

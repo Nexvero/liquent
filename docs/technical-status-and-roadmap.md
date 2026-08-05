@@ -1065,6 +1065,28 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - keine Klasse legt jemals Code, Token, Nonce, Verifier, State, Claims, Providertexte oder Trust-Konfigurationsdetails offen
     - Geheimnisgrenze: Code, code_verifier und alle Tokens nie in URL, Cookies, Web Storage, Logs, Telemetrie, Traces, Metriklabels, Fehlertexten oder Anwendungsdaten; keine Tokenpersistenz, keine unnötigen Claims in inneren Modellen
     - Reihenfolge: Konfiguration erweitern, Verifikationsport, Callback-Transportvertrag, Callback-Route, danach Identitätsauflösung und Session
+- LQ-156 oidc verification configuration:
+  `docs/lq-156-oidc-verification-configuration.md`
+  - Status:
+    - additive Erweiterung von TrustedOidcClientConfiguration um token_endpoint, jwks_uri, allowed_signing_algorithms und clock_skew; erfüllt die Vorbedingung aus LQ-155 §5
+    - neun Felder in fester Reihenfolge, keine optionalen, keine Defaults; frozen, slots, hashbar; die bestehenden fünf Felder bleiben in Reihenfolge und Semantik unverändert
+    - keine Defaults ist eine Sicherheitsentscheidung: ein Default-Algorithmus oder eine Default-Skew wäre eine Trust-Annahme, die niemand bewusst getroffen hat
+    - token_endpoint und jwks_uri nutzen den bestehenden Validator unverändert: absolut https, Host, Port und Pfad erlaubt, kein Userinfo, keine Query, kein Fragment, auch keine leeren Trenner
+    - Whitespace/Steuerzeichen und leere ?/#-Trenner werden am Rohwert geprüft, weil urlsplit Tab/Newline/CR auch im Host entfernt und leere Query/Fragment wie fehlende meldet
+    - beide Werte werden nie aus issuer oder authorization_endpoint abgeleitet, dürfen auf anderen Hosts liegen und bleiben exakt; keine Discovery, kein Netzwerk, keine DNS-Auflösung
+    - bekannte unveränderte LQ-146-Eigenschaft: urlsplit schreibt das Scheme klein, HTTPS:// wird akzeptiert; bewusst nicht stillschweigend mitkorrigiert, da es drei bestehende Felder beträfe
+    - jwks_uri ist eine konfigurierte HTTPS-Referenz, kein Schlüsselmaterial; ein statisch eingebettetes Schlüsselset bleibt spätere Erweiterung, kein Union-Typ und kein zweites Modell
+    - allowed_signing_algorithms: Tupel, nicht leer, nicht leere Strings, kein Whitespace, keine Duplikate, Reihenfolge exakt, nichts sortiert, ergänzt oder abgeleitet, kein automatisches RS256
+    - Allowlist statt dynamischer Algorithmuswahl: ein Tokenheader darf sie nie erweitern, ein späterer Adapter akzeptiert nur die Schnittmenge mit seinen fest eingebauten sicheren Algorithmen
+    - kid darf später nur innerhalb des über jwks_uri geladenen vertrauenswürdigen Schlüsselsets auswählen; jku, x5u und jwk werden nie befolgt
+    - none wird in jeder Schreibweise abgewiesen (unsigniertes JWT, klassischer Bypass); einziger bewusst case-insensitiver Vergleich, trifft den exakten alg-Wert, none-like bleibt zulässig
+    - clock_skew muss timedelta sein, nicht negativ, 0 zulässig, maximal fünf Minuten, exakt bewahrt und nicht gerundet; MAXIMUM_CLOCK_SKEW als verbindliche kleine Skew-Grenze aus LQ-155
+    - die vier Werte stammen nur aus Serverkonfiguration, nie aus Browserinput, Pending-Transaktion, Tokenclaims oder Headern, frieren keinen Trust ein und ersetzen die aktive Issuer-Neuprüfung nicht
+    - kein Client-Secret, kein privater Schlüssel, keine Tokens, Claims, State, Nonce, Verifier, Admission, Return-Path, Session-, Rollen- oder Berechtigungsdaten, kein enabled/trusted-Flag, kein Providername
+    - kein Produktionscode außerhalb des Modells geändert: die drei src-Module nennen den Typ nur in Import und Annotation, alle sieben Konstruktionsstellen liegen in Tests
+    - Nachbartests rein mechanisch um vier gültige Werte ergänzt, keine fachliche Semantik geändert; test_build_oidc_authorization_request zusätzlich configuration_keys erweitert
+    - Modelltests von 89 auf 196; jede der vier neuen Validierungen per Gegenprobe abgesichert, keine globalen AST-, Import- oder Substring-Verbote
+    - LQ-146 erhielt einen Nachtrag zur historischen Aussage „exakt fünf Felder", LQ-155 eine kurze Umsetzungsnotiz; sonst keine Entscheidung umgeschrieben
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
