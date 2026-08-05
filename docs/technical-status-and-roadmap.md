@@ -1190,6 +1190,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - keine Defaults und keine Obergrenzen für Bytes, Timeouts oder Cache-Dauer; geprüft wird strukturelle Gültigkeit, konkrete Werte kommen aus der Composition
     - ausschließlich technische Limits ohne Issuer, Client, Schlüssel, Token, Code, Nonce, State, Identity, Admission oder Session; keine Uhrabfrage, kein Cache, keine Retry- oder Redirect-Entscheidung
     - Fehlermeldungen nennen den Feldnamen, nie den Wert; das Modul importiert nur dataclasses und datetime, das Redirect-Verbot bleibt Adapterregel aus LQ-160 §4
+- LQ-163 verify oidc callback use case:
+  `docs/lq-163-verify-oidc-callback-use-case.md`
+  - Status:
+    - transportfreie Orchestrierung nach erfolgreicher Browserbindung; kein HTTP, kein Verifikationsadapter, keine Session-Erzeugung
+    - verify_oidc_callback(transaction_store, verifier, state, authorization_code) mit exakt vier Parametern, ohne Uhr, Konfiguration oder Requestwert
+    - Claim zuerst und genau einmal; None vereinheitlicht unbekannt, abgelaufen und konsumiert und beendet neutral ohne Verifier, danach kein Retry, kein zweiter Claim, kein Rollback
+    - authorization_code=None ist die gültige Providerfehlerform: geclaimt, nie eingelöst, Transaktion nicht zurückgegeben; error/error_description/error_uri sind keine Parameter
+    - ein vorhandener Code muss ein echter nicht leerer str sein; ein Vertragsverstoß endet nach dem Claim neutral ohne Verifier und ohne Exception mit Codeinhalt
+    - Verifikationsobjekt nur aus Code plus den vier Werten des geclaimten Records, ohne Konfiguration, Browserwerte oder state
+    - drei Verifierausgänge: None bleibt None, ExternalIdentity ergibt VerifiedOidcCallback, OidcVerificationUnavailable propagiert unverändert
+    - VerifiedOidcCallback(identity, admission_id, return_path) frozen, slots, hashbar und vollständig repr-frei, weil ExternalIdentity eigene Felder nicht verbirgt
+    - admission_id und return_path stammen verbatim aus dem geclaimten Record; das Ergebnis erzeugt weder User, Binding, Mitgliedschaft, Rolle, Session, CSRF noch Redirect
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
