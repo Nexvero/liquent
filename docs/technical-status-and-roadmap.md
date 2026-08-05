@@ -1194,15 +1194,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-163-verify-oidc-callback-use-case.md`
   - Status:
     - transportfreie Orchestrierung nach erfolgreicher Browserbindung; kein HTTP, kein Verifikationsadapter, keine Session-Erzeugung
-    - verify_oidc_callback(transaction_store, verifier, state, authorization_code) mit exakt vier Parametern; keine Uhr, keine Konfiguration, kein HTTP-, Cookie- oder Requestparameter
-    - authorization_code=None bedeutet ausschließlich gültige Providerfehlerform; malformed Queryformen erreichen den Anwendungsfall nicht, error/error_description/error_uri sind keine Parameter
-    - Claim zuerst und genau einmal; None vereinheitlicht unbekannt, abgelaufen und konsumiert, beendet neutral und berührt den Verifier nicht; kein browsergeliefertes now
-    - ab dem Claim bleibt die Transaktion auf jedem Pfad verbraucht: kein Retry, kein zweiter Claim, kein Store-Rollback
-    - Providerfehler wird geclaimt, aber nicht eingelöst; die geclaimte Transaktion wird nicht zurückgegeben
-    - ein vorhandener Code muss ein echter nicht leerer str sein; ein Vertragsverstoß endet nach dem Claim neutral ohne Verifier und ohne Exception mit Codeinhalt, ohne Trimmen oder Logging
-    - Verifikationsobjekt ausschließlich aus Query-Code plus den vier Werten des geclaimten Records; keine aktive Konfiguration, keine Browserwerte, kein state
-    - drei Verifier-Ergebnisse: None bleibt None, ExternalIdentity ergibt VerifiedOidcCallback, OidcVerificationUnavailable propagiert unverändert und wird nicht in None umgedeutet
-    - VerifiedOidcCallback(identity, admission_id, return_path) frozen, slots, hashbar und vollständig repr-frei; ExternalIdentity verbirgt eigene Felder nicht, deshalb blendet erst dieses Feld Issuer und Subject aus
+    - verify_oidc_callback(transaction_store, verifier, state, authorization_code) mit exakt vier Parametern, ohne Uhr, Konfiguration oder Requestwert
+    - Claim zuerst und genau einmal; None vereinheitlicht unbekannt, abgelaufen und konsumiert und beendet neutral ohne Verifier, danach kein Retry, kein zweiter Claim, kein Rollback
+    - authorization_code=None ist die gültige Providerfehlerform: geclaimt, nie eingelöst, Transaktion nicht zurückgegeben; error/error_description/error_uri sind keine Parameter
+    - ein vorhandener Code muss ein echter nicht leerer str sein; ein Vertragsverstoß endet nach dem Claim neutral ohne Verifier und ohne Exception mit Codeinhalt
+    - Verifikationsobjekt nur aus Code plus den vier Werten des geclaimten Records, ohne Konfiguration, Browserwerte oder state
+    - drei Verifierausgänge: None bleibt None, ExternalIdentity ergibt VerifiedOidcCallback, OidcVerificationUnavailable propagiert unverändert
+    - VerifiedOidcCallback(identity, admission_id, return_path) frozen, slots, hashbar und vollständig repr-frei, weil ExternalIdentity eigene Felder nicht verbirgt
     - admission_id und return_path stammen verbatim aus dem geclaimten Record; das Ergebnis erzeugt weder User, Binding, Mitgliedschaft, Rolle, Session, CSRF noch Redirect
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine

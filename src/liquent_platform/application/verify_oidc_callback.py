@@ -18,14 +18,10 @@ from liquent_platform.identity.ports import (
 class VerifiedOidcCallback:
     """Exactly what a later completion boundary needs, and nothing else.
 
-    All three values are hidden from ``repr``: the identity can carry a
-    personal external identifier, the admission id is a capability handle, and
-    the return path is internal navigation metadata. ``ExternalIdentity`` does
-    not hide its own fields, so hiding this one is what keeps the issuer and
-    subject out of an object representation.
-
-    The object carries no state, authorization code, nonce, code verifier,
-    token, configuration value, or session material, and it grants nothing.
+    All three fields are repr-free — ``ExternalIdentity`` does not hide its own
+    — so no identifier, capability handle, or navigation target reaches a log
+    through an object representation. The result grants no permission and
+    creates no session.
     """
 
     identity: ExternalIdentity = field(repr=False)
@@ -39,54 +35,25 @@ def verify_oidc_callback(
     state: OidcLoginState,
     authorization_code: str | None,
 ) -> VerifiedOidcCallback | None:
-    """Run the post-binding callback steps in their one permitted order.
+    """Claim the transaction fail-closed, then verify an optional code.
 
-    The caller has already read the query duplicate-safely, determined exactly
-    one non-empty state, compared it against the binding cookie in constant
-    time, and aborted neutrally on a missing or mismatching cookie. Nothing has
-    been claimed yet. This use case therefore takes no clock and no HTTP,
-    cookie, or request value.
-
-    ``authorization_code=None`` means only that the duplicate-safe transport
-    parser recognized a valid provider-error form. Malformed query shapes must
-    never reach this use case, and the provider's error, error_description, and
-    error_uri deliberately are not parameters: they must not cross the
-    transport boundary at all.
-
-    The transaction is claimed **first and exactly once**, before anything
-    external happens. A neutral None from the store unifies unknown, expired,
-    and already consumed, and ends the call without touching the verifier. From
-    that point on the transaction stays consumed on every path: there is no
-    retry, no second claim, and no store rollback, because any of those would
-    be a replay path.
-
-    A present code must be a real non-empty string. Should a direct caller
-    ignore the transport contract, the transaction has already been claimed
-    fail-closed, so the call ends neutrally without reaching the verifier and
-    without an exception that could carry the code. Nothing is trimmed,
-    normalized, or logged.
-
-    The verification input is built solely from the query code and the four
-    verification-relevant values of the claimed record; no active configuration
-    and no browser value is mixed in. The verifier runs exactly once. Its None
-    becomes None here, an OidcVerificationUnavailable propagates unchanged, and
-    an identity becomes the success result.
-
-    Success means only that this external identity was verified for exactly
-    this transaction. It resolves no UserId, consumes no admission, grants no
-    membership or role, and creates no session, CSRF value, or redirect.
+    Runs after a successful browser binding (LQ-158); it performs no transport
+    and no completion work, so it takes no clock and no request value.
+    ``authorization_code=None`` means the transport parser recognized a valid
+    provider-error form.
     """
 
+    # Claimed before anything external, so every later path leaves the
+    # transaction consumed: no retry, no second claim, no rollback.
     transaction = transaction_store.claim_transaction(state)
     if transaction is None:
-        # Unknown, expired, or already consumed — indistinguishable on purpose.
+        # Unknown, expired, and already consumed are one neutral None.
         return None
     if authorization_code is None:
         # Valid provider-error form: consumed, but never redeemed.
         return None
     if not isinstance(authorization_code, str) or not authorization_code:
-        # Excluded by the transport contract; still fail closed rather than
-        # hand an unusable value to the verifier.
+        # Excluded by the transport contract; still fail closed.
         return None
 
     verification = OidcAuthorizationCodeVerification(
@@ -97,12 +64,10 @@ def verify_oidc_callback(
         redirect_uri=transaction.redirect_uri,
     )
     # OidcVerificationUnavailable is deliberately not caught: technical
-    # unavailability is not a business rejection and must stay distinguishable
-    # for the caller.
+    # unavailability is not a business rejection.
     identity = verifier.verify_authorization_code(verification)
     if identity is None:
         return None
-    # Both values come verbatim from the claimed record, never from the browser.
     return VerifiedOidcCallback(
         identity, transaction.admission_id, transaction.return_path
     )
