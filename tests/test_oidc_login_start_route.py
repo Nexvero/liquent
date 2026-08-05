@@ -252,6 +252,47 @@ def test_non_positive_lifetime_is_a_configuration_error(
 
 
 @pytest.mark.parametrize(
+    "lifetime",
+    [
+        timedelta(milliseconds=1),
+        timedelta(milliseconds=500),
+        timedelta(milliseconds=999),
+        timedelta(microseconds=1),
+        timedelta(seconds=-0.5),  # truncates toward zero, not away from it
+    ],
+)
+def test_a_sub_second_lifetime_is_a_configuration_error(
+    lifetime: timedelta,
+) -> None:
+    """Max-Age would truncate to 0, which a browser expires immediately."""
+
+    with pytest.raises(ValueError):
+        _app(oidc_login_lifetime=lifetime)
+
+
+@pytest.mark.parametrize(
+    "lifetime",
+    [
+        timedelta(seconds=1),
+        timedelta(seconds=1, milliseconds=500),
+        timedelta(minutes=10),
+        timedelta(hours=1),
+    ],
+)
+def test_whole_second_lifetimes_keep_working_and_never_set_max_age_zero(
+    lifetime: timedelta,
+) -> None:
+    client = TestClient(_app(oidc_login_lifetime=lifetime))
+
+    response = _post(client)
+
+    assert response.status_code == 303
+    max_age = int(_cookie(response)[COOKIE_NAME]["max-age"])
+    assert max_age >= 1
+    assert max_age <= lifetime.total_seconds()
+
+
+@pytest.mark.parametrize(
     "origin",
     [
         "",
@@ -268,6 +309,87 @@ def test_empty_or_multi_valued_origin_is_a_configuration_error(
 ) -> None:
     with pytest.raises(ValueError):
         _app(oidc_login_origin=origin)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "garbage",
+        "liquent.example",
+        "//liquent.example",
+        "http://liquent.example",  # scheme must be https
+        "ftp://liquent.example",
+        "HTTPS://liquent.example",  # the parser lowercases; the raw value stays
+        "https://",  # no host
+        "https://liquent.example/",  # a bare slash is still a path
+        "https://liquent.example/path",
+        "https://liquent.example/path/",
+        "https://user@liquent.example",  # userinfo
+        "https://user:secret@liquent.example",
+        "https://@liquent.example",  # empty userinfo
+        "https://liquent.example?x=1",  # query
+        "https://liquent.example?",  # empty query separator
+        "https://liquent.example#fragment",
+        "https://liquent.example#",  # empty fragment separator
+        "https://liquent.example:99999",  # port out of range
+        "https://liquent.example:-1",
+        "https://liquent.example:abc",  # port not an integer
+        "https://liquent.example:",  # empty port
+        "https://liquent.example:0",  # never a real listener
+        "https://liquent.example:8443/",  # port plus path
+        "https://liquent.example\nhttps://evil.test",  # urlsplit would strip \n
+        "https://liquent.example\x7f",
+    ],
+)
+def test_a_non_origin_shaped_value_is_a_configuration_error(origin: str) -> None:
+    with pytest.raises(ValueError):
+        _app(oidc_login_origin=origin)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://liquent.example",
+        "https://liquent.example:8443",
+        "https://app.liquent.test",
+        "https://liquent.example:443",  # a default port is neither added nor removed
+        "https://[::1]:8443",
+        "https://localhost:8443",
+    ],
+)
+def test_an_origin_shaped_value_is_accepted_verbatim(origin: str) -> None:
+    client = TestClient(_app(oidc_login_origin=origin))
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Origin": origin, "Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+
+def test_the_origin_rejection_message_never_echoes_the_value() -> None:
+    secret_looking = "https://internal-admin.liquent.example/path"
+
+    with pytest.raises(ValueError) as raised:
+        _app(oidc_login_origin=secret_looking)
+
+    assert "internal-admin" not in str(raised.value)
+
+
+def test_an_accepted_origin_is_not_normalized_before_the_comparison() -> None:
+    """A configured default port stays required; the browser must send it too."""
+
+    client = TestClient(_app(oidc_login_origin="https://liquent.example:443"))
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Origin": "https://liquent.example"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
 
 
 def test_unrelated_routes_stay_reachable_without_oidc_dependencies() -> None:
@@ -712,6 +834,87 @@ def test_an_infrastructure_failure_is_a_neutral_500(
     assert "idp.example.test" not in f"{response.text}{response.headers}"
 
 
+class FailingClock:
+    """A clock that raises instead of answering, counting its one call."""
+
+    def __init__(self, error: Exception | None = None) -> None:
+        self._error = error or _SecretBearingError()
+        self.calls = 0
+
+    def __call__(self) -> datetime:
+        self.calls += 1
+        raise self._error
+
+
+def test_a_failing_clock_is_a_neutral_500_without_reaching_the_use_case() -> None:
+    lookup = RecordingLookup(_configuration())
+    store = RecordingStore()
+    generator = RecordingGenerator()
+    clock = FailingClock()
+    client = _client(lookup, store, generator, clock)
+
+    response = _post(client)
+
+    assert response.status_code == 500
+    assert response.content == b""
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers.get("set-cookie") is None
+    assert response.headers.get("location") is None
+    assert "retry-after" not in response.headers
+    assert "idp.example.test" not in f"{response.text}{response.headers}"
+    # Read at most once, and nothing downstream ran.
+    assert clock.calls == 1
+    assert lookup.calls == 0
+    assert generator.calls == 0
+    assert store.calls == []
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("clock-skew-detected"),
+        OSError("no-clock-source-available"),
+        ValueError("naive-clock-configured"),
+    ],
+)
+def test_any_clock_failure_collapses_into_the_same_neutral_500(
+    error: Exception,
+) -> None:
+    client = _client(clock=FailingClock(error))
+
+    response = _post(client)
+
+    assert response.status_code == 500
+    _assert_no_side_effects(response)
+    assert str(error) not in f"{response.text}{response.headers}"
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Origin": OTHER_ORIGIN}, {"Origin": ORIGIN, "Sec-Fetch-Site": "cross-site"}],
+)
+def test_a_failing_clock_is_never_reached_by_a_rejected_request(
+    headers: dict[str, str],
+) -> None:
+    clock = FailingClock()
+    client = _client(clock=clock)
+
+    response = client.post(LOGIN_URL, headers=headers, follow_redirects=False)
+
+    assert response.status_code == 403
+    assert clock.calls == 0
+
+
+def test_a_failing_clock_is_never_reached_by_a_non_empty_input() -> None:
+    clock = FailingClock()
+    client = _client(clock=clock)
+
+    response = _post(client, params={"issuer": ISSUER})
+
+    assert response.status_code == 400
+    assert clock.calls == 0
+
+
 def test_a_naive_clock_fails_neutrally_without_a_cookie() -> None:
     client = _client(clock=RecordingClock(datetime(2026, 8, 4, 12)))
 
@@ -744,7 +947,19 @@ def test_a_builder_failure_after_a_successful_store_is_a_neutral_500(
 # --- 11. Method boundary ----------------------------------------------------
 
 
-@pytest.mark.parametrize("method", ["get", "put", "patch", "delete"])
+OTHER_METHODS = [
+    "GET",
+    "HEAD",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT",
+]
+
+
+@pytest.mark.parametrize("method", OTHER_METHODS)
 def test_any_other_method_is_an_empty_405_allowing_only_post(method: str) -> None:
     lookup = RecordingLookup(_configuration())
     store = RecordingStore()
@@ -752,13 +967,47 @@ def test_any_other_method_is_an_empty_405_allowing_only_post(method: str) -> Non
     clock = RecordingClock()
     client = _client(lookup, store, generator, clock)
 
-    response = getattr(client, method)(
-        LOGIN_URL, headers=SAME_ORIGIN_HEADERS, follow_redirects=False
+    response = client.request(
+        method, LOGIN_URL, headers=SAME_ORIGIN_HEADERS, follow_redirects=False
     )
 
     assert response.status_code == 405
     assert response.headers["allow"] == "POST"
+    assert response.headers["cache-control"] == "no-store"
     _assert_no_side_effects(response, lookup, store, generator, clock)
+
+
+@pytest.mark.parametrize("method", ["TRACE", "CONNECT"])
+def test_trace_and_connect_are_answered_route_locally(method: str) -> None:
+    """Not left to a default handler: the body must stay empty like every other."""
+
+    clock = FailingClock()
+    client = _client(clock=clock)
+
+    response = client.request(method, LOGIN_URL, follow_redirects=False)
+
+    assert response.status_code == 405
+    assert response.content == b""
+    assert response.headers["allow"] == "POST"
+    assert response.headers["cache-control"] == "no-store"
+    assert "detail" not in response.text
+    assert clock.calls == 0
+
+
+def test_every_non_post_method_answers_identically() -> None:
+    client = _client()
+    answers = {
+        method: client.request(method, LOGIN_URL, follow_redirects=False)
+        for method in OTHER_METHODS
+    }
+
+    for method, response in answers.items():
+        assert response.status_code == 405, method
+        assert response.headers["allow"] == "POST", method
+        assert response.headers["cache-control"] == "no-store", method
+        # HEAD legitimately carries no body of its own; the rest must be empty.
+        if method != "HEAD":
+            assert response.content == b"", method
 
 
 def test_a_get_with_a_valid_origin_is_still_a_405() -> None:

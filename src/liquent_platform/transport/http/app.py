@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Annotated, AsyncIterator, Callable
+from urllib.parse import urlsplit
 
 from fastapi import (
     Cookie,
@@ -110,6 +111,73 @@ class ResearchJobStartRequest(BaseModel):
     cost_parameters: dict[str, str | int | float | bool]
 
 
+def _require_trusted_https_origin(value: str) -> None:
+    """Validate the one trusted origin without ever rewriting it.
+
+    An ``Origin`` header is a scheme, host, and optional port and nothing else,
+    and the later comparison is exact. A configured value carrying a path, a
+    query, a fragment, or userinfo could therefore never match any browser and
+    would fail closed silently, so it is rejected while the app is built instead
+    of surfacing later as "login is broken".
+
+    The value is only inspected: nothing is normalized, canonicalized, defaulted,
+    or returned, so the exact configured string stays what the handler compares
+    against. Messages name the setting but never echo the value.
+
+    Three checks run against the raw string on purpose, because the parser hides
+    what they look for: it strips tab, newline, and carriage return anywhere in
+    the URL, it lowercases the scheme, and it reports an empty query or fragment
+    identically to an absent one.
+    """
+
+    if not value:
+        raise ValueError("trusted oidc login origin must not be empty")
+    # Raw value: a separator would smuggle a list into a single-origin setting,
+    # and urlsplit would silently clean control characters the handler keeps.
+    if any(
+        character.isspace()
+        or ord(character) < 0x20
+        or ord(character) == 0x7F
+        or character == ","
+        for character in value
+    ):
+        raise ValueError(
+            "trusted oidc login origin must be exactly one origin without "
+            "whitespace, control characters, or separators"
+        )
+    # Raw value: urlsplit lowercases the scheme, so "HTTPS://host" would parse as
+    # https while the stored string could never equal a browser's Origin header.
+    if not value.startswith("https://"):
+        raise ValueError("trusted oidc login origin must be an absolute https origin")
+    # Raw value: for "https://host?" and "https://host#" the parsed query and
+    # fragment are both empty strings, so a truthiness check would let an empty
+    # separator through.
+    if "?" in value:
+        raise ValueError("trusted oidc login origin must not contain a query")
+    if "#" in value:
+        raise ValueError("trusted oidc login origin must not contain a fragment")
+    parsed = urlsplit(value)
+    if not parsed.hostname:
+        raise ValueError("trusted oidc login origin must have a host")
+    # Checked against None rather than truthiness so an empty userinfo such as
+    # "https://@host" is rejected too.
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("trusted oidc login origin must not contain userinfo")
+    # An origin has no path at all, not even the bare "/" a browser omits.
+    if parsed.path:
+        raise ValueError("trusted oidc login origin must not contain a path")
+    try:
+        port = parsed.port  # the access itself validates the port syntax
+    except ValueError:
+        # The parser's own message quotes the offending port, so it is replaced
+        # by a neutral one. No default port is added and none is normalized.
+        raise ValueError("trusted oidc login origin must have a valid port") from None
+    # A bare "https://host:" leaves the port empty and port 0 is never a real
+    # listener; both would only ever fail the exact header comparison.
+    if parsed.netloc.endswith(":") or port == 0:
+        raise ValueError("trusted oidc login origin must have a valid port")
+
+
 def create_app(
     settings: PlatformSettings | None = None,
     health: ProcessHealth | None = None,
@@ -161,17 +229,15 @@ def create_app(
             "material generator, clock, lifetime, and trusted origin together"
         )
     if oidc_login_enabled:
-        if oidc_login_lifetime <= timedelta(0):
-            raise ValueError("oidc login transaction lifetime must be positive")
-        # Exactly one origin: a separator would smuggle a list into a value that
-        # must be compared for exact equality against the Origin header.
-        if not oidc_login_origin or any(
-            character.isspace() or character == ","
-            for character in oidc_login_origin
-        ):
+        # Rejected fail-fast on the whole-second Max-Age the cookie would carry,
+        # not merely on a positive timedelta: a sub-second lifetime truncates to
+        # Max-Age=0, which a browser treats as an immediately expired cookie. A
+        # start that cannot bind the browser must never look successful.
+        if int(oidc_login_lifetime.total_seconds()) <= 0:
             raise ValueError(
-                "trusted oidc login origin must be exactly one non-empty origin"
+                "oidc login transaction lifetime must be at least one whole second"
             )
+        _require_trusted_https_origin(oidc_login_origin)
     engine = None
     if health is None and runtime_settings.database_url is not None:
         engine = build_engine(runtime_settings.database_url.get_secret_value())
@@ -406,10 +472,22 @@ def create_app(
         # would let Starlette raise HTTPException(405), which FastAPI renders as a
         # JSON body — that contradicts the empty-body contract. Owning the path
         # keeps the answer empty without installing a global exception handler
-        # that would change unrelated routes.
+        # that would change unrelated routes. TRACE and CONNECT are listed for the
+        # same reason: they are ordinary HTTP methods a client can send at this
+        # path, and they must meet the same empty 405 as every other non-POST.
         @app.api_route(
             "/v1/session/oidc/login",
-            methods=["POST", "GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            methods=[
+                "POST",
+                "GET",
+                "HEAD",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
             tags=["session"],
         )
         async def start_oidc_login_route(request: Request) -> Response:
@@ -436,9 +514,15 @@ def create_app(
             if fetch_site is not None and fetch_site != "same-origin":
                 # cross-site, same-site, none, and any unknown value are refused.
                 return _rejected(status.HTTP_403_FORBIDDEN)
-            # Only now is the clock read, exactly once, and the same value bounds
-            # both the stored transaction and the binding cookie.
-            now = oidc_login_clock()
+            # Only now is the clock read, at most once, and the same value bounds
+            # both the stored transaction and the binding cookie. A failing clock
+            # is an internal fault like any other: it answers neutrally and the
+            # use case is never reached, so no transaction is started with a time
+            # nobody could vouch for.
+            try:
+                now = oidc_login_clock()
+            except Exception:
+                return _rejected(status.HTTP_500_INTERNAL_SERVER_ERROR)
             try:
                 prepared = prepare_oidc_login_authorization(
                     oidc_login_configurations,

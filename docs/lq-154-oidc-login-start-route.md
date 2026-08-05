@@ -43,19 +43,64 @@ gewöhnlicher `404`.
 | Situation | Grund |
 |---|---|
 | irgendeine echte Teilmenge der sechs | halb konfigurierter Login-Start |
-| `lifetime <= 0` | keine Transaktion ohne positive Lebensdauer |
-| leere Origin | es gibt keine vertrauenswürdige Origin |
-| Origin mit Leerraum oder Komma | ein Trennzeichen wäre eine geschmuggelte Liste |
+| Lebensdauer mit ganzen `Max-Age`-Sekunden `<= 0` | siehe unten |
+| Origin, die keine Origin ist | siehe unten |
 
 Es gibt **keine** versteckte Systemuhr, **keine** Default-Origin und **keine**
 Ableitung aus `Host`, `Forwarded`, `X-Forwarded-Host`, Query oder Body. Die
 Route ist unauthentifiziert; ein Liquent-CSRF-Token existiert an dieser Stelle
 noch nicht, deshalb trägt die Origin-Prüfung die gesamte Cross-Site-Abwehr.
 
-Die Origin ist strukturell **genau eine**: ein einzelner `str`, exakt
-verglichen. Ein Wert mit Trennzeichen würde nie matchen und damit still
-fail-closed laufen — er wird stattdessen sofort beim Aufbau abgelehnt, damit ein
-Konfigurationsfehler nicht als „Login geht nicht" erscheint.
+### Strikte Origin-Validierung
+
+`_require_trusted_https_origin` prüft beim App-Aufbau, dass der Wert die Form
+einer Origin hat — Scheme, Host, optionaler Port und **sonst nichts**:
+
+| Anforderung | Abgewiesenes Beispiel |
+|---|---|
+| absolute Origin mit Scheme exakt `https` | `garbage`, `//liquent.example`, `http://liquent.example`, `HTTPS://liquent.example` |
+| Host vorhanden | `https://` |
+| kein Pfad, auch nicht `/` | `https://liquent.example/`, `https://liquent.example/path` |
+| kein Benutzername, kein Passwort | `https://user@liquent.example`, `https://@liquent.example` |
+| keine Query | `https://liquent.example?x=1`, `https://liquent.example?` |
+| kein Fragment | `https://liquent.example#fragment`, `https://liquent.example#` |
+| gültiger Port, falls vorhanden | `:99999`, `:abc`, `:` (leer), `:0` |
+| keine Leerzeichen, Steuerzeichen oder Kommaliste | `https://a.test,https://b.test` |
+
+Gültig und **verbatim** übernommen: `https://liquent.example`,
+`https://liquent.example:8443`, `https://[::1]:8443`.
+
+**Drei Prüfungen laufen bewusst auf dem Rohwert**, weil der Parser genau das
+verbirgt, worauf sie zielen:
+
+1. `urlsplit` entfernt Tab, Newline und Carriage Return **überall** in der URL,
+   auch im Host — `https://liquent.example\nhttps://evil.test` würde bereinigt
+   validieren, während der ungeprüfte Originalstring gespeichert bleibt.
+2. `urlsplit` **kleinschreibt das Scheme** — `HTTPS://liquent.example` parst als
+   `https`, könnte aber als gespeicherter String nie einem Browser-`Origin`
+   gleichen.
+3. Für `https://host?` und `https://host#` sind `query` und `fragment` beide
+   leere Strings, sodass eine Truthiness-Prüfung den leeren Separator
+   durchließe.
+
+**Keine Normalisierung, keine Ableitung.** Nichts wird getrimmt, kleingeschrieben,
+kanonisiert oder um einen Defaultport ergänzt; der Handler vergleicht exakt den
+konfigurierten String. Eine konfigurierte `https://liquent.example:443` verlangt
+deshalb auch vom Browser den expliziten Port — geprüft.
+
+Der Grund für die Strenge: Eine Origin mit Pfad, Query, Fragment oder Userinfo
+könnte **niemals** einem Browser-`Origin` gleichen. Sie liefe still fail-closed
+und erschiene später als „Login geht nicht", statt sofort als das, was sie ist —
+ein Konfigurationsfehler. Fehlermeldungen benennen die Einstellung, geben den
+Wert aber **nie** wieder.
+
+### Fail-fast bei Subsekunden-Lebensdauer
+
+Abgelehnt wird nicht bloß ein nicht positives `timedelta`, sondern jede
+Lebensdauer, deren **ganze `Max-Age`-Sekunden `<= 0`** wären. Eine Lebensdauer
+von 500 ms truncated zu `Max-Age=0` — für den Browser ein sofort abgelaufenes
+Cookie. Ein Start, der den Browser nicht binden kann, darf nie erfolgreich
+aussehen. Bestehende positive Ganzsekunden-Lebensdauern bleiben unverändert.
 
 ## Ablauf
 
@@ -63,7 +108,8 @@ Konfigurationsfehler nicht als „Login geht nicht" erscheint.
 2. nicht leere Query → leerer `400`; nicht leerer Body → leerer `400`
 3. `Origin` fehlend, `null` oder abweichend → leerer `403`
 4. `Sec-Fetch-Site` vorhanden und ≠ `same-origin` → leerer `403`
-5. Uhr **genau einmal** lesen
+5. Uhr **höchstens einmal** lesen; löst sie aus, endet der Aufruf als leerer
+   `500` und der Use Case wird **nie** erreicht
 6. `prepare_oidc_login_authorization(..., now=now, lifetime=lifetime,
    admission_id=None, return_path=None)` **genau einmal**
 7. Erfolg → Cookie setzen und `303`
@@ -84,11 +130,16 @@ Allowed"}` rendert. Das widerspricht dem leeren Body des Vertrags.
 
 Die Alternative wäre ein **globaler** Exception-Handler — der würde jedoch das
 Verhalten unbeteiligter Routen ändern und war ausdrücklich ausgeschlossen.
-Deshalb registriert die Route `POST`, `GET`, `HEAD`, `PUT`, `PATCH`, `DELETE`
-und `OPTIONS` selbst und beantwortet alles außer `POST` mit einem leeren `405`
-und `Allow: POST`. Aus demselben Grund fängt der Handler interne Fehler
-**route-lokal** ab: nur so bleibt der `500` garantiert leer, ohne globale
-Fehlerbehandlung.
+Deshalb registriert die Route `POST`, `GET`, `HEAD`, `PUT`, `PATCH`, `DELETE`,
+`OPTIONS`, `TRACE` und `CONNECT` selbst und beantwortet alles außer `POST` mit
+einem leeren `405`, `Allow: POST` und `Cache-Control: no-store`. Aus demselben
+Grund fängt der Handler interne Fehler **route-lokal** ab: nur so bleibt der
+`500` garantiert leer, ohne globale Fehlerbehandlung.
+
+`TRACE` und `CONNECT` stehen ausdrücklich mit in der Liste: es sind gewöhnliche
+HTTP-Methoden, die ein Client an diesen Pfad senden kann, und sie dürfen nicht
+an einer Defaultbehandlung mit abweichendem Body landen. Keine Abhängigkeit wird
+dabei aufgerufen — geprüft mit einer Uhr, die bei jedem Aufruf auslöst.
 
 `POST` und nicht `GET`, weil der Aufruf serverseitigen Zustand erzeugt: mit
 `GET` würden Prefetching, Linkscanner und Vorschau-Bots Login-Transaktionen
@@ -181,7 +232,13 @@ Import- oder Substring-Test über ganze Module.
 | `Sec-Fetch-Site` ≠ `same-origin` | `403` | `Cache-Control: no-store` |
 | `OidcLoginUnavailable` | `503` | `Cache-Control: no-store` |
 | `OidcLoginStartConflict` | `503` | `Cache-Control: no-store` |
+| **auslösende Uhr** | `500` | `Cache-Control: no-store` |
 | jeder sonstige interne Fehler | `500` | `Cache-Control: no-store` |
+
+Eine auslösende Uhr ist ein interner Fehler wie jeder andere. Sie wird weiterhin
+erst **nach** vollständiger Eingabe- und Origin-Prüfung und **höchstens einmal**
+gelesen, und nach einem Uhrfehler wird der Use Case **nicht** aufgerufen: keine
+Transaktion entsteht mit einer Zeit, für die niemand einstehen kann.
 
 Alle Fehler haben einen leeren Body, **kein** Cookie, **keinen** Redirect,
 **keine** reflektierte Origin, **keine** Detailbegründung, **keine**
@@ -206,11 +263,18 @@ wiederverwendet.
 
 ## Tests
 
-`tests/test_oidc_login_start_route.py` — **87** fokussierte Tests:
+`tests/test_oidc_login_start_route.py` — **144** fokussierte Tests:
 
 - Default-App ohne Route · vollständige Injektion aktiviert sie · jede der sechs
-  Abhängigkeiten einzeln fehlend und einzeln allein vorhanden → `ValueError` ·
-  nicht positive Lebensdauer · leere und mehrwertige Origin
+  Abhängigkeiten einzeln fehlend und einzeln allein vorhanden → `ValueError`
+- Origin-Validierung: 24 nicht-Origin-förmige Werte → `ValueError`, sechs
+  Origin-förmige akzeptiert und verbatim verglichen, Fehlermeldung ohne Wert,
+  konfigurierter Defaultport wird nicht wegnormalisiert
+- Lebensdauer: nicht positiv **und** subsekündlich → `ValueError`; vier
+  Ganzsekunden-Lebensdauern liefern weiter ein Cookie mit `Max-Age >= 1`
+- Uhr: auslösende Uhr → neutraler `500`, genau ein Uhraufruf, **kein** Lookup,
+  Generator oder Store; drei Fehlerarten identisch; von jeder Ablehnung nie
+  erreicht
 - Erfolg: exakt `303`, leerer Body, exakte `Location`, `no-store`, `no-cache`,
   `no-referrer`, kein `Content-Type`
 - Cookie: Name, Wert aus `prepared.state.value`, `Secure`, `HttpOnly`,
@@ -230,8 +294,9 @@ wiederverwendet.
 - drei Infrastrukturfehler und eine naive Uhr als neutraler `500` ohne Issuer im
   Response · Builderfehler nach erfolgreichem Store bleibt neutraler `500` mit
   genau einem Store-Aufruf
-- `GET`, `PUT`, `PATCH`, `DELETE` als leerer `405` mit `Allow: POST`, ohne
-  JSON-Detail
+- `GET`, `HEAD`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `TRACE` und `CONNECT` als
+  leerer `405` mit `Allow: POST` und `no-store`, ohne JSON-Detail und ohne
+  Abhängigkeitsaufruf; alle acht antworten identisch
 - `liquent_session` bleibt unberührt · die Logout-Route bleibt unabhängig
 
 ## Bewusst nicht enthalten
