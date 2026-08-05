@@ -1180,6 +1180,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - keine Netzwerk-, Token-, JWKS- oder Kryptografieoperation gegen reale Systeme; .grype.yaml unverändert, Container-/SBOM-/Grype-Gate über die PR-CI beobachtet
     - Tests ausschließlich auf PyJWT und httpx2 begrenzt (crypto-Extra, begrenzte Spezifikation ohne URL und Preview, keine Doppelung im Dev-Extra, Lock-Abdeckung); keine allgemeine Regel für jede Laufzeitabhängigkeit
     - pyproject wird mit tomllib gelesen und die beiden Anforderungen mit packaging.requirements.Requirement geparst; exakte Pins, Stabilität und Eindeutigkeit prüft weiterhin der bestehende zentrale Locktest
+- LQ-162 oidc verification policy:
+  `docs/lq-162-oidc-verification-policy.md`
+  - Status:
+    - kleines providerneutrales Wertobjekt für die von LQ-160 verlangten technischen Grenzen, per Composition an den späteren Adapter übergeben; kein Netzwerkcode, kein Adapter, kein Cache
+    - OidcVerificationPolicy mit exakt sechs Feldern in fester Reihenfolge: connect_timeout, read_timeout, total_timeout, token_response_max_bytes, jwks_response_max_bytes, jwks_cache_ttl; frozen, slots, hashbar
+    - Zeitwerte müssen echte timedelta und strikt positiv sein; Größenwerte echte int, strikt positiv, bool ausdrücklich abgelehnt, weil bool eine int-Unterklasse ist und True sonst ein Byte bedeutete
+    - connect_timeout <= total_timeout und read_timeout <= total_timeout; bewusst keine Regel connect plus read <= total, das spätere Deadline-Modell entscheidet die Ablaufsteuerung
+    - Endlichkeit und Mikrosekundendarstellbarkeit sind durch den Typ garantiert: ein timedelta kann weder unendlich noch NaN sein und ist begrenzt; eine separate Prüfung wäre unerreichbarer Code
+    - Sub-Mikrosekunden-Eingaben rundet timedelta bereits beim Aufrufer zu timedelta(0) und scheitern damit an der Positivitätsregel; das Modell selbst normalisiert nichts
+    - keine Defaults, weil ein Default-Timeout oder eine Default-Größe eine betriebliche Entscheidung wäre, die niemand bewusst getroffen hat
+    - keine willkürlichen Obergrenzen für Bytes, Timeouts oder Cache-Dauer; geprüft wird strukturelle Gültigkeit, nicht betriebliches Tuning, konkrete Werte kommen aus der Composition
+    - ausschließlich technische Limits: keine URL, Issuer, Client, Redirect, Algorithmus, Schlüssel, Token, Code, Nonce, State, Identity, Admission, Session oder Providerdaten
+    - keine Uhrabfrage, keine Netzwerkoperation, kein httpx2.Timeout, kein Cache, keine Retry- oder Redirect-Entscheidung; Fehlermeldungen nennen den Feldnamen, nie den Wert
+    - LQ-161-Bibliotheken werden nicht genutzt: das Modul importiert nur dataclasses und datetime; das Redirect-Verbot ist keine Zahl und bleibt Adapterregel aus LQ-160 §4
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
