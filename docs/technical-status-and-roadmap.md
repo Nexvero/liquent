@@ -1138,16 +1138,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-159-clear-oidc-state-cookie.md`
   - Status:
     - Umsetzung des in LQ-158 §8 spezifizierten Löschhelfers als eine Funktion neben dem vorhandenen Setter; kein Callback, kein Verifier-Adapter, kein Use-Case, keine Route, kein neuer Port
-    - clear_oidc_state_cookie(response) -> None mit genau einem Parameter; strukturell an clear_session_cookie orientiert, ohne den Session-Cookie-Helfer zu verändern
-    - löscht exakt denselben einzelnen Slot wie set_oidc_state_cookie: Name aus OIDC_STATE_COOKIE_NAME, Path=/, kein Domain, Secure, HttpOnly, SameSite=Lax, zusätzlich Cache-Control: no-store
-    - die Attribute müssen exakt übereinstimmen, weil ein Browser die Löschung über Name, Path und Domain zuordnet; eine abweichende Löschung ließe das Cookie als wiederverwendbaren Bindungsnachweis bestehen
-    - reine Response-Mutation: keine Uhr, keine Lebensdauer, kein State-Wert, kein Lesen des Request-Cookies, keine Bestandsprüfung, keine Callback-/Claim-/Query-/Verifier-/Identity-/Admission-/Session-/Redirect-Logik, kein Logging, keine Telemetrie
-    - kein Cookie-Bestandsorakel: zwei Aufrufe erzeugen einen byteweise identischen Set-Cookie-Header, ein Aufruf verrät nichts über den Bestand einer Login-Transaktion
-    - keine Callback-Reihenfolge in diesem Slice; ob und wann aufgerufen wird, entscheidet erst ein späterer Callback-Slice
-    - Verwendung laut LQ-158 §7 erst nach erfolgreichem State-/Cookie-Match und danach auf jedem Endpfad; fehlendes Cookie und Mismatch führen gerade nicht zum Aufruf, sonst wäre es ein Login-Denial-of-Service gegen eine neuere Transaktion
-    - set_oidc_state_cookie semantisch unverändert, liquent_session und app.py unberührt, kein globaler Error-Handler
-    - 29 fokussierte Tests, Cookie-Attribute semantisch über SimpleCookie statt über Headerreihenfolge; erstmals ein direkter Helfertest, bisher war der Setter nur indirekt über die LQ-154-Routentests abgedeckt
-    - Setter- und Löscher-Slot nachweislich identisch; Gegenproben zu Path, Domain, HttpOnly und no-store schlagen fehl, das Entfernen des expliziten path="/" ist wegen des delete_cookie-Defaults kein wirksamer Mutant
+    - clear_oidc_state_cookie(response) -> None löscht exakt denselben Slot wie set_oidc_state_cookie: Name aus OIDC_STATE_COOKIE_NAME, Path=/, kein Domain, Secure, HttpOnly, SameSite=Lax, zusätzlich Cache-Control: no-store
+    - die Attribute müssen übereinstimmen, weil ein Browser die Löschung über Name, Path und Domain zuordnet; eine abweichende Löschung ließe das Cookie als wiederverwendbaren Bindungsnachweis bestehen
+    - reine Response-Mutation ohne Uhr, Lebensdauer, State-Wert oder Lesen des Request-Cookies; kein Bestandsorakel
+    - Aufrufreihenfolge gehört zum späteren Callback-Slice; laut LQ-158 §7 erst nach erfolgreichem State-/Cookie-Match, während fehlendes Cookie und Mismatch den Helfer gerade nicht aufrufen
+    - set_oidc_state_cookie semantisch unverändert, liquent_session und app.py unberührt
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

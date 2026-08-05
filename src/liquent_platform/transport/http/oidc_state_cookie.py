@@ -64,22 +64,11 @@ def set_oidc_state_cookie(
 
 
 def clear_oidc_state_cookie(response: Response) -> None:
-    """Expire the binding cookie with the same transport attributes.
+    """Expire the binding cookie on the same slot and attributes as the setter.
 
-    Deletion must address the exact same single slot the setter wrote — same
-    name, ``Path=/``, and no ``Domain`` — because a browser matches a deletion
-    by those attributes. A deletion that differed in any of them would leave the
-    original cookie in place and silently keep a reusable binding proof.
-
-    This is a pure response mutation. It reads no request cookie, decides
-    nothing about whether a cookie was present, and therefore is no
-    existence oracle: calling it looks identical whether or not the browser
-    sent one. Whether and when it is called belongs to a later callback slice.
-    Per LQ-158 it is used only **after** a successful state/cookie match; a
-    missing cookie and a mismatch deliberately do **not** reach it, because
-    writing this slot could otherwise clear a newer, still valid binding.
-
-    The existing ``liquent_session`` cookie is untouched.
+    A browser matches a deletion by name, path, and domain, so any drift there
+    would leave the original cookie in place. This is a pure response mutation;
+    when it is called is decided by the later callback slice (LQ-158 §7).
     """
 
     response.delete_cookie(
