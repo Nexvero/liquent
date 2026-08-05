@@ -1,5 +1,13 @@
 # LQ-146 — Trusted OIDC Client Configuration
 
+> **Nachtrag (LQ-156):** Das Modell trägt inzwischen **neun** Felder. LQ-156 hat
+> `token_endpoint`, `jwks_uri`, `allowed_signing_algorithms` und `clock_skew`
+> **additiv** ergänzt, um die Konfigurationsvorbedingung aus LQ-155 §5 zu
+> erfüllen. Die hier beschriebenen fünf Felder, ihre Reihenfolge, ihre
+> URL- und Scope-Invarianten sowie die Trust-Semantik bleiben **unverändert
+> gültig**; Aussagen der Form „exakt fünf Felder" sind ab LQ-156 historisch zu
+> lesen. Siehe `docs/lq-156-oidc-verification-configuration.md`.
+
 ## Ergebnis
 
 Ein kleines, unveränderliches Wertobjekt für eine **bereits vertrauenswürdig
@@ -23,7 +31,8 @@ class TrustedOidcClientConfiguration:
     scopes: tuple[str, ...]
 ```
 
-Exakt fünf Felder, keine optionalen. Unveränderlich und hashbar. Kein Export
+Exakt fünf Felder, keine optionalen (Stand LQ-146; seit LQ-156 folgen vier
+weitere Pflichtfelder). Unveränderlich und hashbar. Kein Export
 über `identity/__init__.py` — diese Datei enthält projektweit nur einen
 Docstring und exportiert nichts.
 

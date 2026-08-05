@@ -1,5 +1,6 @@
 import inspect
 from dataclasses import FrozenInstanceError, fields
+from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 
@@ -42,6 +43,10 @@ def _configuration(**overrides: Any) -> TrustedOidcClientConfiguration:
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "scopes": ("openid",),
+        "token_endpoint": "https://idp.example.test/token",
+        "jwks_uri": "https://idp.example.test/jwks",
+        "allowed_signing_algorithms": ("RS256",),
+        "clock_skew": timedelta(seconds=30),
     }
     arguments.update(overrides)
     return TrustedOidcClientConfiguration(**arguments)
@@ -64,6 +69,10 @@ def _build(**overrides: Any) -> OidcAuthorizationRequest:
         "client_id",
         "redirect_uri",
         "scopes",
+        "token_endpoint",
+        "jwks_uri",
+        "allowed_signing_algorithms",
+        "clock_skew",
     }
     configuration = _configuration(
         **{k: v for k, v in overrides.items() if k in configuration_keys}

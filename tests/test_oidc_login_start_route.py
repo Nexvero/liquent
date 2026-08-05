@@ -56,6 +56,10 @@ def _configuration() -> TrustedOidcClientConfiguration:
         client_id=CLIENT_ID,
         redirect_uri=REDIRECT_URI,
         scopes=SCOPES,
+        token_endpoint="https://idp.example.test/token",
+        jwks_uri="https://idp.example.test/jwks",
+        allowed_signing_algorithms=("RS256",),
+        clock_skew=timedelta(seconds=30),
     )
 
 

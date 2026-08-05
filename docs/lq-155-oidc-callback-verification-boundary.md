@@ -156,6 +156,12 @@ und niemals in einen ungeprüften Tokeninhalt. Sie werden **nicht** aus dem
 eigener Discovery-Vertrag existiert; eine ungesicherte Discovery wäre ein
 zweiter, schwächerer Trust-Pfad neben der aktiven Konfiguration.
 
+> **Umsetzungsnotiz:** Diese Vorbedingung ist durch **LQ-156** erfüllt.
+> `TrustedOidcClientConfiguration` trägt seitdem `token_endpoint`, `jwks_uri`,
+> `allowed_signing_algorithms` und `clock_skew` als Pflichtfelder ohne Defaults.
+> Siehe `docs/lq-156-oidc-verification-configuration.md`. Alle übrigen
+> LQ-155-Entscheidungen bleiben unverändert.
+
 Daraus folgt eine **harte Reihenfolge**: Die Konfigurationsgrenze muss um diese
 Werte erweitert werden, **bevor** ein Verifikationsport formuliert werden kann.
 LQ-155 **entscheidet** diese Notwendigkeit hier abschließend und schiebt sie
