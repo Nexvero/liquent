@@ -12,6 +12,9 @@ from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
 )
+from liquent_platform.identity.oidc_verification import (
+    OidcAuthorizationCodeVerification,
+)
 from liquent_platform.identity.research import WorkspaceId
 from liquent_platform.identity.session import (
     BrowserSessionRecord,
@@ -160,6 +163,64 @@ class ActiveOidcClientConfigurationLookup(Protocol):
     def get_active_configuration(
         self,
     ) -> TrustedOidcClientConfiguration | None: ...
+
+
+class OidcAuthorizationCodeVerifier(Protocol):
+    """Redeem one authorization code and return only a verified identity.
+
+    This is level three of the LQ-155 callback: it is reached **only after** the
+    browser binding matched and the login transaction was claimed atomically
+    exactly once. The single argument carries the authorization code and the
+    four verification-relevant values of that already claimed transaction.
+
+    **Success.** An ExternalIdentity is returned only when an implementation has
+    completed all of the following: read the active configuration exactly once;
+    found one present; matched its issuer byte for byte against the stored
+    expected_issuer; redeemed the code exactly once at the configured token
+    endpoint using the stored code_verifier and the stored redirect_uri
+    unchanged; verified the ID token's signature under an explicitly allowed
+    algorithm; taken the key solely from the configured trusted JWKS set;
+    verified iss, aud, azp where several audiences are present, exp, nbf, iat,
+    and nonce in full; and found a non-empty sub. The result is exactly
+    ExternalIdentity(issuer, subject) and carries no token, claim, or other
+    value. A successful token endpoint response is never a reason to skip one of
+    these checks.
+
+    **Business rejection.** ``None`` is the only business rejection and
+    distinguishes nothing: no active configuration, an expected issuer that is
+    no longer active, a refused or invalid code, a missing or invalid token, a
+    signature, algorithm, key, or claim failure, an issuer, audience, azp, time,
+    or nonce failure, and a missing or empty subject all look identical. It
+    carries no cause and no existence information, so a caller cannot learn
+    whether a configuration, identity, or subject exists.
+
+    **Technical unavailability.** OidcVerificationUnavailable is raised instead
+    when the verification could not be carried out at all — an unreadable
+    configuration store, a network failure, an unreachable token endpoint or
+    JWKS source, key verification that cannot be performed safely, or an
+    internal adapter or library fault. An implementation must translate its
+    internal failures into that neutral error rather than let one propagate that
+    could carry a code, token, nonce, verifier, issuer, provider text, or
+    configuration detail.
+
+    **Consumption.** This port claims no login transaction, sees no state, and
+    performs no store rollback; it cannot tell whether a transaction ever
+    existed. It is called only after the atomic claim, so the transaction is
+    already consumed in every outcome and stays consumed. Neither ``None`` nor
+    OidcVerificationUnavailable is retryable for the same transaction — a new
+    attempt needs a new login start, because a retry would be a replay path.
+
+    The port selects no provider, accepts no issuer, tenant, client, host,
+    header, cookie, or request value, reads no clock from its caller, resolves
+    no identity to a UserId, consumes no admission, and creates no session. A
+    returned identity means only that this external identity was fully verified
+    for exactly this login transaction.
+    """
+
+    def verify_authorization_code(
+        self,
+        verification: OidcAuthorizationCodeVerification,
+    ) -> ExternalIdentity | None: ...
 
 
 class BrowserSessionLifecycle(Protocol):

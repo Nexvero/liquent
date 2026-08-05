@@ -498,7 +498,11 @@ Zwingende Reihenfolge:
    erlaubte Algorithmen und zulässige Clock-Skew (§5). **Ohne** diesen Slice ist
    ein Verifikationsport nicht formulierbar.
 2. **Verifikationsport definieren** — Eingabe nach §3, Ergebnis nach §9,
-   Fehlerform nach §12.
+   Fehlerform nach §12. *(Umgesetzt durch LQ-157:
+   `OidcAuthorizationCodeVerification`, `OidcAuthorizationCodeVerifier` und
+   `OidcVerificationUnavailable`; siehe
+   `docs/lq-157-oidc-authorization-code-verifier-port.md`. Alle übrigen
+   LQ-155-Entscheidungen bleiben unverändert.)*
 3. **Callback-Transportvertrag** — Query-Form, Provider-Fehlerpfad (§11) und
    HTTP-Antworten für die Browserbindung aus LQ-152 §9.
 4. **Callback-Route** — Ebene 1 und Ebene 2 nach LQ-152 §9 und LQ-139, danach
