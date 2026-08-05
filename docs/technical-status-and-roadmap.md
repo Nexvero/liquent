@@ -1118,7 +1118,11 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Duplikate müssen über die echte Query-Multimap erkannt werden; QueryParams[...], .get(...) und dict(parse_qsl(...)) liefern nachgemessen den letzten Wert und verbergen das Duplikat, ein skalarer FastAPI-Query-Parameter ebenso
     - leere Werte müssen sichtbar sein, nicht erschlossen: parse_qsl entfernt ohne keep_blank_values einen leeren Parameter ganz und ließe leeren error als fehlenden error erscheinen
     - zweiphasiges Querylesen: erst nur genau einen nicht leeren state bestimmen, dann Cookie prüfen, dann claimen, dann löschen, erst danach die Form abschließend bewerten
-    - bewusster Trade-off dokumentiert: nach erfolgreichem Match verbraucht auch eine malformed Antwort den Login; die Alternative erlaubte beliebiges Sondieren an einer gültigen Transaktion, und der Pfad verlangt state-Kenntnis und dasselbe Browser-Cookie
+    - bewusster Trade-off dokumentiert: nach erfolgreichem Match verbraucht auch eine malformed Antwort den Login; die Alternative erlaubte beliebiges Sondieren an einer weiterhin gültigen Transaktion
+    - das HttpOnly-Cookie bleibt für einen Angreifer nicht lesbar, muss aber weder gelesen noch verändert noch kontrolliert werden; es genügt state-Kenntnis plus Auslösen des Requests in genau dem Browserkontext, der das Cookie hält und mitsendet
+    - nach Offenlegung des state oder durch einen bösartigen bzw. kompromittierten IdP kann ein gezielt malformed Callback denselben Login fail-closed verbrauchen
+    - die Browserbindung verhindert nicht jeden Verfügbarkeitsangriff: sie schützt Einmaligkeit, verhindert erneute Verarbeitung und vermeidet Store-Rollback, garantiert aber keine vollständige DoS-Immunität
+    - der Schaden bleibt auf die betroffene einzelne Login-Transaktion begrenzt, ohne Zugriff, Session oder Identitätsbindung; ein neuer Login-Start ist jederzeit möglich
     - fehlendes Cookie und Mismatch brechen neutral ab, claimen nicht und löschen nichts; das schützt den neueren Login bei last-start-wins vor einem Login-Denial-of-Service
     - nach erfolgreichem Match wird auf acht benannten Endpfaden gelöscht, einschließlich späterer Identitäts-, Admission- und Sessionfehler; kein zweiter Claim, kein Rollback, kein erneutes Setzen
     - Cookie-Löschvertrag clear_oidc_state_cookie(response) auf denselben Slot mit Secure, HttpOnly, SameSite=Lax, Path=/, ohne Domain und mit no-store; Name folgt clear_session_cookie, Ort neben set_oidc_state_cookie; liquent_session unverändert

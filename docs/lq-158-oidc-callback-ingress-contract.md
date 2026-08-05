@@ -194,11 +194,31 @@ beliebig oft an derselben, weiterhin gültigen Transaktion vorbeisondieren, und
 jede Wiederverwendbarkeit nach einer teilweise verarbeiteten Antwort wäre ein
 Replay-Pfad.
 
-Die Kosten sind gedeckelt, weil dieser Pfad **nicht** von einem fremden Request
-erreichbar ist: Er verlangt **gleichzeitig** die Kenntnis des `state` **und** die
-Kontrolle über dasselbe Browser-Cookie. Wer beides hat, kann den Login ohnehin
-beenden. Ein Nutzer, dessen Login so verbraucht wurde, startet einen **neuen**
-Login-Start — der reguläre, jederzeit verfügbare Weg.
+### Was die Browserbindung dabei leistet — und was nicht
+
+Das Binding-Cookie ist `HttpOnly` und bleibt für einen Angreifer **nicht
+lesbar**. Er muss es aber auch **weder lesen noch verändern noch
+kontrollieren**. Für diesen Pfad genügt, dass er
+
+1. den passenden `state` **kennt** und
+2. einen Callback-Request in **genau dem Browserkontext auslöst**, der das
+   passende Cookie aktuell hält und automatisch mitsendet.
+
+Nach einer Offenlegung des `state` — oder durch einen **bösartigen oder
+kompromittierten Identity Provider**, der die Rückleitung ohnehin steuert — kann
+ein gezielt malformed Callback deshalb denselben Login fail-closed verbrauchen.
+
+**Die Browserbindung verhindert also nicht jeden Verfügbarkeitsangriff.** Sie
+schützt die **Einmaligkeit** einer Transaktion, verhindert deren **erneute
+Verarbeitung** und vermeidet einen **Store-Rollback**; sie garantiert **keine
+vollständige DoS-Immunität**.
+
+Der Schaden bleibt auf die **betroffene einzelne Login-Transaktion** begrenzt:
+Es entsteht kein Zugriff, keine Session und keine Identitätsbindung, und andere
+Logins bleiben unberührt. Ein Nutzer, dessen Login so verbraucht wurde, startet
+einen **neuen Login-Start** — der reguläre, jederzeit verfügbare Weg. Das ist
+ein begrenzter Login-Denial-of-Service gegen genau diese eine Transaktion und
+bewusst der Preis für die Einmaligkeitsgarantie.
 
 ## 7. Browserbindung und Cookie-Löschung
 
