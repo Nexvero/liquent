@@ -106,8 +106,16 @@ diesem Slice gibt es **kein Client-Secret-Modell**; entsprechend trägt
 - **Providerfehlertexte** (`error`, `error_description`, `error_uri`) werden
   **nicht** nach außen und **nicht** in sicherheitskritische innere Modelle
   übernommen.
-- Eine fehlende oder malformed Tokenantwort wird nach der Klassengrenze in
-  Abschnitt 6 eingeordnet.
+- Eine Antwort **ohne** `id_token` — ebenso ein leeres oder nicht
+  stringförmiges `id_token` — liefert den für die angeforderte OpenID-Prüfung
+  **zwingenden Beweis nicht** und ergibt **`OidcVerificationUnavailable`**,
+  auch wenn die Antwort im Übrigen erfolgreich und lesbar ist. Ohne `id_token`
+  kann **keine** Signatur-, Issuer-, Audience-, Nonce-, Ablauf- oder
+  Subject-Prüfung stattfinden; es gibt also **kein** belastbares negatives
+  Identitätsurteil (Abschnitt 6).
+- Eine syntaktisch nicht parsebare, übergroße oder strukturell nicht als
+  Tokenantwort verwertbare Antwort ergibt ebenfalls
+  **`OidcVerificationUnavailable`**.
 
 ## 6. Klassengrenze: `None` oder `OidcVerificationUnavailable`
 
@@ -123,21 +131,34 @@ Daraus folgen unter anderem:
 | Situation | Ergebnis |
 |---|---|
 | Token-Endpunkt lehnt den Code ab (gültige Fehlerantwort) | `None` |
-| `id_token` fehlt in einer ansonsten gültigen Antwort | `None` |
-| Signatur ungültig | `None` |
+| `id_token` vorhanden, aber Signatur ungültig | `None` |
 | Algorithmus nicht in `allowed_signing_algorithms` | `None` |
 | kein eindeutig passender Schlüssel, Prüfung war durchführbar | `None` |
 | `iss`, `aud`, `azp`, `exp`, `nbf`, `iat` oder `nonce` fehlerhaft | `None` |
 | `sub` fehlt oder leer | `None` |
+| **`id_token` fehlt, leer oder nicht stringförmig** | **`Unavailable`** |
 | Token-Endpunkt nicht erreichbar, TLS- oder Timeoutfehler | `Unavailable` |
 | Antwort nicht parsebar oder überschreitet die Größengrenze | `Unavailable` |
+| Antwort strukturell nicht als Tokenantwort verwertbar | `Unavailable` |
 | JWKS-Quelle nicht erreichbar oder nicht parsebar | `Unavailable` |
 | Konfigurationsquelle technisch nicht lesbar | `Unavailable` |
 | Krypto-Backend oder Bibliothek intern gescheitert | `Unavailable` |
 
+**Warum ein fehlendes `id_token` kein `None` ist:** `None` bedeutet „der
+**vorhandene** Identitätsbeweis wurde belastbar geprüft und abgelehnt". Ein
+**fehlender** Beweis wurde **nicht geprüft** und darf nicht so behandelt werden,
+als läge ein negatives Prüfurteil vor. Die Trennlinie verläuft also **nicht**
+zwischen „Antwort erfolgreich" und „Antwort fehlerhaft", sondern zwischen „ein
+Beweis lag vor und wurde beurteilt" und „es gab nichts zu beurteilen".
+
+Eine **gültige OAuth-/OIDC-Fehlerantwort**, die den einmaligen Code ablehnt,
+bleibt dagegen `None`: Der Provider hat den vorgelegten Nachweis belastbar
+beurteilt und verworfen.
+
 **Keine Detailunterklassen nach außen.** Die Regel existiert, damit ein späterer
 Implementierer auch einen hier **nicht** aufgeführten Fall korrekt einordnen
-kann, statt die Tabelle zu erweitern.
+kann, statt die Tabelle zu erweitern. Beide Ergebnisse bleiben **detailfrei**;
+insbesondere gelangen **keine Providerdetails** nach außen.
 
 Beide Ausgänge lassen die bereits geclaimte Transaktion **verbraucht** und sind
 für dieselbe Transaktion **nicht retrybar** (LQ-157, LQ-158 §12).
