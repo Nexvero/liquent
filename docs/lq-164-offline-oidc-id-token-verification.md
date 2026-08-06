@@ -59,6 +59,17 @@ Sets und muss, falls vorhanden, ein nicht leerer String sein. Null oder
 mehrere Kandidaten werden **abgewiesen**, nicht aufgelöst. Kein Refresh und
 keine zweite Auswahlrunde.
 
+**Schlüsselfamilie und Kurve müssen zum Algorithmus passen** — RS/PS verlangen
+`kty` `RSA`, ES256/384/512 jeweils `EC` mit `P-256`/`P-384`/`P-521`, EdDSA
+`OKP` mit `Ed25519` oder `Ed448`; exakt und case-sensitiv verglichen. Ein
+gültiger, aber unpassender Schlüssel ergibt **`None`**: Der Token hat einen
+Algorithmus gewählt, für den das vertrauenswürdige Set keinen kompatiblen
+Schlüssel hält, und das ist ein belastbares negatives Urteil. Ohne diese
+Prüfung könnte ein erlaubter, aber zur vorhandenen Familie unpassender `alg`
+einen technischen Ausfallpfad erzeugen. Ist dagegen `kty` — oder bei EC und
+OKP `crv` — am ausgewählten JWK **nicht lesbar**, ist das vertrauenswürdige
+Schlüsselmaterial strukturell unbrauchbar und ergibt **`Unavailable`**.
+
 ## Verpflichtende Prüfungen und explizite Uhr
 
 **PyJWT** prüft Tokenformat, Signatur, den gewählten Algorithmus, den Issuer

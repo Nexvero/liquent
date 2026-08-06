@@ -39,6 +39,21 @@ _SUPPORTED_SIGNING_ALGORITHMS = frozenset(
 
 _TOKEN_CONTROLLED_KEY_SOURCES = ("jku", "x5u", "jwk")
 
+# Key family, and where applicable curve, each algorithm needs. A curve of None
+# means the family alone decides.
+_REQUIRED_KEY_MATERIAL = {
+    "RS256": ("RSA", None),
+    "RS384": ("RSA", None),
+    "RS512": ("RSA", None),
+    "PS256": ("RSA", None),
+    "PS384": ("RSA", None),
+    "PS512": ("RSA", None),
+    "ES256": ("EC", frozenset({"P-256"})),
+    "ES384": ("EC", frozenset({"P-384"})),
+    "ES512": ("EC", frozenset({"P-521"})),
+    "EdDSA": ("OKP", frozenset({"Ed25519", "Ed448"})),
+}
+
 
 def verify_oidc_id_token(
     id_token: str,
@@ -89,6 +104,11 @@ def verify_oidc_id_token(
 
     selected = _select_key(keys, header.get("kid"), algorithm)
     if selected is None:
+        return None
+    # A token asking for an algorithm no key in the trusted set can serve is a
+    # reliable rejection, so it must not reach the unavailable path: otherwise
+    # picking an allowed but unmatched alg would be a technical-failure oracle.
+    if not _key_material_matches(selected, algorithm):
         return None
     try:
         key = PyJWK.from_dict(dict(selected), algorithm=algorithm)
@@ -166,6 +186,27 @@ def _select_key(
         candidates.append(candidate)
     # Ambiguity is refused rather than resolved by picking one.
     return candidates[0] if len(candidates) == 1 else None
+
+
+def _key_material_matches(jwk: Mapping[str, Any], algorithm: str) -> bool:
+    """Whether the selected JWK is of the family the algorithm needs.
+
+    A well-formed key of the wrong family is a rejection; a key whose family or
+    curve cannot be read at all is unusable trusted material and raises.
+    """
+
+    family, curves = _REQUIRED_KEY_MATERIAL[algorithm]
+    key_type = jwk.get("kty")
+    if not isinstance(key_type, str) or not key_type:
+        raise OidcVerificationUnavailable
+    if key_type != family:
+        return False
+    if curves is None:
+        return True
+    curve = jwk.get("crv")
+    if not isinstance(curve, str) or not curve:
+        raise OidcVerificationUnavailable
+    return curve in curves
 
 
 def _numeric_date(claims: Mapping[str, Any], name: str) -> float | None:

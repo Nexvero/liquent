@@ -1212,6 +1212,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - naive Uhr ist ein Aufruferfehler und scheitert als ValueError vor jeder Tokenverarbeitung; keine Exception gibt Token, Claim, Schlüssel, Issuer, Subject oder Nonce wieder
     - modulinterne private Allowlist nur asymmetrisch; akzeptiert wird die Schnittmenge mit der Konfiguration, der Header kann sie nie erweitern und es gibt keinen Fallback
     - jku, x5u und jwk im Header führen zu None und werden nie befolgt; Schlüssel nur aus jwks["keys"], gefiltert auf use, key_ops und alg, kid wählt nur innerhalb des Sets
+    - Schlüsselfamilie und Kurve müssen zum Algorithmus passen; ein gültiger, aber unpassender Schlüssel ergibt None, damit ein erlaubter unpassender alg keinen technischen Ausfallpfad erzeugt, unlesbares kty/crv ergibt Unavailable
     - Mehrdeutigkeit bei der Schlüsselwahl wird abgewiesen statt aufgelöst; kein Refresh und keine zweite Auswahlrunde
     - PyJWT prüft Format, Signatur, Algorithmus, Issuer und Audience und wird darin nie deaktiviert; keine eigene Kryptografie
     - Zeitclaims ausschließlich mit dem übergebenen now und clock_skew, PyJWTs Automatik ist abgeschaltet; exp und iat erforderlich, nbf optional, bool ist keine NumericDate

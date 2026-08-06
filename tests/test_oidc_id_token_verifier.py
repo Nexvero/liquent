@@ -5,8 +5,8 @@ from typing import Any
 
 import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
-from jwt.algorithms import RSAAlgorithm
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
+from jwt.algorithms import ECAlgorithm, OKPAlgorithm, RSAAlgorithm
 
 from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.oidc_client_configuration import (
@@ -29,6 +29,10 @@ SKEW_SECONDS = 30.0
 # Locally generated key material only: no network and no real provider.
 _PRIVATE = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_PRIVATE = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_EC_P256 = ec.generate_private_key(ec.SECP256R1())
+_EC_P384 = ec.generate_private_key(ec.SECP384R1())
+_ED25519 = ed25519.Ed25519PrivateKey.generate()
+_ED448 = ed448.Ed448PrivateKey.generate()
 
 
 def _public_jwk(private: Any = _PRIVATE, **overrides: Any) -> dict[str, Any]:
@@ -205,6 +209,89 @@ def test_without_a_kid_exactly_one_candidate_is_required() -> None:
 def test_a_malformed_trusted_jwk_is_technically_unavailable() -> None:
     with pytest.raises(OidcVerificationUnavailable):
         _verify(jwks=_jwks({"kty": "RSA", "kid": "key-1", "use": "sig", "alg": "RS256"}))
+
+
+# --- Key family and curve must match the algorithm -------------------------
+
+def _asymmetric_token(private: Any, algorithm: str) -> str:
+    return jwt.encode(
+        {"iss": ISSUER, "aud": CLIENT_ID, "sub": SUBJECT, "nonce": NONCE,
+         "exp": NOW.timestamp() + 300, "iat": NOW.timestamp() - 5},
+        private,
+        algorithm=algorithm,
+        headers={"kid": "key-1"},
+    )
+
+
+def _jwk_for(private: Any, algorithm: Any, **overrides: Any) -> dict[str, Any]:
+    """A trusted JWK for the given key, deliberately without its own ``alg``."""
+
+    jwk = json.loads(algorithm.to_jwk(private.public_key()))
+    jwk.pop("alg", None)
+    jwk.update(kid="key-1", use="sig")
+    jwk.update(overrides)
+    return jwk
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "signer", "jwk"),
+    [
+        # An allowed algorithm the trusted set cannot serve is a rejection,
+        # never a technical failure.
+        ("ES256", _EC_P256, _jwk_for(_PRIVATE, RSAAlgorithm)),
+        ("RS256", _PRIVATE, _jwk_for(_EC_P256, ECAlgorithm)),
+        ("ES256", _EC_P256, _jwk_for(_EC_P384, ECAlgorithm)),  # wrong curve
+        ("EdDSA", _ED25519, _jwk_for(_ED448, OKPAlgorithm)),  # unsuitable curve
+    ],
+)
+def test_a_key_of_the_wrong_family_or_curve_is_rejected(
+    algorithm: str, signer: Any, jwk: dict[str, Any]
+) -> None:
+    result = _verify(
+        id_token=_asymmetric_token(signer, algorithm),
+        jwks=_jwks(jwk),
+        configuration=_configuration(
+            allowed_signing_algorithms=("RS256", "ES256", "EdDSA")
+        ),
+    )
+
+    assert result is None
+
+
+@pytest.mark.parametrize(
+    "jwk",
+    [
+        _jwk_for(_PRIVATE, RSAAlgorithm, kty=None),
+        _jwk_for(_PRIVATE, RSAAlgorithm, kty=7),
+        _jwk_for(_EC_P256, ECAlgorithm, crv=None),
+        _jwk_for(_EC_P256, ECAlgorithm, crv=7),
+    ],
+)
+def test_an_unreadable_key_family_or_curve_is_technically_unavailable(
+    jwk: dict[str, Any],
+) -> None:
+    algorithm = "RS256" if jwk.get("kty") in (None, 7) else "ES256"
+
+    with pytest.raises(OidcVerificationUnavailable):
+        _verify(
+            id_token=_asymmetric_token(
+                _PRIVATE if algorithm == "RS256" else _EC_P256, algorithm
+            ),
+            jwks=_jwks(jwk),
+            configuration=_configuration(
+                allowed_signing_algorithms=("RS256", "ES256")
+            ),
+        )
+
+
+def test_a_matching_ec_key_still_verifies() -> None:
+    result = _verify(
+        id_token=_asymmetric_token(_EC_P256, "ES256"),
+        jwks=_jwks(_jwk_for(_EC_P256, ECAlgorithm)),
+        configuration=_configuration(allowed_signing_algorithms=("ES256",)),
+    )
+
+    assert result == ExternalIdentity(issuer=ISSUER, subject=SUBJECT)
 
 
 # --- Signature -------------------------------------------------------------
