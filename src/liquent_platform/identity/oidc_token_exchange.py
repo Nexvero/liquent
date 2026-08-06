@@ -3,8 +3,9 @@
 import json
 import math
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx2
 
@@ -18,8 +19,9 @@ from liquent_platform.identity.oidc_verification import (
 from liquent_platform.identity.oidc_verification_policy import OidcVerificationPolicy
 
 
-_ACCEPTED_MEDIA_TYPE = "application/json"
-_ACCEPTED_CONTENT_ENCODING = "identity"
+_MEDIA_TYPE = "application/json"
+_CONTENT_ENCODING = "identity"
+_CHARSET = "utf-8"
 _OAUTH_ERROR_STATUSES = frozenset({400, 401})
 _READ_CHUNK_BYTES = 8192
 
@@ -30,7 +32,6 @@ class OidcIdToken:
 
     Holding one means only that the endpoint returned a string called
     ``id_token``; it is not evidence that the token is valid or trustworthy.
-    The value is hidden from ``repr`` and kept verbatim.
     """
 
     value: str = field(repr=False)
@@ -40,14 +41,23 @@ class OidcIdToken:
             raise ValueError("id token must be a non-empty string")
 
 
+def _no_duplicate_members(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
+    # A repeated id_token or error would otherwise be decided by the parser's
+    # last-value-wins convention instead of by this contract.
+    seen: dict[str, Any] = {}
+    for name, value in pairs:
+        if name in seen:
+            raise OidcVerificationUnavailable
+        seen[name] = value
+    return seen
+
+
 class OidcTokenEndpointClient:
     """Redeem one authorization code at the exactly configured token endpoint.
 
     Performs no discovery, no JWKS retrieval, no caching, and no ID token
-    verification, and it does not implement the LQ-157 verifier port.
-
-    ``monotonic`` exists only to bound the total time measurably and to keep
-    that bound testable; it is never a calendar clock.
+    verification, and does not implement the LQ-157 verifier port. ``monotonic``
+    only bounds the total time measurably; it is never a calendar clock.
     """
 
     def __init__(
@@ -67,15 +77,14 @@ class OidcTokenEndpointClient:
     ) -> OidcIdToken | None:
         """Exchange the code exactly once and return the raw ID token.
 
-        Exactly one POST is issued. Redirects are never followed, nothing is
-        retried, and the code is never presented twice: a timeout, network
-        fault, 5xx, malformed response, or code rejection all end the call.
+        Exactly one POST is issued, redirects are never followed, and nothing is
+        retried: a timeout, network fault, 5xx, malformed response, or code
+        rejection all end the call, so the code is never presented twice.
 
-        Returns the raw ID token on a successful exchange, ``None`` on a valid
-        OAuth error response rejecting the code, and raises
-        OidcVerificationUnavailable when no verdict could be reached. No
-        provider text, token, or response body reaches a return value, an
-        exception, or a log.
+        Returns the raw ID token on success, ``None`` on a valid OAuth error
+        response rejecting the code, and raises OidcVerificationUnavailable when
+        no verdict could be reached. No provider text, token, or response body
+        reaches a return value, an exception, or a log.
         """
 
         deadline = self._policy.total_timeout.total_seconds()
@@ -92,53 +101,44 @@ class OidcTokenEndpointClient:
                     "client_id": configuration.client_id,
                     "code_verifier": verification.code_verifier,
                 },
-                headers={
-                    "Accept": _ACCEPTED_MEDIA_TYPE,
-                    # No transparent compression, so the byte cap below counts
-                    # what the peer actually sent.
-                    "Accept-Encoding": _ACCEPTED_CONTENT_ENCODING,
-                },
+                # No transparent compression, so the byte cap counts what the
+                # peer actually sent.
+                headers={"Accept": _MEDIA_TYPE, "Accept-Encoding": _CONTENT_ENCODING},
                 follow_redirects=False,
-                timeout=self._timeout(),
+                timeout=httpx2.Timeout(
+                    connect=self._policy.connect_timeout.total_seconds(),
+                    read=self._policy.read_timeout.total_seconds(),
+                    write=deadline,
+                    pool=deadline,
+                ),
             ) as response:
                 self._require_within_deadline(started, deadline)
                 status = response.status_code
-                if status not in _OAUTH_ERROR_STATUSES and status != 200:
-                    # Redirects, 5xx, and anything else are technical faults;
-                    # a redirect in particular is never followed.
+                if status != 200 and status not in _OAUTH_ERROR_STATUSES:
+                    # Redirects, 5xx, and anything else are technical faults; a
+                    # redirect in particular is never followed.
                     raise OidcVerificationUnavailable
-                self._require_acceptable_encoding(response)
-                self._require_declared_length_within_limit(response)
+                self._require_acceptable_headers(response)
                 body = self._read_bounded_body(response, started, deadline)
         except OidcVerificationUnavailable:
             raise
-        except httpx2.HTTPError:
-            # Network, TLS, connect, read, write, pool, and timeout faults.
-            raise OidcVerificationUnavailable from None
         except Exception:
+            # Network, TLS, connect, read, write, pool, timeout, and any
+            # unexpected client fault: never a business rejection.
             raise OidcVerificationUnavailable from None
 
         self._require_within_deadline(started, deadline)
-        payload = self._decode_json_object(body)
-        return self._result(status, payload)
-
-    # -- request shaping ----------------------------------------------------
-
-    def _timeout(self) -> httpx2.Timeout:
-        overall = self._policy.total_timeout.total_seconds()
-        return httpx2.Timeout(
-            connect=self._policy.connect_timeout.total_seconds(),
-            read=self._policy.read_timeout.total_seconds(),
-            # Write and pool are bounded by the overall limit; no value ever
-            # comes from a provider response.
-            write=overall,
-            pool=overall,
-        )
-
-    # -- time ---------------------------------------------------------------
+        return self._result(status, body)
 
     def _read_clock(self) -> float:
-        moment = self._monotonic()
+        try:
+            moment = self._monotonic()
+        except OidcVerificationUnavailable:
+            raise
+        except Exception:
+            # An injected clock is a technical dependency and its error text
+            # must not escape. BaseException is deliberately not caught.
+            raise OidcVerificationUnavailable from None
         # bool is an int subclass and is never a reading.
         if isinstance(moment, bool) or not isinstance(moment, (int, float)):
             raise OidcVerificationUnavailable
@@ -147,41 +147,48 @@ class OidcTokenEndpointClient:
         return float(moment)
 
     def _require_within_deadline(self, started: float, deadline: float) -> None:
-        """Fail closed between I/O steps.
+        """Bound the total time fail-closed between the I/O steps.
 
-        This bounds the total time at each step boundary. With a synchronous
-        client it is deliberately not a claim that a thread already blocked
-        inside an I/O call is interrupted; the per-phase client timeouts cover
-        that part.
+        With a synchronous client this is deliberately not a claim that a thread
+        already blocked inside an I/O call is interrupted; the per-phase client
+        timeouts cover that part. A clock running backwards is unusable, not
+        fast.
         """
 
-        if self._read_clock() - started >= deadline:
+        elapsed = self._read_clock() - started
+        if elapsed < 0 or elapsed >= deadline:
             raise OidcVerificationUnavailable
 
-    # -- response bounds ----------------------------------------------------
-
-    def _require_acceptable_encoding(self, response: httpx2.Response) -> None:
+    def _require_acceptable_headers(self, response: httpx2.Response) -> None:
         encoding = response.headers.get("content-encoding")
-        if encoding is not None and encoding.strip().lower() != _ACCEPTED_CONTENT_ENCODING:
+        if encoding is not None and encoding.strip().lower() != _CONTENT_ENCODING:
             # Any other coding would let a small transfer expand past the cap.
             raise OidcVerificationUnavailable
 
         content_type = response.headers.get("content-type")
         if content_type is None:
             raise OidcVerificationUnavailable
-        media_type = content_type.split(";", 1)[0].strip().lower()
-        if media_type != _ACCEPTED_MEDIA_TYPE:
+        media_type, _, parameters = content_type.partition(";")
+        if media_type.strip().lower() != _MEDIA_TYPE:
             raise OidcVerificationUnavailable
+        for parameter in parameters.split(";"):
+            name, assigned, value = parameter.partition("=")
+            if name.strip().lower() != "charset":
+                continue
+            # Only UTF-8 is accepted; the body decoder has no fallback, so an
+            # unusable charset parameter is refused rather than ignored.
+            if not assigned or value.strip().strip('"').lower() != _CHARSET:
+                raise OidcVerificationUnavailable
 
-    def _require_declared_length_within_limit(self, response: httpx2.Response) -> None:
         declared = response.headers.get("content-length")
         if declared is None:
             return
-        try:
-            length = int(declared.strip())
-        except ValueError:
-            raise OidcVerificationUnavailable from None
-        if length < 0 or length > self._policy.token_response_max_bytes:
+        digits = declared.strip(" \t")
+        # ASCII digits only: "+10", "-1", "1.0", "10, 10", non-ASCII digits, and
+        # an empty value are unusable rather than tolerated.
+        if not digits or not all("0" <= character <= "9" for character in digits):
+            raise OidcVerificationUnavailable
+        if int(digits) > self._policy.token_response_max_bytes:
             raise OidcVerificationUnavailable
 
     def _read_bounded_body(
@@ -198,35 +205,34 @@ class OidcTokenEndpointClient:
             self._require_within_deadline(started, deadline)
         return b"".join(chunks)
 
-    # -- body ---------------------------------------------------------------
-
-    def _decode_json_object(self, body: bytes) -> dict[str, object]:
+    def _result(self, status: int, body: bytes) -> OidcIdToken | None:
         try:
-            payload = json.loads(body.decode("utf-8"))
+            payload = json.loads(
+                body.decode("utf-8"), object_pairs_hook=_no_duplicate_members
+            )
+        except OidcVerificationUnavailable:
+            raise
         except (UnicodeDecodeError, ValueError):
             raise OidcVerificationUnavailable from None
         if not isinstance(payload, dict):
             raise OidcVerificationUnavailable
-        return payload
 
-    def _result(self, status: int, payload: dict[str, object]) -> OidcIdToken | None:
-        id_token = payload.get("id_token")
-        error = payload.get("error")
-
+        # Classified on key presence: a null, empty, or otherwise falsy value
+        # still makes the answer mixed and therefore structurally unusable.
         if status == 200:
-            if error is not None:
-                # A mixed answer is never treated as a success.
+            if "error" in payload:
                 raise OidcVerificationUnavailable
+            id_token = payload.get("id_token")
             if not isinstance(id_token, str) or not id_token:
                 raise OidcVerificationUnavailable
-            # Access token, refresh token, token type, and scope are ignored
-            # and never stored.
+            # Access and refresh token, token type, and scope are ignored.
             return OidcIdToken(id_token)
 
-        # A valid OAuth rejection of the single-use code.
-        if id_token is not None:
+        # A valid OAuth rejection of the single-use code; error_description and
+        # error_uri deliberately never leave this method.
+        if "id_token" in payload:
             raise OidcVerificationUnavailable
+        error = payload.get("error")
         if not isinstance(error, str) or not error:
             raise OidcVerificationUnavailable
-        # error_description and error_uri deliberately never leave this method.
         return None

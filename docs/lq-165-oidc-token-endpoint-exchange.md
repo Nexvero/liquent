@@ -10,14 +10,8 @@ ausschließlich ein **vorläufiges, noch unverifiziertes** ID-Token zurückgibt.
 Cache, **keine** Discovery, **keine** Retry-Schleife und **keine**
 LQ-157-Portimplementierung.
 
-`src/liquent_platform/identity/oidc_token_exchange.py`
-
 ```python
-@dataclass(frozen=True, slots=True)
-class OidcIdToken:
-    value: str = field(repr=False)
-
-
+# src/liquent_platform/identity/oidc_token_exchange.py
 class OidcTokenEndpointClient:
     def __init__(self, client, policy, monotonic=time.monotonic) -> None: ...
     def exchange_authorization_code(
@@ -25,73 +19,82 @@ class OidcTokenEndpointClient:
     ) -> OidcIdToken | None: ...
 ```
 
-`OidcIdToken` bedeutet **nur**: Der Endpunkt hat einen String namens `id_token`
-geliefert — **nicht**, dass dieser gültig oder vertrauenswürdig ist. Der Wert
-ist `repr`-frei und wird verbatim gehalten.
+`OidcIdToken` ist ein `repr`-freier, frozen Wert und bedeutet **nur**: Der
+Endpunkt hat einen String namens `id_token` geliefert — **nicht**, dass dieser
+gültig oder vertrauenswürdig ist.
 
 ## Genau ein Request
 
 Methode `POST`, URL **exakt** `configuration.token_endpoint`, keine Discovery,
-keine URL-Zusammensetzung, **keine Redirects**.
-
-Formdaten exakt fünf Felder:
-
-| Feld | Quelle |
-|---|---|
-| `grant_type=authorization_code` | fest |
-| `code` | `verification.authorization_code` |
-| `redirect_uri` | `verification.redirect_uri` |
-| `client_id` | `configuration.client_id` |
-| `code_verifier` | `verification.code_verifier` |
-
+keine URL-Zusammensetzung, **keine Redirects**. Formdaten exakt fünf Felder:
+`grant_type=authorization_code` fest, `code`, `redirect_uri` und
+`code_verifier` aus der Verification, `client_id` aus der Konfiguration. Header
+ausschließlich `Accept: application/json` und `Accept-Encoding: identity`.
 **Kein** Client Secret, State, Nonce, Issuer, Scope, Admission- oder
-Return-Path, **keine** Browserheader oder Cookies. Header ausschließlich
-`Accept: application/json` und `Accept-Encoding: identity`.
+Return-Path, **keine** Browserheader oder Cookies.
 
 **Kein Retry.** Genau ein Aufruf pro Methodenaufruf; nach Timeout,
 Netzwerkfehler, 5xx, malformed Antwort oder Codeablehnung folgt **kein**
 zweiter Request. Der Code wird nie erneut vorgelegt.
 
-## Zeit- und Größengrenze
+## Zeitgrenze
 
-**Phasen-Timeouts** stellt der Client: `connect` aus `connect_timeout`, `read`
-aus `read_timeout`, `write` und `pool` durch `total_timeout` begrenzt. Kein
-Timeoutwert stammt je aus einer Providerantwort.
+**Phasen-Timeouts** stellt der Client: `connect` und `read` aus der Policy,
+`write` und `pool` durch `total_timeout` begrenzt. Kein Timeoutwert stammt je
+aus einer Providerantwort.
 
-**Die monotone Gesamtgrenze wird zwischen den I/O-Schritten fail-closed
-geprüft** — vor dem Request, nach den Headern, nach jedem Chunk und vor der
-Rückgabe. Erreicht oder überschreitet die verstrichene Zeit `total_timeout`,
-folgt `OidcVerificationUnavailable`.
+Die **monotone Gesamtgrenze** wird zwischen den I/O-Schritten fail-closed
+geprüft — vor dem Request, nach den Headern, nach jedem Chunk und vor der
+Rückgabe. Das ist ausdrücklich **keine harte präemptive Deadline**: Bei einem
+synchronen Client wird ein Thread, der bereits in blockierendem I/O steht,
+nicht abgebrochen; garantiert sind die Phasen-Timeouts plus die Schrittgrenze
+dazwischen.
 
-**Das ist ausdrücklich keine harte präemptive Deadline.** Bei einem synchronen
-Client wird ein Thread, der bereits in einem blockierenden I/O-Aufruf steht,
-nicht abgebrochen; garantiert sind die Phasen-Timeouts des Clients plus die
-Schrittgrenze dazwischen. `monotonic` dient nur dieser messbaren Grenze und der
-Testbarkeit — **keine Kalenderuhr**. Ein nicht endlicher oder falsch typisierter
-Messwert ergibt neutral `OidcVerificationUnavailable`.
+`monotonic` dient nur dieser messbaren Grenze und der Testbarkeit — **keine
+Kalenderuhr**. Eine Uhr ist technisch unbrauchbar und ergibt neutral
+`Unavailable`, wenn sie einen nicht endlichen oder falsch typisierten Wert
+liefert, **rückwärts unter den Startwert** läuft oder eine Exception wirft; der
+Fehlertext einer injizierten Uhr tritt dabei **nie** nach außen.
+`BaseException` wird bewusst **nicht** gefangen.
+
+## Antwortgrenzen
 
 **Streaming**: Die Antwort wird **inkrementell als Rohbytes** gelesen und
 kumulativ gegen `policy.token_response_max_bytes` gezählt; beim ersten Byte
-darüber folgt `Unavailable`. Ein gültiges `Content-Length` bereits über der
-Grenze wird **früh** abgewiesen, ein malformed `Content-Length` ebenfalls.
-`Content-Encoding` darf fehlen oder exakt `identity` sein — andere Kompression
-wird abgewiesen, damit keine Dekompression die Grenze umgeht. Der Stream wird
-auf **jedem** Pfad geschlossen.
+darüber folgt `Unavailable`. Der Stream wird auf **jedem** Pfad geschlossen.
+
+**`Content-Length`** wird streng gelesen: nach erlaubtem HTTP-Whitespace
+ausschließlich ASCII-Ziffern. `+10`, `-1`, `1.0`, `10, 10`, leer und
+Nicht-ASCII-Ziffern sind unbrauchbar, nicht tolerant zu interpretieren. Ein
+gültiger Wert bereits über der Grenze wird **vor** dem Body abgewiesen.
+
+**`Content-Type`** muss `application/json` sein (Media Type case-insensitiv).
+Ein `charset`-Parameter darf fehlen oder case-insensitiv `utf-8` sein; jeder
+andere oder syntaktisch unbrauchbare `charset`-Parameter wird abgewiesen, denn
+der Body wird **strikt** als UTF-8 dekodiert, ohne Fallback.
+**`Content-Encoding`** darf fehlen oder exakt `identity` sein, damit keine
+Dekompression die Bytegrenze umgeht.
+
+**JSON**: Ein **mehrfach vorkommender Membername** ergibt `Unavailable` — kein
+zweiter Parse, keine tolerante Auflösung, weil sonst die Parser-Konvention
+„letzter Wert gewinnt" statt dieses Vertrags entscheiden würde.
 
 ## Ergebnisgrenze
 
+Klassifiziert wird über die **Anwesenheit** der Schlüssel, nicht über ihren
+Wert: Ein bei 200 vorhandener `error` und ein bei 400/401 vorhandenes
+`id_token` machen die Antwort strukturell unbrauchbar, auch wenn der Wert
+`null` oder leer ist.
+
 | Situation | Ergebnis |
 |---|---|
-| HTTP 200, JSON-Objekt, `id_token` nicht leerer String, **kein** `error` | `OidcIdToken` |
-| HTTP 400/401, JSON-Objekt, `error` nicht leerer String, **kein** `id_token` | `None` |
-| Netzwerk-, TLS-, Connect-, Read-, Write-, Pool- oder Timeoutfehler | `Unavailable` |
+| HTTP 200, JSON-Objekt, `id_token` nicht leerer String, `error` **abwesend** | `OidcIdToken` |
+| HTTP 400/401, JSON-Objekt, `error` nicht leerer String, `id_token` **abwesend** | `None` |
+| Netzwerk-, TLS-, Timeout- oder interner Clientfehler, technisch unbrauchbare Uhr | `Unavailable` |
 | Redirectantwort, 5xx, unerwarteter Status | `Unavailable` |
-| falscher Content-Type oder Content-Encoding | `Unavailable` |
-| zu große Antwort, malformed `Content-Length` | `Unavailable` |
-| nicht parsebares oder strukturell falsches JSON | `Unavailable` |
-| 200 ohne brauchbares `id_token`, `id_token` **und** `error` zugleich | `Unavailable` |
-| malformed OAuth-Fehlerantwort | `Unavailable` |
-| technisch unbrauchbare monotonic clock, interner Clientfehler | `Unavailable` |
+| falscher Media Type, Charset, `Content-Encoding` oder `Content-Length` | `Unavailable` |
+| zu große Antwort, kein JSON-Objekt, doppelter Membername | `Unavailable` |
+| gemischte oder unvollständige Antwort in beiden Richtungen | `Unavailable` |
 
 **Keine** technische Detailunterklasse nach außen. Access Token, Refresh Token,
 Token Type, Scope und sonstige Felder werden ignoriert und **nicht**
@@ -102,9 +105,10 @@ gespeichert.
 Authorization Code, Code Verifier, ID Token, Access Token, Refresh Token und
 die vollständige Tokenantwort erscheinen **niemals** in `repr`, Exceptiontext,
 Log, Telemetrie, Trace, Metriklabel, URL oder Cookie. `error`,
-`error_description`, `error_uri` und Providertexte werden **nicht**
-zurückgegeben, geloggt oder in Exceptions übernommen. Dieser Slice fügt
-**kein** Logging und **keine** Telemetrie hinzu.
+`error_description`, `error_uri`, Providertexte sowie Schlüssel, Werte und
+Fragmente der Antwort werden **nicht** zurückgegeben, geloggt oder in
+Exceptions übernommen. Dieser Slice fügt **kein** Logging und **keine**
+Telemetrie hinzu.
 
 ## Nicht-Ziele
 

@@ -1229,9 +1229,9 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Redirects werden nie gefolgt und nichts wird wiederholt; nach Timeout, Netzwerkfehler, 5xx, malformed Antwort oder Codeablehnung folgt kein zweiter Request
     - Phasen-Timeouts aus der Policy für connect und read, write und pool durch total_timeout begrenzt; kein Timeoutwert aus einer Providerantwort
     - die monotone Gesamtgrenze wird zwischen den I/O-Schritten fail-closed geprüft und ausdrücklich nicht als harte präemptive Deadline behauptet, da ein synchroner Client blockierendes I/O nicht abbricht
-    - monotonic dient nur der messbaren Grenze und der Testbarkeit, keine Kalenderuhr; nicht endliche oder falsch typisierte Messwerte ergeben neutral Unavailable
-    - Antwort wird inkrementell als Rohbytes gelesen und kumulativ begrenzt; Content-Length über der Grenze früh abgewiesen, malformed Content-Length ebenfalls, Kompression außer identity abgelehnt
-    - Ergebnis OidcIdToken nur bei 200 mit nicht leerem String-id_token ohne error; None nur bei gültiger 400/401-OAuth-Fehlerantwort; alles andere Unavailable ohne Detailunterklasse
+    - monotonic dient nur der messbaren Grenze und der Testbarkeit, keine Kalenderuhr; nicht endliche, falsch typisierte, rückwärts unter den Startwert laufende oder werfende Uhren ergeben neutral Unavailable, ohne dass ihr Fehlertext nach außen tritt
+    - Antwort wird inkrementell als Rohbytes gelesen und kumulativ begrenzt; Content-Length nach erlaubtem HTTP-Whitespace nur als ASCII-Ziffern akzeptiert und über der Grenze früh abgewiesen; Content-Type nur application/json mit fehlendem oder utf-8-charset, Kompression außer identity abgelehnt
+    - Ergebnis wird über die Anwesenheit der Schlüssel klassifiziert: OidcIdToken nur bei 200 mit nicht leerem String-id_token und abwesendem error, None nur bei gültiger 400/401-Fehlerantwort mit abwesendem id_token; doppelte JSON-Membernamen und alles andere ergeben Unavailable ohne Detailunterklasse
     - OidcIdToken ist repr-frei und bedeutet nur, dass der Endpunkt einen String geliefert hat, nicht dass er gültig oder vertrauenswürdig ist
     - Access Token, Refresh Token, Token Type und Scope werden ignoriert und nicht gespeichert; Providertexte gelangen nie in Rückgabe, Exception oder Log
 
