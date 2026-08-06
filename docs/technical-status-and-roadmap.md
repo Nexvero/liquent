@@ -1220,5 +1220,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Nonce erforderlich und konstantzeitlich verglichen, Subject erforderlich und nicht leer, keine Normalisierung
     - Ergebnis ausschließlich ExternalIdentity(configuration.issuer, sub); der Issuer stammt aus der Konfiguration, nie erneut aus einem Claim
 
+- LQ-165 oidc token endpoint exchange:
+  `docs/lq-165-oidc-token-endpoint-exchange.md`
+  - Status:
+    - kontrollierter serverseitiger Authorization-Code-Austausch; keine ID-Token-Verifikation, kein JWKS-Abruf, kein Cache, keine Discovery, keine LQ-157-Portimplementierung
+    - genau ein POST an die exakt konfigurierte token_endpoint-URL mit fünf Formfeldern aus festen Quellen; kein Client Secret, State, Nonce, Issuer, Scope, Admission oder Return-Path
+    - Header nur Accept: application/json und Accept-Encoding: identity; keine Browserheader und keine Cookies
+    - Redirects werden nie gefolgt und nichts wird wiederholt; nach Timeout, Netzwerkfehler, 5xx, malformed Antwort oder Codeablehnung folgt kein zweiter Request
+    - Phasen-Timeouts aus der Policy für connect und read, write und pool durch total_timeout begrenzt; kein Timeoutwert aus einer Providerantwort
+    - die monotone Gesamtgrenze wird zwischen den I/O-Schritten fail-closed geprüft und ausdrücklich nicht als harte präemptive Deadline behauptet, da ein synchroner Client blockierendes I/O nicht abbricht
+    - monotonic dient nur der messbaren Grenze und der Testbarkeit, keine Kalenderuhr; nicht endliche oder falsch typisierte Messwerte ergeben neutral Unavailable
+    - Antwort wird inkrementell als Rohbytes gelesen und kumulativ begrenzt; Content-Length über der Grenze früh abgewiesen, malformed Content-Length ebenfalls, Kompression außer identity abgelehnt
+    - Ergebnis OidcIdToken nur bei 200 mit nicht leerem String-id_token ohne error; None nur bei gültiger 400/401-OAuth-Fehlerantwort; alles andere Unavailable ohne Detailunterklasse
+    - OidcIdToken ist repr-frei und bedeutet nur, dass der Endpunkt einen String geliefert hat, nicht dass er gültig oder vertrauenswürdig ist
+    - Access Token, Refresh Token, Token Type und Scope werden ignoriert und nicht gespeichert; Providertexte gelangen nie in Rückgabe, Exception oder Log
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
