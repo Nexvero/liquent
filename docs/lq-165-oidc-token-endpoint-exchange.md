@@ -1,14 +1,10 @@
 # LQ-165 — OIDC Token Endpoint Exchange
 
-## Grenze
+## Zweck und Signatur
 
-Ein kleiner technischer Baustein, der den bereits geclaimten Authorization Code
-**genau einmal** am exakt konfigurierten Token-Endpunkt einlöst und
-ausschließlich ein **vorläufiges, noch unverifiziertes** ID-Token zurückgibt.
-
-**Keine** ID-Token-Signatur- oder Claimprüfung, **kein** JWKS-Abruf, **kein**
-Cache, **keine** Discovery, **keine** Retry-Schleife und **keine**
-LQ-157-Portimplementierung.
+Löst den bereits geclaimten Authorization Code **genau einmal** am exakt
+konfigurierten Token-Endpunkt ein und gibt ausschließlich ein **vorläufiges,
+noch unverifiziertes** ID-Token zurück.
 
 ```python
 # src/liquent_platform/identity/oidc_token_exchange.py
@@ -19,14 +15,14 @@ class OidcTokenEndpointClient:
     ) -> OidcIdToken | None: ...
 ```
 
-`OidcIdToken` ist ein `repr`-freier, frozen Wert und bedeutet **nur**: Der
+`OidcIdToken` ist ein frozen, `repr`-freier Wert und bedeutet **nur**: Der
 Endpunkt hat einen String namens `id_token` geliefert — **nicht**, dass dieser
 gültig oder vertrauenswürdig ist.
 
-## Genau ein Request
+## Exakter Request
 
-Methode `POST`, URL **exakt** `configuration.token_endpoint`, keine Discovery,
-keine URL-Zusammensetzung, **keine Redirects**. Formdaten exakt fünf Felder:
+`POST` an **exakt** `configuration.token_endpoint`, keine Discovery, keine
+URL-Zusammensetzung, **keine Redirects**. Formdaten exakt fünf Felder:
 `grant_type=authorization_code` fest, `code`, `redirect_uri` und
 `code_verifier` aus der Verification, `client_id` aus der Konfiguration. Header
 ausschließlich `Accept: application/json` und `Accept-Encoding: identity`.
@@ -34,81 +30,71 @@ ausschließlich `Accept: application/json` und `Accept-Encoding: identity`.
 Return-Path, **keine** Browserheader oder Cookies.
 
 **Kein Retry.** Genau ein Aufruf pro Methodenaufruf; nach Timeout,
-Netzwerkfehler, 5xx, malformed Antwort oder Codeablehnung folgt **kein**
-zweiter Request. Der Code wird nie erneut vorgelegt.
+Netzwerkfehler, 5xx, malformed Antwort oder Codeablehnung folgt kein zweiter
+Request. Der Code wird nie erneut vorgelegt.
 
-## Zeitgrenze
+## Zeit- und Bytegrenzen
 
-**Phasen-Timeouts** stellt der Client: `connect` und `read` aus der Policy,
+Phasen-Timeouts stellt der Client aus der Policy: `connect` und `read` direkt,
 `write` und `pool` durch `total_timeout` begrenzt. Kein Timeoutwert stammt je
 aus einer Providerantwort.
 
-Die **monotone Gesamtgrenze** wird zwischen den I/O-Schritten fail-closed
+Die monotone Gesamtgrenze wird **zwischen** den I/O-Schritten fail-closed
 geprüft — vor dem Request, nach den Headern, nach jedem Chunk und vor der
-Rückgabe. Das ist ausdrücklich **keine harte präemptive Deadline**: Bei einem
-synchronen Client wird ein Thread, der bereits in blockierendem I/O steht,
-nicht abgebrochen; garantiert sind die Phasen-Timeouts plus die Schrittgrenze
-dazwischen.
+Rückgabe. Das ist ausdrücklich **keine harte präemptive Deadline**: Ein
+synchroner Client bricht einen Thread in blockierendem I/O nicht ab;
+garantiert sind die Phasen-Timeouts plus die Schrittgrenze dazwischen.
 
-`monotonic` dient nur dieser messbaren Grenze und der Testbarkeit — **keine
-Kalenderuhr**. Eine Uhr ist technisch unbrauchbar und ergibt neutral
-`Unavailable`, wenn sie einen nicht endlichen oder falsch typisierten Wert
-liefert, **rückwärts unter den Startwert** läuft oder eine Exception wirft; der
-Fehlertext einer injizierten Uhr tritt dabei **nie** nach außen.
-`BaseException` wird bewusst **nicht** gefangen.
+`monotonic` ist **keine Kalenderuhr**. Eine Uhr ist technisch unbrauchbar und
+ergibt neutral `Unavailable`, wenn sie einen nicht endlichen oder falsch
+typisierten Wert liefert, **rückwärts unter den Startwert** läuft oder eine
+Exception wirft; deren Text tritt nie nach außen. `BaseException` wird bewusst
+nicht gefangen.
 
-## Antwortgrenzen
+Der Body wird **inkrementell als Rohbytes** gelesen und kumulativ gegen
+`policy.token_response_max_bytes` gezählt; beim ersten Byte darüber folgt
+`Unavailable`. Der Stream wird auf **jedem** Pfad geschlossen.
+`Content-Length` wird nach erlaubtem HTTP-Whitespace nur als ASCII-Ziffern
+akzeptiert — `+10`, `-1`, `1.0`, `10, 10`, leer und Nicht-ASCII-Ziffern sind
+unbrauchbar; ein gültiger Wert über der Grenze wird vor dem Body abgewiesen.
+Eine zu klein gemeldete Länge bleibt durch die tatsächlich gelesene Bytezahl
+begrenzt.
 
-**Streaming**: Die Antwort wird **inkrementell als Rohbytes** gelesen und
-kumulativ gegen `policy.token_response_max_bytes` gezählt; beim ersten Byte
-darüber folgt `Unavailable`. Der Stream wird auf **jedem** Pfad geschlossen.
+## Klassifikation
 
-**`Content-Length`** wird streng gelesen: nach erlaubtem HTTP-Whitespace
-ausschließlich ASCII-Ziffern. `+10`, `-1`, `1.0`, `10, 10`, leer und
-Nicht-ASCII-Ziffern sind unbrauchbar, nicht tolerant zu interpretieren. Ein
-gültiger Wert bereits über der Grenze wird **vor** dem Body abgewiesen.
+`Content-Type` muss `application/json` sein (Media Type case-insensitiv), ein
+`charset`-Parameter fehlen oder case-insensitiv `utf-8` sein; die Dekodierung
+ist strikt UTF-8 ohne Fallback. `Content-Encoding` darf fehlen oder exakt
+`identity` sein, damit keine Dekompression die Bytegrenze umgeht.
 
-**`Content-Type`** muss `application/json` sein (Media Type case-insensitiv).
-Ein `charset`-Parameter darf fehlen oder case-insensitiv `utf-8` sein; jeder
-andere oder syntaktisch unbrauchbare `charset`-Parameter wird abgewiesen, denn
-der Body wird **strikt** als UTF-8 dekodiert, ohne Fallback.
-**`Content-Encoding`** darf fehlen oder exakt `identity` sein, damit keine
-Dekompression die Bytegrenze umgeht.
-
-**JSON**: Ein **mehrfach vorkommender Membername** ergibt `Unavailable` — kein
-zweiter Parse, keine tolerante Auflösung, weil sonst die Parser-Konvention
-„letzter Wert gewinnt" statt dieses Vertrags entscheiden würde.
-
-## Ergebnisgrenze
-
-Klassifiziert wird über die **Anwesenheit** der Schlüssel, nicht über ihren
-Wert: Ein bei 200 vorhandener `error` und ein bei 400/401 vorhandenes
-`id_token` machen die Antwort strukturell unbrauchbar, auch wenn der Wert
-`null` oder leer ist.
+Klassifiziert wird über die **Anwesenheit** der Schlüssel, nie über ihren Wert:
+Ein bei 200 vorhandener `error` und ein bei 400/401 vorhandenes `id_token`
+machen die Antwort strukturell unbrauchbar, auch bei `null` oder leerem Wert.
 
 | Situation | Ergebnis |
 |---|---|
-| HTTP 200, JSON-Objekt, `id_token` nicht leerer String, `error` **abwesend** | `OidcIdToken` |
-| HTTP 400/401, JSON-Objekt, `error` nicht leerer String, `id_token` **abwesend** | `None` |
-| Netzwerk-, TLS-, Timeout- oder interner Clientfehler, technisch unbrauchbare Uhr | `Unavailable` |
-| Redirectantwort, 5xx, unerwarteter Status | `Unavailable` |
+| 200, JSON-Objekt, `id_token` nicht leerer String, `error` **abwesend** | `OidcIdToken` |
+| 400/401, JSON-Objekt, `error` nicht leerer String, `id_token` **abwesend** | `None` |
+| Netzwerk-, TLS-, Timeout- oder interner Clientfehler, unbrauchbare Uhr | `Unavailable` |
+| Redirectantwort, 5xx, jeder andere Status | `Unavailable` |
 | falscher Media Type, Charset, `Content-Encoding` oder `Content-Length` | `Unavailable` |
-| zu große Antwort, kein JSON-Objekt, doppelter Membername | `Unavailable` |
+| zu große Antwort, kein JSON-Objekt, **doppelter Membername** | `Unavailable` |
 | gemischte oder unvollständige Antwort in beiden Richtungen | `Unavailable` |
 
-**Keine** technische Detailunterklasse nach außen. Access Token, Refresh Token,
-Token Type, Scope und sonstige Felder werden ignoriert und **nicht**
-gespeichert.
+Ein mehrfach vorkommender Membername ergibt `Unavailable` — kein zweiter Parse
+und keine tolerante Auflösung, sonst entschiede die Parser-Konvention „letzter
+Wert gewinnt" statt dieses Vertrags.
 
-## Geheimnisgrenze
+## Neutralitäts- und Geheimnisgrenze
 
-Authorization Code, Code Verifier, ID Token, Access Token, Refresh Token und
-die vollständige Tokenantwort erscheinen **niemals** in `repr`, Exceptiontext,
-Log, Telemetrie, Trace, Metriklabel, URL oder Cookie. `error`,
-`error_description`, `error_uri`, Providertexte sowie Schlüssel, Werte und
-Fragmente der Antwort werden **nicht** zurückgegeben, geloggt oder in
-Exceptions übernommen. Dieser Slice fügt **kein** Logging und **keine**
-Telemetrie hinzu.
+Keine technische Detailunterklasse nach außen; `Unavailable` trägt nur seinen
+festen Code. Authorization Code, Code Verifier, ID Token, Access Token, Refresh
+Token, die vollständige Tokenantwort sowie `error`, `error_description`,
+`error_uri` und beliebige Schlüssel, Werte oder Fragmente der Antwort
+erscheinen **niemals** in `repr`, Exceptiontext, Log, Telemetrie, Trace,
+Metriklabel, URL oder Cookie. Access Token, Refresh Token, Token Type und Scope
+werden ignoriert und nicht gespeichert. Dieser Slice fügt kein Logging und
+keine Telemetrie hinzu.
 
 ## Nicht-Ziele
 
@@ -117,9 +103,3 @@ Discovery, keine Client-Secret-/mTLS-/Private-Key-JWT-/DPoP-Authentifizierung,
 keine LQ-157-Portimplementierung, keine aktive Konfigurationsauflösung, keine
 Callback-Route, keine Session-/CSRF-Erzeugung, kein Production-Wiring und keine
 Dependency-, Lockfile-, CI-, Container-, Grype- oder Deployment-Änderung.
-
-## Nächster Schritt
-
-Der vollständige Verifikationsadapter, der diesen Austausch mit dem begrenzten
-JWKS-Abruf und dem LQ-164-Verifikationskern zu einer LQ-157-Portimplementierung
-zusammensetzt.
