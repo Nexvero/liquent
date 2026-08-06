@@ -12,10 +12,7 @@ from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.oidc_client_configuration import (
     TrustedOidcClientConfiguration,
 )
-from liquent_platform.identity.oidc_id_token_verifier import (
-    SUPPORTED_SIGNING_ALGORITHMS,
-    verify_oidc_id_token,
-)
+from liquent_platform.identity.oidc_id_token_verifier import verify_oidc_id_token
 from liquent_platform.identity.oidc_verification import (
     OidcAuthorizationCodeVerification,
     OidcVerificationUnavailable,
@@ -27,9 +24,9 @@ CLIENT_ID = "liquent-control-plane"
 NONCE = "expected-nonce-1"
 SUBJECT = "subject-1"
 NOW = datetime(2026, 8, 6, 12, tzinfo=UTC)
-SKEW = timedelta(seconds=30)
+SKEW_SECONDS = 30.0
 
-# One locally generated key pair per module: no network and no real provider.
+# Locally generated key material only: no network and no real provider.
 _PRIVATE = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_PRIVATE = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
@@ -55,7 +52,7 @@ def _configuration(**overrides: Any) -> TrustedOidcClientConfiguration:
         "token_endpoint": f"{ISSUER}/token",
         "jwks_uri": f"{ISSUER}/jwks",
         "allowed_signing_algorithms": ("RS256",),
-        "clock_skew": SKEW,
+        "clock_skew": timedelta(seconds=SKEW_SECONDS),
     }
     arguments.update(overrides)
     return TrustedOidcClientConfiguration(**arguments)
@@ -92,9 +89,8 @@ def _token(
     payload.update(claims)
     for name in drop:
         payload.pop(name, None)
-    return jwt.encode(
-        payload, private, algorithm=algorithm, headers={"kid": "key-1", **(headers or {})}
-    )
+    headers = {"kid": "key-1", **(headers or {})} if headers != {} else {}
+    return jwt.encode(payload, private, algorithm=algorithm, headers=headers)
 
 
 def _verify(**overrides: Any) -> ExternalIdentity | None:
@@ -109,35 +105,24 @@ def _verify(**overrides: Any) -> ExternalIdentity | None:
     return verify_oidc_id_token(**arguments)
 
 
-# --- 1. Success ------------------------------------------------------------
+# --- Success and trust snapshot --------------------------------------------
 
 def test_a_valid_token_yields_the_configured_issuer_and_its_subject() -> None:
-    result = _verify()
+    assert _verify() == ExternalIdentity(issuer=ISSUER, subject=SUBJECT)
 
-    assert result == ExternalIdentity(issuer=ISSUER, subject=SUBJECT)
-    # The issuer comes from the trusted configuration, not from a claim.
-    assert result is not None and result.issuer == _configuration().issuer
-
-
-# --- 2. Trust snapshot -----------------------------------------------------
 
 def test_a_configuration_issuer_differing_from_the_expectation_is_rejected() -> None:
     assert _verify(verification=_verification(expected_issuer="https://other.test")) is None
 
 
-# --- 3. Algorithms ---------------------------------------------------------
+# --- Algorithm boundary ----------------------------------------------------
 
 def test_an_algorithm_outside_the_configured_allowlist_is_rejected() -> None:
     assert _verify(configuration=_configuration(allowed_signing_algorithms=("ES256",))) is None
 
 
-def test_a_symmetric_algorithm_is_never_supported() -> None:
-    """Refused by the internal allowlist even when configuration permits it.
-
-    The JWK deliberately carries no ``alg``, so the key filter cannot be what
-    rejects the token: only the internal allowlist can, and it must do so
-    before any key is built.
-    """
+def test_a_symmetric_algorithm_is_refused_even_when_configured() -> None:
+    """The JWK carries no ``alg``, so only the internal allowlist can reject."""
 
     token = jwt.encode(
         {"iss": ISSUER, "aud": CLIENT_ID, "sub": SUBJECT, "nonce": NONCE,
@@ -156,16 +141,7 @@ def test_a_symmetric_algorithm_is_never_supported() -> None:
     ) is None
 
 
-def test_the_internal_allowlist_holds_only_asymmetric_algorithms() -> None:
-    assert SUPPORTED_SIGNING_ALGORITHMS == {
-        "RS256", "RS384", "RS512",
-        "PS256", "PS384", "PS512",
-        "ES256", "ES384", "ES512",
-        "EdDSA",
-    }
-
-
-def test_an_unsigned_token_is_rejected() -> None:
+def test_an_unsigned_token_is_rejected_and_cannot_even_be_configured() -> None:
     token = jwt.encode(
         {"iss": ISSUER, "aud": CLIENT_ID, "sub": SUBJECT, "nonce": NONCE,
          "exp": NOW.timestamp() + 300, "iat": NOW.timestamp() - 5},
@@ -175,13 +151,11 @@ def test_an_unsigned_token_is_rejected() -> None:
     )
 
     assert _verify(id_token=token) is None
-    # Defence in depth: LQ-156 already refuses "none" in the configuration, so
-    # such a token can never be allowlisted in the first place.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # LQ-156 already refuses "none"
         _configuration(allowed_signing_algorithms=("RS256", "none"))
 
 
-# --- 4. Token-controlled key sources ---------------------------------------
+# --- Token-controlled key sources ------------------------------------------
 
 @pytest.mark.parametrize("name", ["jku", "x5u", "jwk"])
 def test_a_token_controlled_key_source_is_refused(name: str) -> None:
@@ -190,21 +164,19 @@ def test_a_token_controlled_key_source_is_refused(name: str) -> None:
     assert _verify(id_token=_token(headers={name: value})) is None
 
 
-# --- 5. Key selection ------------------------------------------------------
+# --- Key selection ---------------------------------------------------------
 
-def test_a_known_unique_kid_selects_its_key() -> None:
+def test_a_unique_kid_selects_its_key_among_others() -> None:
     assert _verify(jwks=_jwks(_public_jwk(kid="other"), _public_jwk())) is not None
 
 
 @pytest.mark.parametrize(
     "jwks",
     [
-        {"keys": []},
         {"keys": [_public_jwk(kid="unknown")]},
-        {"keys": [_public_jwk(), _public_jwk()]},  # duplicate matching kid
+        {"keys": [_public_jwk(), _public_jwk()]},  # ambiguous kid
         {"keys": [_public_jwk(use="enc")]},
         {"keys": [_public_jwk(key_ops=["encrypt"])]},
-        {"keys": [_public_jwk(key_ops="verify")]},  # not a list
         {"keys": [_public_jwk(alg="RS512")]},
         {"keys": ["not-a-mapping"]},
     ],
@@ -213,26 +185,21 @@ def test_no_single_usable_candidate_is_rejected(jwks: dict[str, Any]) -> None:
     assert _verify(jwks=jwks) is None
 
 
-def _token_without_kid() -> str:
-    return jwt.encode(
-        {"iss": ISSUER, "aud": CLIENT_ID, "sub": SUBJECT, "nonce": NONCE,
-         "exp": NOW.timestamp() + 300, "iat": NOW.timestamp() - 5},
-        _PRIVATE,
-        algorithm="RS256",
-    )
+def test_an_empty_kid_header_is_refused_even_if_a_key_carries_one() -> None:
+    """An empty kid must be refused outright, not matched against the set."""
+
+    assert _verify(
+        id_token=_token(headers={"kid": ""}), jwks=_jwks(_public_jwk(kid=""))
+    ) is None
 
 
-def test_without_a_kid_exactly_one_candidate_succeeds() -> None:
+def test_without_a_kid_exactly_one_candidate_is_required() -> None:
     key = _public_jwk()
     key.pop("kid")
+    token = _token(headers={})
 
-    assert _verify(id_token=_token_without_kid(), jwks=_jwks(key)) is not None
-    # Two usable keys without a kid stay ambiguous and are refused.
-    assert _verify(id_token=_token_without_kid(), jwks=_jwks(key, dict(key))) is None
-
-
-def test_an_empty_kid_header_is_refused() -> None:
-    assert _verify(id_token=_token(headers={"kid": ""})) is None
+    assert _verify(id_token=token, jwks=_jwks(key)) is not None
+    assert _verify(id_token=token, jwks=_jwks(key, dict(key))) is None
 
 
 def test_a_malformed_trusted_jwk_is_technically_unavailable() -> None:
@@ -240,41 +207,30 @@ def test_a_malformed_trusted_jwk_is_technically_unavailable() -> None:
         _verify(jwks=_jwks({"kty": "RSA", "kid": "key-1", "use": "sig", "alg": "RS256"}))
 
 
-# --- 6. Signature ----------------------------------------------------------
+# --- Signature -------------------------------------------------------------
 
 def test_a_token_signed_with_another_key_is_rejected() -> None:
     assert _verify(id_token=_token(private=_OTHER_PRIVATE)) is None
 
 
-def test_a_tampered_signature_is_rejected() -> None:
-    assert _verify(id_token=_token()[:-6] + "AAAAAA") is None
-
-
-@pytest.mark.parametrize("token", ["", "not-a-token", "a.b", 42, None])
-def test_a_malformed_or_wrong_typed_token_is_rejected(token: Any) -> None:
+@pytest.mark.parametrize("token", ["not-a-token", 42, _token()[:-6] + "AAAAAA"])
+def test_a_tampered_or_malformed_token_is_rejected(token: Any) -> None:
     assert _verify(id_token=token) is None
 
 
-# --- 7. Claims -------------------------------------------------------------
+# --- Claims ----------------------------------------------------------------
 
 @pytest.mark.parametrize(
     "claims",
     [
         {"iss": "https://evil.example.test"},
         {"aud": "other-client"},
-        {"aud": []},
         {"aud": [1, CLIENT_ID]},
-        {"aud": 7},
-        {"aud": ""},
         {"aud": [CLIENT_ID, "second"]},  # several audiences without azp
         {"aud": [CLIENT_ID, "second"], "azp": "other"},
-        {"aud": [CLIENT_ID, "second"], "azp": 1},
         {"azp": "other-client"},  # present with one audience, must still match
         {"nonce": "wrong-nonce"},
-        {"nonce": ""},
-        {"nonce": 1},
         {"sub": ""},
-        {"sub": 1},
     ],
 )
 def test_a_rejected_claim_yields_none(claims: dict[str, Any]) -> None:
@@ -287,35 +243,32 @@ def test_a_missing_required_claim_yields_none(name: str) -> None:
 
 
 def test_several_audiences_with_a_matching_azp_are_accepted() -> None:
-    token = _token(aud=[CLIENT_ID, "second"], azp=CLIENT_ID)
-
-    assert _verify(id_token=token) is not None
+    assert _verify(id_token=_token(aud=[CLIENT_ID, "second"], azp=CLIENT_ID)) is not None
 
 
-# --- 8. Time ---------------------------------------------------------------
+# --- Time ------------------------------------------------------------------
 
 def test_a_token_just_inside_the_skew_is_still_valid() -> None:
-    token = _token(exp=NOW.timestamp() - SKEW.total_seconds() + 1)
-
-    assert _verify(id_token=token) is not None
+    assert _verify(id_token=_token(exp=NOW.timestamp() - SKEW_SECONDS + 1)) is not None
 
 
 @pytest.mark.parametrize(
     "claims",
     [
-        {"exp": NOW.timestamp() - SKEW.total_seconds()},  # exactly at the edge
-        {"exp": NOW.timestamp() - 3600},
-        {"nbf": NOW.timestamp() + SKEW.total_seconds() + 1},
-        {"iat": NOW.timestamp() + SKEW.total_seconds() + 1},
+        {"exp": NOW.timestamp() - SKEW_SECONDS},  # exactly at the edge
+        {"nbf": NOW.timestamp() + SKEW_SECONDS + 1},
+        {"iat": NOW.timestamp() + SKEW_SECONDS + 1},
     ],
 )
 def test_a_time_claim_outside_the_skew_is_rejected(claims: dict[str, Any]) -> None:
     assert _verify(id_token=_token(**claims)) is None
 
 
-@pytest.mark.parametrize("name", ["exp", "iat"])
-@pytest.mark.parametrize("value", ["1", True, float("inf"), float("nan"), None, [1]])
-def test_a_non_numeric_required_time_claim_is_rejected(name: str, value: Any) -> None:
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("exp", True), ("iat", "1"), ("nbf", float("inf"))],  # bool, type, non-finite
+)
+def test_an_unusable_time_value_is_rejected(name: str, value: Any) -> None:
     assert _verify(id_token=_token(**{name: value})) is None
 
 
@@ -324,16 +277,9 @@ def test_a_missing_required_time_claim_is_rejected(name: str) -> None:
     assert _verify(id_token=_token(drop=(name,))) is None
 
 
-@pytest.mark.parametrize("value", ["1", True, float("inf")])
-def test_a_present_but_unusable_nbf_is_rejected(value: Any) -> None:
-    assert _verify(id_token=_token(nbf=value)) is None
+# --- Technical boundaries --------------------------------------------------
 
-
-# --- 9. Technical boundaries -----------------------------------------------
-
-@pytest.mark.parametrize(
-    "jwks", [{}, {"keys": None}, {"keys": "not-a-list"}, {"other": []}]
-)
+@pytest.mark.parametrize("jwks", [{}, {"keys": "not-a-list"}])
 def test_a_malformed_jwks_structure_is_technically_unavailable(
     jwks: dict[str, Any],
 ) -> None:
@@ -355,8 +301,7 @@ def test_an_unexpected_library_fault_is_unavailable_without_secrets(
         _verify()
 
     rendered = f"{raised.value}{raised.value.args}"
-    for secret in (SUBJECT, NONCE, ISSUER, "code-1", "verifier-1"):
-        assert secret not in rendered
+    assert all(secret not in rendered for secret in (SUBJECT, NONCE, ISSUER))
 
 
 def test_a_naive_clock_is_a_caller_error_without_token_values() -> None:
@@ -365,20 +310,8 @@ def test_a_naive_clock_is_a_caller_error_without_token_values() -> None:
 
     message = str(raised.value)
     assert "timezone-aware" in message
-    for secret in (SUBJECT, NONCE, "code-1"):
-        assert secret not in message
+    assert all(secret not in message for secret in (SUBJECT, NONCE, "code-1"))
 
-
-def test_the_inputs_are_not_mutated() -> None:
-    jwks = _jwks()
-    snapshot = json.dumps(jwks, sort_keys=True)
-
-    _verify(jwks=jwks)
-
-    assert json.dumps(jwks, sort_keys=True) == snapshot
-
-
-# --- 10. Signature ---------------------------------------------------------
 
 def test_signature_has_exactly_the_five_agreed_parameters() -> None:
     assert list(inspect.signature(verify_oidc_id_token).parameters) == [

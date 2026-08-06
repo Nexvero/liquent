@@ -1206,19 +1206,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-164 offline oidc id token verification:
   `docs/lq-164-offline-oidc-id-token-verification.md`
   - Status:
-    - reiner Offline-Verifikationskern des späteren Adapters; kein Netzwerk, keine Konfigurations- oder JWKS-Ladung, kein Code-Austausch, kein Cache, noch keine Portimplementierung
+    - reiner Offline-Verifikationskern des späteren Adapters; kein Netzwerk, keine Konfigurations- oder JWKS-Ladung, kein Code-Austausch, kein Cache, keine Portimplementierung
     - verify_oidc_id_token(id_token, jwks, configuration, verification, now) prüft ein erhaltenes Token gegen ein bereits vertrauenswürdig geladenes Schlüsselset
-    - None heißt belastbar geprüft und abgelehnt, OidcVerificationUnavailable heißt kein Urteil möglich; die Trennung folgt der disjunkten PyJWT-Hierarchie aus InvalidTokenError und PyJWKError
-    - unbrauchbare JWKS-Struktur, nicht parsebarer vertrauenswürdiger JWK und unerwartete Bibliotheksfehler ergeben Unavailable; kein pauschales except Exception mit None
-    - naive Uhr ist ein Aufruferfehler und scheitert als ValueError vor jeder Tokenverarbeitung, ohne Tokenwerte in der Meldung
-    - interne Allowlist nur asymmetrisch: RS/PS/ES 256-512 und EdDSA; HS-Verfahren, none, ES256K und ES521 bewusst ausgeschlossen, akzeptiert wird die Schnittmenge mit der Konfiguration
-    - Header kann die Allowlist nie erweitern, kein Fallback; jku, x5u und jwk im Header führen zu None und werden nie befolgt, geladen oder geloggt
-    - Schlüsselauswahl nur aus jwks["keys"] mit Filtern auf use, key_ops und JWK-alg; kid wählt nur innerhalb des Sets, Mehrdeutigkeit wird abgewiesen statt aufgelöst, kein Refresh
-    - PyJWT prüft Format, Signatur, Algorithmus, Issuer und Audience; Signatur, Issuer und Audience werden nie deaktiviert, keine eigene Kryptografie
-    - Zeitclaims ausschließlich mit dem übergebenen now und clock_skew, PyJWTs Automatik ist abgeschaltet; exp und iat erforderlich und endlich, nbf optional, bool ist keine NumericDate
+    - None heißt belastbar geprüft und abgelehnt, OidcVerificationUnavailable heißt kein Urteil möglich; unbrauchbare JWKS-Struktur, nicht parsebarer JWK und unerwartete Bibliotheksfehler ergeben Unavailable
+    - naive Uhr ist ein Aufruferfehler und scheitert als ValueError vor jeder Tokenverarbeitung; keine Exception gibt Token, Claim, Schlüssel, Issuer, Subject oder Nonce wieder
+    - modulinterne private Allowlist nur asymmetrisch; akzeptiert wird die Schnittmenge mit der Konfiguration, der Header kann sie nie erweitern und es gibt keinen Fallback
+    - jku, x5u und jwk im Header führen zu None und werden nie befolgt; Schlüssel nur aus jwks["keys"], gefiltert auf use, key_ops und alg, kid wählt nur innerhalb des Sets
+    - Mehrdeutigkeit bei der Schlüsselwahl wird abgewiesen statt aufgelöst; kein Refresh und keine zweite Auswahlrunde
+    - PyJWT prüft Format, Signatur, Algorithmus, Issuer und Audience und wird darin nie deaktiviert; keine eigene Kryptografie
+    - Zeitclaims ausschließlich mit dem übergebenen now und clock_skew, PyJWTs Automatik ist abgeschaltet; exp und iat erforderlich, nbf optional, bool ist keine NumericDate
     - Audience als String oder Stringliste, leere/falsch typisierte/gemischte abgelehnt; azp bei mehreren Audiences zwingend und immer exakt der Client
     - Nonce erforderlich und konstantzeitlich verglichen, Subject erforderlich und nicht leer, keine Normalisierung
-    - Ergebnis ausschließlich ExternalIdentity(configuration.issuer, sub); der Issuer stammt aus der Konfiguration, nie erneut aus einem Claim, keine Rohclaims oder Sessiondaten
+    - Ergebnis ausschließlich ExternalIdentity(configuration.issuer, sub); der Issuer stammt aus der Konfiguration, nie erneut aus einem Claim
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

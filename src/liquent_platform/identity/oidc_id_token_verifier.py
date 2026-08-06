@@ -20,10 +20,9 @@ from liquent_platform.identity.oidc_verification import (
 )
 
 
-# The asymmetric algorithms this module supports at all. PyJWT additionally
-# offers HS256/384/512 and none; both are excluded on purpose, because a shared
-# secret or an unsigned token could never prove an issuer's identity here.
-SUPPORTED_SIGNING_ALGORITHMS = frozenset(
+# Asymmetric only: a shared secret or an unsigned token cannot prove an
+# issuer's identity, so HS*, none, and unlisted curves are never supported.
+_SUPPORTED_SIGNING_ALGORITHMS = frozenset(
     {
         "RS256",
         "RS384",
@@ -38,7 +37,6 @@ SUPPORTED_SIGNING_ALGORITHMS = frozenset(
     }
 )
 
-# Header parameters that would let the token choose its own verification key.
 _TOKEN_CONTROLLED_KEY_SOURCES = ("jku", "x5u", "jwk")
 
 
@@ -51,20 +49,15 @@ def verify_oidc_id_token(
 ) -> ExternalIdentity | None:
     """Verify one ID token offline and return only the identity it proves.
 
-    Performs no network operation, loads no configuration and no key set, and
-    exchanges no authorization code: the caller supplies the already trusted
-    JWKS and an explicit clock. A reliably reached rejection is ``None``; key
-    material or a library fault that prevents any verdict raises
-    OidcVerificationUnavailable. No error carries a token, header, claim, key,
-    issuer, subject, or nonce.
+    Performs no network operation and loads neither configuration nor keys: the
+    caller supplies the already trusted JWKS and an explicit clock. A reliably
+    reached rejection is ``None``; unusable key material or a library fault
+    raises OidcVerificationUnavailable. No error carries a token, header,
+    claim, key, issuer, subject, or nonce.
     """
 
-    # A naive clock is a caller bug, not a token problem, and is refused before
-    # anything is parsed.
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("now must be timezone-aware")
-    # The claimed transaction's expectation must match the active trust
-    # snapshot exactly; nothing is normalized.
     if configuration.issuer != verification.expected_issuer:
         return None
     if not isinstance(id_token, str) or not id_token:
@@ -72,8 +65,7 @@ def verify_oidc_id_token(
 
     keys = jwks.get("keys") if isinstance(jwks, Mapping) else None
     if not isinstance(keys, Sequence) or isinstance(keys, (str, bytes)):
-        # A trusted key set we cannot read is a technical fault, not a rejected
-        # token.
+        # A trusted key set we cannot read is a technical fault, not a verdict.
         raise OidcVerificationUnavailable
 
     try:
@@ -83,14 +75,14 @@ def verify_oidc_id_token(
     except PyJWTError:
         raise OidcVerificationUnavailable from None
 
-    # Read only to select a key inside the already trusted set; no claim of an
-    # unverified token is used for a business decision.
+    # Following jku, x5u, or jwk would let the token being checked choose its
+    # own verification key.
     if any(name in header for name in _TOKEN_CONTROLLED_KEY_SOURCES):
         return None
     algorithm = header.get("alg")
     if not isinstance(algorithm, str) or not algorithm:
         return None
-    if algorithm not in SUPPORTED_SIGNING_ALGORITHMS:
+    if algorithm not in _SUPPORTED_SIGNING_ALGORITHMS:
         return None
     if algorithm not in configuration.allowed_signing_algorithms:
         return None
@@ -101,7 +93,8 @@ def verify_oidc_id_token(
     try:
         key = PyJWK.from_dict(dict(selected), algorithm=algorithm)
     except (PyJWTError, ValueError, TypeError):
-        # The set is trusted, so an unusable entry is a technical fault.
+        # The set is trusted, so an entry we cannot parse is a fault on our
+        # side rather than a reason to reject the token.
         raise OidcVerificationUnavailable from None
 
     try:
@@ -115,8 +108,8 @@ def verify_oidc_id_token(
                 "verify_signature": True,
                 "verify_aud": True,
                 "verify_iss": True,
-                # Evaluated below against the passed clock instead, so no
-                # hidden system time can decide validity.
+                # Time is judged below against the passed clock, so no hidden
+                # system time can decide validity.
                 "verify_exp": False,
                 "verify_nbf": False,
                 "verify_iat": False,
@@ -125,8 +118,8 @@ def verify_oidc_id_token(
     except InvalidTokenError:
         return None
     except Exception:
-        # Never a business rejection: an unexpected library or crypto fault
-        # means no verdict was reached.
+        # An unexpected library or crypto fault means no verdict was reached,
+        # which is never a business rejection.
         raise OidcVerificationUnavailable from None
 
     if not _time_claims_are_valid(claims, configuration, now):
@@ -143,8 +136,6 @@ def verify_oidc_id_token(
     if not isinstance(subject, str) or not subject:
         return None
 
-    # The issuer comes from the active trusted configuration, never again from
-    # a claim.
     return ExternalIdentity(issuer=configuration.issuer, subject=subject)
 
 
@@ -224,8 +215,8 @@ def _audience_is_valid(claims: Mapping[str, Any], client_id: str) -> bool:
         return False
 
     authorized_party = claims.get("azp")
+    # Mandatory with several audiences, and validated whenever present.
     if len(audiences) > 1 or "azp" in claims:
-        # Mandatory with several audiences, and validated whenever present.
         if not isinstance(authorized_party, str):
             return False
         if authorized_party != client_id:
