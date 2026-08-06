@@ -1220,5 +1220,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Nonce erforderlich und konstantzeitlich verglichen, Subject erforderlich und nicht leer, keine Normalisierung
     - Ergebnis ausschließlich ExternalIdentity(configuration.issuer, sub); der Issuer stammt aus der Konfiguration, nie erneut aus einem Claim
 
+- LQ-165 oidc token endpoint exchange:
+  `docs/lq-165-oidc-token-endpoint-exchange.md`
+  - Status:
+    - kontrollierter serverseitiger Authorization-Code-Austausch, der nur ein vorläufiges, noch unverifiziertes ID-Token liefert; keine Verifikation, kein JWKS-Abruf, keine Discovery, keine LQ-157-Portimplementierung
+    - genau ein POST an die exakt konfigurierte token_endpoint-URL, keine Redirect-Verfolgung und kein Retry, damit der Code nie ein zweites Mal vorgelegt wird
+    - Zeitgrenze aus der Policy als Phasen-Timeouts plus fail-closed geprüfte monotone Schrittgrenze, ausdrücklich nicht als harte präemptive Deadline behauptet; unbrauchbare oder werfende Uhren ergeben neutral Unavailable
+    - Antwort inkrementell als Rohbytes kumulativ begrenzt, Content-Length nur als ASCII-Ziffern, Content-Type nur application/json mit fehlendem oder utf-8-charset, Kompression außer identity abgelehnt
+    - Klassifikation über die Anwesenheit der Schlüssel: OidcIdToken bei 200 ohne error, None bei 400/401 ohne id_token, sonst Unavailable ohne Detailunterklasse; doppelte JSON-Membernamen fail-closed
+    - OidcIdToken ist repr-frei; Providertexte, Tokens und Response-Fragmente gelangen nie in Rückgabe, Exception, Log oder Telemetrie
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
