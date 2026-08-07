@@ -1243,5 +1243,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - kryptografische und semantische Schlüsselprüfung bleibt im Offline-Verifikationskern; das Mapping wird semantisch unverändert weitergegeben, ohne Normalisierung oder Umsortierung
     - Fehler tragen nur ihren neutralen Code; URL, Body, Headerwerte, Providertext und Schlüsselmaterial gelangen nie in Rückgabe, Exception, Log oder Telemetrie
 
+- LQ-167 single-slot oidc jwks cache:
+  `docs/lq-167-single-slot-oidc-jwks-cache.md`
+  - Status:
+    - begrenzter In-Memory-Cache mit genau einem JWKS-Slot für die eine aktive Konfiguration; kein Refresh bei unbekanntem kid, keine Schlüsselauswahl, keine ID-Token-Verifikation, keine LQ-157-Portimplementierung
+    - die Instanz hält nur _slot mit höchstens einem Snapshot samt URI und Ablaufgrenze sowie _last_clock mit höchstens einem Monotonic-Wert; kein globaler und kein instanzübergreifender Zustand
+    - Kapazität ist strukturell auf eins begrenzt statt durch eine Eviction-Regel, sodass rotierte Konfigurationen keine Schlüssel- oder Issuer-Sammlung anlegen können und kein Token eine eigene Cache-Partition erzeugt
+    - Treffer nur bei bytegenau gleicher jwks_uri und now < expires_at; die Ablaufgrenze wird nach erfolgreichem Laden gestempelt, damit Netzwerkzeit nicht als Frischezeit gilt, und exakt auf der Grenze gilt der Eintrag als abgelaufen
+    - bei Ablauf, URI-Wechsel oder unbrauchbarer Uhr wird der Slot vor jedem Ladeversuch verworfen, sodass ein Fehler nie stale Schlüssel übriglässt; genau ein Loader-Aufruf, kein Retry
+    - Loaderfehler werden neutral weitergereicht oder in eine neue neutrale Unavailable übersetzt, ohne Details oder Cause; BaseException wird nicht gefangen
+    - das geparste Mapping wird unverändert weitergereicht und bei frischen Treffern als derselbe Snapshot zurückgegeben, weil die heutigen internen Nutzer es nur lesen; das ist keine allgemeine Mutabilitätsgarantie
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
