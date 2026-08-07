@@ -1254,5 +1254,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Loaderfehler werden neutral weitergereicht oder in eine neue neutrale Unavailable übersetzt, ohne Details oder Cause; BaseException wird nicht gefangen
     - das geparste Mapping wird unverändert weitergereicht und bei frischen Treffern als derselbe Snapshot zurückgegeben, weil die heutigen internen Nutzer es nur lesen; das ist keine allgemeine Mutabilitätsgarantie
 
+- LQ-168 oidc jwks refresh decision contract:
+  `docs/lq-168-oidc-jwks-refresh-decision-contract.md`
+  - Status:
+    - reine Architekturentscheidung ohne Code: legt fest, wann der spätere Verifikationsadapter höchstens einen kontrollierten JWKS-Refresh ausführen darf; erfüllt die in LQ-160 §8 vertagte Zusage
+    - die Außengrenze bleibt unverändert ExternalIdentity, None oder OidcVerificationUnavailable; der Refreshgrund ist eine private Orchestrierungsentscheidung und wird nie in Rückgabetyp, Fehler, Route, HTTP-Status, Cookie, Log oder Telemetrie sichtbar
+    - ein Refresh ist nur bei acht gleichzeitig erfüllten Bedingungen zulässig, darunter genau ein nicht leeres String-kid, ein erlaubter asymmetrischer alg, keine tokenkontrollierte Schlüsselquelle und kein Schlüssel mit diesem kid im geladenen Set
+    - ausdrücklich kein Refresh bei jedem None, weil das ein tokengesteuerter Netzwerk-Amplifier wäre; Signatur-, Claim-, Algorithmus- und Mehrdeutigkeitsablehnungen bleiben direkt None
+    - Obergrenzen pro Callback: ein Token-Request, höchstens ein regulärer JWKS-Load, höchstens ein Refresh, höchstens zwei Offline-Verifikationen, keine dritte Schlüsselabfrage und keine Retry-Schleife
+    - derselbe zu Beginn gelesene Konfigurationssnapshot gilt für den gesamten Ablauf; der Refresh verwirft den Single-Slot vorher fail-closed, liefert nie stale Schlüssel und rollt nicht auf das vorherige Set zurück
+    - eine spätere interne Ergebnisform bleibt privat: nicht im Port, nicht exportiert, keine öffentliche Exception, repr-frei und nie serialisiert oder geloggt; die konkrete Signatur entscheidet erst der Implementierungsslice
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
