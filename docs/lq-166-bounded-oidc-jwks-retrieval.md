@@ -41,10 +41,13 @@ Phasen-Timeouts stammen aus der `OidcVerificationPolicy`: `connect` und `read`
 direkt, `write` und `pool` durch `total_timeout` begrenzt — nie aus einer
 Providerantwort.
 
-Die monotone Gesamtgrenze wird **zwischen** den I/O-Schritten fail-closed
-geprüft — vor dem Request, nach den Headern, während des Streamens und vor der
-Rückgabe; wie in LQ-165 ausdrücklich **keine harte präemptive Deadline**, weil
-ein synchroner Client blockierendes I/O nicht abbricht.
+Die monotone Gesamtgrenze wird **zwischen** den Schritten fail-closed geprüft —
+vor dem Request, nach den Headern, während des Streamens, vor dem Parse und ein
+letztes Mal **nach** Decodierung, Parse und Strukturprüfung unmittelbar vor der
+Rückgabe. Auch das Parsen verbraucht Zeit, also entscheidet nicht der Zustand
+vor dem Parse über die Rückgabe. Wie in LQ-165 ist das ausdrücklich **keine
+harte präemptive Deadline**, weil ein synchroner Client blockierendes I/O nicht
+abbricht.
 
 Eine Uhr ist unbrauchbar und ergibt neutral `Unavailable`, wenn sie einen nicht
 endlichen oder falsch typisierten Wert liefert (`bool` ist nie ein Messwert)
@@ -52,11 +55,12 @@ oder eine Exception wirft; deren Text tritt nie nach außen. **`BaseException`
 wird nicht gefangen**, damit ein Abbruchsignal nicht in einer neutralen
 Unavailability verschwindet.
 
-Geprüft wird die **echte monotone Folge**: Jeder Messwert muss mindestens dem
-zuletzt akzeptierten entsprechen, Gleichstand bleibt zulässig. `0.0 → 5.0 →
-4.0` ist damit unbrauchbar, obwohl beide späteren Werte über dem Startwert
-liegen. Der zuletzt akzeptierte Wert lebt **nur innerhalb eines Aufrufs**;
-zwischen zwei Abrufen bleibt keine Uhrinformation bestehen.
+Geprüft wird die **echte monotone Folge** über **alle** Reads einschließlich des
+abschließenden: Jeder Messwert muss mindestens dem zuletzt akzeptierten
+entsprechen, Gleichstand bleibt zulässig. `0.0 → 5.0 → 4.0` ist damit
+unbrauchbar, obwohl beide späteren Werte über dem Startwert liegen. Der zuletzt
+akzeptierte Wert lebt **nur innerhalb eines Aufrufs**; zwischen zwei Abrufen
+bleibt keine Uhrinformation bestehen.
 
 Der Body wird **inkrementell als Rohbytes** gelesen und kumulativ gegen
 `policy.jwks_response_max_bytes` gezählt; beim ersten Byte darüber folgt

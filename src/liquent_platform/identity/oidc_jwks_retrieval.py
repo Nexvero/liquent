@@ -114,7 +114,11 @@ class OidcJwksEndpointClient:
             raise OidcVerificationUnavailable from None
 
         self._require_within_deadline(started, last, deadline)
-        return self._parsed_key_set(body)
+        key_set = self._parsed_key_set(body)
+        # Decoding, parsing, and the shape checks take time too, so the bound
+        # is confirmed once more immediately before returning.
+        self._require_within_deadline(started, last, deadline)
+        return key_set
 
     def _read_clock(self, previous: float | None) -> float:
         try:
@@ -138,7 +142,7 @@ class OidcJwksEndpointClient:
     def _require_within_deadline(
         self, started: float, last: list[float], deadline: float
     ) -> None:
-        """Bound the total time fail-closed between the I/O steps.
+        """Bound the total time fail-closed between the steps.
 
         This is deliberately not a hard preemptive deadline. Because every
         reading is checked against the previous one, the elapsed time can never

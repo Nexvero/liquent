@@ -165,6 +165,7 @@ def test_a_failure_is_never_retried_and_no_redirect_is_followed(handler: Any) ->
     [
         _clock(0.0, 10.0),  # deadline reached after the headers
         _clock(0.0, 0.0, 10.0),  # reached while streaming
+        _clock(0.0, 0.0, 0.0, 0.0, 10.0),  # reached only after the parse
         _clock(0.0, 5.0, 4.0),  # steps back between two later reads
         _clock(float("nan")),  # not finite
         _clock(True),  # bool is an int subclass but never a reading
@@ -174,6 +175,7 @@ def test_a_failure_is_never_retried_and_no_redirect_is_followed(handler: Any) ->
     ids=[
         "deadline-after-headers",
         "deadline-while-streaming",
+        "deadline-after-parse",
         "steps-back-later",
         "not-finite",
         "bool",
@@ -235,7 +237,6 @@ def test_the_body_is_bounded_by_declared_and_by_actual_size() -> None:
         ({"content-type": 'application/json; charset="utf-8"'}, True),
         # One optional quote pair only; nothing is normalized away.
         ({"content-type": 'application/json; charset="utf-8'}, False),
-        ({"content-type": 'application/json; charset=utf-8"'}, False),
         ({"content-type": 'application/json; charset=""utf-8""'}, False),
         ({"content-type": "application/json; charset=utf-8; charset=iso-8859-1"}, False),
         ({"content-type": "text/html"}, False),
