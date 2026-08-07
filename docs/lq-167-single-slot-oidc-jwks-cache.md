@@ -56,9 +56,16 @@ Jeder Read einer Instanz muss `>= _last_clock` sein, Gleichstand ist zulässig.
 Ein unbrauchbarer Wert (`bool`, Nicht-Zahl, `NaN`, unendlich), ein Rückwärts-
 sprung oder eine normale Clock-Exception verwerfen den Slot und ergeben neutral
 `OidcVerificationUnavailable`: Eine Uhr, die Frische nicht entscheiden kann,
-darf nichts servierbar zurücklassen. Ist `loaded_at + ttl` nicht endlich, wird
-neutral abgebrochen und kein Slot gesetzt. Keine versteckte Systemuhr. Die
-Netzwerk- und Gesamtdeadline bleibt Sache des LQ-166-Loaders.
+darf nichts servierbar zurücklassen. Keine versteckte Systemuhr. Die Netzwerk-
+und Gesamtdeadline bleibt Sache des LQ-166-Loaders.
+
+Der Ablaufwert muss **endlich** sein **und strikt nach `loaded_at` liegen**.
+Sättigt die Addition im verwendeten Float-Bereich, sodass `loaded_at + ttl`
+gleich `loaded_at` ist, kann eine positive TTL keine Frische garantieren: Das
+ist ein **technischer Fehler**, kein sofort servierter Cacheeintrag. Dann wird
+kein Slot gesetzt, kein Mapping zurückgegeben und neutral abgebrochen — ohne
+Rundung, `nextafter`, Mindest-TTL oder Ersatzzeit. Der nächste Aufruf lädt
+erneut.
 
 ## Fehler-, Geheimnis- und Mapping-Grenze
 

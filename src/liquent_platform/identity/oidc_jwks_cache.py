@@ -75,7 +75,10 @@ class InMemoryOidcJwksCache:
         # Measured after the load, so network time is never sold as freshness.
         loaded_at = self._read_clock()
         expires_at = loaded_at + self._policy.jwks_cache_ttl.total_seconds()
-        if not math.isfinite(expires_at):
+        # A positive TTL that produces no strictly later instant in the float
+        # range at hand cannot guarantee freshness, so saturation is a
+        # technical failure rather than an entry that expires on arrival.
+        if not math.isfinite(expires_at) or expires_at <= loaded_at:
             raise OidcVerificationUnavailable
         self._slot = (configuration.jwks_uri, key_set, expires_at)
         return key_set

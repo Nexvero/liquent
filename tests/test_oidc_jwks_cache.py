@@ -234,18 +234,25 @@ def test_an_unusable_clock_discards_the_slot_and_fails_neutrally(clock: Any) -> 
     assert cache.get_jwks(_configuration())["keys"][0]["kid"] == "b"
 
 
-def test_a_saturated_expiry_counts_as_expired_and_nothing_leaks() -> None:
-    """At the float ceiling the expiry cannot grow, so it is never fresh."""
+def test_a_saturated_expiry_is_a_neutral_failure_and_nothing_leaks() -> None:
+    """At the float ceiling the expiry cannot grow, so freshness is unprovable."""
 
     huge = sys.float_info.max
     assert huge + TTL_SECONDS == huge
     loader = Loader(_key_set("a"), _key_set("b"))
     cache = _cache(loader, _clock(huge))
 
-    cache.get_jwks(_configuration())
-    cache.get_jwks(_configuration())
+    # The load happens, but its result is never handed out or stored.
+    with pytest.raises(OidcVerificationUnavailable) as raised:
+        cache.get_jwks(_configuration())
+    assert len(loader.calls) == 1
+    assert raised.value.args == ("oidc_verification_unavailable",)
 
+    # Nothing was cached, so the next call loads again and fails the same way.
+    with pytest.raises(OidcVerificationUnavailable):
+        cache.get_jwks(_configuration())
     assert len(loader.calls) == 2
+
     # The URI and the key material stay out of the object's representation.
     rendered = repr(cache)
     for secret in (JWKS_URI, ISSUER, "kty", "RSA"):
