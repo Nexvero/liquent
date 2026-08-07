@@ -3,6 +3,7 @@
 import hmac
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -55,6 +56,36 @@ _REQUIRED_KEY_MATERIAL = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class _OidcIdTokenVerificationResult:
+    """What one offline verification concluded, for this module's own use.
+
+    Exactly three states exist: a verified identity, a definitive rejection, and
+    a refreshable key miss — the token names a key identifier that is absent
+    from the current trusted snapshot (LQ-168 §3). The miss is a private
+    orchestration hint only; it proves no identity and grants no permission.
+
+    Both fields are hidden from ``repr``, and the class stays underscore
+    private: it is not exported, not part of any port, and never serialised,
+    logged, or handed to transport code.
+    """
+
+    identity: ExternalIdentity | None = field(repr=False)
+    refreshable_key_miss: bool = field(repr=False)
+
+    def __post_init__(self) -> None:
+        # Messages name the invariant but never echo an identity or token.
+        if self.identity is not None and self.refreshable_key_miss:
+            raise ValueError("a verified identity is never a refreshable key miss")
+
+
+# Frozen and slotted, so the two identity-free states can be shared.
+_REJECTED = _OidcIdTokenVerificationResult(identity=None, refreshable_key_miss=False)
+_REFRESHABLE_KEY_MISS = _OidcIdTokenVerificationResult(
+    identity=None, refreshable_key_miss=True
+)
+
+
 def verify_oidc_id_token(
     id_token: str,
     jwks: Mapping[str, object],
@@ -69,14 +100,37 @@ def verify_oidc_id_token(
     reached rejection is ``None``; unusable key material or a library fault
     raises OidcVerificationUnavailable. No error carries a token, header,
     claim, key, issuer, subject, or nonce.
+
+    A neutral wrapper around the one internal pass: a refreshable key miss and a
+    definitive rejection both collapse to ``None`` here, so this contract is
+    unchanged and no caller can tell the two apart.
+    """
+
+    return _verify_oidc_id_token_for_adapter(
+        id_token, jwks, configuration, verification, now
+    ).identity
+
+
+def _verify_oidc_id_token_for_adapter(
+    id_token: str,
+    jwks: Mapping[str, object],
+    configuration: TrustedOidcClientConfiguration,
+    verification: OidcAuthorizationCodeVerification,
+    now: datetime,
+) -> _OidcIdTokenVerificationResult:
+    """The single verification pass, keeping the refresh hint for this module.
+
+    Same rules and the same one header parse and one ``jwt.decode`` as before;
+    the only addition is that a key identifier absent from the trusted snapshot
+    is reported as a refreshable miss instead of an indistinguishable rejection.
     """
 
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("now must be timezone-aware")
     if configuration.issuer != verification.expected_issuer:
-        return None
+        return _REJECTED
     if not isinstance(id_token, str) or not id_token:
-        return None
+        return _REJECTED
 
     keys = jwks.get("keys") if isinstance(jwks, Mapping) else None
     if not isinstance(keys, Sequence) or isinstance(keys, (str, bytes)):
@@ -86,30 +140,36 @@ def verify_oidc_id_token(
     try:
         header = jwt.get_unverified_header(id_token)
     except InvalidTokenError:
-        return None
+        return _REJECTED
     except PyJWTError:
         raise OidcVerificationUnavailable from None
 
     # Following jku, x5u, or jwk would let the token being checked choose its
     # own verification key.
     if any(name in header for name in _TOKEN_CONTROLLED_KEY_SOURCES):
-        return None
+        return _REJECTED
     algorithm = header.get("alg")
     if not isinstance(algorithm, str) or not algorithm:
-        return None
+        return _REJECTED
     if algorithm not in _SUPPORTED_SIGNING_ALGORITHMS:
-        return None
+        return _REJECTED
     if algorithm not in configuration.allowed_signing_algorithms:
-        return None
+        return _REJECTED
 
-    selected = _select_key(keys, header.get("kid"), algorithm)
+    kid = header.get("kid")
+    selected = _select_key(keys, kid, algorithm)
     if selected is None:
-        return None
+        # Everything LQ-168 §3 requires has been established by this point, so
+        # a kid that is provably absent is the one refreshable case. Any other
+        # reason for having no single key stays a definitive rejection.
+        if _kid_is_provably_absent(keys, kid):
+            return _REFRESHABLE_KEY_MISS
+        return _REJECTED
     # A token asking for an algorithm no key in the trusted set can serve is a
     # reliable rejection, so it must not reach the unavailable path: otherwise
     # picking an allowed but unmatched alg would be a technical-failure oracle.
     if not _key_material_matches(selected, algorithm):
-        return None
+        return _REJECTED
     try:
         key = PyJWK.from_dict(dict(selected), algorithm=algorithm)
     except (PyJWTError, ValueError, TypeError):
@@ -136,27 +196,45 @@ def verify_oidc_id_token(
             },
         )
     except InvalidTokenError:
-        return None
+        return _REJECTED
     except Exception:
         # An unexpected library or crypto fault means no verdict was reached,
         # which is never a business rejection.
         raise OidcVerificationUnavailable from None
 
     if not _time_claims_are_valid(claims, configuration, now):
-        return None
+        return _REJECTED
     if not _audience_is_valid(claims, configuration.client_id):
-        return None
+        return _REJECTED
 
     nonce = claims.get("nonce")
     if not isinstance(nonce, str) or not nonce:
-        return None
+        return _REJECTED
     if not hmac.compare_digest(nonce, verification.expected_nonce):
-        return None
+        return _REJECTED
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
-        return None
+        return _REJECTED
 
-    return ExternalIdentity(issuer=configuration.issuer, subject=subject)
+    return _OidcIdTokenVerificationResult(
+        identity=ExternalIdentity(issuer=configuration.issuer, subject=subject),
+        refreshable_key_miss=False,
+    )
+
+
+def _kid_is_provably_absent(keys: Sequence[Any], kid: object) -> bool:
+    """Whether the trusted set readably contains no entry with this exact kid.
+
+    Only a structural presence probe over the same sequence the selection uses:
+    no second selection matrix and no semantic JWK judgement. An entry that is
+    not a mapping leaves the set unreadable, so absence cannot be claimed.
+    """
+
+    if not isinstance(kid, str) or not kid:
+        return False
+    return all(
+        isinstance(entry, Mapping) and entry.get("kid") != kid for entry in keys
+    )
 
 
 def _select_key(

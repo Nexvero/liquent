@@ -1265,5 +1265,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - derselbe zu Beginn gelesene Konfigurationssnapshot gilt für den gesamten Ablauf; der Refresh verwirft den Single-Slot vorher fail-closed, liefert nie stale Schlüssel und rollt nicht auf das vorherige Set zurück
     - eine spätere interne Ergebnisform bleibt privat: nicht im Port, nicht exportiert, keine öffentliche Exception, repr-frei und nie serialisiert oder geloggt; die konkrete Signatur entscheidet erst der Implementierungsslice
 
+- LQ-169 private oidc verification outcome:
+  `docs/lq-169-private-oidc-verification-outcome.md`
+  - Status:
+    - der Offline-Verifikationskern unterscheidet modulintern einen eng definierten unbekannten-kid-Miss von einer endgültigen Ablehnung; kein Refresh, kein Cachezugriff, kein Adapter
+    - verify_oidc_id_token behält Signatur und Semantik exakt und ist jetzt ein dünner Wrapper um genau einen internen Durchlauf; Miss und endgültige Ablehnung kollabieren gleichermaßen zu None
+    - die private Ergebnisform ist frozen, slots-basiert und in beiden Feldern repr-frei, erlaubt genau drei Zustände und weist Identität zusammen mit Miss per ValueError ab
+    - sie bleibt underscore-privat, wird nicht exportiert, erscheint nicht in ports.py und trägt kein Token, kid, Algorithmus, Header, Claim, JWKS, URI oder Konfigurationsobjekt
+    - ein Miss entsteht nur, wenn ein gültiges String-kid im lesbaren Set fehlt; ein bytegenau vorhandenes kid, ein Nicht-Mapping-Eintrag, ein unbrauchbares Token-kid und jeder technische Fehler bleiben endgültig beziehungsweise Unavailable
+    - die Anwesenheitssonde prüft nur dieselbe keys-Sequenz strukturell, ohne zweite Auswahlmatrix, zweite Header-Dekodierung oder zweiten jwt.decode
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -12,7 +12,13 @@ from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.oidc_client_configuration import (
     TrustedOidcClientConfiguration,
 )
-from liquent_platform.identity.oidc_id_token_verifier import verify_oidc_id_token
+from liquent_platform.identity.oidc_id_token_verifier import (
+    _REFRESHABLE_KEY_MISS,
+    _REJECTED,
+    _OidcIdTokenVerificationResult,
+    _verify_oidc_id_token_for_adapter,
+    verify_oidc_id_token,
+)
 from liquent_platform.identity.oidc_verification import (
     OidcAuthorizationCodeVerification,
     OidcVerificationUnavailable,
@@ -408,3 +414,113 @@ def test_signature_has_exactly_the_five_agreed_parameters() -> None:
         "verification",
         "now",
     ]
+
+
+# --- LQ-169: the private outcome that keeps the refresh hint ----------------
+
+def _outcome(**overrides: Any) -> _OidcIdTokenVerificationResult:
+    arguments: dict[str, Any] = {
+        "id_token": _token(),
+        "jwks": _jwks(),
+        "configuration": _configuration(),
+        "verification": _verification(),
+        "now": NOW,
+    }
+    arguments.update(overrides)
+    return _verify_oidc_id_token_for_adapter(**arguments)
+
+
+def test_the_private_outcome_has_exactly_three_states() -> None:
+    identity = ExternalIdentity(issuer=ISSUER, subject=SUBJECT)
+    verified = _OidcIdTokenVerificationResult(
+        identity=identity, refreshable_key_miss=False
+    )
+
+    assert (verified.identity, verified.refreshable_key_miss) == (identity, False)
+    assert (_REJECTED.identity, _REJECTED.refreshable_key_miss) == (None, False)
+    assert (_REFRESHABLE_KEY_MISS.identity, _REFRESHABLE_KEY_MISS.refreshable_key_miss) == (
+        None,
+        True,
+    )
+    # Neither field reaches the representation.
+    assert repr(verified) == "_OidcIdTokenVerificationResult()"
+
+    with pytest.raises(ValueError, match="never a refreshable key miss") as raised:
+        _OidcIdTokenVerificationResult(identity=identity, refreshable_key_miss=True)
+    assert all(secret not in str(raised.value) for secret in (SUBJECT, ISSUER))
+
+
+@pytest.mark.parametrize(
+    "jwks",
+    [_jwks(_public_jwk(kid="rotated-away")), {"keys": []}],
+    ids=["other-kid-only", "readable-but-empty"],
+)
+def test_a_provably_absent_kid_is_a_refreshable_miss(jwks: dict[str, Any]) -> None:
+    result = _outcome(jwks=jwks)
+
+    assert result.refreshable_key_miss is True
+    assert result.identity is None
+    # The public contract still cannot tell this from any other rejection.
+    assert _verify(jwks=jwks) is None
+
+
+@pytest.mark.parametrize(
+    "jwks",
+    [
+        _jwks(_public_jwk(use="enc")),
+        _jwks(_public_jwk(), _public_jwk()),
+        _jwks(_jwk_for(_EC_P256, ECAlgorithm)),
+        {"keys": [_public_jwk(kid="rotated-away"), "not-a-mapping"]},
+    ],
+    ids=["unsuitable-use", "duplicate-kid", "incompatible-family", "unreadable-entry"],
+)
+def test_a_present_or_unreadable_key_set_is_never_a_refreshable_miss(
+    jwks: dict[str, Any],
+) -> None:
+    result = _outcome(jwks=jwks)
+
+    assert result.refreshable_key_miss is False
+    assert result.identity is None
+    assert _verify(jwks=jwks) is None
+
+
+@pytest.mark.parametrize(
+    ("headers", "jwks"),
+    [
+        # Without a kid the token names nothing to look up, so an ambiguous set
+        # is a definitive rejection rather than something a reload could fix.
+        ({}, _jwks(_public_jwk(), _public_jwk(kid="other"))),
+        ({"kid": ""}, _jwks(_public_jwk(kid="rotated-away"))),
+    ],
+    ids=["kid-absent", "kid-empty"],
+)
+def test_an_unusable_token_kid_is_never_a_refreshable_miss(
+    headers: dict[str, Any], jwks: dict[str, Any]
+) -> None:
+    """A non-string kid is unreachable here: PyJWT refuses to encode one."""
+
+    result = _outcome(id_token=_token(headers=headers), jwks=jwks)
+
+    assert result.refreshable_key_miss is False
+    assert result.identity is None
+
+
+@pytest.mark.parametrize(
+    ("headers", "configuration"),
+    [
+        ({"jku": "https://evil.test/keys"}, _configuration()),
+        ({}, _configuration(allowed_signing_algorithms=("ES256",))),
+    ],
+    ids=["token-controlled-source", "algorithm-not-allowed"],
+)
+def test_a_refused_key_source_or_algorithm_is_never_a_refreshable_miss(
+    headers: dict[str, Any], configuration: TrustedOidcClientConfiguration
+) -> None:
+    result = _outcome(
+        id_token=_token(headers={"kid": "rotated-away", **headers}),
+        jwks=_jwks(),
+        configuration=configuration,
+    )
+
+    assert result.refreshable_key_miss is False
+    assert result.identity is None
