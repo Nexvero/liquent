@@ -24,9 +24,16 @@ Aufrufer. `jku`, `x5u` und `jwk` werden hier **niemals gelesen oder befolgt**;
 ihnen zu folgen hieße, den Prüfschlüssel vom Prüfling bestimmen zu lassen.
 
 Header ausschließlich `Accept: application/json` und
-`Accept-Encoding: identity`. Kein Request-Body, keine Cookies, kein
-Authorization-Header. **Keine Redirect-Verfolgung, kein Retry, kein Fallback auf
-eine andere URL.**
+`Accept-Encoding: identity`. Kein Request-Body. **Keine Redirect-Verfolgung,
+kein Retry, kein Fallback auf eine andere URL.**
+
+`Cookie` und `Authorization` **fehlen** im Request — sie werden nicht leer
+gesetzt. Der Request wird genau einmal mit `build_request` gebaut, geerbte
+Zugangsdatenheader werden entfernt, und `send(..., auth=None)` verhindert, dass
+das Auth-Verfahren des Clients einen erzeugt. Ein absichtlich mit Cookie und
+Auth vorkonfigurierter Client kann diesem Request also keine Zugangsdaten
+leihen; harmlose Default-Header bleiben unangetastet. Gesendet wird genau
+einmal, und die Response wird auf jedem Pfad geschlossen.
 
 ## Zeit- und Bytegrenzen
 
@@ -40,10 +47,16 @@ Rückgabe; wie in LQ-165 ausdrücklich **keine harte präemptive Deadline**, wei
 ein synchroner Client blockierendes I/O nicht abbricht.
 
 Eine Uhr ist unbrauchbar und ergibt neutral `Unavailable`, wenn sie einen nicht
-endlichen oder falsch typisierten Wert liefert (`bool` ist nie ein Messwert),
-**rückwärts unter den Startwert** läuft oder eine Exception wirft; deren Text
-tritt nie nach außen. **`BaseException` wird nicht gefangen**, damit ein
-Abbruchsignal nicht in einer neutralen Unavailability verschwindet.
+endlichen oder falsch typisierten Wert liefert (`bool` ist nie ein Messwert)
+oder eine Exception wirft; deren Text tritt nie nach außen. **`BaseException`
+wird nicht gefangen**, damit ein Abbruchsignal nicht in einer neutralen
+Unavailability verschwindet.
+
+Geprüft wird die **echte monotone Folge**: Jeder Messwert muss mindestens dem
+zuletzt akzeptierten entsprechen, Gleichstand bleibt zulässig. `0.0 → 5.0 →
+4.0` ist damit unbrauchbar, obwohl beide späteren Werte über dem Startwert
+liegen. Der zuletzt akzeptierte Wert lebt **nur innerhalb eines Aufrufs**;
+zwischen zwei Abrufen bleibt keine Uhrinformation bestehen.
 
 Der Body wird **inkrementell als Rohbytes** gelesen und kumulativ gegen
 `policy.jwks_response_max_bytes` gezählt; beim ersten Byte darüber folgt
@@ -57,15 +70,29 @@ bleibt. Der Stream wird auf **jedem** Pfad geschlossen.
 
 `Content-Encoding` darf fehlen oder exakt `identity` sein, damit keine
 Dekompression die Bytegrenze umgeht. `Content-Type` muss `application/json` sein
-(Media Type case-insensitiv); ein `charset` darf fehlen oder case-insensitiv
-`utf-8` sein, jeder andere oder syntaktisch unbrauchbare wird abgewiesen. Die
-Dekodierung ist **strikt UTF-8 ohne Fallback**. `Content-Length` wird nach
-erlaubtem OWS nur als ASCII-Ziffern akzeptiert und über der Grenze vor dem Body
-abgewiesen.
+(Media Type case-insensitiv).
+
+Ein `charset`-Parameter darf fehlen oder case-insensitiv `utf-8` sein, mit
+**höchstens einem** Anführungszeichenpaar — also nur `charset=utf-8` oder
+`charset="utf-8"`. Einseitig, mehrfach oder gar nicht zugewiesene Werte wie
+`"utf-8`, `utf-8"`, `""utf-8""` und `charset=` werden abgewiesen, statt durch
+Entfernen beliebig vieler Anführungszeichen normalisiert zu werden;
+widersprechen sich mehrere Charset-Parameter, wird ebenfalls abgewiesen. Die
+Dekodierung ist **strikt UTF-8 ohne Fallback**.
+
+`Content-Length` wird nach erlaubtem OWS nur als ASCII-Ziffern akzeptiert und
+über der Grenze vor dem Body abgewiesen.
 
 **Genau ein JSON-Parse**, kein toleranter Fallback. Ein mehrfach vorkommender
 Membername ergibt auf **jeder** Objektebene `Unavailable`, sonst entschiede die
 Parser-Konvention „letzter Wert gewinnt" statt dieses Vertrags.
+
+Die gesamte Parser- und Strukturgrenze ist neutralisiert: ungültiges UTF-8,
+JSON-Syntaxfehler, ein `RecursionError` aus tief verschachteltem JSON — er erbt
+von `RuntimeError`, nicht von `ValueError` — und jede andere normale Exception
+aus Parser oder Duplikat-Hook ergeben dieselbe neue neutrale `Unavailable`. Eine
+bereits erzeugte `Unavailable` wird unverändert weitergereicht, kein interner
+Fehler erscheint als Cause oder Text.
 
 Geprüft wird nur die Grundform: Top-Level ein JSON-Objekt, darin ein Feld
 `keys`, das eine Liste ist, deren Einträge jeweils JSON-Objekte sind. **Keine**

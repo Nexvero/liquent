@@ -43,7 +43,14 @@ KEY_SET = {
 }
 
 
-def _load(handler: Any, *, monotonic: Any = None, seen: list[Any] | None = None) -> Any:
+def _load(
+    handler: Any,
+    *,
+    monotonic: Any = None,
+    seen: list[Any] | None = None,
+    policy: OidcVerificationPolicy = POLICY,
+    **client_arguments: Any,
+) -> Any:
     """Run one retrieval against a mock transport, recording the exchange."""
 
     def wrapped(request: httpx2.Request) -> httpx2.Response:
@@ -53,8 +60,10 @@ def _load(handler: Any, *, monotonic: Any = None, seen: list[Any] | None = None)
         return response
 
     arguments = {"monotonic": monotonic} if monotonic is not None else {}
-    with httpx2.Client(transport=httpx2.MockTransport(wrapped)) as client:
-        return OidcJwksEndpointClient(client, POLICY, **arguments).load_jwks(
+    with httpx2.Client(
+        transport=httpx2.MockTransport(wrapped), **client_arguments
+    ) as client:
+        return OidcJwksEndpointClient(client, policy, **arguments).load_jwks(
             CONFIGURATION
         )
 
@@ -91,10 +100,20 @@ def _clock(*readings: Any, raises_at: int = 0) -> Any:
 _OK = _responds(KEY_SET)
 
 
-def test_one_shaped_get_returns_the_key_set_unchanged() -> None:
-    seen: list[Any] = []
+def test_one_shaped_get_carries_no_client_credentials() -> None:
+    """A preconfigured client must lend this request nothing."""
 
-    result = _load(_OK, seen=seen)
+    seen: list[Any] = []
+    cookies = httpx2.Cookies()
+    cookies.set("session", "IDP-SESSION-COOKIE", domain="idp.example.test")
+
+    result = _load(
+        _OK,
+        seen=seen,
+        cookies=cookies,
+        auth=("operator", "PASSWORD"),
+        headers={"x-harmless": "control-value"},
+    )
 
     assert len(seen) == 1
     request, response = seen[0]
@@ -106,6 +125,8 @@ def test_one_shaped_get_returns_the_key_set_unchanged() -> None:
     assert headers["accept-encoding"] == "identity"
     assert "cookie" not in headers
     assert "authorization" not in headers
+    # The control header proves nothing is stripped wholesale.
+    assert headers["x-harmless"] == "control-value"
     # The policy bounds every phase; nothing is taken from the response.
     assert request.extensions["timeout"] == {
         "connect": 2.0,
@@ -144,7 +165,7 @@ def test_a_failure_is_never_retried_and_no_redirect_is_followed(handler: Any) ->
     [
         _clock(0.0, 10.0),  # deadline reached after the headers
         _clock(0.0, 0.0, 10.0),  # reached while streaming
-        _clock(100.0, 50.0),  # running backwards is unusable, not fast
+        _clock(0.0, 5.0, 4.0),  # steps back between two later reads
         _clock(float("nan")),  # not finite
         _clock(True),  # bool is an int subclass but never a reading
         _clock("0"),  # not a number at all
@@ -153,7 +174,7 @@ def test_a_failure_is_never_retried_and_no_redirect_is_followed(handler: Any) ->
     ids=[
         "deadline-after-headers",
         "deadline-while-streaming",
-        "backwards",
+        "steps-back-later",
         "not-finite",
         "bool",
         "not-a-number",
@@ -210,9 +231,14 @@ def test_the_body_is_bounded_by_declared_and_by_actual_size() -> None:
     ("headers", "usable"),
     [
         ({"content-type": "APPLICATION/JSON"}, True),
-        ({"content-type": 'application/json; charset="UTF-8"'}, True),
+        ({"content-type": "application/json; charset=UTF-8"}, True),
+        ({"content-type": 'application/json; charset="utf-8"'}, True),
+        # One optional quote pair only; nothing is normalized away.
+        ({"content-type": 'application/json; charset="utf-8'}, False),
+        ({"content-type": 'application/json; charset=utf-8"'}, False),
+        ({"content-type": 'application/json; charset=""utf-8""'}, False),
+        ({"content-type": "application/json; charset=utf-8; charset=iso-8859-1"}, False),
         ({"content-type": "text/html"}, False),
-        ({"content-type": "application/json; charset=iso-8859-1"}, False),
         ({**JSON_HEADERS, "content-encoding": "gzip"}, False),
         # One representative Content-Length parser branch: not ASCII digits.
         ({**JSON_HEADERS, "content-length": "+105"}, False),
@@ -239,8 +265,7 @@ def test_only_uncompressed_json_encoded_as_utf_8_is_accepted(
         b'{"keys":[{"kid":"a\xffb"}]}',  # strict UTF-8, no lenient fallback
         b'{"keys":[',  # unparsable JSON
         b"[]",  # top level is not an object
-        b"{}",  # keys absent
-        b'{"keys":{"kid":"a"}}',  # keys is not an array
+        b'{"keys":{"kid":"a"}}',  # keys absent or not an array
         b'{"keys":["not-an-object"]}',  # an entry is not an object
         b'{"keys":[],"keys":[]}',  # duplicate member at the top level
         b'{"keys":[{"kid":"a","kid":"b"}]}',  # duplicate inside a key object
@@ -249,7 +274,6 @@ def test_only_uncompressed_json_encoded_as_utf_8_is_accepted(
         "invalid-utf-8",
         "unparsable-json",
         "top-level-not-an-object",
-        "keys-absent",
         "keys-not-an-array",
         "entry-not-an-object",
         "duplicate-top-level-member",
@@ -259,6 +283,27 @@ def test_only_uncompressed_json_encoded_as_utf_8_is_accepted(
 def test_an_unusable_json_or_key_set_shape_is_neutral(body: bytes) -> None:
     with pytest.raises(OidcVerificationUnavailable) as raised:
         _load(_responds(body))
+
+    assert raised.value.args == ("oidc_verification_unavailable",)
+
+
+def test_a_parser_fault_from_deep_nesting_is_neutral() -> None:
+    """RecursionError derives from RuntimeError, not ValueError."""
+
+    generous = OidcVerificationPolicy(
+        connect_timeout=timedelta(seconds=2),
+        read_timeout=timedelta(seconds=5),
+        total_timeout=timedelta(seconds=10),
+        token_response_max_bytes=MAX_BYTES,
+        jwks_response_max_bytes=131072,
+        jwks_cache_ttl=timedelta(minutes=5),
+    )
+    depth = 20000
+    body = b"[" * depth + b"]" * depth
+    assert len(body) < generous.jwks_response_max_bytes
+
+    with pytest.raises(OidcVerificationUnavailable) as raised:
+        _load(_responds(body), policy=generous)
 
     assert raised.value.args == ("oidc_verification_unavailable",)
 

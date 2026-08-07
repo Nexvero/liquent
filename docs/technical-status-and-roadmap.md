@@ -1234,10 +1234,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-166-bounded-oidc-jwks-retrieval.md`
   - Status:
     - kontrollierter serverseitiger JWKS-Abruf, der genau ein Key-Set von der exakt konfigurierten jwks_uri lädt und als geparstes Mapping weitergibt; kein Cache, keine TTL, keine Schlüsselauswahl, keine LQ-157-Portimplementierung
-    - genau ein GET ohne Body, Cookies und Authorization-Header, keine Redirect-Verfolgung, kein Retry und kein Fallback auf eine andere URL; jku, x5u und jwk werden nie gelesen
-    - Zeitgrenze wie LQ-165 aus der Policy plus fail-closed geprüfte monotone Schrittgrenze; unbrauchbare, rückwärts laufende oder werfende Uhren ergeben neutral Unavailable, BaseException wird nicht gefangen
+    - genau ein GET ohne Body, keine Redirect-Verfolgung, kein Retry und kein Fallback auf eine andere URL; jku, x5u und jwk werden nie gelesen
+    - Cookie- und Authorization-Header fehlen im Request statt leer zu sein: einmal gebaut, geerbte Zugangsdaten entfernt, mit auth=None genau einmal gesendet, sodass auch ein vorkonfigurierter Client keine Zugangsdaten leiht
+    - Zeitgrenze wie LQ-165 aus der Policy plus fail-closed geprüfte Schrittgrenze, zusätzlich echte Monotonie zwischen aufeinanderfolgenden Reads ohne Zustand über den Aufruf hinaus; werfende oder unbrauchbare Uhren ergeben neutral Unavailable, BaseException wird nicht gefangen
     - nur HTTP 200 ist verwertbar, jeder andere Status ergibt Unavailable, auch bei wohlgeformtem Body; Antwort inkrementell als Rohbytes gegen jwks_response_max_bytes kumulativ begrenzt
-    - genau ein strikter UTF-8-JSON-Parse, doppelte Membernamen auf jeder Ebene fail-closed; verlangt wird nur die Grundform Objekt mit keys-Liste aus Objekten
+    - Charset nur als utf-8 mit höchstens einem Anführungszeichenpaar, einseitig oder mehrfach zitierte Werte werden abgewiesen statt normalisiert
+    - genau ein strikter UTF-8-JSON-Parse, doppelte Membernamen auf jeder Ebene fail-closed; die gesamte Parser- und Strukturgrenze inklusive RecursionError wird neutralisiert; verlangt wird nur die Grundform Objekt mit keys-Liste aus Objekten
     - kryptografische und semantische Schlüsselprüfung bleibt im Offline-Verifikationskern; das Mapping wird semantisch unverändert weitergegeben, ohne Normalisierung oder Umsortierung
     - Fehler tragen nur ihren neutralen Code; URL, Body, Headerwerte, Providertext und Schlüsselmaterial gelangen nie in Rückgabe, Exception, Log oder Telemetrie
 

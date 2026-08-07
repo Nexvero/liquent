@@ -19,6 +19,8 @@ _MEDIA_TYPE = "application/json"
 _CONTENT_ENCODING = "identity"
 _CHARSET = "utf-8"
 _READ_CHUNK_BYTES = 8192
+# Credentials a preconfigured client would otherwise lend to this request.
+_CREDENTIAL_HEADERS = ("cookie", "authorization")
 
 
 def _no_duplicate_members(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
@@ -56,51 +58,65 @@ class OidcJwksEndpointClient:
     ) -> Mapping[str, object]:
         """Fetch the key set exactly once and return it structurally checked.
 
-        Exactly one GET is issued, redirects are never followed, and nothing is
-        retried. Only HTTP 200 is usable; every other status, and every network,
-        framing, decoding, or structural fault, raises
-        OidcVerificationUnavailable. The parsed document is returned as it was
-        read: no normalization, reordering, or per-entry reconstruction, so a
-        later verifier sees exactly what the trusted source published.
+        Exactly one GET is built and sent, redirects are never followed, and
+        nothing is retried. A preconfigured client lends this request no cookie
+        and no Authorization header. Only HTTP 200 is usable; every other
+        status, and every network, framing, decoding, or structural fault,
+        raises OidcVerificationUnavailable. The parsed document is returned as
+        it was read: no normalization, reordering, or per-entry reconstruction,
+        so a later verifier sees exactly what the trusted source published.
 
         No URL, header value, response fragment, provider text, or key material
         reaches a return value, an exception, or a log.
         """
 
         deadline = self._policy.total_timeout.total_seconds()
-        started = self._read_clock()
+        # The last accepted reading lives only inside this call, so no clock
+        # state survives between two retrievals.
+        started = self._read_clock(None)
+        last = [started]
 
         try:
-            with self._client.stream(
+            request = self._client.build_request(
                 "GET",
                 configuration.jwks_uri,
-                # No request body, no cookies, and no Authorization header: a
-                # public key set is fetched, not an authenticated resource.
+                # No request body: a public key set is fetched, not created.
                 headers={"Accept": _MEDIA_TYPE, "Accept-Encoding": _CONTENT_ENCODING},
-                follow_redirects=False,
                 timeout=httpx2.Timeout(
                     connect=self._policy.connect_timeout.total_seconds(),
                     read=self._policy.read_timeout.total_seconds(),
                     write=deadline,
                     pool=deadline,
                 ),
-            ) as response:
-                self._require_within_deadline(started, deadline)
+            )
+            # Removed rather than blanked, so the headers are absent entirely.
+            # auth=None below stops the client's own scheme from adding one.
+            for inherited in _CREDENTIAL_HEADERS:
+                if inherited in request.headers:
+                    del request.headers[inherited]
+
+            response = self._client.send(
+                request, stream=True, follow_redirects=False, auth=None
+            )
+            try:
+                self._require_within_deadline(started, last, deadline)
                 if response.status_code != 200:
                     # Redirects, 304, 4xx, and 5xx alike: no key set was served.
                     raise OidcVerificationUnavailable
                 self._require_acceptable_headers(response)
-                body = self._read_bounded_body(response, started, deadline)
+                body = self._read_bounded_body(response, started, last, deadline)
+            finally:
+                response.close()
         except OidcVerificationUnavailable:
             raise
         except Exception:
             # Any transport or client fault is a technical failure.
             raise OidcVerificationUnavailable from None
 
-        self._require_within_deadline(started, deadline)
+        self._require_within_deadline(started, last, deadline)
         return self._parsed_key_set(body)
 
-    def _read_clock(self) -> float:
+    def _read_clock(self, previous: float | None) -> float:
         try:
             moment = self._monotonic()
         except Exception:
@@ -112,17 +128,25 @@ class OidcJwksEndpointClient:
             raise OidcVerificationUnavailable
         if not math.isfinite(moment):
             raise OidcVerificationUnavailable
-        return float(moment)
+        reading = float(moment)
+        # A monotonic clock never steps back, not even between two later reads
+        # that both sit above the start. A tie is still fine.
+        if previous is not None and reading < previous:
+            raise OidcVerificationUnavailable
+        return reading
 
-    def _require_within_deadline(self, started: float, deadline: float) -> None:
+    def _require_within_deadline(
+        self, started: float, last: list[float], deadline: float
+    ) -> None:
         """Bound the total time fail-closed between the I/O steps.
 
-        This is deliberately not a hard preemptive deadline; a clock running
-        backwards is unusable rather than fast.
+        This is deliberately not a hard preemptive deadline. Because every
+        reading is checked against the previous one, the elapsed time can never
+        be negative here; a clock that steps back has already been refused.
         """
 
-        elapsed = self._read_clock() - started
-        if elapsed < 0 or elapsed >= deadline:
+        last[0] = self._read_clock(last[0])
+        if last[0] - started >= deadline:
             raise OidcVerificationUnavailable
 
     def _require_acceptable_headers(self, response: httpx2.Response) -> None:
@@ -138,12 +162,16 @@ class OidcJwksEndpointClient:
         if media_type.strip().lower() != _MEDIA_TYPE:
             raise OidcVerificationUnavailable
         for parameter in parameters.split(";"):
-            # A parameter without a value yields "", which is not the charset.
             name, _, value = parameter.partition("=")
-            if (
-                name.strip().lower() == "charset"
-                and value.strip().strip('"').lower() != _CHARSET
-            ):
+            if name.strip().lower() != "charset":
+                continue
+            candidate = value.strip()
+            # Exactly one optional quote pair. Stripping every quote instead
+            # would turn `"utf-8`, `utf-8"`, and `""utf-8""` into a charset
+            # nobody declared, and a parameter without a value stays "".
+            if len(candidate) > 1 and candidate[0] == '"' and candidate[-1] == '"':
+                candidate = candidate[1:-1]
+            if candidate.lower() != _CHARSET:
                 raise OidcVerificationUnavailable
 
         # A missing header yields "0", which is within every limit. The ASCII
@@ -156,7 +184,11 @@ class OidcJwksEndpointClient:
             raise OidcVerificationUnavailable
 
     def _read_bounded_body(
-        self, response: httpx2.Response, started: float, deadline: float
+        self,
+        response: httpx2.Response,
+        started: float,
+        last: list[float],
+        deadline: float,
     ) -> bytes:
         chunks: list[bytes] = []
         total = 0
@@ -167,7 +199,7 @@ class OidcJwksEndpointClient:
             if total > self._policy.jwks_response_max_bytes:
                 raise OidcVerificationUnavailable
             chunks.append(chunk)
-            self._require_within_deadline(started, deadline)
+            self._require_within_deadline(started, last, deadline)
         return b"".join(chunks)
 
     def _parsed_key_set(self, body: bytes) -> Mapping[str, object]:
@@ -182,14 +214,19 @@ class OidcJwksEndpointClient:
             document = json.loads(
                 body.decode("utf-8"), object_pairs_hook=_no_duplicate_members
             )
-        except (UnicodeDecodeError, ValueError):
+            if not isinstance(document, dict):
+                raise OidcVerificationUnavailable
+            keys = document.get("keys")
+            # json.loads yields a list for a JSON array and a dict for an object.
+            if not isinstance(keys, list):
+                raise OidcVerificationUnavailable
+            if not all(isinstance(entry, dict) for entry in keys):
+                raise OidcVerificationUnavailable
+        except OidcVerificationUnavailable:
+            raise
+        except Exception:
+            # Invalid UTF-8, JSON syntax, a RecursionError from deep nesting,
+            # and any other normal parser fault become the same neutral answer.
+            # BaseException is deliberately not caught.
             raise OidcVerificationUnavailable from None
-        if not isinstance(document, dict):
-            raise OidcVerificationUnavailable
-        keys = document.get("keys")
-        # json.loads yields a list for a JSON array and a dict for an object.
-        if not isinstance(keys, list):
-            raise OidcVerificationUnavailable
-        if not all(isinstance(entry, dict) for entry in keys):
-            raise OidcVerificationUnavailable
         return document
