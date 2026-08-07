@@ -273,10 +273,11 @@ def _faulty(
 def test_a_technical_fault_at_any_stage_is_neutral_and_detail_free(
     monkeypatch: pytest.MonkeyPatch, stage: str, detail: str | None
 ) -> None:
+    neutral = OidcVerificationUnavailable()
     if stage == "naive-clock":
         arguments: dict[str, Any] = {"clock": Recorder(NOW.replace(tzinfo=None))}
     elif stage == "already-neutral":
-        arguments = {"configurations": Recorder(OidcVerificationUnavailable())}
+        arguments = {"configurations": Recorder(neutral)}
     else:
         arguments = _faulty(stage, RuntimeError(detail), monkeypatch)
 
@@ -285,25 +286,23 @@ def test_a_technical_fault_at_any_stage_is_neutral_and_detail_free(
     with pytest.raises(OidcVerificationUnavailable) as raised:
         adapter.verify_authorization_code(_verification())
 
+    # The public boundary always ends in a fully detail-free chain, including
+    # for the neutral errors the cache raises with an inner context of its own.
     assert raised.value.args == ("oidc_verification_unavailable",)
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
     rendered = f"{raised.value!r}{raised.value.args}"
     for secret in (CODE, VERIFIER, NONCE, ISSUER, JWKS_URI, SUBJECT):
         assert secret not in rendered
-    if detail is None:
-        return
-    assert detail not in "".join(
-        traceback.format_exception(
-            type(raised.value), raised.value, raised.value.__traceback__
+    if stage == "already-neutral":
+        # Clean on arrival, so the very same object keeps its identity.
+        assert raised.value is neutral
+    elif detail is not None:
+        assert detail not in "".join(
+            traceback.format_exception(
+                type(raised.value), raised.value, raised.value.__traceback__
+            )
         )
-    )
-    if stage in {"get-jwks", "refresh"}:
-        # Already neutral before it reached the adapter, so the very same object
-        # propagates untouched; what it carries is the cache's own contract.
-        return
-    # Translated outside the handler, so neither a cause nor a context of the
-    # original error remains reachable through this exception.
-    assert raised.value.__cause__ is None
-    assert raised.value.__context__ is None
 
 
 @pytest.mark.parametrize("stage", ["clock", "refresh", "second-verification"])

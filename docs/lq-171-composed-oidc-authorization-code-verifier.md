@@ -74,16 +74,22 @@ Prüfung zur echten Wiederholung derselben Frage mit neuen Schlüsseln.
 Der zweite Ausgang wird **ausschließlich über `identity`** ausgewertet; ein
 zweiter `refreshable_key_miss` endet daher als `None`, nie als weiterer Refresh.
 
-Ein bereits neutrales `OidcVerificationUnavailable` wird als **exakt dasselbe
-Objekt** unverändert weitergereicht. Jede andere normale `Exception` aus Lookup,
-Token-Client, `get_jwks`, Uhr, erster Verifikation, `refresh_jwks` oder zweiter
-Verifikation wird in eine **neue** detailfreie Exception übersetzt, die
-**außerhalb** des Handlers erzeugt wird und daher weder Cause noch Context des
-Ursprungsfehlers trägt. `BaseException` wird an keiner dieser Grenzen gefangen.
+Diese äußere Grenze garantiert eine **vollständig detailfreie Exceptionkette**:
+Jedes `OidcVerificationUnavailable`, das sie verlässt, hat neutrale `args` und
+weder `__cause__` noch `__context__`.
 
-Fehler, die bereits in einem der genutzten Bausteine neutralisiert wurden,
-behalten deren eigene Exceptionkette; was sie tragen, ist Vertrag des jeweils
-erzeugenden Moduls, nicht dieses Adapters.
+Ein bereits neutrales `OidcVerificationUnavailable` behält seine Identität
+**nur dann**, wenn seine eigene Kette leer ist. Trägt es einen Cause oder
+Context — wie die Fehler, die Token-Client, JWKS-Loader, Cache und
+Offline-Verifier intern mit `from None` erzeugen —, wird es hier durch eine neue
+detailfreie Exception **ersetzt**. Jede andere normale `Exception` aus Lookup,
+Token-Client, `get_jwks`, Uhr, erster Verifikation, `refresh_jwks` oder zweiter
+Verifikation wird ebenso ersetzt. Die Ersetzung entsteht **außerhalb** des
+Handlers und trägt daher selbst keine Kette. `BaseException` wird an keiner
+dieser Grenzen gefangen und bleibt objektidentisch.
+
+Die inneren `from None`-Stellen der Bausteine bleiben unverändert; sie ließen
+sich später härten, doch die Sicherheit dieser Grenze hängt nicht davon ab.
 
 Eine werfende, falsch typisierte oder timezone-naive Uhr ist technische
 Unverfügbarkeit. Ein Fehler während Refresh oder zweiter Verifikation gibt
