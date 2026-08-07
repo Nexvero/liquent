@@ -1,3 +1,4 @@
+import inspect
 import sys
 from datetime import timedelta
 from typing import Any
@@ -257,3 +258,112 @@ def test_a_saturated_expiry_is_a_neutral_failure_and_nothing_leaks() -> None:
     rendered = repr(cache)
     for secret in (JWKS_URI, ISSUER, "kty", "RSA"):
         assert secret not in rendered
+
+
+# --- LQ-170: the controlled explicit refresh --------------------------------
+
+def test_a_refresh_discards_even_a_fresh_slot() -> None:
+    loader = Loader(_key_set("a"), _key_set("b"))
+    cache = _cache(loader, _clock(0.0, 0.0, 1.0, 2.0))
+    first = cache.get_jwks(_configuration())
+    assert cache.get_jwks(_configuration()) is first  # still a fresh hit
+    assert len(loader.calls) == 1
+
+    refreshed = cache.refresh_jwks(_configuration())
+
+    assert refreshed is not first
+    assert refreshed["keys"][0]["kid"] == "b"
+    assert len(loader.calls) == 2
+    rendered = repr(cache)
+    for secret in (JWKS_URI, ISSUER, "kty", "RSA"):
+        assert secret not in rendered
+
+
+@pytest.mark.parametrize(
+    "second_uri", [JWKS_URI, OTHER_JWKS_URI], ids=["same-uri", "different-uri"]
+)
+def test_a_refresh_replaces_the_snapshot_and_its_ttl(second_uri: str) -> None:
+    loader = Loader(_key_set("a"), _key_set("b"))
+    cache = _cache(loader, _clock(0.0, 0.0, 1.0, 2.0, 3.0))
+    first = cache.get_jwks(_configuration())
+
+    refreshed = cache.refresh_jwks(_configuration(second_uri))
+
+    assert refreshed is not first
+    assert len(loader.calls) == 2
+    # Stored under the refreshed configuration with an expiry stamped after
+    # that load, so the following hit needs no further load.
+    assert cache.get_jwks(_configuration(second_uri)) is refreshed
+    assert len(loader.calls) == 2
+
+
+@pytest.mark.parametrize(
+    ("loader_results", "readings", "recovers"),
+    [
+        ([_key_set("a"), OidcVerificationUnavailable(), _key_set("b")],
+         (0.0, 0.0, 1.0, 2.0, 3.0), True),
+        ([_key_set("a"), _key_set("b")],
+         (0.0, 0.0, RuntimeError("CLOCK-INTERNAL-DETAIL"), 2.0, 3.0), True),
+        ([_key_set("a"), _key_set("b"), _key_set("c")],
+         (0.0, 0.0, 1.0, RuntimeError("CLOCK-INTERNAL-DETAIL"), 3.0, 4.0), True),
+        # A saturating clock cannot be followed by a smaller reading, so the
+        # reload is unobservable here; the neutral failure and the single load
+        # still are.
+        ([_key_set("a"), _key_set("b")], (0.0, 0.0, 1.0, sys.float_info.max), False),
+    ],
+    ids=["loader-fails", "clock-fails-first", "clock-fails-second", "expiry-saturates"],
+)
+def test_a_failing_refresh_leaves_nothing_servable(
+    loader_results: list[Any], readings: tuple[Any, ...], recovers: bool
+) -> None:
+    loader = Loader(*loader_results)
+    cache = _cache(loader, _clock(*readings))
+    first = cache.get_jwks(_configuration())
+    loads_before = len(loader.calls)
+
+    with pytest.raises(OidcVerificationUnavailable) as raised:
+        cache.refresh_jwks(_configuration())
+
+    assert raised.value.args == ("oidc_verification_unavailable",)
+    assert "CLOCK-INTERNAL-DETAIL" not in f"{raised.value!r}{raised.value.args}"
+    if not recovers:
+        assert len(loader.calls) <= loads_before + 1
+        return
+    # A surviving slot would still be fresh here and would be served without any
+    # load at all, so a further load returning different keys proves it is gone.
+    served = cache.get_jwks(_configuration())
+    assert len(loader.calls) > loads_before
+    assert served is not first
+
+
+@pytest.mark.parametrize(
+    ("loader_results", "readings"),
+    [
+        ([_key_set("a"), KeyboardInterrupt(), _key_set("b")], (0.0, 0.0, 1.0, 2.0, 3.0)),
+        ([_key_set("a"), _key_set("b")], (0.0, 0.0, KeyboardInterrupt(), 2.0, 3.0)),
+    ],
+    ids=["from-the-loader", "from-the-clock"],
+)
+def test_a_base_exception_during_refresh_leaves_nothing_servable(
+    loader_results: list[Any], readings: tuple[Any, ...]
+) -> None:
+    loader = Loader(*loader_results)
+    cache = _cache(loader, _clock(*readings))
+    first = cache.get_jwks(_configuration())
+    loads_before = len(loader.calls)
+
+    with pytest.raises(KeyboardInterrupt):
+        cache.refresh_jwks(_configuration())
+
+    served = cache.get_jwks(_configuration())
+    assert len(loader.calls) > loads_before
+    assert served is not first
+
+
+def test_refresh_takes_only_the_configuration() -> None:
+    """No token, kid, algorithm, previous outcome, force, or retry parameter."""
+
+    assert list(inspect.signature(InMemoryOidcJwksCache.refresh_jwks).parameters) == [
+        "self",
+        "configuration",
+    ]

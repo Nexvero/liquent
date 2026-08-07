@@ -28,8 +28,10 @@ class InMemoryOidcJwksCache:
     neither is global.
 
     No cache entry, URI, or key material reaches ``repr``, an exception, a log,
-    or telemetry. There is no refresh on an unknown ``kid``, no token inspection,
-    no retry, no stale-while-error, no background refresh, and no locking.
+    or telemetry. A refresh happens only when a caller asks for one explicitly:
+    nothing here decides on an unknown ``kid``, and there is no token
+    inspection, no retry, no stale-while-error, no background refresh, and no
+    locking.
     """
 
     def __init__(
@@ -70,6 +72,44 @@ class InMemoryOidcJwksCache:
         # Expired, a different URI, or empty. Dropping first means a failing
         # load leaves the cache empty rather than serving stale keys.
         self._slot = None
+        return self._load_and_store(configuration)
+
+    def refresh_jwks(
+        self, configuration: TrustedOidcClientConfiguration
+    ) -> Mapping[str, object]:
+        """Replace the slot with a freshly loaded key set, exactly once.
+
+        Deliberately **not** a hit path: the slot is dropped whatever its state
+        — fresh, expired, same URI, or different — so this can never serve what
+        it was asked to replace. Exactly one load follows, and a new slot is
+        stored only after full success.
+
+        This method **performs** a refresh; it does not decide whether one is
+        allowed. That decision depends on the token (LQ-168 §3) and stays with
+        the later adapter, which is why there is no token, ``kid``, algorithm,
+        previous-outcome, force, or retry parameter here. The URI comes solely
+        from ``configuration.jwks_uri``.
+
+        Any failure leaves the cache empty: nothing is rolled back, no previous
+        snapshot is restored, and nothing is retried.
+        """
+
+        # Dropped before anything else, so not even a clock fault or an abrupt
+        # interruption can leave the previous snapshot servable.
+        self._slot = None
+        # A controlled read keeps the instance-wide monotonic sequence and
+        # surfaces an unusable clock before any network call is made.
+        self._read_clock()
+        return self._load_and_store(configuration)
+
+    def _load_and_store(
+        self, configuration: TrustedOidcClientConfiguration
+    ) -> Mapping[str, object]:
+        """Load once and store the single slot only after full success.
+
+        The caller has already dropped the slot; this makes no refresh decision.
+        """
+
         key_set = self._load(configuration)
 
         # Measured after the load, so network time is never sold as freshness.
