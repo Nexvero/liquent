@@ -1285,5 +1285,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Laden, TTL-Stempel und Speichern liegen in einem gemeinsamen privaten Helfer, den get_jwks und refresh_jwks nutzen; get_jwks bleibt beobachtbar unverändert
     - weiterhin strukturell genau ein Slot: ein Refresh ersetzt, erweitert und vereinigt nie; nach Erfolg liefert get_jwks innerhalb der TTL denselben Snapshot ohne weiteren Load
 
+- LQ-171 composed oidc authorization code verifier:
+  `docs/lq-171-composed-oidc-authorization-code-verifier.md`
+  - Status:
+    - konkreter Adapter für den bestehenden Port OidcAuthorizationCodeVerifier, der ausschließlich vorhandene Bausteine komponiert; keine eigene Kryptografie, kein zweiter JOSE-Parser, kein eigener Netzzugriff, ports.py unverändert
+    - die Uhr ist zwingende Konstruktorabhängigkeit ohne Default; sie wird nach Token- und JWKS-Bezug genau einmal gelesen und derselbe Wert in beiden Verifikationen verwendet
+    - Obergrenzen pro Aufruf: ein Lookup, ein Code-Austausch, ein get_jwks, höchstens ein refresh_jwks, ein Uhrlesevorgang und höchstens zwei Offline-Verifikationen
+    - fehlende Konfiguration und Issuer-Mismatch enden ohne Netz, Cache und Uhr; eine gültige OAuth-Ablehnung endet ohne JWKS-Zugriff; eine endgültige erste Ablehnung ohne Refresh
+    - der zweite Verifikationsausgang wird nur über identity ausgewertet, ein zweiter refreshable_key_miss ergibt None statt eines weiteren Refresh
+    - dieselbe Konfiguration wird als exakt dasselbe Objekt an Token-Client, Cache und beide Verifikationen gereicht, sodass eine Rotation keinen gemischten Snapshot erzeugt
+    - jeder technische Fehler jeder Stufe wird mit from None neutralisiert, sodass der ursprüngliche Text auch nicht über die Exceptionkette erscheint; BaseException wird nicht gefangen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
