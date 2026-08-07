@@ -1275,5 +1275,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - ein Miss entsteht nur, wenn ein gültiges String-kid im lesbaren Set fehlt; ein bytegenau vorhandenes kid, ein Nicht-Mapping-Eintrag, ein unbrauchbares Token-kid und jeder technische Fehler bleiben endgültig beziehungsweise Unavailable
     - die Anwesenheitssonde prüft nur dieselbe keys-Sequenz strukturell, ohne zweite Auswahlmatrix, zweite Header-Dekodierung oder zweiten jwt.decode
 
+- LQ-170 controlled oidc jwks cache refresh:
+  `docs/lq-170-controlled-oidc-jwks-cache-refresh.md`
+  - Status:
+    - der Single-Slot-Cache erhält genau eine explizite Operation refresh_jwks(configuration), die einen Refresh ausführt, aber nicht entscheidet, ob er zulässig ist
+    - kein Parameter für Token, kid, Algorithmus, vorherigen Verifikationsausgang, force, Retryanzahl oder freie URI; die URI stammt bytegenau aus configuration.jwks_uri
+    - der Slot wird sofort verworfen, vor dem Uhrlesen und vor dem Loader, unabhängig von Frische, Ablauf und URI-Gleichheit; danach genau ein Load, zweiter Uhrlesevorgang, TTL-Prüfung und erst dann Speichern
+    - jeder Fehler lässt den Cache leer: kein Rollback, keine Wiederherstellung, kein stale fallback, kein zweiter Load und kein Retry; BaseException wird nicht gefangen, der frühe Verwurf schützt auch dort
+    - Laden, TTL-Stempel und Speichern liegen in einem gemeinsamen privaten Helfer, den get_jwks und refresh_jwks nutzen; get_jwks bleibt beobachtbar unverändert
+    - weiterhin strukturell genau ein Slot: ein Refresh ersetzt, erweitert und vereinigt nie; nach Erfolg liefert get_jwks innerhalb der TTL denselben Snapshot ohne weiteren Load
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
