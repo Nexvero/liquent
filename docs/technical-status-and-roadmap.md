@@ -1294,7 +1294,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fehlende Konfiguration und Issuer-Mismatch enden ohne Netz, Cache und Uhr; eine gültige OAuth-Ablehnung endet ohne JWKS-Zugriff; eine endgültige erste Ablehnung ohne Refresh
     - der zweite Verifikationsausgang wird nur über identity ausgewertet, ein zweiter refreshable_key_miss ergibt None statt eines weiteren Refresh
     - dieselbe Konfiguration wird als exakt dasselbe Objekt an Token-Client, Cache und beide Verifikationen gereicht, sodass eine Rotation keinen gemischten Snapshot erzeugt
-    - jeder technische Fehler jeder Stufe wird mit from None neutralisiert, sodass der ursprüngliche Text auch nicht über die Exceptionkette erscheint; BaseException wird nicht gefangen
+    - unerwartete normale Fehler jeder Stufe werden außerhalb des Handlers in eine neue neutrale Exception übersetzt, die weder Cause noch Context des Ursprungsfehlers trägt; bereits neutrale Fehler bleiben dasselbe Objekt und BaseException wird nicht gefangen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

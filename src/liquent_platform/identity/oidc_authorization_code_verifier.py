@@ -60,12 +60,17 @@ class ComposedOidcAuthorizationCodeVerifier:
         try:
             return self._verify(verification)
         except OidcVerificationUnavailable:
+            # Already neutral: the very same object propagates untouched.
             raise
         except Exception:
             # Any unexpected fault from the lookup, the token client, the cache,
             # the clock, or a verification pass becomes the same neutral answer.
             # BaseException is deliberately not caught.
-            raise OidcVerificationUnavailable from None
+            pass
+
+        # Raised outside the handler, so the new error carries neither a cause
+        # nor a context and the original detail is unreachable through it.
+        raise OidcVerificationUnavailable
 
     def _verify(
         self, verification: OidcAuthorizationCodeVerification

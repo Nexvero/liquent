@@ -289,15 +289,21 @@ def test_a_technical_fault_at_any_stage_is_neutral_and_detail_free(
     rendered = f"{raised.value!r}{raised.value.args}"
     for secret in (CODE, VERIFIER, NONCE, ISSUER, JWKS_URI, SUBJECT):
         assert secret not in rendered
-    if detail is not None:
-        # Translated with `from None`, so the underlying error cannot surface
-        # through the exception chain of a formatted traceback either.
-        assert raised.value.__suppress_context__ is True
-        assert detail not in "".join(
-            traceback.format_exception(
-                type(raised.value), raised.value, raised.value.__traceback__
-            )
+    if detail is None:
+        return
+    assert detail not in "".join(
+        traceback.format_exception(
+            type(raised.value), raised.value, raised.value.__traceback__
         )
+    )
+    if stage in {"get-jwks", "refresh"}:
+        # Already neutral before it reached the adapter, so the very same object
+        # propagates untouched; what it carries is the cache's own contract.
+        return
+    # Translated outside the handler, so neither a cause nor a context of the
+    # original error remains reachable through this exception.
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
 
 
 @pytest.mark.parametrize("stage", ["clock", "refresh", "second-verification"])

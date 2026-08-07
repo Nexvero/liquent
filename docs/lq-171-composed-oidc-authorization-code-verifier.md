@@ -74,12 +74,16 @@ Prüfung zur echten Wiederholung derselben Frage mit neuen Schlüsseln.
 Der zweite Ausgang wird **ausschließlich über `identity`** ausgewertet; ein
 zweiter `refreshable_key_miss` endet daher als `None`, nie als weiterer Refresh.
 
-Ein bereits neutrales `OidcVerificationUnavailable` wird unverändert
-weitergereicht. Jede andere normale `Exception` aus Lookup, Token-Client,
-`get_jwks`, Uhr, erster Verifikation, `refresh_jwks` oder zweiter Verifikation
-wird mit `from None` in eine **neue** detailfreie Exception übersetzt, sodass der
-ursprüngliche Text auch nicht über die Exceptionkette eines formatierten
-Tracebacks erscheint. `BaseException` wird an keiner dieser Grenzen gefangen.
+Ein bereits neutrales `OidcVerificationUnavailable` wird als **exakt dasselbe
+Objekt** unverändert weitergereicht. Jede andere normale `Exception` aus Lookup,
+Token-Client, `get_jwks`, Uhr, erster Verifikation, `refresh_jwks` oder zweiter
+Verifikation wird in eine **neue** detailfreie Exception übersetzt, die
+**außerhalb** des Handlers erzeugt wird und daher weder Cause noch Context des
+Ursprungsfehlers trägt. `BaseException` wird an keiner dieser Grenzen gefangen.
+
+Fehler, die bereits in einem der genutzten Bausteine neutralisiert wurden,
+behalten deren eigene Exceptionkette; was sie tragen, ist Vertrag des jeweils
+erzeugenden Moduls, nicht dieses Adapters.
 
 Eine werfende, falsch typisierte oder timezone-naive Uhr ist technische
 Unverfügbarkeit. Ein Fehler während Refresh oder zweiter Verifikation gibt
