@@ -1,3 +1,4 @@
+import base64
 import inspect
 import json
 from datetime import UTC, datetime, timedelta
@@ -484,25 +485,41 @@ def test_a_present_or_unreadable_key_set_is_never_a_refreshable_miss(
     assert _verify(jwks=jwks) is None
 
 
+# An incoming token need not have been produced by PyJWT, so a wrongly typed
+# header value is exercised by replacing the encoded header segment verbatim.
+# No new signature is needed: the kid is judged before any signature check.
+# Today PyJWT already refuses a non-string kid while reading the header, so this
+# pins the contract rather than one layer; the module's own isinstance guard
+# stays as defence in depth should that validation ever relax.
+_NUMERIC_KID_TOKEN = "{}.{}.{}".format(
+    base64.urlsafe_b64encode(
+        json.dumps({"alg": "RS256", "kid": 7, "typ": "JWT"}).encode()
+    )
+    .rstrip(b"=")
+    .decode(),
+    *_token().split(".")[1:],
+)
+
+
 @pytest.mark.parametrize(
-    ("headers", "jwks"),
+    ("id_token", "jwks"),
     [
         # Without a kid the token names nothing to look up, so an ambiguous set
         # is a definitive rejection rather than something a reload could fix.
-        ({}, _jwks(_public_jwk(), _public_jwk(kid="other"))),
-        ({"kid": ""}, _jwks(_public_jwk(kid="rotated-away"))),
+        (_token(headers={}), _jwks(_public_jwk(), _public_jwk(kid="other"))),
+        (_token(headers={"kid": ""}), _jwks(_public_jwk(kid="rotated-away"))),
+        (_NUMERIC_KID_TOKEN, _jwks(_public_jwk(kid="rotated-away"))),
     ],
-    ids=["kid-absent", "kid-empty"],
+    ids=["kid-absent", "kid-empty", "kid-not-a-string"],
 )
 def test_an_unusable_token_kid_is_never_a_refreshable_miss(
-    headers: dict[str, Any], jwks: dict[str, Any]
+    id_token: str, jwks: dict[str, Any]
 ) -> None:
-    """A non-string kid is unreachable here: PyJWT refuses to encode one."""
-
-    result = _outcome(id_token=_token(headers=headers), jwks=jwks)
+    result = _outcome(id_token=id_token, jwks=jwks)
 
     assert result.refreshable_key_miss is False
     assert result.identity is None
+    assert _verify(id_token=id_token, jwks=jwks) is None
 
 
 @pytest.mark.parametrize(

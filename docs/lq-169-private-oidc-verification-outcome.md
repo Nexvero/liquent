@@ -87,7 +87,10 @@ Daraus folgt:
 
 Ein technischer Fehler wird **niemals** zum Miss. Ein unlesbarer Eintrag lässt
 die Sonde sofort `False` liefern, sodass Abwesenheit nicht behauptet wird und
-kein Netzwerkhinweis entsteht.
+kein Netzwerkhinweis entsteht. Ein falsch typisiertes `kid` bleibt ebenfalls
+endgültig — auch aus einem Token, das nicht mit dieser Bibliothek erzeugt wurde;
+der `isinstance`-Wächter der Sonde gilt unabhängig davon, welche Schicht den
+Typ zuerst zurückweist.
 
 Ohne `kid` bleibt die Auswahl unverändert: Genau ein eindeutiger Kandidat
 verifiziert weiterhin erfolgreich; fehlt er, ist das eine endgültige Ablehnung.
