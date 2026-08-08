@@ -1,4 +1,4 @@
-"""Neutral application errors raised while starting an OIDC login."""
+"""Neutral application errors raised while starting or completing an OIDC login."""
 
 
 class OidcLoginUnavailable(Exception):
@@ -31,6 +31,24 @@ class OidcLoginStartConflict(Exception):
     """
 
     code = "oidc_login_start_conflict"
+
+    def __init__(self) -> None:
+        super().__init__(self.code)
+
+
+class OidcLoginCompletionUnavailable(Exception):
+    """Report that a verified callback could not be completed into a session.
+
+    Kept apart from the neutral ``None`` of a business rejection and from the
+    verification boundary's own error: an unreadable lookup, an admission store
+    fault, an unusable clock, a generator fault, and a refused session write are
+    all technical, while an unbound identity or a refused admission are not.
+
+    It holds no identity, user, admission id, session id, csrf token, return
+    path, or internal cause, so it reveals nothing about what exists.
+    """
+
+    code = "oidc_login_completion_unavailable"
 
     def __init__(self) -> None:
         super().__init__(self.code)

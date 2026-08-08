@@ -1310,5 +1310,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - die Reihenfolge ist irreversibel: keine Rücknahme einer Admission-Bindung bei Sessionfehler, keine Rücknahme einer Session bei Transportfehler, kein zweiter Versuch irgendeiner Stufe, ein neuer Versuch braucht einen neuen Login-Start
     - Route, Statuscodes, Redirect-Ziele, Handler-Ausgabe, Destination-Modell und Wiring bleiben offen; LQ-158 bleibt dafür maßgeblich
 
+- LQ-173 complete oidc login:
+  `docs/lq-173-complete-oidc-login.md`
+  - Status:
+    - transportfreier Completion-Anwendungsfall: aus einem verifizierten Callback wird genau ein interner Nutzer bestimmt und genau eine frische Browser-Session ausgegeben; keine Route, kein Cookie- oder Header-Aufruf, keine Redirect-Validierung
+    - Funktion statt Klasse nach Konvention der Anwendungsschicht, die Uhr aber als Callable, weil eine fachliche Ablehnung ohne jeden Uhrlesevorgang enden muss
+    - nicht positive Lebensdauer wird vor Lookup und vor jeder Mutation neutral abgewiesen; danach ein Lookup, bei vorhandenem Binding kein Admission-Aufruf
+    - ohne Binding und ohne Admission folgt None; sonst genau ein atomarer consume_admission_and_bind, dessen Ergebnis allein entscheidet
+    - erst nach belastbarem Nutzer ein Uhrlesevorgang, SessionPrincipal und genau ein issue_browser_session; eine defekte Uhr wird erkannt, bevor Session-Material entsteht
+    - CompletedOidcLogin ist frozen, slots-basiert und in beiden Feldern repr-frei und trägt weder Identität, Nutzer noch Admission-ID; der return_path bleibt unvalidiert und nicht transportfähig
+    - technische Fehler ergeben OidcLoginCompletionUnavailable mit neutralen args und leerem Cause und Context, getrennt von Verification-, Login-Start- und Session-Lifecycle-Fehlern; BaseException bleibt ungefangen
+    - eine erfolgreich konsumierte Admission bleibt bei späterem Sessionfehler gebunden, ohne Rollback und ohne zweiten Versuch; ein neuer Versuch braucht einen neuen Login-Start
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
