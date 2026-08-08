@@ -91,6 +91,23 @@ class Generator:
         return self._next("csrf_token", "csrf-1")
 
 
+class Delegating:
+    """Counts calls while delegating unchanged to the real adapter."""
+
+    def __init__(self, target: Any) -> None:
+        self.target = target
+        self.lookups: list[Any] = []
+        self.admissions: list[Any] = []
+
+    def get_user_id(self, identity: Any) -> Any:
+        self.lookups.append(identity)
+        return self.target.get_user_id(identity)
+
+    def consume_admission_and_bind(self, admission_id: Any, identity: Any) -> Any:
+        self.admissions.append((admission_id, identity))
+        return self.target.consume_admission_and_bind(admission_id, identity)
+
+
 def _complete(**overrides: Any) -> Any:
     parts: dict[str, Any] = {
         "identity_lookup": Recorder(BOUND_USER),
@@ -185,17 +202,21 @@ def test_a_session_fault_after_binding_keeps_the_binding_and_retries_nothing() -
         now=lambda: NOW,
     )
     assert identities.get_user_id(IDENTITY) is None
+    recording, store = Delegating(identities), Recorder(False)
 
     with pytest.raises(OidcLoginCompletionUnavailable):
         complete_oidc_login(
-            identities, identities, Recorder(False), Generator(), _verified(),
+            recording, recording, store, Generator(), _verified(),
             clock=lambda: NOW, lifetime=LIFETIME,
         )
 
+    # The failing completion itself made exactly one call to each write-relevant
+    # port; the idempotent store could not hide a repeated consumption.
+    assert recording.lookups == [IDENTITY]
+    assert recording.admissions == [(ADMISSION, IDENTITY)]
+    assert len(store.calls) == 1
     # The admission was consumed and its binding survives the session fault.
     assert identities.get_user_id(IDENTITY) == ADMITTED_USER
-    # A second attempt finds the binding and never touches the admission again.
-    assert identities.consume_admission_and_bind(ADMISSION, IDENTITY) == ADMITTED_USER
 
 
 @pytest.mark.parametrize("return_path", [RETURN_PATH, None], ids=["path", "none"])
@@ -207,7 +228,7 @@ def test_the_result_carries_the_issued_session_and_the_path_verbatim(
     result, _ = _complete(session_store=store, verified=_verified(return_path=return_path))
 
     assert result.session.session_id == store.calls[0][0]
-    assert result.return_path == return_path
+    assert result.return_path is return_path
     rendered = repr(result)
     assert rendered == "CompletedOidcLogin()"
     for secret in ("session-1", "csrf-1", BOUND_USER, IDENTITY.subject, "admission-1",
