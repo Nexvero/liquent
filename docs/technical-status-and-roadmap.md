@@ -1296,5 +1296,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - dieselbe Konfiguration wird als exakt dasselbe Objekt an Token-Client, Cache und beide Verifikationen gereicht, sodass eine Rotation keinen gemischten Snapshot erzeugt
     - die äußere Grenze garantiert eine vollständig detailfreie Exceptionkette: jedes austretende Unavailable hat neutrale args und weder Cause noch Context; eine bereits neutrale Exception behält ihre Identität nur bei leerer eigener Kette, sonst wird sie ersetzt, und BaseException bleibt objektidentisch
 
+- LQ-172 oidc callback completion und session handover:
+  `docs/lq-172-oidc-callback-completion-session-handover-contract.md`
+  - Status:
+    - reine Architekturentscheidung ohne Code: legt fest, wie aus einem bereits verifizierten VerifiedOidcCallback genau ein UserId bestimmt und daraus genau eine frische Session erzeugt wird; liefert die von LQ-158 §14 abgewartete Completion-Grenze
+    - die Completion sieht weder Code, ID-Token, State noch Binding-Cookie, prüft nichts erneut, nimmt keinen freien UserId und erzeugt niemals automatisch einen User
+    - ein bestehendes Binding hat absoluten Vorrang: die Admission wird dann weder geprüft noch konsumiert, kein Schreibport aufgerufen, kein Rebinding und kein Account-Merge
+    - ohne Binding und ohne Admission folgt neutrale Ablehnung; sonst genau ein atomarer consume_admission_and_bind, dessen Ergebnis allein entscheidet, ohne zweiten Lookup, Fallback oder Check-then-act
+    - erst nach belastbarem UserId werden Clock und Generator berührt; die bestehende Issuance-Grenze erzeugt neue Session-ID, unabhängiges CSRF-Material und feste serverseitige Lebensdauer, nichts davon aus Callback, Cookie, Claims oder return_path
+    - die Session ist immer frisch: keine Übernahme, Verlängerung, Rotation über eine ambient Cookie-ID und kein Widerruf anderer Sessions, also kein Session-Fixation-Pfad
+    - die spätere Ausgabe trägt nur IssuedBrowserSession und den unvalidierten return_path, beide repr-geschützt; der return_path ist verlustfreies Handover an eine eigene Validierungsgrenze, keine Redirect-Freigabe
+    - fachliche Ablehnung bleibt ein einheitliches None, technische Fehler brauchen eine eigene vollständig detailfreie Grenze; OidcVerificationUnavailable wird dafür nicht wiederverwendet
+    - die Reihenfolge ist irreversibel: keine Rücknahme einer Admission-Bindung bei Sessionfehler, keine Rücknahme einer Session bei Transportfehler, kein zweiter Versuch irgendeiner Stufe, ein neuer Versuch braucht einen neuen Login-Start
+    - Route, Statuscodes, Redirect-Ziele, Handler-Ausgabe, Destination-Modell und Wiring bleiben offen; LQ-158 bleibt dafür maßgeblich
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
