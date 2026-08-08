@@ -1322,5 +1322,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - technische Fehler ergeben OidcLoginCompletionUnavailable mit neutralen args und leerem Cause und Context, getrennt von Verification-, Login-Start- und Session-Lifecycle-Fehlern; BaseException bleibt ungefangen
     - eine erfolgreich konsumierte Admission bleibt bei späterem Sessionfehler gebunden, ohne Rollback und ohne zweiten Versuch; ein neuer Versuch braucht einen neuen Login-Start
 
+- LQ-174 validated internal destination:
+  `docs/lq-174-validated-internal-destination.md`
+  - Status:
+    - transportfreie Grenze nach LQ-158 §15.3: ein optionaler serverseitiger return_path wird in ein same-origin-fähiges internes Ziel überführt; keine HTTP-Antwort, kein Location-Header, kein Redirect, kein Request- oder Header-Zugriff
+    - Positivgrammatik statt Verbotsliste: exakt `/` oder führender Slash und Segmente aus ausschließlich unreservierten ASCII-Zeichen, kein Segment leer oder `.` oder `..`, kein abschließender Slash, Typ exakt str, Länge 1 bis 2048
+    - dadurch strukturell ausgeschlossen: Scheme, Authority und Network-Path, Userinfo, Query, Fragment, Backslash, Prozentkodierung, Whitespace, Steuerzeichen, Nicht-ASCII, leere und Dot-Segmente
+    - kein urlsplit, urljoin, Unquote oder Normalisierer, weil der Parser Steuerzeichen still entfernt und urljoin Dot-Segmente auflöst und absolute fremde Origins erzeugen kann
+    - genau eine private Grammatikentscheidung, verwendet von __post_init__ und vom Resolver; ein ungültiges Wertobjekt ist nicht konstruierbar
+    - fehlender Wert ergibt das feste sichere Standardziel `/`, ein gültiger Wert wird objektidentisch durchgereicht, ein ungültiger Wert ergibt neutrales None und fällt niemals auf `/` zurück
+    - Wertobjekt frozen, slots-basiert, hashbar und repr-frei; die Fehlermeldung nennt den abgelehnten Wert nicht, keine Logs oder Metriklabels
+    - syntaktische Gültigkeit bedeutet weder Existenz noch Autorisierung; kein Route-Allowlisting, keine Membership- oder Rollenprüfung, keine konfigurierbare Prefix-Liste, die Zielanwendung autorisiert weiterhin selbst
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
