@@ -1334,5 +1334,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Wertobjekt frozen, slots-basiert, hashbar und repr-frei; die Fehlermeldung nennt den abgelehnten Wert nicht, keine Logs oder Metriklabels
     - syntaktische Gültigkeit bedeutet weder Existenz noch Autorisierung; kein Route-Allowlisting, keine Membership- oder Rollenprüfung, keine konfigurierbare Prefix-Liste, die Zielanwendung autorisiert weiterhin selbst
 
+- LQ-175 oidc callback route transport contract:
+  `docs/lq-175-oidc-callback-route-transport-contract.md`
+  - Status:
+    - endgültiger Transportvertrag für GET /v1/session/oidc/callback, nur Vertrag: keine Route, kein Querymodell, kein Parser, kein Wiring, kein Test; LQ-158 bleibt unverändert maßgeblich und wird per Verweis in Kraft gesetzt
+    - schließt die Kette Browserbindung, verify_oidc_callback, complete_oidc_login, resolve_internal_destination und Session-/CSRF-Ausgabe zu einem 303 auf ein validiertes internes Ziel
+    - elf Stufen in fester Reihenfolge; vor dem State-/Cookie-Match kein Claim, keine Verifikation, keine Completion und kein Löschen des Binding-Cookies, nach dem Match Löschung auf jedem Endpfad
+    - neue verbindliche Rohgrenzen der Query auf den unveränderten ASGI-Bytes vor jeder Dekodierung: 8192 Bytes gesamt, höchstens vier Parameter, 4096 Bytes je roher Komponente; Überschreitung ist fachliche Ablehnung vor dem Match
+    - Response-Matrix ordnet jeden Ausgang genau einer Klasse zu: alle behandelten GET-Ausgänge sind leere 303, andere Methoden leere 405 mit Allow und ohne Location, Session und CSRF nur beim vollständigen Erfolg
+    - Entscheidung über Fehlerziele: zwei getrennte semantische Zielabhängigkeiten für fachliche Ablehnung und technische Nichtverfügbarkeit, beide als bereits im App-Wiring konstruierte ValidatedInternalDestination-Objekte, die heute auf denselben Pfad zeigen dürfen
+    - keine feinere Differenzierung nach State, Claim, Binding, Admission, Identität, Providerfehler oder Infrastrukturkomponente; kein roher String im Handler und keine Ableitung aus Request-, Host-, Origin- oder Forwarded-Werten
+    - einheitlich Cache-Control no-store, Pragma no-cache und Referrer-Policy no-referrer auf allen Methoden dieser Route, leerer Body, keine Queryreflexion, keine Callback-URL oder Location in Logs, Traces oder Metriklabels
+    - Erfolgsausgabe in fester Reihenfolge mit lokalem 303, Location, zweitem Clock-Read, set_issued_session und clear_oidc_state_cookie über anfügende Cookie-APIs; beide Set-Cookie-Header bleiben im selben Response erhalten
+    - zwei getrennte Uhr-Lesegrenzen: complete_oidc_login liest intern einmal nach belastbarem UserId, der Handler danach einmal erneut für die Cookie-Restlaufzeit; eine unbrauchbare Zeit ist technische Nichtverfügbarkeit nach gespeicherter Session
+    - Teilfortschritt bleibt bestehen: verbrauchte Login-Transaktion, wirksames Admission-Binding und gespeicherte Session werden nie zurückgerollt, kein zweiter Claim-, Verifier-, Completion- oder Session-Versuch, kein rekursiver Wiederholungsmechanismus
+    - offen bleiben Querymodell und Parser, FastAPI-Registrierung, konkrete UI-Pfade im Wiring, Korrelations-ID-Mechanismus, Orphaned-Session-Cleanup, globale Revoke-Politik und Production-Wiring
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
