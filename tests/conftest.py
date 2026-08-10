@@ -60,7 +60,11 @@ def postgres_engine() -> Iterator[Engine]:
         admin.dispose()
         # Neutral on purpose: a driver message could carry the DSN.
         pytest.fail(f"could not create a throwaway database via {_DSN_VARIABLE}")
-    disposable = str(make_url(maintenance).set(database=name))
+    # Rendered explicitly: str(URL) masks the password as "***", which would
+    # reach the server as a literal and fail authentication.
+    disposable = make_url(maintenance).set(database=name).render_as_string(
+        hide_password=False
+    )
     engine = build_engine(disposable)
     try:
         upgrade_to_head(disposable)
