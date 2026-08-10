@@ -78,12 +78,12 @@ Queryvertrag abgelehnt. **Keine** Prozentdekodierung vor diesen Grenzen.
 Überschreitung ist **neutrale fachliche Ablehnung vor dem Match**: Cookie nicht
 löschen, Transaktion nicht claimen, keine Session- oder CSRF-Ausgabe.
 
-Warum diese Zahlen: 8 KiB hält den Request-Target-Verbrauch **unabhängig von
-Proxy-Defaults** begrenzt; 4 KiB pro Komponente lässt großzügigen Raum für opake
+Warum diese Zahlen: 8 KiB begrenzt den Request-Target-Verbrauch **unabhängig von
+Proxy-Defaults**; 4 KiB je Komponente lässt großzügigen Raum für opake
 Authorization Codes, ohne einen einzelnen Wert unbeschränkt zu lassen; vier
-Parameter entsprechen **exakt** der größten zulässigen Providerfehlerform. Ein
-späterer Provider, der die Grenze nicht erfüllt, benötigt eine **ausdrückliche
-Vertragsänderung** und rechtfertigt keine unbeschränkte Eingabe.
+Parameter sind **exakt** die größte zulässige Providerfehlerform. Ein späterer
+Provider, der das nicht erfüllt, braucht eine **ausdrückliche Vertragsänderung**
+und rechtfertigt keine unbeschränkte Eingabe.
 
 ## 5. Ergebnis- und Response-Matrix
 
@@ -99,19 +99,24 @@ Datenschutzheadern aus §7.
 | State-/Cookie-Mismatch | fachlich, vor Match | 303 | Ablehnungsziel | unberührt | nein |
 | Queryform nach Match ungültig | fachlich, **nach** Match | 303 | Ablehnungsziel | **gelöscht** | nein |
 | Providerfehlerform | fachlich, nach Match | 303 | Ablehnungsziel | gelöscht | nein |
-| `verify_oidc_callback → None` | fachlich | 303 | Ablehnungsziel | gelöscht | nein |
-| `complete_oidc_login → None` | fachlich | 303 | Ablehnungsziel | gelöscht | nein |
-| `resolve_internal_destination → None` | fachlich | 303 | Ablehnungsziel | gelöscht | nein |
-| `OidcVerificationUnavailable` | technisch | 303 | Unavailable-Ziel | gelöscht | nein |
-| `OidcLoginCompletionUnavailable` | technisch | 303 | Unavailable-Ziel | gelöscht | nein |
-| Fehler **nach** gespeicherter Session | technisch | 303 | Unavailable-Ziel | gelöscht | nein |
-| unerwartete normale `Exception` | technisch | 303 | Unavailable-Ziel | gelöscht | nein |
+| `verify_oidc_callback → None` | fachlich, nach Match | 303 | Ablehnungsziel | gelöscht | nein |
+| `complete_oidc_login → None` | fachlich, nach Match | 303 | Ablehnungsziel | gelöscht | nein |
+| `resolve_internal_destination → None` | fachlich, nach Match | 303 | Ablehnungsziel | gelöscht | nein |
+| `OidcVerificationUnavailable` | technisch, nach Match | 303 | Unavailable-Ziel | gelöscht | nein |
+| `OidcLoginCompletionUnavailable` | technisch, nach Match | 303 | Unavailable-Ziel | gelöscht | nein |
+| Fehler **nach** gespeicherter Session | technisch, nach Match | 303 | Unavailable-Ziel | gelöscht | nein |
+| unerwartete normale `Exception` **vor** Match | technisch, vor Match | 303 | Unavailable-Ziel | **unberührt** | nein |
+| unerwartete normale `Exception` **nach** Match | technisch, nach Match | 303 | Unavailable-Ziel | **gelöscht** | nein |
 | **vollständiger Erfolg** | Erfolg | 303 | `destination.value` | gelöscht | **ja** |
 | `BaseException` | — | **kein in LQ-175 definiertes HTTP-Ergebnis** | — | — | — |
 
-Vor-Match-Ablehnung lässt das State-Cookie unberührt; **jeder** Nach-Match-
-Ausgang löscht es; **ausschließlich** der vollständige Erfolg gibt Session-Cookie
-und CSRF-Header aus. **`verify_oidc_callback(...) -> None` bleibt ungeteilt** —
+Die Cookie-Spalte folgt **dem erreichten Sicherheitszustand, nicht der
+Ergebnisklasse**: Vor-Match-Ausgänge lassen das State-Cookie unberührt und
+claimen nicht — auch technische und unerwartete normale Exceptions beim
+Bearbeiten der Rohquery, beim Lesen des Cookies oder beim Vergleich. **Jeder**
+Nach-Match-Ausgang löscht es. **Ausschließlich** der vollständige Erfolg gibt
+Session-Cookie und CSRF-Header aus.
+**`verify_oidc_callback(...) -> None` bleibt ungeteilt** —
 die Route rekonstruiert **nicht**, ob Claim, Providerform oder Verifikation
 abgelehnt hat, weil LQ-163 diese Fälle bewusst zusammengeführt hat.
 
@@ -121,14 +126,14 @@ LQ-175 entscheidet endgültig: **zwei getrennte semantische Zielabhängigkeiten*
 ein **fachliches Ablehnungsziel** und ein **technisches Unavailable-Ziel**, beide
 als bereits im **App-Wiring konstruierte `ValidatedInternalDestination`-Objekte**.
 Verbindlich: **kein** roher String im Handler; **keine** Konstruktion aus
-Request-, Host-, Origin- oder Forwarded-Werten; beide dürfen im aktuellen Wiring
-**absichtlich auf denselben validierten Pfad zeigen** und tun es beim heutigen
-Stand; der Vertrag erfindet **keine** konkreten Frontend-Pfade; spätere getrennte
-Pfade dürfen **ausschließlich** die groben Klassen „fachlich abgelehnt" und
-„technisch nicht verfügbar" unterscheiden — **keine** feinere Differenzierung
-nach State, Claim, Binding, Admission, Identität, Providerfehler oder
-Infrastrukturkomponente. Weil die Konstruktion im Wiring geschieht, scheitert
-eine Fehlkonfiguration **beim Start** und nicht erst im Fehlerpfad.
+Request-, Host-, Origin- oder Forwarded-Werten; beide dürfen **absichtlich auf
+denselben validierten Pfad zeigen** und tun es beim heutigen Stand; der Vertrag
+erfindet **keine** konkreten Frontend-Pfade; spätere getrennte Pfade dürfen
+**ausschließlich** die groben Klassen „fachlich abgelehnt" und „technisch nicht
+verfügbar" unterscheiden — **keine** feinere Differenzierung nach State, Claim,
+Binding, Admission, Identität, Providerfehler oder Infrastrukturkomponente. Weil
+die Konstruktion im Wiring geschieht, scheitert eine Fehlkonfiguration **beim
+Start**, nicht erst im Fehlerpfad.
 
 Die beiden Klassen verlangen gegensätzliche Benutzerführung: „Anmeldung
 fehlgeschlagen, bitte neu starten" ist ein sinnvoller Retry-Hinweis, während bei
@@ -136,25 +141,21 @@ technischer Nichtverfügbarkeit ein sofortiger Retry die Lage verschärft; ein
 einziges festverdrahtetes Ziel nähme diese Unterscheidung dauerhaft weg.
 
 Die Trennung ist unbedenklich, **weil alle fachlichen Ablehnungen in genau eine
-Klasse kollabieren**: „State fehlt" ist von „Admission verweigert" und
-„Identität nicht gebunden" nach außen ununterscheidbar. Übrig bleibt nur
-„abgelehnt" gegen „unsere Infrastruktur hat versagt". Das **Restwissen ist
-benannt und akzeptiert**: Wer eine technische Störung gezielt auslöst, erfährt,
-dass er die Pipeline weiter durchlaufen hat — relevant nur für einen Angreifer,
-der bereits `state`, Binding-Cookie und gültigen Code kontrolliert, also für
-einen bösartigen oder kompromittierten Identity Provider, der ohnehin alles
-weiß. **Die technische Klasse beschreibt den Zustand der Plattform, nicht die
-Existenz eines Nutzers oder Bindings.**
+Klasse kollabieren**: „State fehlt" ist von „Admission verweigert" und „Identität
+nicht gebunden" nach außen ununterscheidbar; übrig bleibt nur „abgelehnt" gegen
+„unsere Infrastruktur hat versagt". Das **Restwissen ist benannt und akzeptiert**:
+Wer eine technische Störung gezielt auslöst, erfährt, dass er die Pipeline weiter
+durchlaufen hat — relevant nur für einen Angreifer, der bereits `state`,
+Binding-Cookie und gültigen Code kontrolliert, also für einen kompromittierten
+Identity Provider, der ohnehin alles weiß. **Die technische Klasse beschreibt den
+Zustand der Plattform, nicht die Existenz eines Nutzers oder Bindings.**
 
 ### Herkunft und Typ aller Zielwerte
 
-| Ziel | Herkunft |
-|---|---|
-| Erfolg | `resolve_internal_destination(completed.return_path)`, genau einmal zur Laufzeit |
-| fachliche Ablehnung | bereits konstruiertes Objekt aus dem App-Wiring |
-| technische Nichtverfügbarkeit | bereits konstruiertes Objekt aus dem App-Wiring |
-
-Alle drei sind ausschließlich `ValidatedInternalDestination`; `Location` erhält
+Das Erfolgsziel entsteht **zur Laufzeit** aus
+`resolve_internal_destination(completed.return_path)`, genau einmal; die beiden
+Fehlerziele stammen unverändert aus dem Wiring. Alle drei sind ausschließlich
+`ValidatedInternalDestination`; `Location` erhält
 **exakt** `.value`. **Kein** `urljoin`, **keine** absolute URL, **keine** Query,
 **kein** Fragment, **kein** Host-, Origin- oder Forwarded-Wert. Der Handler
 schreibt **niemals** einen rohen Return-Path in `Location`. Liefert
@@ -179,18 +180,26 @@ normalisierter Routenname, Methode, grobe neutrale Ergebnisklasse und eine
 Korrelations-ID **ohne** OIDC-Material.
 
 Der Methoden-`405` muss mindestens `Cache-Control: no-store` tragen; die beiden
-weiteren Header werden bewusst **vereinheitlicht**, sodass alle drei auf **allen**
+weiteren werden bewusst **vereinheitlicht**, sodass alle drei auf **allen**
 Methoden dieser Route stehen — sonst hinge ein Referer-Leak davon ab, welche
-Methode ein Client gesendet hat.
+Methode ein Client sendet.
 
 ## 8. Cookie- und Session-Ausgabereihenfolge
 
-**Vor** erfolgreichem Match: State-Cookie **niemals** löschen — ein Schreiben auf
-diesen einzigen Slot könnte eine **neuere, gültige** Bindung beschädigen (LQ-158
-§7, LQ-159); kein Session-Cookie setzen oder löschen, kein CSRF-Header. **Nach**
-erfolgreichem Match: auf **jedem** weiteren Endpfad
-`clear_oidc_state_cookie(response)` **genau einmal**, kein erneutes Setzen des
-Binding-Cookies, **keine** Ausnahme für technische Fehler.
+Die Regel ist **zustandsbasiert und kennt keine Ausnahme nach Fehlerklasse**.
+
+**Vor** erfolgreichem Match wird das State-Cookie auf **keinem** Endpfad gelöscht
+— auch nicht bei technischer Nichtverfügbarkeit oder einer unerwarteten normalen
+Exception. In diesem Zustand ist noch nicht erwiesen, dass das Cookie zu *dieser*
+Transaktion gehört; ein Schreiben auf diesen einzigen Slot könnte eine **neuere,
+gültige** Bindung eines parallel gestarteten Logins beschädigen (LQ-152 §7,
+LQ-158 §7, LQ-159). Ebenso wird kein Session-Cookie gesetzt oder gelöscht und
+kein CSRF-Header ausgegeben.
+
+**Erst nach** erfolgreichem Match gehört das Cookie nachweislich zu dieser
+Transaktion. Ab dann gilt auf **jedem** danach behandelten Endpfad
+`clear_oidc_state_cookie(response)` **genau einmal**, ohne erneutes Setzen des
+Binding-Cookies und ohne Ausnahme für technische oder unerwartete Fehler.
 
 **Vollständiger Erfolg**, verbindliche Reihenfolge:
 
@@ -203,12 +212,12 @@ Binding-Cookies, **keine** Ausnahme für technische Fehler.
 7. Response zurückgeben.
 
 Beide Cookie-Operationen müssen **anfügende** APIs verwenden; `headers["Set-
-Cookie"] = ...` ist verboten, weil eine Zuweisung den jeweils anderen Slot
-überschriebe. Der Erfolgsresponse enthält **gleichzeitig** ein neues
-`liquent_session`, die Löschung von `__Host-liquent_oidc_state` und
-`X-CSRF-Token` exakt aus der `IssuedBrowserSession`. **Keine** Session- oder
-CSRF-Werte im Body oder in `Location`; **keine** bestehende Session wird
-übernommen, rotiert oder widerrufen.
+Cookie"] = ...` ist verboten, weil eine Zuweisung den anderen Slot überschriebe.
+Der Erfolgsresponse enthält **gleichzeitig** ein neues `liquent_session`, die
+Löschung von `__Host-liquent_oidc_state` und `X-CSRF-Token` exakt aus der
+`IssuedBrowserSession`. **Keine** Session- oder CSRF-Werte im Body oder in
+`Location`; **keine** bestehende Session wird übernommen, rotiert oder
+widerrufen.
 
 ## 9. Die zwei Uhr-Lesegrenzen
 
