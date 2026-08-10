@@ -705,10 +705,15 @@ def create_app(
             # Only ever the validated value: no raw return path, no origin, no
             # query, and never an absolute URL.
             redirect.headers["Location"] = destination.value
-            redirect.headers["Cache-Control"] = "no-store"
-            redirect.headers["Pragma"] = "no-cache"
-            redirect.headers["Referrer-Policy"] = "no-referrer"
             return redirect
+
+        def _finished(response: Response) -> Response:
+            """Close every answer of this route, immediately before returning."""
+
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            return response
 
         def _matched_state(request: Request) -> OidcLoginState | None:
             """Bind the browser, or refuse without touching anything.
@@ -728,14 +733,19 @@ def create_app(
             state = _single_callback_state(request.query_params.multi_items())
             if state is None:
                 return None
+            # Built before the comparison on purpose: an unusable state value is
+            # a technical fault, and nothing may fail after a match has already
+            # succeeded, or a matched binding cookie would survive unread.
+            validated = OidcLoginState(state)
             bound = request.cookies.get(OIDC_STATE_COOKIE_NAME)
             if bound is None:
                 return None
             # Encoded first so a non-ASCII state is an ordinary mismatch rather
-            # than a comparison error.
-            if not compare_digest(state.encode(), bound.encode()):
+            # than a comparison error. The successful comparison is the last
+            # operation of this block.
+            if not compare_digest(validated.value.encode(), bound.encode()):
                 return None
-            return OidcLoginState(state)
+            return validated
 
         def _handled_after_match(request: Request, state: OidcLoginState) -> Response:
             """Run the four stages once each; the caller clears the cookie."""
@@ -766,10 +776,11 @@ def create_app(
                 # An invalid stored return path never falls back to the default
                 # target, and a session already stored server-side stays.
                 return _callback_redirect(oidc_callback_rejection)
+            # Status and Location first, then the second read of the same
+            # injected clock: a rejection above must not touch it, and the
+            # cookie's remaining lifetime belongs to this instant. The privacy
+            # headers are set by the caller, immediately before returning.
             success = _callback_redirect(destination)
-            # The same injected clock, read once more only here: a rejection
-            # above must not touch it, and the cookie's remaining lifetime
-            # belongs to this instant.
             set_issued_session(success, completed.session, now=oidc_login_clock())
             return success
 
@@ -786,19 +797,16 @@ def create_app(
                 # forbids. No dependency, cookie, or Location is involved.
                 not_allowed = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
                 not_allowed.headers["Allow"] = "GET"
-                not_allowed.headers["Cache-Control"] = "no-store"
-                not_allowed.headers["Pragma"] = "no-cache"
-                not_allowed.headers["Referrer-Policy"] = "no-referrer"
-                return not_allowed
+                return _finished(not_allowed)
             # Pre-match. Nothing on this side may delete the binding cookie, not
             # even a technical fault, so the two exits are kept apart from the
             # post-match block below instead of one blanket handler.
             try:
                 state = _matched_state(request)
             except Exception:
-                return _callback_redirect(oidc_callback_unavailable)
+                return _finished(_callback_redirect(oidc_callback_unavailable))
             if state is None:
-                return _callback_redirect(oidc_callback_rejection)
+                return _finished(_callback_redirect(oidc_callback_rejection))
             try:
                 handled = _handled_after_match(request, state)
             except Exception:
@@ -811,6 +819,6 @@ def create_app(
             # appends, exactly like the session cookie's set_cookie, and neither
             # overwrites the other's Set-Cookie header.
             clear_oidc_state_cookie(handled)
-            return handled
+            return _finished(handled)
 
     return app

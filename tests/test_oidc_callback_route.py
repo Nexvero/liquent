@@ -382,6 +382,15 @@ def test_an_invalid_stored_return_path_is_refused_without_a_default_fallback() -
 # --- unexpected faults ------------------------------------------------------
 
 
+class RejectingState:
+    """A stricter state type, to pin when the route constructs it."""
+
+    def __init__(self, value: str) -> None:
+        if value == "unusable-state":
+            raise ValueError("login state is unusable")
+        self.value = value
+
+
 @pytest.mark.parametrize(
     ("pre_match", "overrides"),
     [
@@ -390,20 +399,23 @@ def test_an_invalid_stored_return_path_is_refused_without_a_default_fallback() -
         (False, {"oidc_callback_verifier": Verifier(RuntimeError("VERIFY-DETAIL"))}),
         (False, {"oidc_callback_sessions": SessionStore(RuntimeError("STORE-DETAIL"))}),
     ],
-    ids=["pre-match", "claim", "verify", "session-store"],
+    ids=["unusable-state", "claim", "verify", "session-store"],
 )
 def test_an_unexpected_fault_follows_the_match_state_and_stays_detail_free(
     monkeypatch: pytest.MonkeyPatch, pre_match: bool, overrides: dict[str, Any]
 ) -> None:
     if pre_match:
-        # No injected collaborator runs before the match, so the only honest way
-        # to reach that branch is to break the route's own pre-match step.
-        def _explode(_: Any) -> Any:
-            raise RuntimeError("PRE-MATCH-DETAIL")
-
-        monkeypatch.setattr(app_module, "_single_callback_state", _explode)
-
-    response, parts = _call(**overrides)
+        # The shipped OidcLoginState only refuses an empty value, which the
+        # state reader already excludes, so a stricter type is substituted to
+        # reach the branch at all. The cookie deliberately does not match: only
+        # if the state is built *before* the comparison does an unusable value
+        # surface as a technical fault instead of a silent business mismatch.
+        monkeypatch.setattr(app_module, "OidcLoginState", RejectingState)
+        response, parts = _call(
+            query=f"state=unusable-state&code={CODE}", cookie="a-different-state"
+        )
+    else:
+        response, parts = _call(**overrides)
 
     assert response.status_code == 303
     assert response.headers["location"] == UNAVAILABLE.value
