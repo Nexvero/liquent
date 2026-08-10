@@ -35,7 +35,7 @@ liquent-health-check = "liquent_platform.observability.external_health:main"
 dev = [
     "build>=1.3,<2",
     "pytest>=7.0",
-    "setuptools>=80,<81",
+    "setuptools>=80,<84",
     "wheel>=0.45,<1",
 ]
 # LQ-020: optionales Visual-Preview-Extra. KEINE Pflicht-Dependency; nur für die
