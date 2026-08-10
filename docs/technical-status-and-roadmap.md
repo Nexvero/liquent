@@ -1350,5 +1350,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Teilfortschritt bleibt bestehen: verbrauchte Login-Transaktion, wirksames Admission-Binding und gespeicherte Session werden nie zurückgerollt, kein zweiter Claim-, Verifier-, Completion- oder Session-Versuch, kein rekursiver Wiederholungsmechanismus
     - offen bleiben Querymodell und Parser, FastAPI-Registrierung, konkrete UI-Pfade im Wiring, Korrelations-ID-Mechanismus, Orphaned-Session-Cleanup, globale Revoke-Politik und Production-Wiring
 
+- LQ-176 oidc callback route:
+  `docs/lq-176-oidc-callback-route.md`
+  - Status:
+    - GET /v1/session/oidc/callback nach dem LQ-175-Vertrag, implementiert in der bestehenden App-Factory hinter der Login-Start-Route; kein Hilfsmodul, kein Router, keine Middleware, keine Änderung an bestehenden Routen oder Bausteinen
+    - neun neue optionale Factory-Parameter bilden die Callback-Gruppe; beide Fehlerziele sind bereits konstruierte ValidatedInternalDestination-Objekte, kein roher Zielstring und keine Ableitung aus Request-, Host-, Origin- oder Forwarded-Werten
+    - oidc_login_clock bedient beide Routen und wird aus beiden Gruppenlisten herausgehalten, damit Login-Start und Callback unabhängig voneinander aktivierbar bleiben; eine Uhr allein bleibt ein Konfigurationsfehler
+    - oidc_session_lifetime wird beim App-Bau auf timedelta und mindestens eine ganze Sekunde geprüft, weil Sub-Sekunden auf Max-Age=0 kürzen; die Meldung nennt den Parameter, nicht den Wert
+    - Rohquery-Gate als erste Anweisung auf den unveränderten ASGI-Bytes: 8192 gesamt, höchstens vier rohe Komponenten, 4096 je Komponente, leere Komponenten zählen, keine Dekodierung und kein Cookie-Zugriff davor
+    - die Handlersignatur deklariert keinen Queryparameter, sodass FastAPI keinen extrahiert; eine leere Query erhält keinen Sonderfall und fällt regulär auf fehlenden state
+    - alle neun Methoden gehören der Route, weil eine GET-only-Registrierung OPTIONS, POST und TRACE mit einem JSON-Body des Frameworks beantworten würde; Nicht-GET ist ein leerer 405 mit Allow und ohne Abhängigkeit
+    - der Match-Zustand wird strukturell geführt: pre-match-Ausgänge inklusive technischer Fehler lassen das Binding-Cookie unberührt, post-match wird es auf jedem Endpfad genau einmal gelöscht
+    - nach dem Match entscheidet die echte Query-Multimap; Providerfehlerform und malformed Form werden bewusst nicht unterschieden, beide claimen fail-closed genau einmal und enden als fachliche Ablehnung
+    - der Erfolgsresponse bleibt lokal und wird bei jedem Fehler verworfen, der technische Response frisch aufgebaut; damit können Session-Cookie und CSRF-Header keine Fehlerantwort erreichen
+    - zweiter Clock-Read erst nach erfolgreicher Completion für set_issued_session; unbrauchbare Zeit ist technische Nichtverfügbarkeit nach gespeicherter Session, ohne Rollback und ohne zweite Issuance
+    - keine neue Exceptionklasse, kein Logging, keine Telemetrie und kein Korrelations-ID-Mechanismus; BaseException bleibt ungefangen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from hmac import compare_digest
 from typing import Annotated, AsyncIterator, Callable
 from urllib.parse import urlsplit
 
@@ -31,14 +32,20 @@ from liquent_platform.application.experiment import ExperimentSnapshot, freeze_p
 from liquent_platform.application.authorization_errors import (
     ResearchAuthorizationDenied,
 )
+from liquent_platform.application.complete_oidc_login import complete_oidc_login
 from liquent_platform.application.csrf import (
     CsrfValidationFailed,
     require_valid_csrf_token,
+)
+from liquent_platform.application.internal_destination import (
+    ValidatedInternalDestination,
+    resolve_internal_destination,
 )
 from liquent_platform.application.oidc_login_errors import (
     OidcLoginStartConflict,
     OidcLoginUnavailable,
 )
+from liquent_platform.application.verify_oidc_callback import verify_oidc_callback
 from liquent_platform.application.prepare_oidc_login_authorization import (
     prepare_oidc_login_authorization,
 )
@@ -61,16 +68,30 @@ from liquent_platform.identity.research import (
 from liquent_platform.identity.oidc_login_material import (
     SecureOidcLoginMaterialGenerator,
 )
+from liquent_platform.identity.oidc_login_transaction import OidcLoginState
 from liquent_platform.identity.ports import (
     ActiveOidcClientConfigurationLookup,
+    BrowserSessionCreationStore,
     BrowserSessionLookup,
+    BrowserSessionMaterialGenerator,
     BrowserSessionRevocationStore,
+    ExternalIdentityAdmissionStore,
+    ExternalIdentityLookup,
+    OidcAuthorizationCodeVerifier,
+    OidcLoginTransactionClaimStore,
     OidcLoginTransactionCreationStore,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
-from liquent_platform.transport.http.oidc_state_cookie import set_oidc_state_cookie
-from liquent_platform.transport.http.session_cookie import clear_session_cookie
+from liquent_platform.transport.http.oidc_state_cookie import (
+    OIDC_STATE_COOKIE_NAME,
+    clear_oidc_state_cookie,
+    set_oidc_state_cookie,
+)
+from liquent_platform.transport.http.session_cookie import (
+    clear_session_cookie,
+    set_issued_session,
+)
 from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearchJobs
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
@@ -109,6 +130,68 @@ class ResearchJobStartRequest(BaseModel):
     strategy_parameters: dict[str, str | int | float | bool]
     risk_parameters: dict[str, str | int | float | bool]
     cost_parameters: dict[str, str | int | float | bool]
+
+
+# LQ-175 §4. Enforced on the raw ASGI bytes so the request target stays bounded
+# independently of proxy defaults, and so nothing is decoded under an unbounded
+# input. Four parameters is exactly the largest permitted provider-error form.
+_MAX_RAW_CALLBACK_QUERY_BYTES = 8192
+_MAX_RAW_CALLBACK_QUERY_COMPONENTS = 4
+_MAX_RAW_CALLBACK_COMPONENT_BYTES = 4096
+
+_CALLBACK_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "HEAD",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT",
+]
+
+
+def _raw_callback_query_is_bounded(raw: bytes) -> bool:
+    """Bound the untouched query bytes before anything is decoded or read."""
+
+    if len(raw) > _MAX_RAW_CALLBACK_QUERY_BYTES:
+        return False
+    # Raw "&" split: empty components stay visible and count, and no
+    # percent-decoding happens on the way to this decision.
+    components = raw.split(b"&")
+    if len(components) > _MAX_RAW_CALLBACK_QUERY_COMPONENTS:
+        return False
+    return all(
+        len(component) <= _MAX_RAW_CALLBACK_COMPONENT_BYTES for component in components
+    )
+
+
+def _single_callback_state(parameters: list[tuple[str, str]]) -> str | None:
+    """Read exactly one non-empty state from the real multimap, or refuse."""
+
+    values = [value for name, value in parameters if name == "state"]
+    if len(values) != 1 or not values[0]:
+        return None
+    return values[0]
+
+
+def _callback_authorization_code(parameters: list[tuple[str, str]]) -> str | None:
+    """The code of a valid success form; ``None`` for every other form.
+
+    The success form is exactly one state and one non-empty code, so an unknown
+    parameter, a duplicate, or an empty code all fail this test. ``None``
+    deliberately does not distinguish a valid provider-error form from a
+    malformed one: both are neutral business rejections that must still leave
+    the transaction consumed fail-closed (LQ-158 §6), which is exactly what the
+    verification use case does when it receives ``None``.
+    """
+
+    names = [name for name, _ in parameters]
+    if len(names) != 2 or set(names) != {"state", "code"}:
+        return None
+    code = next(value for name, value in parameters if name == "code")
+    return code or None
 
 
 def _require_trusted_https_origin(value: str) -> None:
@@ -194,6 +277,15 @@ def create_app(
     oidc_login_clock: Callable[[], datetime] | None = None,
     oidc_login_lifetime: timedelta | None = None,
     oidc_login_origin: str | None = None,
+    oidc_callback_transactions: OidcLoginTransactionClaimStore | None = None,
+    oidc_callback_verifier: OidcAuthorizationCodeVerifier | None = None,
+    oidc_callback_identities: ExternalIdentityLookup | None = None,
+    oidc_callback_admissions: ExternalIdentityAdmissionStore | None = None,
+    oidc_callback_sessions: BrowserSessionCreationStore | None = None,
+    oidc_callback_material: BrowserSessionMaterialGenerator | None = None,
+    oidc_session_lifetime: timedelta | None = None,
+    oidc_callback_rejection: ValidatedInternalDestination | None = None,
+    oidc_callback_unavailable: ValidatedInternalDestination | None = None,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
@@ -210,24 +302,60 @@ def create_app(
     # it exists only when every dependency it needs was injected explicitly. A
     # partial combination is a configuration error, never a route that silently
     # falls back to a system clock or a guessed trusted origin.
-    oidc_login_dependencies = (
+    oidc_login_own = (
         oidc_login_configurations,
         oidc_login_transactions,
         oidc_login_material,
-        oidc_login_clock,
         oidc_login_lifetime,
         oidc_login_origin,
     )
-    oidc_login_enabled = all(
-        dependency is not None for dependency in oidc_login_dependencies
+    # The server clock belongs to both routes, so it is listed apart: it must not
+    # count as a lonely dependency of the route that does not want it. Either
+    # route can be enabled without the other.
+    oidc_callback_own = (
+        oidc_callback_transactions,
+        oidc_callback_verifier,
+        oidc_callback_identities,
+        oidc_callback_admissions,
+        oidc_callback_sessions,
+        oidc_callback_material,
+        oidc_session_lifetime,
+        oidc_callback_rejection,
+        oidc_callback_unavailable,
+    )
+    oidc_login_enabled = oidc_login_clock is not None and all(
+        dependency is not None for dependency in oidc_login_own
+    )
+    oidc_callback_enabled = oidc_login_clock is not None and all(
+        dependency is not None for dependency in oidc_callback_own
+    )
+    login_message = (
+        "oidc login start requires configuration lookup, transaction store, "
+        "material generator, clock, lifetime, and trusted origin together"
     )
     if not oidc_login_enabled and any(
-        dependency is not None for dependency in oidc_login_dependencies
+        dependency is not None for dependency in oidc_login_own
+    ):
+        raise ValueError(login_message)
+    if not oidc_callback_enabled and any(
+        dependency is not None for dependency in oidc_callback_own
     ):
         raise ValueError(
-            "oidc login start requires configuration lookup, transaction store, "
-            "material generator, clock, lifetime, and trusted origin together"
+            "oidc callback requires claim store, verifier, identity lookup, "
+            "admission store, session store, session material generator, clock, "
+            "session lifetime, and both validated destinations together"
         )
+    if oidc_login_clock is not None and not (oidc_login_enabled or oidc_callback_enabled):
+        # A clock on its own enables nothing and is still a configuration error.
+        raise ValueError(login_message)
+    if oidc_callback_enabled:
+        # Same whole-second reasoning as the login start: a sub-second lifetime
+        # truncates to Max-Age=0, which a browser treats as already expired, so a
+        # successful login would hand out a cookie the browser drops at once.
+        if not isinstance(oidc_session_lifetime, timedelta):
+            raise ValueError("oidc session lifetime must be a timedelta")
+        if int(oidc_session_lifetime.total_seconds()) < 1:
+            raise ValueError("oidc session lifetime must be at least one whole second")
     if oidc_login_enabled:
         # Rejected fail-fast on the whole-second Max-Age the cookie would carry,
         # not merely on a positive timedelta: a sub-second lifetime truncates to
@@ -567,5 +695,130 @@ def create_app(
             except Exception:
                 return _rejected(status.HTTP_500_INTERNAL_SERVER_ERROR)
             return started
+
+    if oidc_callback_enabled:
+
+        def _callback_redirect(destination: ValidatedInternalDestination) -> Response:
+            """One empty 303 to an already validated internal target (LQ-175)."""
+
+            redirect = Response(status_code=status.HTTP_303_SEE_OTHER)
+            # Only ever the validated value: no raw return path, no origin, no
+            # query, and never an absolute URL.
+            redirect.headers["Location"] = destination.value
+            return redirect
+
+        def _finished(response: Response) -> Response:
+            """Close every answer of this route, immediately before returning."""
+
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            return response
+
+        def _matched_state(request: Request) -> OidcLoginState | None:
+            """Bind the browser, or refuse without touching anything.
+
+            Returning a state means the constant-time comparison matched, so the
+            binding cookie provably belongs to this transaction. Returning None
+            is a neutral pre-match rejection: nothing was claimed and the single
+            cookie slot, which may hold a newer login's binding, stays untouched.
+            """
+
+            # The untouched ASGI bytes, read before request.query_params exists,
+            # so no percent- or unicode-decoding and no framework parameter
+            # extraction can happen under an unbounded request target.
+            if not _raw_callback_query_is_bounded(request.scope["query_string"]):
+                return None
+            # The real multimap: a scalar access would hide a duplicate state.
+            state = _single_callback_state(request.query_params.multi_items())
+            if state is None:
+                return None
+            # Built before the comparison on purpose: an unusable state value is
+            # a technical fault, and nothing may fail after a match has already
+            # succeeded, or a matched binding cookie would survive unread.
+            validated = OidcLoginState(state)
+            bound = request.cookies.get(OIDC_STATE_COOKIE_NAME)
+            if bound is None:
+                return None
+            # Encoded first so a non-ASCII state is an ordinary mismatch rather
+            # than a comparison error. The successful comparison is the last
+            # operation of this block.
+            if not compare_digest(validated.value.encode(), bound.encode()):
+                return None
+            return validated
+
+        def _handled_after_match(request: Request, state: OidcLoginState) -> Response:
+            """Run the four stages once each; the caller clears the cookie."""
+
+            # Exactly one claim, inside the use case, on every path from here:
+            # a malformed form yields None and is consumed fail-closed too.
+            verified = verify_oidc_callback(
+                oidc_callback_transactions,
+                oidc_callback_verifier,
+                state,
+                _callback_authorization_code(request.query_params.multi_items()),
+            )
+            if verified is None:
+                return _callback_redirect(oidc_callback_rejection)
+            completed = complete_oidc_login(
+                oidc_callback_identities,
+                oidc_callback_admissions,
+                oidc_callback_sessions,
+                oidc_callback_material,
+                verified,
+                clock=oidc_login_clock,
+                lifetime=oidc_session_lifetime,
+            )
+            if completed is None:
+                return _callback_redirect(oidc_callback_rejection)
+            destination = resolve_internal_destination(completed.return_path)
+            if destination is None:
+                # An invalid stored return path never falls back to the default
+                # target, and a session already stored server-side stays.
+                return _callback_redirect(oidc_callback_rejection)
+            # Status and Location first, then the second read of the same
+            # injected clock: a rejection above must not touch it, and the
+            # cookie's remaining lifetime belongs to this instant. The privacy
+            # headers are set by the caller, immediately before returning.
+            success = _callback_redirect(destination)
+            set_issued_session(success, completed.session, now=oidc_login_clock())
+            return success
+
+        @app.api_route(
+            "/v1/session/oidc/callback",
+            methods=_CALLBACK_METHODS,
+            tags=["session"],
+        )
+        async def oidc_callback_route(request: Request) -> Response:
+            if request.method != "GET":
+                # Every method on this path is owned deliberately: registering
+                # GET alone lets the framework answer OPTIONS, POST, and TRACE
+                # with its own JSON body, which the empty-response contract
+                # forbids. No dependency, cookie, or Location is involved.
+                not_allowed = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                not_allowed.headers["Allow"] = "GET"
+                return _finished(not_allowed)
+            # Pre-match. Nothing on this side may delete the binding cookie, not
+            # even a technical fault, so the two exits are kept apart from the
+            # post-match block below instead of one blanket handler.
+            try:
+                state = _matched_state(request)
+            except Exception:
+                return _finished(_callback_redirect(oidc_callback_unavailable))
+            if state is None:
+                return _finished(_callback_redirect(oidc_callback_rejection))
+            try:
+                handled = _handled_after_match(request, state)
+            except Exception:
+                # The partially built success response stays inside the helper
+                # and is dropped unreturned, so neither its session cookie nor
+                # its CSRF header can reach this answer. Nothing is rolled back
+                # and no stage runs twice.
+                handled = _callback_redirect(oidc_callback_unavailable)
+            # Post-match, so this runs on every handled exit. delete_cookie
+            # appends, exactly like the session cookie's set_cookie, and neither
+            # overwrites the other's Set-Cookie header.
+            clear_oidc_state_cookie(handled)
+            return _finished(handled)
 
     return app
