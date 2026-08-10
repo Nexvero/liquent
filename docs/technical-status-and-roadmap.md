@@ -1382,5 +1382,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Testtopologie: SQLite genügt für Migrationssyntax und Portsemantik, beweist aber keine Mehrprozess-Nebenläufigkeit; LQ-179 braucht zusätzlich eine wegwerfbare PostgreSQL-Instanz und darf sie nicht durch Locks oder Test-Doubles ersetzen
     - Reihenfolge: LQ-179 Migration und Adapter, dann der autorisierte Provisioning-Aufrufer, dann Login-Transaktions- und Sessionpersistenz, erst danach Wiederaufnahme von LQ-177
 
+- LQ-179 postgresql integration test path:
+  `docs/lq-179-postgresql-integration-test-path.md`
+  - Status:
+    - vorgelagerter Infrastruktur-Slice: liefert ausschließlich den von LQ-178 §11 geforderten wegwerfbaren PostgreSQL-Testpfad, keine Business-Migration, kein Adapter, kein Port, keine Fachlogik
+    - eigener CI-Job postgres-integration auf Pull Requests und Pushes mit digest-gepinntem Service postgres@sha256:9a8afca5, aufgelöst aus library/postgres:18-alpine mit linux/amd64 im OCI-Index; Healthcheck über pg_isready mit begrenztem Intervall, Timeout und Retries
+    - feste nicht-produktive Zugangsdaten nur in diesem Job; kein Repository-Secret, keine Wiederverwendung von Deployment-Secrets, kein Zugriff auf operations/deploy und kein Start des Deployment-Compose-Stacks
+    - Installation ausschließlich aus requirements/ci.lock mit denselben gepinnten Actions wie der bestehende test-Job; keine neue Dependency und kein Lockfile-Eingriff
+    - Marker postgres_integration in pyproject registriert; der normale pytest-Lauf bleibt unverändert und die bestehende Suite wird nicht verkleinert
+    - fail-loud statt stillem Skip: ohne DSN wird lokal übersprungen, mit LIQUENT_REQUIRE_POSTGRES_TESTS=1 aber fehlender, unbrauchbarer oder nicht-PostgreSQL-DSN schlägt der Lauf fehl; keine SQLite-Ausweichdatenbank und kein In-Memory-Fallback
+    - leere Markerauswahl endet mit Exit-Code 5 und färbt den Job rot; kein no-tests-ok-Mechanismus
+    - conftest-Fixture legt je Test eine eigene wegwerfbare Datenbank an, migriert sie auf head, räumt sie zuverlässig ab und nennt in Fehlern nur die Variable, nie den DSN; keine Shell, kein psql, kein Docker
+    - drei Nachweise: echter PostgreSQL-Server mit Migration bis head und Sichtbarkeit über eine zweite Engine, echtes Rennen zweier getrennter Transaktionen um einen offenen Claim, das genau eine Operation erfolgreich abschliesst, sowie Rollback ohne Teilzustand und sichtbarer Commit
+    - die Barrier koordiniert nur den gleichzeitigen Start; keine geteilte Session und kein Python-Lock im Entscheidungspfad, die Serialisierung leistet die Datenbank
+    - provenance hängt zusätzlich an postgres-integration, sodass auf main nichts attestiert wird, dessen Mehrprozessnachweis fehlschlug oder nie lief; wheel, container, SBOM und Grype bleiben unverändert
+    - SQLite bleibt auf Migrationssyntax und portable Semantik begrenzt und darf nie als Concurrency-Beweis gelten
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

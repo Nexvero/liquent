@@ -51,6 +51,54 @@ jobs:
       - name: Reject whitespace errors
         run: git diff --check
 
+  postgres-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      # Digest-pinned exactly like every action here: a floating tag would let
+      # the proof run against an image nobody reviewed. Credentials are fixed,
+      # non-production, and local to this job, so no repository secret exists.
+      postgres:
+        image: postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        env:
+          POSTGRES_USER: liquent
+          POSTGRES_PASSWORD: liquent
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U liquent -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements/ci.lock
+
+      - name: Install locked build frontend
+        run: python -m pip install --constraint requirements/ci.lock build==1.5.0 setuptools==80.10.2 wheel==0.47.0
+
+      - name: Install locked test environment
+        run: python -m pip install --no-build-isolation --constraint requirements/ci.lock --editable ".[dev]"
+
+      # A missing or unusable DSN fails here instead of skipping: an empty
+      # marker selection exits 5, which is a red job, so the only proof of
+      # multi-process atomicity cannot pass by not running.
+      - name: Run PostgreSQL integration path
+        env:
+          LIQUENT_TEST_DATABASE_URL: postgresql+psycopg://liquent:liquent@127.0.0.1:5432/postgres
+          LIQUENT_REQUIRE_POSTGRES_TESTS: "1"
+        run: python -m pytest -m postgres_integration -q
+
   wheel:
     needs: test
     runs-on: ubuntu-24.04
@@ -178,7 +226,9 @@ jobs:
 
   provenance:
     if: github.event_name == 'push'
-    needs: container
+    # The integration path gates attestation too: nothing may be attested on a
+    # push whose multi-process proof failed or never ran.
+    needs: [container, postgres-integration]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

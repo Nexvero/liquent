@@ -89,7 +89,9 @@ def test_provenance_is_push_only_and_minimally_permissioned() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     block = workflow.split("  provenance:\n", 1)[1]
     assert "if: github.event_name == 'push'" in block
-    assert "needs: container" in block
+    # Attestation stays gated on the image *and* on the multi-process proof
+    # that LQ-178 requires, so neither may be missing on a push to main.
+    assert "needs: [container, postgres-integration]" in block
     assert "id-token: write" in block
     assert "attestations: write" in block
     assert "packages: write" not in workflow

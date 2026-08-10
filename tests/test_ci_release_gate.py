@@ -66,8 +66,10 @@ def test_all_external_actions_are_pinned_to_full_commit_sha() -> None:
 
 def test_ci_uses_lock_for_install_and_nonisolated_build() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert workflow.count("--constraint requirements/ci.lock") == 4
-    assert workflow.count("--no-build-isolation") == 2
+    # Four for test/wheel plus two for the postgres-integration job (LQ-179):
+    # every install in this workflow is constrained by the same lockfile.
+    assert workflow.count("--constraint requirements/ci.lock") == 6
+    assert workflow.count("--no-build-isolation") == 3
     assert "python -m build --wheel --no-isolation" in workflow
     assert "SOURCE_DATE_EPOCH=" in workflow
 
