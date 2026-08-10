@@ -1366,5 +1366,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - zweiter Clock-Read erst nach erfolgreicher Completion für set_issued_session; unbrauchbare Zeit ist technische Nichtverfügbarkeit nach gespeicherter Session, ohne Rollback und ohne zweite Issuance
     - keine neue Exceptionklasse, kein Logging, keine Telemetrie und kein Korrelations-ID-Mechanismus; BaseException bleibt ungefangen
 
+- LQ-178 identity admission provisioning and persistence contract:
+  `docs/lq-178-identity-admission-provisioning-and-persistence-contract.md`
+  - Status:
+    - reiner Vertrag ohne Code, Modell, Port, Migration, Adapter oder Test; schließt die von LQ-132 offengelassene Erzeugungsgrenze einer Admission und legt die beobachtbaren Persistenzinvarianten fest
+    - eine IdentityAdmissionRecord entsteht ausschließlich durch eine getrennte interne Provisioning-Anwendungsgrenze, aufgerufen von einem bereits autorisierten Onboarding-Prozess; kein Self-Sign-up, kein first-login-creates-user, kein HTTP-Endpunkt, kein Environment-Bootstrap, kein Migration-Seed
+    - der konkrete autorisierte Aufrufer bleibt ein eigener Slice; solange er fehlt, wird die Provisioning-Grenze in Production nicht verdrahtet
+    - target_user_id und target_workspace_id stammen ausschließlich aus interner Onboarding-Entscheidung; kein Nutzer, Workspace, Membership, Rolle oder Berechtigung wird erzeugt und kein UserId aus Callback, Token oder Claim übernommen
+    - da keine persistente User- oder Workspace-Tabelle existiert, wird kein fiktiver Foreign Key festgeschrieben; die IDs bleiben typisierte interne Referenzen
+    - AdmissionId aus injiziertem kryptografisch sicherem Generator, expires_at aus injizierter aware-UTC-Uhr plus validierter Lifetime; der Aufrufer setzt weder ID noch Ablauf, und das im Modell fehlende created_at wird nicht erfunden
+    - die spätere ExternalIdentity ist bei Provisionierung unbekannt; erst der erste atomare Konsum bindet genau eine (issuer, subject)-Identität und legt gleichzeitig die Bindung an
+    - Invarianten: bytegenauer Vergleich ohne Normalisierung, je eine Bindung pro Identität und pro UserId, eindeutige AdmissionId, Consumption-Felder gemeinsam gesetzt oder leer, Konsum und Bindung atomar in einer Transaktion, kein Check-then-act und keine In-Process-Locks
+    - die konkrete Schreibstrategie entscheidet LQ-179 anhand des PostgreSQL-Verhaltens; LQ-178 schreibt nur beobachtbare Invarianten und keine SQL-Typen oder Kollationen fest
+    - Retention-Untergrenze fail-closed: konsumierte Admissions werden nie wieder offen, AdmissionIds nie neu vergeben, kein naives Löschen mit Wiedervergabe, kein Rollback ohne atomaren Rollback der Bindung
+    - Testtopologie: SQLite genügt für Migrationssyntax und Portsemantik, beweist aber keine Mehrprozess-Nebenläufigkeit; LQ-179 braucht zusätzlich eine wegwerfbare PostgreSQL-Instanz und darf sie nicht durch Locks oder Test-Doubles ersetzen
+    - Reihenfolge: LQ-179 Migration und Adapter, dann der autorisierte Provisioning-Aufrufer, dann Login-Transaktions- und Sessionpersistenz, erst danach Wiederaufnahme von LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
