@@ -60,26 +60,34 @@ def test_two_connections_race_and_the_server_decides_the_single_winner(
         setup.execute(text("INSERT INTO lq179_claim (id, taken_by) VALUES (1, NULL)"))
 
     start = threading.Barrier(2)
-    winners: list[str] = []
+    # Name, rowcount, and any normal exception, so a participant that never
+    # completed cannot pass as "simply did not win".
+    observations: list[tuple[str, int | None, str | None]] = []
     lock = threading.Lock()
 
     def attempt(name: str) -> None:
-        engine = build_engine(postgres_url)
+        claimed: int | None = None
+        failure: str | None = None
         try:
-            with engine.begin() as transaction:
-                start.wait(timeout=10)
-                claimed = transaction.execute(
-                    text(
-                        "UPDATE lq179_claim SET taken_by = :name"
-                        " WHERE id = 1 AND taken_by IS NULL"
-                    ),
-                    {"name": name},
-                ).rowcount
-            if claimed == 1:
-                with lock:
-                    winners.append(name)
-        finally:
-            engine.dispose()
+            engine = build_engine(postgres_url)
+            try:
+                with engine.begin() as transaction:
+                    start.wait(timeout=10)
+                    claimed = transaction.execute(
+                        text(
+                            "UPDATE lq179_claim SET taken_by = :name"
+                            " WHERE id = 1 AND taken_by IS NULL"
+                        ),
+                        {"name": name},
+                    ).rowcount
+            finally:
+                engine.dispose()
+        except Exception as error:
+            failure = type(error).__name__
+        # The lock only appends the observation; it never spans the database
+        # work, so it takes no part in the decision.
+        with lock:
+            observations.append((name, claimed, failure))
 
     threads = [threading.Thread(target=attempt, args=(name,)) for name in ("a", "b")]
     for thread in threads:
@@ -90,8 +98,12 @@ def test_two_connections_race_and_the_server_decides_the_single_winner(
     with postgres_engine.connect() as connection:
         taken = connection.execute(text("SELECT taken_by FROM lq179_claim")).scalar_one()
 
-    assert len(winners) == 1
-    assert taken == winners[0]
+    assert [thread.is_alive() for thread in threads] == [False, False]
+    assert len(observations) == 2
+    incomplete = [(name, failure) for name, _, failure in observations if failure]
+    assert not incomplete, f"both participants must complete: {incomplete}"
+    assert sorted(rowcount for _, rowcount, _ in observations) == [0, 1]
+    assert taken == next(name for name, rowcount, _ in observations if rowcount == 1)
 
 
 def test_a_rollback_leaves_no_partial_state_and_a_commit_becomes_visible(

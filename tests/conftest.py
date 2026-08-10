@@ -34,8 +34,15 @@ def _maintenance_url() -> str:
         if _required():
             pytest.fail(f"{_REQUIRE_VARIABLE}=1 but {_DSN_VARIABLE} is unset")
         pytest.skip(f"{_DSN_VARIABLE} is not set")
-    if make_url(dsn).get_backend_name() != "postgresql":
-        # A non-PostgreSQL backend proves nothing this path exists for.
+    try:
+        backend: str | None = make_url(dsn).get_backend_name()
+    except Exception:
+        # The parser quotes the offending value, so it is caught and dropped.
+        # Only a normal error: pytest's own outcomes are BaseException.
+        backend = None
+    if backend != "postgresql":
+        # Set but unusable is never a skip, and never falls back. Raised outside
+        # the handler, so no chain and no parser text reach the report.
         pytest.fail(f"{_DSN_VARIABLE} must address a postgresql backend")
     return dsn
 
@@ -53,12 +60,16 @@ def postgres_engine() -> Iterator[Engine]:
     maintenance = _maintenance_url()
     name = f"liquent_test_{secrets.token_hex(8)}"
     admin = build_engine(maintenance)
+    created = True
     try:
         with admin.connect().execution_options(isolation_level="AUTOCOMMIT") as setup:
             setup.execute(text(f'CREATE DATABASE "{name}"'))
     except Exception:
         admin.dispose()
-        # Neutral on purpose: a driver message could carry the DSN.
+        created = False
+    if not created:
+        # Raised outside the handler: a driver message names host, port, and
+        # user, and must not reach the report as an exception chain.
         pytest.fail(f"could not create a throwaway database via {_DSN_VARIABLE}")
     # Rendered explicitly: str(URL) masks the password as "***", which would
     # reach the server as a literal and fail authentication.
