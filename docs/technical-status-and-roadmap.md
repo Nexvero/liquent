@@ -1398,5 +1398,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - provenance hängt zusätzlich an postgres-integration, sodass auf main nichts attestiert wird, dessen Mehrprozessnachweis fehlschlug oder nie lief; wheel, container, SBOM und Grype bleiben unverändert
     - SQLite bleibt auf Migrationssyntax und portable Semantik begrenzt und darf nie als Concurrency-Beweis gelten
 
+- LQ-180 persistent identity binding:
+  `docs/lq-180-persistent-identity-binding.md`
+  - Status:
+    - persistiert die LQ-178-Invarianten für den Runtime-Pfad: bytegenauer Lookup und atomarer Admission-Konsum mit erstmaliger Bindung; Provisionierung samt Handle-Typ, Port, Methode und Generator bleibt LQ-181, kein Production-Wiring
+    - Revision 20260811_0002 auf der unveränderten Baseline legt beide Tabellen vollständig an, einschliesslich Provisioning-Spalten und deren Eindeutigkeit; damit landet keine Invariante halb durchgesetzt auf main und LQ-181 ergänzt nur Code
+    - ohne Provisionierung schreibt dieser Slice keine Admission, findet also stets null und antwortet ausnahmslos None; das ist fail-closed, nicht unsicher
+    - external_identity_bindings mit Primärschlüssel auf (issuer, subject), eindeutigem user_id und Nichtleer-Checks; kein Surrogatschlüssel, keine Auditfelder, keine Foreign Keys auf nicht vorhandene Tabellen
+    - identity_admissions mit eindeutiger AdmissionId und eindeutigem provisioning_request, verlustfreier lifetime_microseconds mit Positivitätscheck und einem Gruppencheck, der consumed_at, bound_issuer und bound_subject nur gemeinsam zulaesst
+    - alle identitaetstragenden Schluesselspalten als LargeBinary, weil Textgleichheit in PostgreSQL an der Kollation haengt und eine nicht-deterministische Kollation eine Unique-Grenze stillschweigend aufweichen wuerde; adapterseitig striktes UTF-8 ohne Normalisierung
+    - DatabaseExternalIdentities erfuellt beide Runtime-Ports strukturell mit injizierter Engine und aware-UTC-Uhr; konstantes wertfreies repr, und die Engine wird nie vom Adapter geschlossen
+    - Konsum in einer Transaktion: Admission per FOR UPDATE sperren, unbekannt oder bereits konsumiert ohne Uhrzugriff entscheiden, sonst Uhr genau einmal, now >= expires_at abweisen, Bindung im Savepoint einfuegen und Admission mit demselben now gemeinsam committen
+    - ein konsumierter Datensatz ohne passende Bindung ist strukturelle Korruption und damit technisch, nicht None; Konkurrenzverlust an den beiden bekannten Constraints wird ueber strukturierte Treiberdiagnosen klassifiziert, nie ueber Meldungstexte
+    - ExternalIdentityStoreUnavailable ohne Detailparameter, austretend mit leerem Cause und Context, erzeugt ausserhalb jedes Handlers; BaseException bleibt ungefangen und kein breites except tarnt Programmierfehler als None
+    - PostgreSQL ist die normative Runtime und beweist Konsum, Ablauf, Idempotenz und Nebenlaeufigkeit; SQLite beweist nur Migration, portable Constraints, Lookup und Fehlergrenze, ohne Zeitzonen- oder Concurrency-Anspruch
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
