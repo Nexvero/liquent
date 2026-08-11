@@ -1,9 +1,13 @@
 """Ports required by the identity and authorization capability."""
 
+from datetime import timedelta
 from typing import Protocol
 
 from liquent_platform.identity.access import UserId, WorkspaceMembership
-from liquent_platform.identity.admission import IdentityAdmissionId
+from liquent_platform.identity.admission import (
+    IdentityAdmissionId,
+    ProvisioningRequestId,
+)
 from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.oidc_client_configuration import (
     TrustedOidcClientConfiguration,
@@ -63,6 +67,39 @@ class ExternalIdentityAdmissionStore(Protocol):
         admission_id: IdentityAdmissionId,
         identity: ExternalIdentity,
     ) -> UserId | None: ...
+
+
+class IdentityAdmissionProvisioningStore(Protocol):
+    """Store exactly one new admission for one authorized onboarding decision.
+
+    Deliberately separate from ExternalIdentityAdmissionStore: this is an
+    administrative boundary reached only from an already authorized internal
+    onboarding process, never from login start, the OIDC callback, or any
+    runtime consumer, so the runtime store gains no administration method.
+
+    Target user and workspace come solely from that authorized decision; the
+    port creates no user, workspace, membership, or permission and accepts no
+    OIDC claim or callback value as a target. It generates the returned
+    IdentityAdmissionId itself and derives expiry from its own injected clock
+    plus the given lifetime, so the caller can set neither. The stored
+    admission starts unconsumed and unbound.
+
+    Retry safety hangs solely on the caller's ProvisioningRequestId: the same
+    handle with the same business input returns the stored IdentityAdmissionId
+    unchanged, without extending expiry or reopening it, while the same handle
+    with different content raises IdentityAdmissionProvisioningConflict instead
+    of overwriting or provisioning twice. An unclear outcome raises
+    IdentityAdmissionStoreUnavailable and is resolved by repeating with the
+    same handle. Both errors are detail-free.
+    """
+
+    def provision_admission(
+        self,
+        request_id: ProvisioningRequestId,
+        target_user_id: UserId,
+        target_workspace_id: WorkspaceId,
+        lifetime: timedelta,
+    ) -> IdentityAdmissionId: ...
 
 
 class OidcLoginTransactionClaimStore(Protocol):

@@ -1413,5 +1413,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - ExternalIdentityStoreUnavailable ohne Detailparameter, austretend mit leerem Cause und Context, erzeugt ausserhalb jedes Handlers; BaseException bleibt ungefangen und kein breites except tarnt Programmierfehler als None
     - PostgreSQL ist die normative Runtime und beweist Konsum, Ablauf, Idempotenz und Nebenlaeufigkeit; SQLite beweist nur Migration, portable Constraints, Lookup und Fehlergrenze, ohne Zeitzonen- oder Concurrency-Anspruch
 
+- LQ-181 persistent identity admission provisioning:
+  `docs/lq-181-persistent-identity-admission-provisioning.md`
+  - Status:
+    - implementiert die getrennte interne Provisionierungsgrenze auf dem bestehenden LQ-180-Schema; keine Migration, kein HTTP-Endpunkt und kein Production-Wiring
+    - neuer repr-freier ProvisioningRequestId und eigener Provisioning-Port, ohne Administrationsmethode am Runtime-Store
+    - erster Aufruf erzeugt AdmissionId und Ablauf aus injiziertem Generator, aware-Serveruhr und positiver Lifetime und speichert den offenen Zustand atomar
+    - derselbe Handle mit exakt gleichem Nutzer, Workspace und Lifetime liefert dieselbe AdmissionId ohne Uhr, Generator, Ablaufverlängerung oder Zustandsänderung, auch nach Konsum
+    - abweichender Inhalt ist ein detailfreier Provisioning-Konflikt; technische Fehler bleiben separat und verlassen die Grenze ohne Cause oder Context
+    - echte PostgreSQL-Konkurrenz wird allein über das eindeutige Request-Constraint und einen Savepoint entschieden: identische Aufrufe konvergieren, abweichende ergeben einen Erfolg und einen sauberen Konflikt
+    - der autorisierte Onboarding-Aufrufer bleibt der nächste eigene Slice; Login-Transaktions- und Sessionpersistenz folgen danach, LQ-177 bleibt blockiert
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
