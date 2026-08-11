@@ -1461,5 +1461,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - PostgreSQL bleibt normativ; SQLite belegt nur portable Migration und Constraints, nicht Autorisierungs- oder Bootstrap-Konkurrenz
     - Folgeordnung: Implementierung der Modelle und Migration, atomarer Bootstrap, atomare reguläre Entscheidung, Login-Transaktionen, Sessions, dann LQ-177
 
+- LQ-185 persistent identity authority foundation:
+  `docs/lq-185-persistent-identity-authority-foundation.md`
+  - Status:
+    - implementiert getrennte Status-Enums und frozen/slots/hashbare, identifierfreie repr-Records für interne Nutzer, Workspaces und workspacebezogene Onboarding-Autorität
+    - Revision 20260811_0003 legt drei bytegenaue Foundation-Tabellen ohne Seed, Bootstrap-Marker, Schalter, Zeitstempel oder Surrogatschlüssel an
+    - vorhandene Identity-Bindungen und Admissions erhalten restriktive Foreign Keys auf echte Nutzer und Workspaces; verwaiste Bestandsreferenzen lassen das Upgrade fail-closed scheitern
+    - inaktive und widerrufene Tatsachen bleiben historisch erhalten; kein CASCADE, keine Reaktivierung und keine Wiederverwendung
+    - ports.py bleibt unverändert: kein Autoritäts-, Status- oder CRUD-Lookup und damit kein vorweggenommener Check-then-act-Pfad
+    - SQLite belegt portable Modelle, Migration und Constraints; PostgreSQL belegt die tatsächlichen Foreign Keys und das atomare Scheitern eines verwaisten Upgrades
+    - als Nächstes folgt der einmalige atomare Offline-Bootstrap, danach die reguläre atomare Onboarding-Entscheidung, Login-Transaktionen, Sessions und LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
