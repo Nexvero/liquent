@@ -1438,5 +1438,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - fachliche Ablehnung und technische Nichtverfügbarkeit bleiben getrennt und detailfrei, kein automatischer Retry im späteren Anwendungsfall, unklarer Ausgang nur mit derselben Entscheidungs- und Request-Identität
     - Folgeordnung: LQ-182 Autoritätsvertrag, dann persistente Nutzer-, Workspace- und Verwaltungsautoritätsgrundlage, dann einmaliger Bootstrap, dann regulärer autorisierter Onboarding-Anwendungsfall, dann persistente Login-Transaktionen, dann persistente Sessions, erst danach Wiederaufnahme von LQ-177
 
+- LQ-183 persistent identity authority foundation contract:
+  `docs/lq-183-persistent-identity-authority-foundation-contract.md`
+  - Status:
+    - reiner Vertrag ohne Modell, Port, Migration, Tabelle, Test, CLI oder Wiring; entscheidet die dauerhaften Nutzer-, Workspace- und Autoritätstatsachen hinter LQ-182
+    - UserId und WorkspaceId sind global eindeutige, nicht wiederverwendbare interne Identitäten mit fail-closed aktiv/inaktiv-Lifecycle; unbekannte oder inaktive Entitäten tragen keine neue Entscheidung
+    - die workspacebezogene Fähigkeit zur Anlage einer Onboarding-Entscheidung ist strikt von Research-Permissions, gewöhnlicher Membership, Identitätsbindung, Admission, Session und Login getrennt
+    - SessionPrincipal identifiziert nur den Akteur; Nutzerstatus, Workspace-Status und Verwaltungsfähigkeit werden für genau den serverseitig bestimmten Zielworkspace aus dem System of Record aufgelöst
+    - Prüfung von Akteur, Zielnutzer, Workspace und Autorität sowie Speicherung der unveränderlichen Entscheidung mit ProvisioningRequestId werden atomar wirksam oder gar nicht
+    - Entzug sperrt neue Entscheidungen, verändert aber keine bereits committete Entscheidung und deren idempotente Wiederholung; kein stale Cache, In-Process-Lock oder automatischer Retry
+    - Folgeordnung: Persistenzmodelle und Migration, einmaliger Bootstrap, regulärer Onboarding-Anwendungsfall, Login-Transaktionen, Sessions, dann LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
