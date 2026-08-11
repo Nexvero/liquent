@@ -1449,5 +1449,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Entzug sperrt neue Entscheidungen, verändert aber keine bereits committete Entscheidung und deren idempotente Wiederholung; kein stale Cache, In-Process-Lock oder automatischer Retry
     - Folgeordnung: Persistenzmodelle und Migration, einmaliger Bootstrap, regulärer Onboarding-Anwendungsfall, Login-Transaktionen, Sessions, dann LQ-177
 
+- LQ-184 identity authority foundation implementation contract:
+  `docs/lq-184-identity-authority-foundation-implementation-contract.md`
+  - Status:
+    - reiner Implementierungsvertrag ohne Code, Migration oder Test; entscheidet die exakten Modelle, Tabellen und Constraints der von LQ-183 geforderten Grundlage
+    - getrennte Nutzer-, Workspace- und Autoritätsstatus sowie unveränderliche repr-freie Records; keine Namen, Providerdaten, Rollen, Permissions, Zeitstempel oder Autoritäts-Booleans
+    - drei bytegenaue LargeBinary-Tabellen mit stabilen Primärschlüsseln, geschlossenem Status und restriktiven Foreign Keys; widerrufene oder inaktive Tatsachen bleiben historisch erhalten
+    - vorhandene Bindungen und Admissions erhalten nun echte Nutzer-/Workspace-Foreign-Keys; verwaiste Bestandsdaten lassen die Migration fail-closed scheitern, ohne Auto-Creation oder Bereinigung
+    - kein Seed, Bootstrap-Marker, Schalter oder Guard und kein CASCADE-Rückbau
+    - bewusst kein operativer Autoritäts- oder Status-Lookup: Bootstrap und reguläre Onboarding-Entscheidung bekommen später je eine atomare transaktionstragende Portoperation statt Check-then-act
+    - PostgreSQL bleibt normativ; SQLite belegt nur portable Migration und Constraints, nicht Autorisierungs- oder Bootstrap-Konkurrenz
+    - Folgeordnung: Implementierung der Modelle und Migration, atomarer Bootstrap, atomare reguläre Entscheidung, Login-Transaktionen, Sessions, dann LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
