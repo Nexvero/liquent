@@ -1472,5 +1472,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - SQLite belegt portable Modelle, Migration und Constraints; PostgreSQL belegt die tatsächlichen Foreign Keys und das atomare Scheitern eines verwaisten Upgrades
     - als Nächstes folgt der einmalige atomare Offline-Bootstrap, danach die reguläre atomare Onboarding-Entscheidung, Login-Transaktionen, Sessions und LQ-177
 
+- LQ-186 atomic initial identity bootstrap contract:
+  `docs/lq-186-atomic-initial-identity-bootstrap-contract.md`
+  - Status:
+    - reiner Vertrag: der erste Nutzer, Workspace und Verwalter benötigen zugleich eine erste offene Identity-Admission, weil Liquent ausschließlich über OIDC anmeldet
+    - parameterlose Offline-Portoperation; alle vier Identifier, aware-UTC-Zeit und positive Admission-Lebensdauer stammen ausschließlich aus injizierten internen Abhängigkeiten
+    - Foundation, aktive Autorität, historische Singleton-Entscheidung, ProvisioningRequestId und erste Admission committen in genau einer PostgreSQL-Transaktion oder gar nicht
+    - ein nachgelagerter Aufruf von LQ-181 nach Foundation-Commit ist wegen dauerhaftem Teilfortschritt ausdrücklich verboten
+    - die Singleton-Zeile ist historische Wiederholungsidentität, kein Schalter; fremder nicht leerer Bestand wird nicht adoptiert oder repariert
+    - exakte Wiederholung liefert dieselben repr-freien IDs ohne Uhr, Generator, Ablaufverlängerung, zweite Admission oder Wiederöffnung nach Konsum
+    - PostgreSQL entscheidet echte Konkurrenz; kein In-Process-Lock, Cache, stale fallback, automatischer Retry oder öffentlicher Idempotency-Key
+    - Folge: Bootstrap-Implementierung, authentisierte Offline-Aufrufgrenze, reguläre Onboarding-Entscheidung, Login-Transaktionen, Sessions, dann LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
