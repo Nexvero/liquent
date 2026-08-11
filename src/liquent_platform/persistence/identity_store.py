@@ -169,6 +169,10 @@ class DatabaseExternalIdentities:
         target = UserId(_decode(record.target_user_id))
 
         if record.consumed_at is not None:
+            # A consumed instant passes the same aware boundary as every other
+            # stored time before it may support an idempotent answer. No clock
+            # read and no expiry comparison happen here.
+            _aware(record.consumed_at)
             return self._repeat(transaction, record, target, identity)
 
         if transaction.execute(
@@ -203,7 +207,7 @@ class DatabaseExternalIdentities:
             return None
         savepoint.commit()
         # The same instant bounds both facts, and both commit together.
-        transaction.execute(
+        consumed = transaction.execute(
             _CONSUME_ADMISSION,
             {
                 "now": now,
@@ -212,6 +216,12 @@ class DatabaseExternalIdentities:
                 "admission": admission,
             },
         )
+        if consumed.rowcount != 1:
+            # The row is already locked, so anything but one hit is a broken
+            # internal invariant rather than ordinary concurrency. Raising
+            # rolls the whole transaction back: no binding survives and the
+            # admission stays open. No retry and no second clock read.
+            raise ExternalIdentityStoreUnavailable
         return target
 
     def _repeat(

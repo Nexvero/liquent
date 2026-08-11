@@ -249,16 +249,44 @@ def test_a_consumed_admission_repeats_only_for_the_exact_identity(
     assert clock.calls == 0
 
 
-def test_a_consumed_admission_without_its_binding_is_technical(
-    postgres_engine: Engine,
+# PostgreSQL returns timestamptz aware, so a broken consumed instant cannot be
+# stored. These read the same row through a narrowly altered projection, which
+# is what the public method would receive from a corrupted store. No private
+# helper is called and no production injection seam exists.
+_CONSUMED_AS_TEXT = text(
+    "SELECT target_user_id, expires_at, consumed_at::text AS consumed_at,"
+    " bound_issuer, bound_subject FROM identity_admissions"
+    " WHERE admission_id = :admission FOR UPDATE"
+)
+_CONSUMED_AS_NAIVE = text(
+    "SELECT target_user_id, expires_at,"
+    " (consumed_at AT TIME ZONE 'UTC') AS consumed_at,"
+    " bound_issuer, bound_subject FROM identity_admissions"
+    " WHERE admission_id = :admission FOR UPDATE"
+)
+
+
+@pytest.mark.parametrize(
+    "projection", [None, _CONSUMED_AS_TEXT, _CONSUMED_AS_NAIVE],
+    ids=["missing-binding", "consumed-at-wrong-type", "consumed-at-naive"],
+)
+def test_a_structurally_broken_consumed_record_is_technical(
+    postgres_engine: Engine, monkeypatch: pytest.MonkeyPatch, projection: Any
 ) -> None:
     _admission(postgres_engine, consumed=IDENTITY)
+    if projection is None:
+        pass  # the consumed record simply has no binding
+    else:
+        _bind(postgres_engine, IDENTITY, USER)
+        monkeypatch.setattr(identity_store, "_LOCK_ADMISSION", projection)
+    clock = Clock()
 
     with pytest.raises(ExternalIdentityStoreUnavailable) as raised:
-        _store(postgres_engine).consume_admission_and_bind(ADMISSION, IDENTITY)
+        _store(postgres_engine, clock).consume_admission_and_bind(ADMISSION, IDENTITY)
 
     assert raised.value.args == ("external_identity_store_unavailable",)
     assert raised.value.__cause__ is None and raised.value.__context__ is None
+    assert clock.calls == 0
     for secret in (IDENTITY.issuer, IDENTITY.subject, str(USER), ADMISSION.value):
         assert secret not in str(raised.value)
 
@@ -281,23 +309,41 @@ def test_an_unusable_clock_is_technical_and_binds_nothing(
     assert _counts(postgres_engine) == (0, 0)
 
 
+@pytest.mark.parametrize(
+    ("statement", "leak"),
+    [
+        (text("UPDATE identity_admissions SET no_such_column = :now"), "no_such_column"),
+        # Valid, but deliberately hits zero rows. The admission row is already
+        # locked, so a miss is a broken invariant, never ordinary concurrency.
+        (
+            text(
+                "UPDATE identity_admissions SET consumed_at = :now,"
+                " bound_issuer = :issuer, bound_subject = :subject"
+                " WHERE admission_id = :admission AND consumed_at IS NOT NULL"
+            ),
+            "identity_admissions",
+        ),
+    ],
+    ids=["broken-update", "zero-rows-updated"],
+)
 def test_a_fault_after_the_binding_insert_rolls_everything_back(
-    postgres_engine: Engine, monkeypatch: pytest.MonkeyPatch
+    postgres_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+    statement: Any,
+    leak: str,
 ) -> None:
     _admission(postgres_engine)
     # Break exactly the consuming UPDATE, which is the window between the
     # binding insert and the consumption inside the same transaction.
-    monkeypatch.setattr(
-        identity_store,
-        "_CONSUME_ADMISSION",
-        text("UPDATE identity_admissions SET no_such_column = :now"),
-    )
+    monkeypatch.setattr(identity_store, "_CONSUME_ADMISSION", statement)
+    clock = Clock()
 
     with pytest.raises(ExternalIdentityStoreUnavailable) as raised:
-        _store(postgres_engine).consume_admission_and_bind(ADMISSION, IDENTITY)
+        _store(postgres_engine, clock).consume_admission_and_bind(ADMISSION, IDENTITY)
 
     assert raised.value.__cause__ is None and raised.value.__context__ is None
-    assert "no_such_column" not in str(raised.value)
+    assert leak not in str(raised.value)
+    assert clock.calls == 1
     # Nothing survives: no binding, and the admission is still open.
     assert _counts(postgres_engine) == (0, 0)
 
