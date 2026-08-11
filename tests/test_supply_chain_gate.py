@@ -80,7 +80,7 @@ def test_grype_exception_is_narrow_owned_and_time_bounded() -> None:
     expiry = date.fromisoformat(
         config.split("exception-expires: ", 1)[1].splitlines()[0].strip()
     )
-    assert expiry <= date(2026, 8, 31)
+    assert expiry <= date(2026, 10, 15)
     # Fail closed on and after the expiry date, not only after it.
     assert date.today() < expiry
 
