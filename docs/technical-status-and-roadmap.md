@@ -1424,5 +1424,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - echte PostgreSQL-Konkurrenz wird allein über das eindeutige Request-Constraint und einen Savepoint entschieden: identische Aufrufe konvergieren, abweichende ergeben einen Erfolg und einen sauberen Konflikt
     - der autorisierte Onboarding-Aufrufer bleibt der nächste eigene Slice; Login-Transaktions- und Sessionpersistenz folgen danach, LQ-177 bleibt blockiert
 
+- LQ-182 internal onboarding authority contract:
+  `docs/lq-182-internal-onboarding-authority-contract.md`
+  - Status:
+    - reiner Vertrag ohne Implementierung, Tests, Migration, Tabelle, Portänderung, Route, CLI oder Wiring; entscheidet, woher eine autorisierte Onboarding-Entscheidung stammen darf, nachdem LQ-181 die Provisionierungsgrenze fertiggestellt hat
+    - UserId und WorkspaceId müssen dauerhafte interne Tatsachen bezeichnen, deren Existenz und Aktivität das System of Record zum Entscheidungszeitpunkt bestätigt; eine Admission wird nie für eine unverbürgte Zeichenkette provisioniert, während Tabellen, Foreign Keys, Retention, Migrationen und SQL späteren Slices bleiben
+    - reguläre Autorität ist eine persistente workspacebezogene Verwaltungsfähigkeit, getrennt von den Research-Permissions, die heute nur research:read und research:write kennen und keine Aufnahme ausdrücken können
+    - weder Membership noch Identitätsbindung, Provisionierung oder erfolgreiche Anmeldung verleihen diese Autorität; kein frei übergebener UserId, WorkspaceId, Rollenname oder Autoritäts-Boolean, die Grenze löst die Autorität selbst auf
+    - Bootstrap als einmalige Offline-Control-Plane-Grenze: nur bei vollständig leerem Bestand zulässig, erzeugt ersten Nutzer, ersten Workspace und dessen Verwaltungsautorität atomar und schliesst danach dauerhaft, weil die Schliessung aus dem Zustand selbst folgt und nicht aus einer Einstellung
+    - ausgeschlossen bleiben HTTP-Endpunkt, Admin-Header, Environment-Bootstrap, Migration-Seed, Self-Sign-up, First-login-Provisioning und Datenbankzugriff aus Transportcode
+    - der ProvisioningRequestId entsteht atomar mit der Entscheidung, bleibt ihr persistent zugeordnet und wird bei jedem technischen Wiederholungsversuch unverändert genutzt, ohne dass Transport oder Adapter ihn neu erzeugen; er ist kein öffentlicher Idempotency-Key, kein Admission-Handle und kein OIDC-State, bleibt repr-frei und erscheint nicht in Logs, Traces, Metriklabels oder Fehlertexten, und abweichender Inhalt bleibt der LQ-181-Konflikt
+    - Provisionierung erzeugt keine Membership, Rolle, Permission oder Verwaltungsautorität, und eine Identitätsbindung allein gewährt keinen Workspace-Zugriff; LQ-129 und LQ-132 bleiben unverändert
+    - fachliche Ablehnung und technische Nichtverfügbarkeit bleiben getrennt und detailfrei, kein automatischer Retry im späteren Anwendungsfall, unklarer Ausgang nur mit derselben Entscheidungs- und Request-Identität
+    - Folgeordnung: LQ-182 Autoritätsvertrag, dann persistente Nutzer-, Workspace- und Verwaltungsautoritätsgrundlage, dann einmaliger Bootstrap, dann regulärer autorisierter Onboarding-Anwendungsfall, dann persistente Login-Transaktionen, dann persistente Sessions, erst danach Wiederaufnahme von LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
