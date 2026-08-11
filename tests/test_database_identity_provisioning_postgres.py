@@ -43,6 +43,27 @@ _INSERT = text(
 )
 
 
+@pytest.fixture(autouse=True)
+def foundation(postgres_engine: Engine) -> None:
+    """Every test admission references durable foundation facts."""
+
+    with postgres_engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO internal_users (user_id, status) VALUES"
+                " (:first, 'active'), (:second, 'active')"
+            ),
+            {"first": b"user-1", "second": b"user-2"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspaces (workspace_id, status)"
+                " VALUES (:workspace, 'active')"
+            ),
+            {"workspace": b"workspace-1"},
+        )
+
+
 class Source:
     def __init__(self, value: Any) -> None:
         self.value, self.calls = value, 0
