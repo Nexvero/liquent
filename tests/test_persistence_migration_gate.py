@@ -13,8 +13,8 @@ def _sqlite_url(path: Path) -> str:
 
 def test_migration_history_has_one_unambiguous_head() -> None:
     # Moves with each additive revision; the point is that exactly one head
-    # exists, not which one. LQ-185 adds the identity authority foundation.
-    assert expected_head() == "20260811_0003"
+    # exists, not which one. LQ-187 adds the historical bootstrap decision.
+    assert expected_head() == "20260811_0004"
 
 
 def test_migration_history_is_declared_as_packaged_artifact_data() -> None:

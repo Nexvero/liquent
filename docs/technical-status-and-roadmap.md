@@ -1484,5 +1484,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - PostgreSQL entscheidet echte Konkurrenz; kein In-Process-Lock, Cache, stale fallback, automatischer Retry oder öffentlicher Idempotency-Key
     - Folge: Bootstrap-Implementierung, authentisierte Offline-Aufrufgrenze, reguläre Onboarding-Entscheidung, Login-Transaktionen, Sessions, dann LQ-177
 
+- LQ-187 atomic initial identity bootstrap:
+  `docs/lq-187-atomic-initial-identity-bootstrap.md`
+  - Status:
+    - implementiert die parameterlose Bootstrap-Portoperation und das unveränderliche, vollständig repr-freie Ergebnis aus LQ-186
+    - Revision 20260811_0004 ergänzt eine leere historische Singleton-Entscheidung mit konstantem Schlüssel und restriktiver Referenz auf die erste Admission
+    - Nutzer, Workspace, aktive Onboarding-Autorität, offener Admission-Datensatz und Entscheidung committen in genau einer Transaktion oder gar nicht
+    - fremder nicht leerer Bestand bleibt fachliches None; beschädigte Entscheidung und normale technische Fehler bleiben detailfreie Bootstrap-Unavailable ohne Exceptionkette
+    - exakte Wiederholung liefert dieselben drei Identifier ohne Uhr, Generator, Ablaufverlängerung oder Wiederöffnung nach Admission-Konsum
+    - PostgreSQL serialisiert konkurrierende Erstaufrufe an der Singleton-Tabelle; beide Teilnehmer erhalten dieselbe persistierte Antwort, ohne In-Process-Lock oder Retry-Loop
+    - SQLite belegt nur portable Form und Constraints; echte PostgreSQL-Tests belegen Erstübergang, Rollback aller Stufen, Wiederholung, Fremdbestand, Korruption und Konkurrenz
+    - Folge: authentisierte Offline-Aufrufgrenze, reguläres atomisches Onboarding, persistente Login-Transaktionen, Sessions, dann LQ-177
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

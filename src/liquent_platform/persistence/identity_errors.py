@@ -54,3 +54,12 @@ class IdentityAdmissionStoreUnavailable(Exception):
 
     def __init__(self) -> None:
         super().__init__(self.code)
+
+
+class IdentityAuthorityBootstrapUnavailable(Exception):
+    """Report that the initial identity bootstrap could not answer safely."""
+
+    code = "identity_authority_bootstrap_unavailable"
+
+    def __init__(self) -> None:
+        super().__init__(self.code)

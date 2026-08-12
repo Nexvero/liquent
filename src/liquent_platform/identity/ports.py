@@ -8,6 +8,7 @@ from liquent_platform.identity.admission import (
     IdentityAdmissionId,
     ProvisioningRequestId,
 )
+from liquent_platform.identity.bootstrap import BootstrappedIdentityAuthority
 from liquent_platform.identity.external_identity import ExternalIdentity
 from liquent_platform.identity.oidc_client_configuration import (
     TrustedOidcClientConfiguration,
@@ -100,6 +101,12 @@ class IdentityAdmissionProvisioningStore(Protocol):
         target_workspace_id: WorkspaceId,
         lifetime: timedelta,
     ) -> IdentityAdmissionId: ...
+
+
+class IdentityAuthorityBootstrapStore(Protocol):
+    """Atomically create or replay the one historical initial authority."""
+
+    def bootstrap_initial_identity(self) -> BootstrappedIdentityAuthority | None: ...
 
 
 class OidcLoginTransactionClaimStore(Protocol):
