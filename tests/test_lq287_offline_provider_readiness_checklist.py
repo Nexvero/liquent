@@ -32,6 +32,13 @@ def test_checklist_requires_all_evidence_families_and_hashes():
         assert required in checklist
 
 
+def test_publication_host_inventory_matches_current_release_gates():
+    checklist = _checklist()
+    assert "42-migration head `20260826_0042`" in checklist
+    assert "71 Console\n      Entry Points" in checklist
+    assert "71 packaged modules including the package initializer" in checklist
+
+
 def test_checklist_requires_four_matching_independent_attestations():
     checklist = _checklist()
     for reviewer in (

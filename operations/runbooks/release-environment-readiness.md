@@ -95,8 +95,8 @@ does not resolve a hostname or open a socket.
 Attach evidence references and digests confirming:
 
 - [ ] Dedicated non-interactive account and owner-only input directories.
-- [ ] Exact application version, 25-migration head `20260819_0025`, 20 Console
-      Entry Points, and 19 operator modules.
+- [ ] Exact application version, 42-migration head `20260826_0042`, 71 Console
+      Entry Points, and 71 packaged modules including the package initializer.
 - [ ] Database and provider network boundaries are independently restricted.
 - [ ] Wall clock and monotonic clock health are monitored.
 - [ ] Private storage is sufficient for retained immutable artifacts.

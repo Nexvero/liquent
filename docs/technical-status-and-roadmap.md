@@ -11989,5 +11989,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-2604-nonpublishing-release-handoff-audit.md`
   - hält Signierung, Registry-Push, Staging-Akzeptanz und Deployment als getrennte autorisierungspflichtige Restgrenzen geschlossen
 
+- LQ-2605 release-environment inventory synchronization:
+  `docs/lq-2605-release-environment-inventory-synchronization.md`
+  - synchronisiert den externen Hostvertrag auf 42 Migrationen sowie 71 Entry Points und 71 paketierte Module
+- LQ-2606 installed offline release CLI evidence:
+  `docs/lq-2606-installed-offline-release-cli-evidence.md`
+  - belegt acht installierte Offline-Release-CLIs direkt aus dem finalen Image ohne Datenbank- oder Providerkontakt
+- LQ-2607 local release control-plane regression evidence:
+  `docs/lq-2607-local-release-control-plane-regression-evidence.md`
+  - belegt 64 fokussierte Signierungs-, Promotion-, Publikations- und Governance-Tests ohne externe Wirkung
+- LQ-2608 external release-authority blocker matrix:
+  `docs/lq-2608-external-release-authority-blocker-matrix.md`
+  - grenzt reale Signierung, Provider-Publikation, Staging-Akzeptanz und Deployment als verbleibende externe Autoritätsentscheidungen ab
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
