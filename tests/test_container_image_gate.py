@@ -35,6 +35,7 @@ def test_image_build_uses_locked_nonisolated_wheel() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     assert "--constraint requirements/ci.lock" in dockerfile
     assert "python -m build --wheel --no-isolation" in dockerfile
+    assert "COPY tools/ tools/" in dockerfile
     assert "COPY --from=builder /wheelhouse /wheelhouse" in dockerfile
     assert "/wheelhouse/liquent-*.whl" in dockerfile
     assert "/tmp/liquent.whl" not in dockerfile

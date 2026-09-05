@@ -8,6 +8,7 @@ COPY requirements/ci.lock requirements/ci.lock
 RUN python -m pip install --constraint requirements/ci.lock build==1.5.0 setuptools==80.10.2 wheel==0.47.0
 COPY pyproject.toml README.md ./
 COPY src/ src/
+COPY tools/ tools/
 ARG SOURCE_DATE_EPOCH=0
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 RUN python -m build --wheel --no-isolation --outdir /wheelhouse
