@@ -53,6 +53,12 @@ def test_compose_uses_existing_isolated_networks() -> None:
     assert "- public" not in worker
 
 
+def test_postgres_18_uses_major_version_compatible_volume_root() -> None:
+    postgres = _service_block(_text(COMPOSE), "postgres", "prometheus")
+    assert "postgres-data:/var/lib/postgresql" in postgres
+    assert "postgres-data:/var/lib/postgresql/data" not in postgres
+
+
 def test_images_require_operator_values_and_immutable_digest_examples() -> None:
     compose = _text(COMPOSE)
     examples = _text(IMAGES_EXAMPLE)

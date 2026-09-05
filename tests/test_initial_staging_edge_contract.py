@@ -176,6 +176,7 @@ def test_initial_bootstrap_requires_confirmation_and_orders_gates() -> None:
     assert script.index("nginx -t") < script.index("deploy_external_health")
     assert "restore_initial_state" in script
     assert "deploy_compose stop control-plane" in script
+    assert "deploy_compose stop postgres" in script
     assert "systemctl disable --now nginx" in script
     assert "systemctl enable nginx" in script
     assert "systemctl start nginx" in script

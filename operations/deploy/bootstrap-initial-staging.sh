@@ -39,6 +39,7 @@ restore_initial_state() {
   trap - ERR
   printf 'failed\n' > "$run_dir/status"
   deploy_compose stop control-plane >/dev/null 2>&1 || true
+  deploy_compose stop postgres >/dev/null 2>&1 || true
   cp -a "$run_dir/images.env.before" "$COMPOSE_ENV_FILE"
   docker compose --env-file "$EDGE_ENV_FILE" --file "$EDGE_COMPOSE_FILE" stop edge >/dev/null 2>&1 || true
   if (( edge_config_existed )); then
