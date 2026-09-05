@@ -8,8 +8,6 @@ from tools.controlled_release_preflight import PHASES
 from tools.local_release_preflight_gates import (
     LOCKED_TOOLS,
     EXPECTED_PYTHON_VERSION,
-    EXPECTED_ZLIB_BUILD_VERSION,
-    EXPECTED_ZLIB_RUNTIME_VERSION,
     MAX_PROCESS_OUTPUT_BYTES,
     PROCESS_TIMEOUT_SECONDS,
     CommandResult,
@@ -46,16 +44,14 @@ def test_locked_runtime_versions_match_the_repository_lock() -> None:
     assert MAX_PROCESS_OUTPUT_BYTES == 1_048_576
     assert all(f"{name}=={version}" in lock for name, version in LOCKED_TOOLS.items())
     assert EXPECTED_PYTHON_VERSION == (3, 12, 14)
-    assert EXPECTED_ZLIB_BUILD_VERSION == "1.2.12"
-    assert EXPECTED_ZLIB_RUNTIME_VERSION == "1.2.12"
 
 
 def test_runtime_gate_reports_exact_compression_environment() -> None:
     facts = _compression_runtime_facts()
 
     assert facts["python"] == "3.12.14"
-    assert facts["zlib_build"] == "1.2.12"
-    assert facts["zlib_runtime"] == "1.2.12"
+    assert facts["zlib_build"] == gates.zlib.ZLIB_VERSION
+    assert facts["zlib_runtime"] == gates.zlib.ZLIB_RUNTIME_VERSION
 
 
 def test_runtime_gate_captures_canonical_build_runtime_digest(

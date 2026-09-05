@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+
+import pytest
 
 from tools import local_release_preflight_gates as local_gates
 from tools.controlled_release_preflight import PHASES
@@ -22,7 +25,14 @@ from tools.local_release_preflight_gates import (
     _write_new_atomic,
 )
 
-import pytest
+
+def _replace_empty_directory(path: Path, *, mode: int = 0o700) -> None:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        path.rmdir()
+        path.mkdir(mode=mode)
+    finally:
+        os.close(descriptor)
 
 
 ROOT = Path(__file__).parents[1]
@@ -912,8 +922,7 @@ def test_installed_tree_rejects_bound_root_replacement(tmp_path: Path) -> None:
     root = tmp_path / "installed-wheel"
     root.mkdir(mode=0o700)
     identity = _private_output_directory_identity(root)
-    root.rmdir()
-    root.mkdir(mode=0o700)
+    _replace_empty_directory(root)
     package = root / "liquent"
     package.mkdir(mode=0o700)
     module = package / "__init__.py"
@@ -951,8 +960,7 @@ def test_distribution_inventory_rejects_bound_directory_replacement(
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir(mode=0o700)
     identity = _private_output_directory_identity(artifacts)
-    artifacts.rmdir()
-    artifacts.mkdir(mode=0o700)
+    _replace_empty_directory(artifacts)
     wheel = artifacts / "liquent.whl"
     sdist = artifacts / "liquent.tar.gz"
     wheel.write_bytes(b"wheel")
@@ -998,8 +1006,7 @@ def test_roundtrip_inventory_rejects_bound_directory_replacement(tmp_path: Path)
     roundtrip = tmp_path / "sdist-wheel-roundtrip"
     roundtrip.mkdir(mode=0o700)
     identity = _private_output_directory_identity(roundtrip)
-    roundtrip.rmdir()
-    roundtrip.mkdir(mode=0o700)
+    _replace_empty_directory(roundtrip)
     wheel = roundtrip / "liquent.whl"
     wheel.write_bytes(b"wheel")
     wheel.chmod(0o600)

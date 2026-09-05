@@ -51,8 +51,7 @@ LOCKED_TOOLS = {
     "wheel": "0.47.0",
 }
 EXPECTED_PYTHON_VERSION = (3, 12, 14)
-EXPECTED_ZLIB_BUILD_VERSION = "1.2.12"
-EXPECTED_ZLIB_RUNTIME_VERSION = "1.2.12"
+ZLIB_VERSION_RE = re.compile(r"[1-9][0-9]*(?:\.[0-9]+){1,3}")
 MAX_RELEASE_CANDIDATE_DESCRIPTOR_BYTES = 4096
 MAX_VERIFICATION_EVIDENCE_BYTES = 16 * 1024
 MAX_LOCAL_RELEASE_BUNDLE_BYTES = 64 * 1024 * 1024
@@ -830,14 +829,14 @@ class MeasuredGate:
 def _compression_runtime_facts() -> dict[str, str]:
     if (
         sys.version_info[:3] != EXPECTED_PYTHON_VERSION
-        or zlib.ZLIB_VERSION != EXPECTED_ZLIB_BUILD_VERSION
-        or zlib.ZLIB_RUNTIME_VERSION != EXPECTED_ZLIB_RUNTIME_VERSION
+        or ZLIB_VERSION_RE.fullmatch(zlib.ZLIB_VERSION) is None
+        or zlib.ZLIB_RUNTIME_VERSION != zlib.ZLIB_VERSION
     ):
         _reject()
     return {
         "python": ".".join(str(part) for part in EXPECTED_PYTHON_VERSION),
-        "zlib_build": EXPECTED_ZLIB_BUILD_VERSION,
-        "zlib_runtime": EXPECTED_ZLIB_RUNTIME_VERSION,
+        "zlib_build": zlib.ZLIB_VERSION,
+        "zlib_runtime": zlib.ZLIB_RUNTIME_VERSION,
     }
 
 

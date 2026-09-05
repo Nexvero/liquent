@@ -30,6 +30,25 @@ from tools.controlled_release_preflight import (
 )
 
 
+def _replace_empty_directory(path: Path, *, mode: int = 0o700) -> None:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        path.rmdir()
+        path.mkdir(mode=mode)
+    finally:
+        os.close(descriptor)
+
+
+def _replace_file(path: Path, payload: bytes, *, mode: int) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        path.unlink()
+        path.write_bytes(payload)
+        path.chmod(mode)
+    finally:
+        os.close(descriptor)
+
+
 COMMIT = "a" * 40
 
 
@@ -125,8 +144,7 @@ def test_gate_workspace_drift_fails_before_next_phase(
             if mutation == "mode":
                 workspace.chmod(0o755)
             else:
-                workspace.rmdir()
-                workspace.mkdir(mode=0o700)
+                _replace_empty_directory(workspace)
             return value
 
     gates = _gates(calls)
@@ -146,8 +164,7 @@ def test_phase_output_directory_replacement_fails_before_later_phase(
     class ReplacingGate(Gate):
         def execute(self, workspace: Path) -> bytes:
             artifacts = workspace / "artifacts"
-            artifacts.rmdir()
-            artifacts.mkdir(mode=0o700)
+            _replace_empty_directory(artifacts)
             return super().execute(workspace)
 
     gates = _gates(calls)
@@ -370,8 +387,7 @@ def test_intermediate_workspace_verifier_rejects_private_directory_replacement(
             tmp_path, identity, "artifacts"
         )
     }
-    artifacts.rmdir()
-    artifacts.mkdir(mode=0o700)
+    _replace_empty_directory(artifacts)
 
     _rejected(
         lambda: _verify_intermediate_workspace_entries(
@@ -398,8 +414,7 @@ def test_intermediate_workspace_verifier_rechecks_identity_after_relisting(
         nonlocal calls
         calls += 1
         if calls == 2:
-            artifacts.rmdir()
-            artifacts.mkdir(mode=0o700)
+            _replace_empty_directory(artifacts)
         return original_listdir(path)
 
     monkeypatch.setattr(os, "listdir", replacing_listdir)
@@ -656,8 +671,7 @@ def test_terminal_workspace_inventory_rejects_bound_child_replacement(
         for name in PHASE_OUTPUT_DIRECTORIES.values()
     }
     bundle = tmp_path / "bundle"
-    bundle.rmdir()
-    bundle.mkdir(mode=0o700)
+    _replace_empty_directory(bundle)
 
     _rejected(
         lambda: _verify_private_workspace_inventory(
@@ -818,8 +832,7 @@ def test_workspace_publication_rejects_replaced_bound_child(tmp_path: Path) -> N
         for name in PHASE_OUTPUT_DIRECTORIES.values()
     }
     bundle = source / "bundle"
-    bundle.rmdir()
-    bundle.mkdir(mode=0o700)
+    _replace_empty_directory(bundle)
     output = tmp_path / "result"
 
     _rejected(
@@ -1264,9 +1277,7 @@ def test_byte_identical_workspace_evidence_replacement_fails_identity_checks(
         name: _private_workspace_child_identity(tmp_path, workspace_identity, name)
         for name in PHASE_OUTPUT_DIRECTORIES.values()
     }
-    evidence.unlink()
-    evidence.write_bytes(payload)
-    evidence.chmod(0o600)
+    _replace_file(evidence, payload, mode=0o600)
 
     _rejected(
         lambda: _verify_private_workspace_evidence(
@@ -1303,8 +1314,7 @@ def test_evidence_writer_rejects_replaced_bound_workspace(tmp_path: Path) -> Non
     workspace = tmp_path / "workspace"
     workspace.mkdir(mode=0o700)
     identity = _private_workspace_identity(workspace)
-    workspace.rmdir()
-    workspace.mkdir(mode=0o700)
+    _replace_empty_directory(workspace)
 
     _rejected(
         lambda: controlled._write_private_workspace_evidence_with_identity(

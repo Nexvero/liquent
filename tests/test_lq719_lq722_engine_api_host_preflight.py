@@ -27,15 +27,27 @@ def setup_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     proxy_path.chmod(0o660)
     daemon_path.chmod(0o660)
     original_lstat = os.lstat
-    socket_inodes = {
-        proxy_path: original_lstat(proxy_path).st_ino,
-        daemon_path: original_lstat(daemon_path).st_ino,
+    socket_identities = {
+        proxy_path: (
+            original_lstat(proxy_path).st_dev,
+            original_lstat(proxy_path).st_ino,
+            original_lstat(proxy_path).st_ctime_ns,
+        ),
+        daemon_path: (
+            original_lstat(daemon_path).st_dev,
+            original_lstat(daemon_path).st_ino,
+            original_lstat(daemon_path).st_ctime_ns,
+        ),
     }
 
     def socket_aware_lstat(path):
         facts = original_lstat(path)
         candidate = Path(path)
-        if socket_inodes.get(candidate) == facts.st_ino:
+        if socket_identities.get(candidate) == (
+            facts.st_dev,
+            facts.st_ino,
+            facts.st_ctime_ns,
+        ):
             return os.stat_result((stat.S_IFSOCK | stat.S_IMODE(facts.st_mode), *facts[1:]))
         return facts
 
