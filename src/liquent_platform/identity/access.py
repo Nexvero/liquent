@@ -15,6 +15,13 @@ class MembershipStatus(str, Enum):
     INACTIVE = "inactive"
 
 
+class IdentityStatus(str, Enum):
+    """Fail-closed lifecycle shared by persistent users and workspaces."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
 class Permission(str, Enum):
     RESEARCH_READ = "research:read"
     RESEARCH_WRITE = "research:write"
@@ -26,3 +33,11 @@ class WorkspaceMembership:
     workspace_id: WorkspaceId
     status: MembershipStatus
     permissions: frozenset[Permission]
+
+
+@dataclass(frozen=True, slots=True)
+class BootstrappedIdentityAuthority:
+    """The first internal user and workspace created as one durable fact."""
+
+    user_id: UserId
+    workspace_id: WorkspaceId

@@ -18,6 +18,7 @@ from liquent_platform.identity.ports import (
     ActiveOidcClientConfigurationLookup,
     OidcLoginTransactionCreationStore,
 )
+from liquent_platform.identity.oidc_trust import ActiveOidcTrustSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,11 +93,19 @@ def prepare_oidc_login_authorization(
     The use case makes no issuer trust decision of its own, re-validates
     nothing, freezes no trust status, runs no discovery, loads no signing keys,
     and inspects no tokens or claims. The callback must still re-check the
-    current issuer trust: an issuer disabled between start and callback ends
-    the callback neutrally.
+    current revision and issuer trust: a rotation or deactivation between start
+    and callback ends the callback neutrally before provider network access.
     """
 
-    configuration = configuration_lookup.get_active_configuration()
+    trust_reader = getattr(configuration_lookup, "get_active_trust", None)
+    trust: ActiveOidcTrustSnapshot | None = (
+        trust_reader() if trust_reader is not None else None
+    )
+    configuration = (
+        trust.configuration
+        if trust is not None
+        else configuration_lookup.get_active_configuration()
+    )
     if configuration is None:
         raise OidcLoginUnavailable
 
@@ -107,6 +116,7 @@ def prepare_oidc_login_authorization(
         redirect_uri=configuration.redirect_uri,
         now=now,
         lifetime=lifetime,
+        expected_trust_revision=trust.revision_id if trust is not None else None,
         admission_id=admission_id,
         return_path=return_path,
     )

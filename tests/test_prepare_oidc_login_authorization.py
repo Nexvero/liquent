@@ -27,6 +27,10 @@ from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
 )
+from liquent_platform.identity.oidc_trust import (
+    ActiveOidcTrustSnapshot,
+    OidcTrustRevisionId,
+)
 
 
 NOW = datetime(2026, 8, 4, 12, tzinfo=UTC)
@@ -81,6 +85,17 @@ class StubLookup:
         if self._error is not None:
             raise self._error
         return self.configuration
+
+
+class RevisionBoundLookup:
+    def __init__(self, recorder: Recorder) -> None:
+        self._recorder = recorder
+
+    def get_active_trust(self) -> ActiveOidcTrustSnapshot:
+        self._recorder.calls.append("trust")
+        return ActiveOidcTrustSnapshot(
+            OidcTrustRevisionId("trust-revision-201"), _configuration()
+        )
 
 
 class RotatingLookup:
@@ -245,6 +260,18 @@ def test_the_pending_record_carries_the_configured_issuer_and_redirect_uri() -> 
     _state, pending = store.calls[0]
     assert pending.expected_issuer == ISSUER
     assert pending.redirect_uri == REDIRECT_URI
+
+
+def test_the_pending_record_binds_the_active_trust_revision() -> None:
+    recorder = Recorder()
+    store = StubStore(recorder)
+
+    _prepare(RevisionBoundLookup(recorder), store, StubGenerator(recorder))
+
+    assert store.calls[0][1].expected_trust_revision == OidcTrustRevisionId(
+        "trust-revision-201"
+    )
+    assert recorder.calls == ["trust", "generator", "store"]
 
 
 def test_the_request_carries_the_same_configuration_values() -> None:

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from liquent_platform.identity.admission import IdentityAdmissionId
+from liquent_platform.identity.oidc_trust import OidcTrustRevisionId
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,8 +45,8 @@ class PendingOidcLoginTransaction:
 
     The record carries no IdP tokens, authorization codes, claims, UserId,
     workspace membership, roles, permissions, or Liquent session data. It
-    decides no current issuer trust — the callback re-checks the expected issuer
-    against the active trust configuration — and it validates no URL or redirect
+    decides no current issuer trust — the callback re-checks its bound revision
+    and expected issuer against the active trust snapshot — and it validates no URL or redirect
     safety rule: the later login-start boundary must pass an already validated
     internal relative ``return_path``. The record mutates no state and marks
     nothing as consumed; a later atomic claim store removes or replaces this
@@ -58,6 +59,9 @@ class PendingOidcLoginTransaction:
     redirect_uri: str
     created_at: datetime
     expires_at: datetime
+    expected_trust_revision: OidcTrustRevisionId | None = field(
+        default=None, repr=False
+    )
     admission_id: IdentityAdmissionId | None = field(default=None, repr=False)
     return_path: str | None = None
 

@@ -1,7 +1,7 @@
 name: liquent
 
-# LQ-057 deployment contract. It becomes runnable only after LQ-058 supplies
-# the application image and commands. Production image variables must contain
+# LQ-057 deployment contract, with the LQ-301 controlled research-worker
+# wiring. Production image variables must contain
 # immutable digest references (repository@sha256:...).
 
 x-app-base: &app-base
@@ -62,7 +62,18 @@ services:
 
   research-worker:
     <<: *app-base
-    command: ["liquent-research-worker"]
+    command:
+      - liquent-research-worker
+      - --configuration
+      - /run/liquent/research-worker.json
+      - --database-url-file
+      - /run/secrets/database_url
+    secrets:
+      - source: database_url
+        target: database_url
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
     stop_grace_period: 60s
     networks:
       - application
@@ -74,6 +85,9 @@ services:
     cpus: 3.00
     mem_limit: 4096m
     volumes:
+      - ${LIQUENT_RESEARCH_WORKER_CONFIG_FILE:?set owner-only worker configuration file}:/run/liquent/research-worker.json:ro
+      - ${LIQUENT_RESEARCH_WORKER_ID_FILE:?set owner-only stable worker ID file}:/run/liquent/research-worker-id:ro
+      - ${LIQUENT_RESEARCH_DATA_ROOT:?set read-only research data directory}:/var/lib/liquent/research-data:ro
       - artifacts:/var/lib/liquent/artifacts
 
   postgres:

@@ -34,27 +34,6 @@ SECOND = IdentityAdmissionId("admission-2")
 USER = UserId("user-1")
 
 
-@pytest.fixture(autouse=True)
-def foundation(postgres_engine: Engine) -> None:
-    """Every test admission and binding references durable foundation facts."""
-
-    with postgres_engine.begin() as connection:
-        connection.execute(
-            text(
-                "INSERT INTO internal_users (user_id, status) VALUES"
-                " (:first, 'active'), (:second, 'active'), (:ninth, 'active')"
-            ),
-            {"first": b"user-1", "second": b"user-2", "ninth": b"user-9"},
-        )
-        connection.execute(
-            text(
-                "INSERT INTO workspaces (workspace_id, status)"
-                " VALUES (:workspace, 'active')"
-            ),
-            {"workspace": b"workspace-1"},
-        )
-
-
 class Clock:
     def __init__(self, *moments: Any) -> None:
         self.moments = list(moments) or [NOW]

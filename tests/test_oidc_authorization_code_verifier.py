@@ -24,6 +24,10 @@ from liquent_platform.identity.oidc_verification import (
     OidcVerificationUnavailable,
 )
 from liquent_platform.identity.oidc_verification_policy import OidcVerificationPolicy
+from liquent_platform.identity.oidc_trust import (
+    ActiveOidcTrustSnapshot,
+    OidcTrustRevisionId,
+)
 from liquent_platform.identity.ports import OidcAuthorizationCodeVerifier
 
 ISSUER = "https://idp.example.test"
@@ -101,6 +105,11 @@ class Recorder:
         return self._next(None)
 
 
+class TrustRecorder(Recorder):
+    def get_active_trust(self) -> Any:
+        return self._next(None)
+
+
 def _adapter(
     *, configurations: Any = None, tokens: Any = None, loads: Any = None,
     clock: Any = None,
@@ -147,6 +156,23 @@ def test_an_early_rejection_touches_no_network_cache_or_clock(
     adapter, _, tokens, loads, clock = _adapter(configurations=configurations)
 
     assert adapter.verify_authorization_code(verification) is None
+    assert tokens.calls == [] and loads.calls == [] and clock.calls == []
+
+
+def test_changed_revision_rejects_before_token_jwks_or_clock() -> None:
+    current = ActiveOidcTrustSnapshot(
+        OidcTrustRevisionId("revision-current"), CONFIGURATION
+    )
+    adapter, lookup, tokens, loads, clock = _adapter(
+        configurations=TrustRecorder(current)
+    )
+
+    result = adapter.verify_authorization_code(
+        _verification(expected_trust_revision=OidcTrustRevisionId("revision-start"))
+    )
+
+    assert result is None
+    assert lookup.calls == [None]
     assert tokens.calls == [] and loads.calls == [] and clock.calls == []
 
 

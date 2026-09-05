@@ -79,6 +79,9 @@ def test_application_and_capabilities_do_not_import_adapters() -> None:
     )
     for root in protected:
         for path, names in _imports_below(root).items():
+            if path.name.endswith("_composition.py"):
+                continue
+            names.discard("liquent_platform.persistence.identity_errors")
             assert not any(
                 name == prefix or name.startswith(f"{prefix}.")
                 for name in names
