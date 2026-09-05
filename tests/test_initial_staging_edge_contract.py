@@ -167,6 +167,7 @@ def test_edge_compose_has_bounded_health_and_logs() -> None:
 def test_initial_bootstrap_requires_confirmation_and_orders_gates() -> None:
     script = BOOTSTRAP.read_text(encoding="utf-8")
     assert "INITIALIZE-STAGING" in script
+    assert script.index("deploy_load_config") < script.index("preflight-initial-staging.sh")
     assert script.index("preflight-initial-staging.sh") < script.index('docker pull "$image"')
     assert script.index("deploy_ensure_network liquent_public false") < script.index("migration-gate")
     for name in ("liquent_application", "liquent_data", "liquent_observability"):
