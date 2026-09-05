@@ -6,23 +6,23 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Branch:** `codex/lq-integration`, erstellt auf Ausgangscommit `83699b1`,
-  ohne Upstream; lokale Integrationscommits sind weder gepusht noch deployed.
+- **Branch:** `codex/lq-post-merge-release`, erstellt auf dem in `main`
+  gemergten Squash-Commit `2a5a5b07`; kein Release oder Deployment erfolgt.
 - **Normaler Teststand:** **7167 passed**, **111 skipped** auf sauberem Baum;
   davon sind drei historische Pre-Staging-Vollscope-Reaudits nicht anwendbar.
 - **PostgreSQL-Markerstand:** **107 passed**, **7171 deselected**, gegen einen
   disposable lokalen PostgreSQL-16.14-Cluster mit UTC-Sessions.
-- **Preflightstand:** alle zehn kontrollierten Phasen auf Code-Commit `d273c9a`
+- **Preflightstand:** alle zehn kontrollierten Phasen auf Commit `5d62b967`
   bestanden; Publishing und Deployment bleiben ausdrücklich nicht autorisiert.
-- **Container-/Scanstand:** Image `sha256:ea42ec6…ecc8eb`, 71 ladbare Entry
+- **Container-/Scanstand:** Image `sha256:c8868d4…f4513`, 71 ladbare Entry
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
-- **Integrationsscope:** der geprüfte 3370-Dateien-Ausgangsscope wurde atomar
-  integriert; der aktuelle Branch-Arbeitsbaum ist sauber.
+- **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
+  per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
 - **Paketinventar:** **71 Console Entry Points**, **70 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
   `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2620.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
   Signierung, Providerfreigabe, Staging-Akzeptanz und Deployment bleiben offen.
 
@@ -12041,6 +12041,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-2620 post-release verification and rollback boundary:
   `docs/lq-2620-post-release-verification-and-rollback-boundary.md`
   - grenzt digestgebundene Nachprüfung, Abbruch und autorisierten Rollback ohne Ausführung ab
+
+- LQ-2621 post-merge main synchronization:
+  `docs/lq-2621-post-merge-main-synchronization.md`
+  - bindet den neuen Arbeitsstrang an den gemergten PR-Head und trennt ihn von noch zu erneuernder Release-Evidenz
+
+- LQ-2622 post-merge release-candidate evidence renewal:
+  `docs/lq-2622-post-merge-release-candidate-evidence-renewal.md`
+  - erneuert Preflight-, PostgreSQL-, Image-, Smoke- und Scan-Evidenz für den post-merge Kandidaten ohne externe Wirkung
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
