@@ -424,7 +424,7 @@ def _verify_sdist_source_payloads(
     path: Path, source_root: Path, expected_root: str
 ) -> int:
     source_names = {"README.md", "pyproject.toml"}
-    for root, is_candidate in (
+    source_roots = [
         (
             source_root / "src/liquent",
             lambda candidate: candidate.suffix in {".py", ".mako"},
@@ -438,7 +438,13 @@ def _verify_sdist_source_payloads(
             lambda candidate: candidate.suffix == ".py"
             and candidate.name.startswith("test_"),
         ),
-    ):
+    ]
+    tools_root = source_root / "tools"
+    if tools_root.is_dir() and not tools_root.is_symlink():
+        source_roots.append(
+            (tools_root, lambda candidate: candidate.suffix == ".py")
+        )
+    for root, is_candidate in source_roots:
         if root.is_symlink() or not root.is_dir():
             _reject()
         for candidate in root.rglob("*"):
