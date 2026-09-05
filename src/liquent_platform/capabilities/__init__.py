@@ -1,0 +1,1 @@
+"""Installable closed local capabilities."""

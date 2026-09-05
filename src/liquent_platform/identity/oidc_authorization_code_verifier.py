@@ -80,7 +80,18 @@ class ComposedOidcAuthorizationCodeVerifier:
         # Read once and passed on as the very same object, so a rotation during
         # this call can never mix a token endpoint, a JWKS, and an issuer from
         # different configurations.
-        configuration = self._configurations.get_active_configuration()
+        trust_reader = getattr(self._configurations, "get_active_trust", None)
+        trust = trust_reader() if trust_reader is not None else None
+        if verification.expected_trust_revision is not None and (
+            trust is None
+            or trust.revision_id != verification.expected_trust_revision
+        ):
+            return None
+        configuration = (
+            trust.configuration
+            if trust is not None
+            else self._configurations.get_active_configuration()
+        )
         if configuration is None:
             return None
         if configuration.issuer != verification.expected_issuer:

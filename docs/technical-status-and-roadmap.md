@@ -6,13 +6,24 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Letzter Commit:** `9976fe4` — *security: time-box Python vulnerability exception*.
-- **Teststand:** **861 passed** (lokale `.venv`, `python -m pytest`).
-- **Branch:** `architecture/lq-053-platform-boundaries`, aktuell 7 Commits vor
-  und 0 Commits hinter `origin/main`; Pull Request `#1` ist offen.
-- **Working Tree:** sauber; Branch und GitHub-Remote sind synchron.
+- **Branch:** `codex/lq-integration`, erstellt auf Ausgangscommit `83699b1`,
+  vier Commits vor und null Commits hinter `origin/main`.
+- **Normaler Teststand:** **7169 passed**, **108 skipped**
+  (LQ-2586, vollständiger lokaler Lauf ohne freigegebenen Pflicht-DSN).
+- **PostgreSQL-Pflichtstand:** **7277 passed**, keine Skips oder Fehler, gegen
+  einen disposable lokalen PostgreSQL-16.14-Cluster mit UTC-Sessions (LQ-2592).
+- **Container-/Scanstand:** lokales ARM64-Image gebaut, Imagevertrag und Smoke
+  bestanden; Grype `only-fixed`, Cutoff High, mit **0 blockierenden Findings**.
+- **Integrationsscope:** **34 zuvor veränderte getrackte** und **3336 neue
+  Dateien**, insgesamt **3370 Dateien**, werden in einem atomaren Commit auf
+  `codex/lq-integration` zusammengeführt; nichts gepusht oder deployed.
+- **Paketinventar:** **71 Console Entry Points**, **70 Operatorimplementierungs-
+  und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
+  `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-Entscheidungen und Betriebsverträge bis LQ-067.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2600.
+- **Releasegrenze:** lokale Funktions-, Runtime- und Volumebereitschaft ist
+  weder PostgreSQL-Endnachweis noch Staging-, Deployment- oder Providerfreigabe.
 
 ## 2. Abgeschlossene Foundations / Schritte
 
@@ -1448,6 +1459,10522 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - Prüfung von Akteur, Zielnutzer, Workspace und Autorität sowie Speicherung der unveränderlichen Entscheidung mit ProvisioningRequestId werden atomar wirksam oder gar nicht
     - Entzug sperrt neue Entscheidungen, verändert aber keine bereits committete Entscheidung und deren idempotente Wiederholung; kein stale Cache, In-Process-Lock oder automatischer Retry
     - Folgeordnung: Persistenzmodelle und Migration, einmaliger Bootstrap, regulärer Onboarding-Anwendungsfall, Login-Transaktionen, Sessions, dann LQ-177
+
+- LQ-184 persistent identity authority foundation:
+  `docs/lq-184-persistent-identity-authority-foundation.md`
+  - Status:
+    - implementiert persistente Nutzer, Workspaces und workspacebezogene Onboarding-Management-Capability mit fail-closed active/inactive-Lifecycle; additive Migration ohne Seed oder Änderung bestehender Tabellen
+    - neuer read-only Authority-Port akzeptiert SessionPrincipal und intern ausgewählte Ziele, aber kein Allow-Boolean, keinen Rollennamen und keine caller-supplied Capability
+    - SessionPrincipal identifiziert nur den Akteur; Adapter löst aktiven Akteur, Zielnutzer, Zielworkspace und exakt gebundene aktive Capability gemeinsam aus dem System of Record auf
+    - unbekannte, inaktive, fehlende oder entzogene Tatsachen sind einheitlich False; technische Unverfügbarkeit bleibt separat, detailfrei und ohne Fehlerkette
+    - Management-Capability bleibt strikt getrennt von Research-Permissions und gewöhnlicher Membership; dieser Slice implementiert keinerlei Erzeugungs- oder Mutationsgrenze
+    - jede Entscheidung liest den aktuellen Bestand neu, sodass committierter Entzug spätere Entscheidungen sperrt; atomare Onboarding-Anlage folgt erst nach dem Bootstrap
+    - SQLite deckt Migration und sequenzielle Semantik, PostgreSQL die Sichtbarkeit eines committierten Entzugs; nächster Slice ist der einmalige atomare Bootstrap
+
+- LQ-185 initial identity authority bootstrap:
+  `docs/lq-185-initial-identity-authority-bootstrap.md`
+  - Status:
+    - implementiert die einmalige argumentlose Offline-Grenze auf LQ-184; kein HTTP, Environment-Bootstrap, Migration-Seed, Self-Sign-up, First-login-Provisioning, CLI oder Production-Wiring
+    - UserId und WorkspaceId stammen aus injizierten internen Generatoren; der Aufrufer kann keine ID, Rolle, Permission, Capability oder Allow-Entscheidung liefern
+    - nur der gemeinsam leere Nutzer-, Workspace- und Management-Capability-Bestand ist zulässig; jede vorhandene Foundation-Tatsache schließt neutral und zustandsbasiert ohne Generatorzugriff
+    - erster aktiver Nutzer, erster aktiver Workspace und dessen aktive Onboarding-Management-Capability committen in genau einer Transaktion oder gar nicht
+    - PostgreSQL-Tabellensperren serialisieren konkurrierende Bootstrap-Versuche mit exakt einem Erfolg; kein In-Process-Lock, Check-then-act oder automatischer Retry
+    - geschlossener Bestand ist neutrales None, technische Unmöglichkeit bleibt separat und detailfrei; keine gewöhnliche Membership oder Research-Permission entsteht
+    - keine Migration oder Schemaänderung; nächster Slice ist die atomare reguläre autorisierte Onboarding-Entscheidung mit stabiler ProvisioningRequestId
+
+- LQ-186 authorized onboarding decision:
+  `docs/lq-186-authorized-onboarding-decision.md`
+  - Status:
+    - implementiert die reguläre persistente Onboarding-Entscheidung mit aktueller Authority-Auflösung und aktiven Akteur-, Zielnutzer- und Workspace-Fakten in derselben Schreibtransaktion
+    - interne OnboardingDecisionId identifiziert technische Wiederholungen, gewährt keine Authority und bleibt getrennt von der atomar erzeugten, eindeutig zugeordneten ProvisioningRequestId für LQ-181
+    - exakte Wiederholung liefert die unveränderliche committete Entscheidung auch nach späterem Entzug ohne Generatorzugriff; abweichender Akteur oder abweichende Ziele unter derselben Decision-ID sind detailfreier Konflikt
+    - fehlende oder inaktive Tatsachen und fehlende oder entzogene Capability ergeben neutrales None ohne Request-Generator oder Schreibwirkung; technische Unmöglichkeit bleibt separat und detailfrei
+    - PostgreSQL sperrt die beteiligten Foundation-Zeilen und ordnet Entscheidung gegen Deaktivierung oder Entzug; kein Check-then-act, In-Process-Lock oder automatischer Retry
+    - additive Revision 20260812_0004 speichert unveränderliche Entscheidungen ohne Seed oder Änderung bestehender Tabellen; keine Admission-, Membership-, Rollen- oder Capability-Erzeugung
+    - nächster Slice verbindet ausschließlich die gespeicherte Entscheidung mit der bestehenden Admission-Provisionierung; HTTP, Production-Wiring, Login-Transaktionen und Sessions bleiben später
+
+- LQ-187 authorized identity admission onboarding:
+  `docs/lq-187-authorized-identity-admission-onboarding.md`
+  - Status:
+    - verbindet die persistente LQ-186-Entscheidung mit der retry-sicheren LQ-181-Admission-Provisionierung ohne neue Migration, Tabelle, SQL-Strategie, HTTP, CLI oder Production-Wiring
+    - nur das von der Decision-Grenze zurückgegebene Objekt liefert ProvisioningRequestId, Zielnutzer und Zielworkspace an den Provisioning-Port; präsentierte Aufrufziele werden dort nie erneut verwendet
+    - positive Admission-Lifetime ist eine beim Workflow injizierte feste Richtlinie statt eines frei variierenden Aufrufparameters und bleibt bei technischen Wiederholungen identisch
+    - neutrales None stoppt vor Provisionierung; Erfolg führt zu genau einem Provisioning-Aufruf und gibt dessen AdmissionId unverändert zurück
+    - Decision- und Provisioning-Konflikte oder technische Fehler werden objektidentisch weitergegeben, nie als None getarnt und nie automatisch wiederholt
+    - markierter PostgreSQL-Test verbindet die realen Adapter und beweist, dass exakte Wiederholung auf genau eine persistente Entscheidung und eine Admission konvergiert
+    - nächster separater Schritt ist kontrollierte Production-Composition; Login-Transaktionen, Sessions und jede Transport- oder Operator-Grenze bleiben eigene Slices
+
+- LQ-188 internal identity onboarding composition:
+  `docs/lq-188-internal-identity-onboarding-composition.md`
+  - Status:
+    - verdrahtet Bootstrap, persistente autorisierte Entscheidung und Admission-Provisionierung intern um genau eine injizierte, extern besessene Engine; keine zweite Engine, DSN-Lektüre oder Disposal
+    - kryptografischer Materialgenerator zieht UserId, WorkspaceId, OnboardingDecisionId, ProvisioningRequestId und IdentityAdmissionId unabhängig über Betriebssystem-Zufall mit mindestens 32 Byte Entropie
+    - Composition stellt nur Bootstrap, autorisierten Onboarding-Workflow und Erzeugung einer internen Decision-ID bereit; sie gewährt selbst keine Authority und macht keinen Store öffentlich
+    - Admission-Uhr ist aware UTC und die positive Lifetime eine einmal gebundene vertrauenswürdige Composition-Policy statt eines variablen Aufrufparameters
+    - Generator und Composition besitzen konstante wertfreie repr, loggen nichts und führen weder Retry noch Ersatzgenerierung oder Fehlerumdeutung aus
+    - keine Migration, Route, CLI, Startup-Ausführung, Membership-, Rollen- oder Capability-Mutation und kein Login- oder Session-Wiring
+    - markierter PostgreSQL-Test führt die komponierte Kette von Bootstrap bis persistenter Admission aus; als Nächstes folgen persistente Login-Transaktionen und Sessions vor LQ-177
+
+- LQ-189 persistent OIDC login transactions:
+  `docs/lq-189-persistent-oidc-login-transactions.md`
+  - Status:
+    - implementiert die bestehenden Creation- und Claim-Ports persistent; additive Revision 20260812_0005 mit pending oder vollständig secret-freiem used-Tombstone
+    - State ist bytegenauer Primärschlüssel; Creation nutzt ON CONFLICT DO NOTHING, überschreibt weder pending noch used und liest keine Uhr
+    - Claim sperrt auf PostgreSQL den Pending-Datensatz, liest die aware-UTC-Uhr einmal und löscht bei Erfolg oder Ablauf alle Pending-Geheimnisse atomar
+    - unbekannt, gebraucht und abgelaufen bleiben neutral; unbekannter Claim reserviert nichts, verwendeter oder abgelaufener State bleibt dauerhaft nicht wiederverwendbar
+    - ungültige Persistenz, Uhr-, Datenbank- oder Transaktionsfehler bleiben separate detailfreie technische Nichtverfügbarkeit ohne Fehlerkette
+    - SQLite beweist Lifecycle und Secret-Scrubbing; PostgreSQL-Konkurrenztest beweist genau einen erfolgreichen Claim bei zwei gleichzeitigen Aufrufen
+    - keine Route, Verifikation, Identity-Bindung, Session oder Production-Composition; nächster Slice sind persistente Browser-Sessions vor LQ-177
+
+- LQ-190 persistent browser sessions:
+  `docs/lq-190-persistent-browser-sessions.md`
+  - Status:
+    - implementiert Lookup, atomare Creation, Rotation und idempotente Revocation auf additiver Revision 20260812_0006; keine Route, Cookie-Policy oder Production-Verdrahtung
+    - Session-ID bleibt als Primärschlüssel nach Ablauf oder Entzug belegt und kann nicht auf eine neue Session umgedeutet werden
+    - Lookup liefert nur bekannte, nicht entzogene und nicht abgelaufene Sessions mit exakt gespeichertem Principal und serverseitigem CSRF-Token
+    - Rotation übernimmt den Principal ausschließlich aus der gesperrten Quelle und committet Ersatz plus Entzug gemeinsam; Kollision lässt die Quelle aktiv
+    - Revocation ist statusneutral und idempotent; unbekannt, abgelaufen oder bereits entzogen sind No-ops, aktiver Entzug wirkt auf spätere Lookups
+    - technische Fehler bleiben separat und detailfrei; PostgreSQL-Test beweist genau einen erfolgreichen Ersatz bei konkurrierender Rotation
+    - nächster Slice ist kontrollierte Login-/Session-Composition vor Wiederaufnahme von LQ-177 Production-Wiring
+
+- LQ-191 internal login/session composition:
+  `docs/lq-191-internal-login-session-composition.md`
+  - Status:
+    - verdrahtet persistente LQ-189-Login-Transaktionen und LQ-190-Browser-Sessions um dieselbe extern besessene Engine und aware-UTC-Serveruhr
+    - stellt intern Transaction-Store, Session-Store, sicheren Session-Materialgenerator sowie Issue- und Rotate-Methoden bereit, ohne zusätzliche Administrations- oder Inspektionsmethoden
+    - positive Session-Lifetime wird einmal als Composition-Policy gebunden; Issue erhält einen intern bestimmten Principal, Rotation übernimmt ihn ausschließlich aus der gesperrten Quelle
+    - keine zweite Engine, DSN-Lektüre oder Disposal und kein Retry, Fallback, Logging oder Fehlerumdeutung; Composition-repr bleibt wertfrei
+    - keine Migration, Route, Cookie-Policy, OIDC-Verifikation, Admission-Bindung oder automatische create_app-Verdrahtung
+    - PostgreSQL-Test durchläuft Transaction-Creation/Claim sowie Session-Issue, Lookup, Rotation und Revocation über eine Engine
+    - persistente Grundlagen sind damit vorhanden; nächster Slice kann LQ-177 Production-Wiring kontrolliert wieder aufnehmen
+
+- LQ-177 controlled production wiring resumption:
+  `docs/lq-177-controlled-production-wiring-resumption.md`
+  - Status:
+    - sicher teilweise wiederaufgenommen: eine App-Engine verdrahtet automatisch persistentes Session-Lookup und Logout-Revocation über denselben DatabaseBrowserSessions-Adapter
+    - extern injizierte Engine bleibt extern besessen und wird nicht disposed; nur die intern aus database_url erzeugte Einzelengine gehört dem App-Lifespan
+    - explizit vollständig injizierte Logout-Abhängigkeiten behalten Vorrang, partielle Kombination bleibt fail-fast; Readiness nutzt dieselbe Engine und exakten Migration-Head
+    - persistentes Logout bewahrt bestehenden Session-, CSRF-, Neutralitäts- und Fehlervertrag ohne neue Route oder Antwortdetails
+    - Datenbank allein aktiviert weder OIDC-Start/Callback noch geschützte Research-Routen; fehlende Trust-/Verifier-Composition und reguläre Membership-Persistenz werden nicht erfunden
+    - Bootstrap, internes Onboarding und Admission-Provisionierung bleiben ohne Route, CLI oder Startup-Ausführung und interne Stores werden nicht öffentlich
+    - nächste Rest-Slices: persistente aktive OIDC-Client-Konfiguration samt Verifier-Composition sowie reguläre Membership-Persistenz vor vollständigem LQ-177-Abschluss
+    - Abschlussaudit nach LQ-192 bis LQ-196: Adapter-, Trust-, Session-, Membership- und create_app-Composition-Blocker sind behoben; Login/Callback und Research sind innerhalb der Factory sicher persistent komponierbar
+    - Process-Blocker durch LQ-197 behoben: Entrypoint erhält atomare OIDC-Policy-/Origin-/Lifetime-/Ziel-Settings und besitzt genau einen lifecycle-gebundenen HTTP-Client
+    - weiterhin konkret blockiert: keine unterstützte Mutation für aktive OIDC-Konfiguration und keine reguläre Membership-/Permission-Verwaltung; Bootstrap, Onboarding, Admission und Login erzeugen diese Tatsachen absichtlich nicht
+    - LQ-177 bleibt deshalb teilweise umgesetzt; nächster Slice ist der Process-Vertrag für explizite OIDC-Betriebswerte und HTTP-Client-Lifecycle, danach folgen getrennte autorisierte Control-Plane-Mutationen
+
+- LQ-197 oidc process runtime contract:
+  `docs/lq-197-oidc-process-runtime-contract.md`
+  - Status:
+    - ergänzt elf all-or-none PlatformSettings für Origin, Login-/Session-Lifetime, Callback-Ziele, Netzwerkgrenzen, Response-Limits und JWKS-TTL; Teilgruppen und ungültige Relationen scheitern fail-fast
+    - öffentliche Settings-Zusammenfassung zeigt ausschließlich oidc_enabled, keine Origins, Ziele, Limits oder Trust-Konfiguration
+    - realer build_app-Entrypoint konstruiert bestehende Policy- und Destination-Objekte und aktiviert damit LQ-194 ohne neue Route oder Vertragsänderung
+    - genau ein Process-eigener synchroner HTTP-Client wird mit trust_env=False und follow_redirects=False erzeugt, von Token/JWKS geteilt und im App-Lifespan geschlossen
+    - Factory-Fehler schließen den bereits erzeugten Client auch bei BaseException sofort; Shutdown disposed die App-eigene Engine selbst bei Client-Close-Fehler
+    - Runtime-Beispiel enthält die vollständige opt-in Gruppe; persistenter Issuer-/Client-Trust bleibt getrennt, read-only und ungefüllt
+    - LQ-177-Process-Blocker ist behoben; offen bleiben autorisierte OIDC-Konfigurations- sowie Membership-/Permission-Mutation
+
+- LQ-198 authorized oidc trust management contract:
+  `docs/lq-198-authorized-oidc-trust-management-contract.md`
+  - Status:
+    - reiner Vertrag ohne Modell, Port, Migration, SQL, Test, Route, CLI oder Mutation; entscheidet Authority-, Revisions-, Atomaritäts-, Retry- und Fehlersemantik vor Trust-Verwaltung
+    - verlangt eine eigene persistente systemweite OIDC-Trust-Management-Capability; Research-Permissions, Membership, workspacebezogenes Onboarding-Management, Bootstrap, Admission, Login und Session implizieren sie nicht
+    - jede vollständige Aktivierung oder Rotation erhält eine intern erzeugte stabile nicht wiederverwendbare Trust-Revision; kein partielles Patchen, Discovery, Default oder browsergewählter Provider
+    - Login-Start muss die aktive Revision persistent binden und Callback muss dieselbe aktuell aktive Revision vor jedem Token-/JWKS-Netzwerkzugriff erneut prüfen; Issuer-Gleichheit allein genügt bei Rotation nicht
+    - Authority-Prüfung, Revision, Aktivierung/Deaktivierung und persistente Änderungsentscheidung müssen atomar geordnet werden; technische Wiederholung nutzt dieselbe interne Änderungsidentität
+    - nächste Reihenfolge: Authority-/Revision-Grundlage, einmaliger Offline-Authority-Bootstrap, revisionsgebundene Login-Transaktionen, autorisierte Mutation und erst dann Operatorgrenze sowie erneuter LQ-177-Audit
+
+- LQ-199 persistent oidc trust authority and revision foundation:
+  `docs/lq-199-persistent-oidc-trust-authority-revision-foundation.md`
+  - Status:
+    - implementiert repr-freie stabile OidcTrustRevisionId und OidcTrustChangeId sowie unabhängige sichere Erzeugung mit mindestens 32 Byte Entropie
+    - neuer parameterarmer Authority-Port akzeptiert ausschließlich SessionPrincipal; Datenbankadapter löst aktiven Actor und dedizierte globale aktive Trust-Authority aktuell aus dem System of Record auf
+    - additive Revision 20260812_0009 ergänzt leere globale Authority- und unveränderliche historische Revisionstabellen mit allen neun Trust-Werten, ohne Seed oder Änderung bestehender Tabellen
+    - globale Trust-Authority bleibt strikt getrennt von Research-Permissions, Membership und workspacebezogenem Onboarding-Management; Session identifiziert nur
+    - Abwesenheit, Inaktivität und Entzug bleiben neutrales False, technische Nichtverfügbarkeit separat und detailfrei; committierter Entzug wirkt auf spätere Lookups
+    - bestehender LQ-192-Singleton bleibt bis zur atomaren Revisionsumschaltung unverändert; nächster Slice ist einmaliger Offline-Bootstrap der ersten globalen Trust-Authority
+
+- LQ-200 initial oidc trust authority bootstrap:
+  `docs/lq-200-initial-oidc-trust-authority-bootstrap.md`
+  - Status:
+    - implementiert eine einmalige Offline-Grenze, die genau einem explizit ausgewählten bereits vorhandenen aktiven internen Nutzer die erste globale OIDC-Trust-Authority gewährt
+    - Port akzeptiert nur die Ziel-UserId, keinen Actor, SessionPrincipal, Workspace, Rolle, Capability, Allow-Boolean, Trust-Wert oder Provider; unbekannt und inaktiv bleiben neutrales None
+    - jede vorhandene Authority-Tatsache schließt Bootstrap dauerhaft und zustandsbasiert, auch nach Deaktivierung; kein Flag, Environment-Bootstrap, Überschreiben oder Reaktivieren
+    - PostgreSQL-Tabellensperren serialisieren konkurrierende Versuche mit exakt einem Erfolg; SQLite deckt sequenzielle Semantik und detailfreie Fehlergrenze ab
+    - erzeugt weder Nutzer noch Trust-Revision, aktive OIDC-Konfiguration, Membership, Research-Permission oder Session; keine Migration, Route, CLI oder Startup-Ausführung
+    - nächster Slice ist revisionsgebundener aktiver Konfigurations-Lookup sowie Login-Transaktions-/Callback-Neuprüfung vor regulärer Trust-Mutation
+
+- LQ-201 revision-bound OIDC login:
+  `docs/lq-201-revision-bound-oidc-login.md`
+  - Status:
+    - bindet aktiven persistenten Trust als atomaren repr-freien Snapshot aus stabiler interner Revision und vollständiger unveränderlicher Konfiguration
+    - additive Revision 20260812_0010 verknüpft aktiven Singleton und pending Login-Transaktionen mit unveränderlichen LQ-199-Revisionen, ohne Seed oder Legacy-Default
+    - Login-Start liest den Snapshot einmal und speichert dessen Revision gemeinsam mit Issuer, Redirect-URI und kurzlebigem Login-Material
+    - Callback übernimmt die Revision nur aus der atomar beanspruchten serverseitigen Transaktion und prüft sie gegen den aktuell aktiven Trust
+    - fehlender Trust, Deaktivierung oder Revisionswechsel enden neutral vor Token-, JWKS- und Clock-Zugriff; gleicher Issuer umgeht eine Rotation nicht
+    - Claim scrubbt die erwartete Revision mit den übrigen korrelierenden Werten und behält den State-Tombstone zur Nichtwiederverwendung
+    - revisionslos markierter aktiver Persistenzbestand ist detailfreie technische Nichtverfügbarkeit; keine neue Exception, Route, Mutation, CLI oder Settings-Entscheidung
+    - nächster Slice ist reguläre autorisierte atomare Trust-Aktivierung, Rotation und Deaktivierung mit idempotenter Änderungsentscheidung
+
+- LQ-202 authorized OIDC trust mutation:
+  `docs/lq-202-authorized-oidc-trust-mutation.md`
+  - Status:
+    - implementiert explizite initiale Aktivierung, vollständige Rotation und revisionsgebundene Deaktivierung ohne partielles Patchen oder Providerwahl
+    - SessionPrincipal identifiziert nur; aktiver Actor und dedizierte globale Trust-Authority werden für jede neue Änderung aktuell aus dem System of Record aufgelöst
+    - additive Revision 20260812_0011 speichert unveränderliche Change-Entscheidungen mit Actor, Intent, erwarteter und resultierender Revision, ohne Seed
+    - Aktivierung und Rotation erzeugen genau eine neue unveränderliche Revision und schalten sie mit dem LQ-201-Singleton atomar um; Deaktivierung bewahrt Historie und Vorgängerbindung
+    - exakte technische Wiederholung liefert dieselbe Entscheidung ohne neue Authority-Prüfung oder Generatorziehung; abweichende Wiederverwendung bleibt detailfreier Konflikt
+    - Authority, Zustandsvorbedingung, Revision, Singleton und Entscheidung werden in einer Transaktion geordnet; Fehler rollen alle Schreibwirkungen zurück
+    - PostgreSQL serialisiert konkurrierende Änderungen und lässt identische Versuche auf eine Revision konvergieren; SQLite beweist sequenzielle Semantik
+    - keine Route, CLI, Operator-Credentials, Authority-Mutation, Discovery, Settings- oder Startup-Entscheidung
+    - nächster Slice ist eine kontrollierte interne oder Offline-Operatorgrenze mit stabil bewahrter Change-ID für sichere Wiederholung
+
+- LQ-203 controlled offline OIDC trust operator:
+  `docs/lq-203-controlled-offline-oidc-trust-operator.md`
+  - Status:
+    - ergänzt den separaten Console Entry Point liquent-oidc-trust mit strikt getrennten Operationen zur einmaligen sicheren Change-ID-Erzeugung und Anwendung einer bewahrten Request-Datei
+    - apply akzeptiert Trust-Werte ausschließlich als exakte owner-only JSON-Datei und die DSN ausschließlich als separate owner-only Datei; Symlinks, unbekannte Felder und unsichere Rechte scheitern fail-closed
+    - Aktivierung und Rotation verlangen alle neun validierten Werte, Deaktivierung exakt keine Konfiguration; kein Patch, Discovery, Default oder Übernehmen aus Runtime-Trust
+    - Actor-UserId identifiziert nur; Authority, aktueller Zustand, Revision und Idempotenz verbleiben vollständig in der atomaren LQ-202-Persistenzgrenze
+    - dieselbe bewahrte Datei löst einen unklaren Ausgang sicher auf und erzeugt selbst nach Authority-Entzug keine zweite Revision; apply generiert niemals spontan eine Change-ID
+    - Ausgaben unterscheiden nur applied, rejected sowie konstante detailfreie Input-, Conflict- und Unavailable-Codes und enthalten keine Trust-, Actor-, Revisions- oder Datenbankwerte
+    - eigener Prozess besitzt und disposed seine Engine, migriert nicht, lädt keine Providerdaten und öffnet weder HTTP-Route noch Startup-Mutation
+    - separates Runbook dokumentiert private Vorbereitung, Review, Retry und Cleanup ohne reale Credentials oder automatische Deployment-Aktion
+    - nächster Slice ist ein erneuter vollständiger LQ-177-Abschlussblocker-Audit nach Trust-Mutation und Operatorgrenze
+
+- LQ-204 LQ-177 final blocker re-audit:
+  `docs/lq-204-lq177-final-blocker-reaudit.md`
+  - Status:
+    - reiner evidenzbasierter Audit ohne Migration, Route, CLI, Settings-, Persistenz- oder Runtime-Mutation
+    - bestätigt Session-, OIDC-, Membership-Lookup-, Process- und HTTP-Client-Wiring sowie autorisierte revisionsgebundene Trust-Mutation und getrennte Offline-Operatorgrenze als geschlossen
+    - realer HTTP-Prozess importiert weder Trust-Operator noch Mutation oder Bootstrap und veröffentlicht keine Management-Route; diese Isolation bleibt verbindlich
+    - aktive OIDC-Konfiguration ist kein Restblocker mehr, weil LQ-202/203 Aktivierung, Rotation, Deaktivierung und sichere technische Wiederholung unterstützen
+    - verbleibender Blocker 1: implementierte initiale Identity- und Trust-Authority-Bootstrap-Ports besitzen noch keine kontrollierte operative Offline-Grenze
+    - verbleibender Blocker 2: Memberships und Research-Permissions sind weiterhin read-only und besitzen keine eigene autorisierte atomare Mutationskette
+    - verbleibender Blocker 3: nach einmaligem Bootstrap fehlt ein regulärer globaler Trust-Authority-Lifecycle für Offboarding und Recovery
+    - direkte SQL-Prozeduren, Seeds, Environment-Allow, Startup-Bootstrap und Login-Selbstfreischaltung bleiben ausdrücklich unzulässige Ersatzwege
+    - LQ-177 bleibt daher konkret blockiert; nächster Slice ist eine kontrollierte Offline-Grenze für die beiden bereits implementierten initialen Bootstrap-Ports
+
+- LQ-205 controlled initial bootstrap operator:
+  `docs/lq-205-controlled-initial-bootstrap-operator.md`
+  - Status:
+    - ergänzt den separaten Console Entry Point liquent-initial-bootstrap für die bestehenden einmaligen Identity- und globalen Trust-Authority-Bootstrap-Ports
+    - Identity-IDs bleiben intern sicher erzeugt; Trust-Authority akzeptiert ausschließlich eine exakte UserId aus owner-only Datei und keinerlei Rolle, Allow-, Workspace- oder Providerwert
+    - DSN und Ziel-ID müssen owner-only reguläre Dateien sein; Ergebnis wird exklusiv und atomar als 0600-Datei in owner-only Verzeichnis geschrieben, niemals überschrieben oder auf stdout ausgegeben
+    - unklarer Identity-Ausgang wird nur aus exakt einem aktiven Nutzer, Workspace und ihrer aktiven Onboarding-Authority rekonstruiert; jeder andere Bestand bleibt neutral closed
+    - Trust-Authority-Recovery verlangt genau eine aktive Authority für exakt dasselbe aktive Ziel; anderes, zusätzliches oder inaktives Inventar wird nicht adoptiert
+    - sämtliche Schreibwirkungen laufen weiterhin ausschließlich durch LQ-185/LQ-200; keine Migration, Seed-, Force-, Reset-, Reopen-, HTTP- oder Startup-Grenze entsteht
+    - Process-eigene Engine wird immer disposed, Schema nie automatisch migriert und Fehler/Ablehnung geben keine IDs, DSN oder Bestandsdetails aus
+    - separates Runbook und PostgreSQL-Kettennachweis decken zweistufigen Bootstrap, Recovery und anschließende getrennte Trust-Aktivierung ab
+    - LQ-177-Bootstrap-Blocker ist geschlossen; nächster Slice ist der Authority-Vertrag für reguläre Membership-/Research-Permission-Verwaltung
+
+- LQ-206 authorized workspace membership management contract:
+  `docs/lq-206-authorized-workspace-membership-management-contract.md`
+  - Status:
+    - reiner Vertrag ohne Modell, Port, Migration, SQL, Test, Route, CLI oder Mutation; entscheidet Authority-, Snapshot-, Revisions-, Retry-, Entzugs- und Fehlersemantik
+    - verlangt eine eigene persistente workspacebezogene Membership-Management-Capability, strikt getrennt von Onboarding-Management, Research-Rechten und globaler OIDC-Trust-Authority
+    - SessionPrincipal identifiziert nur; Actor, Zielnutzer, Zielworkspace und exakt dessen aktuelle Management-Capability werden aus dem System of Record gebunden
+    - Änderungen setzen einen vollständigen Membership-Snapshot; aktive Membership nennt explizite Permissions, inaktive Membership muss leer sein und entfernt alle Rechte atomar
+    - research:write bleibt persistent eigenständig und impliziert read ausschließlich in der bestehenden reinen Policy; kein Rollen-, Merge-, Patch- oder Defaultmodell
+    - jeder Commit erhält stabile nicht wiederverwendbare Membership-Revision und Change-ID; Folgeänderungen verlangen die exakt aktuelle Revision, exakte Retries erzeugen keine zweite Revision
+    - Authority, Foundation, erwartete Revision, vollständiger Snapshot und Change-Entscheidung müssen atomar geordnet werden; Entzug wirkt auf jede spätere neue Änderung
+    - revisionslose Legacy-Memberships werden nicht stillschweigend adoptiert; Retention und Nichtwiederverwendung bleiben verbindliche Untergrenzen
+    - nächste Reihenfolge: persistente Authority-/Revisions-/Change-Foundation, einmaliger Authority-Bootstrap, autorisierte Mutation, Operatorgrenze und späterer Lifecycle/Recovery
+
+- LQ-207 persistent membership management foundation:
+  `docs/lq-207-persistent-membership-management-foundation.md`
+  - Status:
+    - implementiert repr-freie stabile WorkspaceMembershipRevisionId und WorkspaceMembershipChangeId sowie unabhängige sichere Erzeugung mit mindestens 32 Byte Entropie
+    - neuer Authority-Port akzeptiert ausschließlich SessionPrincipal und exakten WorkspaceId; Actor, Workspace und dedizierte aktive Capability werden aktuell aus dem System of Record aufgelöst
+    - Onboarding-Management, gewöhnliche Membership, Research-Permissions und globale OIDC-Trust-Authority können die neue Capability strukturell und persistent nicht ersetzen
+    - additive Revision 20260812_0012 ergänzt leere workspacebezogene Authority-, historische Revisions-/Permission- und Change-Entscheidungstabellen ohne Seed
+    - bestehende workspace_memberships erhalten nur eine nullable Revisionsbindung; revisionslose Altzeilen werden keiner erfundenen Historie zugeordnet und LQ-195 bleibt read-only unverändert
+    - jeder Lookup liest aktuell, sodass committierter Actor-, Workspace- oder Authority-Entzug die nächste Entscheidung sperrt; technische Fehler bleiben getrennt und detailfrei
+    - inaktive historische Snapshots dürfen später keine Permissions tragen; diese tabellenübergreifende Invariante bleibt Aufgabe der atomaren Mutationsgrenze
+    - keine Authority-, Membership-, Permission-, Revision- oder Change-Mutation, Legacy-Adoption, Route, CLI oder Startup-Ausführung
+    - nächster Slice ist der einmalige kontrollierte Offline-Bootstrap der ersten Membership-Management-Authority für einen vorhandenen aktiven Nutzer und Workspace
+
+- LQ-208 initial membership management authority bootstrap:
+  `docs/lq-208-initial-membership-management-authority-bootstrap.md`
+  - Status:
+    - implementiert einen eigenen Offline-Port, der genau einem vorhandenen aktiven Nutzer die erste dedizierte Membership-Management-Authority für genau einen aktiven Workspace gewährt
+    - Signatur akzeptiert nur interne UserId und WorkspaceId, keinen Actor, SessionPrincipal, Membership-Status, Permission-Satz, Rolle, Capability-Namen oder Allow-Boolean
+    - Bootstrap schließt pro Workspace dauerhaft, sobald dort irgendeine aktive oder inaktive Authority-Historie existiert; ein anderer leerer Workspace besitzt einen unabhängigen Scope
+    - PostgreSQL sperrt Nutzer-, Workspace- und Authority-Inventare und serialisiert konkurrierende Versuche für denselben Workspace mit exakt einem Erfolg
+    - unbekannte oder inaktive Foundation sowie geschlossener Scope bleiben neutrales None; technische Fehler sind getrennt und detailfrei
+    - erzeugt ausschließlich die aktive Authority, niemals Membership, Research-Permission, Revision, Change-Entscheidung, Onboarding- oder OIDC-Trust-Authority
+    - keine Migration, Route, CLI, Settings-, Environment-, Seed-, Force-, Reset-, Reopen- oder Startup-Grenze
+    - regulärer Authority-Lifecycle/Recovery bleibt später getrennt; Verlust oder Entzug öffnet Bootstrap nicht wieder
+    - nächster Slice ist die atomare autorisierte vollständige Membership-Mutation mit erwarteter Revision und idempotenter Change-Entscheidung
+
+- LQ-209 authorized workspace membership mutation:
+  `docs/lq-209-authorized-workspace-membership-mutation.md`
+  - Status:
+    - implementiert autorisierte Erstanlage, vollständige Permission-Änderung, Deaktivierung und Reaktivierung eines exakten UserId-/WorkspaceId-Paars
+    - jede neue Änderung bindet aktiven Actor, Zielnutzer, Workspace und dessen dedizierte aktuelle Membership-Management-Authority atomar aus dem System of Record
+    - Erstanlage verlangt Membership-Abwesenheit; jede Folgeänderung verlangt die exakt aktuelle Revision, revisionslose Legacy-Zeilen und stale Vorbedingungen bleiben neutral fail-closed
+    - aktive Snapshots tragen explizite Permissions; inaktive Snapshots müssen leer sein und entfernen alle aktuellen Permission-Zeilen ohne spätere stille Wiederbelebung
+    - jeder Commit erzeugt genau eine unveränderliche historische Revision und bindet Status sowie vollständige Permissions gemeinsam an die aktuelle Membership
+    - exakte technische Wiederholung rekonstruiert dieselbe Ergebnisrevision ohne neue Authority-Prüfung oder Generatorziehung; geänderter Inhalt bleibt detailfreier Conflict
+    - PostgreSQL ordnet Change-, Membership-, Permission- und Revisionsinventare; identische konkurrierende Versuche konvergieren auf eine Entscheidung
+    - keine Migration, Legacy-Adoption, Authority-Lifecycle-, Route-, CLI-, Settings- oder Startup-Grenze
+    - nächster Slice ist eine kontrollierte Offline-Operatorgrenze für Authority-Bootstrap und Membership-Änderungen mit stabil bewahrter Change-ID
+
+- LQ-210 controlled offline membership management operator:
+  `docs/lq-210-controlled-offline-membership-management-operator.md`
+  - Status:
+    - ergänzt den separaten Console Entry Point liquent-membership-management für sichere Change-ID-Erzeugung, einmaligen workspacebezogenen Authority-Bootstrap und vollständige Membership-Apply-Requests
+    - DSN und Requests müssen owner-only reguläre Dateien sein; Resultate werden exklusiv, synchronisiert und atomar als 0600-Dateien in owner-only Verzeichnissen geschrieben und niemals überschrieben
+    - Bootstrap-Recovery akzeptiert ausschließlich genau eine aktive Authority für exakt denselben aktiven Nutzer und Workspace; anderes, zusätzliches oder inaktives Inventar bleibt neutral rejected
+    - Apply akzeptiert Actor, Change-ID, Ziel, Workspace, erwartete Revision, Status und vollständige explizite Permission-Liste ohne Patch, Rolle, Merge, Default oder Allow-Boolean
+    - doppelte oder unbekannte Permissions scheitern fail-closed; inaktive Requests müssen leer sein und aktive leere Memberships bleiben ausdrücklich zulässig
+    - Authority und alle fachlichen Vorbedingungen verbleiben in LQ-209; der Operator generiert bei Apply niemals spontan eine Change-ID oder zweite Revision
+    - exakter Retry derselben Datei liefert auch nach Authority-Entzug dieselbe Ergebnisrevision; Resultat bewahrt Change-ID und Revision für die nächste geprüfte Änderung
+    - keine Migration, HTTP-, Settings-, Environment-, Startup-, Legacy-Adoptions- oder reguläre Authority-Lifecycle-Grenze
+    - nächster Slice ist ein getrennter Audit und Vertrag der verbleibenden Membership- sowie OIDC-Trust-Authority-Lifecycle-/Recovery-Pfade
+
+- LQ-211 authority lifecycle and recovery contract:
+  `docs/lq-211-authority-lifecycle-and-recovery-contract.md`
+  - Status:
+    - reiner Audit und Vertrag ohne Modell, Port, Migration, SQL, Test, Route, CLI oder Mutation für die zwei weiterhin strikt getrennten Authority-Domänen
+    - reguläre Änderungen lösen aktiven Actor, Zielnutzer, Scope und aktuelle Authority derselben Domäne aus dem System of Record auf; SessionPrincipal identifiziert nur
+    - jeder globale OIDC- beziehungsweise workspacebezogene Membership-Authority-Scope erhält eine eigene vollständige Authority-Set-Revision und domänenspezifische Change-IDs
+    - erlaubte Übergänge sind explizites Grant, Deactivate und Reactivate; kein Löschen, Rollen-Upgrade, Blind-Upsert, Transfer durch Umdeutung oder domänenübergreifende Vergabe
+    - Deaktivierung muss atomar mindestens einen anderen wirksamen Manager im Scope bewahren; Selbstdeaktivierung ist nur unter dieser Bedingung zulässig
+    - bestehende Bootstrap-Fakten werden nicht per Migration einer erfundenen Revision zugeordnet, sondern benötigen eine kontrollierte einmalige Verankerungsentscheidung
+    - exakte technische Wiederholung liefert dieselbe Set-Revision ohne erneute Authority-Auflösung; stale Revisionen und unzulässige Übergänge bleiben neutral fail-closed
+    - Offline-Recovery darf nur eine historisch bereits im exakten Scope autorisierte aktive UserId reaktivieren, öffnet Bootstrap nie und darf Nutzerstatus nicht ändern
+    - nächste Reihenfolge: getrennte Set-Revisions-/Change-Foundations, Verankerung, reguläre Lifecycle-Mutation, Operatorgrenzen, Recovery und End-to-End-LQ-177-Audit
+
+- LQ-212 persistent authority lifecycle foundations:
+  `docs/lq-212-persistent-authority-lifecycle-foundations.md`
+  - Status:
+    - ergänzt sechs getrennte stabile, repr-freie IDs für Set-Revisionen, reguläre Lifecycle-Entscheidungen und Offline-Recovery beider Authority-Domänen
+    - sichere Erzeugung zieht jede ID unabhängig mit mindestens 32 Byte Entropie; keine Ableitung aus Actor, Scope, Zeit, Revision oder Inhalt
+    - additive Revision 20260812_0013 ergänzt je Domäne leere Set-, Member-, Current-Pointer-, Lifecycle- und Recovery-Inventare ohne Seed
+    - globale OIDC-Trust- und workspacebezogene Membership-Management-Authority bleiben durch Typen, Tabellen und Scope-Bindungen strikt getrennt
+    - Membership-Pointer und Entscheidungen können nur Revisionen desselben Workspace referenzieren; domänen- oder scopefremde Bindungen scheitern persistent
+    - nur die erste Anchor-Entscheidung darf ohne erwartete Revision bestehen; Grant, Deactivate und Reactivate verlangen eine Vorgängerrevision
+    - vorhandene LQ-200-/LQ-208-Bootstrap-Fakten bleiben ausdrücklich unverankert; Migration erzeugt weder erfundene Historie noch aktuellen Pointer
+    - keine Verankerung, Authority-Mutation, Recovery, Port-, Route-, CLI-, Settings-, Startup- oder fachliche Membership-/Trust-Änderung
+    - nächster Slice ist die kontrollierte einmalige Verankerung vorhandener Bootstrap-Authority je strikt getrenntem Scope
+
+- LQ-213 controlled authority-set anchoring:
+  `docs/lq-213-controlled-authority-set-anchoring.md`
+  - Status:
+    - implementiert getrennte Ports und Adapter zur einmaligen Verankerung vorhandener globaler OIDC-Trust- beziehungsweise workspacebezogener Membership-Management-Authority
+    - Eingaben sind nur domänenspezifische Change-ID, SessionPrincipal und beim Membership-Fall der exakte Workspace; kein Ziel, Status, Rollen- oder Allow-Wert
+    - Actor, aktive Foundation, aktuelle Actor-Authority und vollständiger Authority-Bestand werden atomar aus dem System of Record gebunden
+    - Erfolg erzeugt genau eine vollständige statusgetreue Set-Revision, den ersten Current-Pointer und eine Anchor-Entscheidung ohne Authority-Statusänderung
+    - bereits belegte Set-, Pointer-, Lifecycle- oder Recovery-Inventare schließen nur den jeweiligen Scope neutral und öffnen Bootstrap niemals erneut
+    - exakte technische Wiederholung liefert dieselbe Revision vor erneuter Authority-Prüfung; anderer Actor oder Workspace unter derselben Change-ID ist detailfreier Konflikt
+    - PostgreSQL serialisiert konkurrierende Inventare; exakte Retries konvergieren und unterschiedliche Anker desselben Scopes haben genau einen Erfolg
+    - keine Migration, reguläre Grant-/Deactivate-/Reactivate-Mutation, Recovery, Route, CLI, Settings-, Startup- oder fachliche Trust-/Membership-Änderung
+    - nächster Slice ist die reguläre autorisierte Authority-Lifecycle-Mutation mit erwarteter Set-Revision und Schutz des letzten wirksamen Managers
+
+- LQ-214 authorized authority lifecycle mutation:
+  `docs/lq-214-authorized-authority-lifecycle-mutation.md`
+  - Status:
+    - implementiert strikt getrennte globale OIDC-Trust- und workspacebezogene Membership-Authority-Ports für Grant, Deactivate und Reactivate
+    - jede neue Entscheidung bindet aktiven Actor, aktiven Zielnutzer, exakten Scope, aktuelle Actor-Authority und exakt erwartete Set-Revision atomar aus dem System of Record
+    - operative Authority und erwarteter vollständiger Snapshot müssen übereinstimmen; beschädigte oder außerhalb der Grenze veränderte Historie scheitert technisch fail-closed
+    - Grant akzeptiert nur neue Zielhistorie, Deactivate nur aktive und Reactivate nur inaktive Historie; kein Upsert, Löschen, Rollen- oder Scope-Transfer
+    - Deactivate bewahrt atomar mindestens einen wirksamen aktiven Manager; sichere Selbstdeaktivierung nach vorherigem Grant oder Reactivate bleibt möglich
+    - Erfolg aktualisiert ausschließlich den Zielstatus und erzeugt vollständige neue Set-Revision, Current-Pointerwechsel und persistente Change-Entscheidung
+    - exakte technische Wiederholung liefert dieselbe Revision auch nach Actor-Entzug; abweichende Wiederverwendung ist detailfreier domänenspezifischer Konflikt
+    - PostgreSQL ordnet konkurrierende Änderungen derselben erwarteten Revision mit genau einem Erfolg; committierter Entzug sperrt spätere aktuelle Authority-Auflösung
+    - keine Migration, Recovery, Route, CLI, Settings-, Startup-, Nutzer-, Workspace-, Trust-Konfigurations- oder Membership-/Permission-Mutation
+    - nächster Slice sind getrennte owner-only Offline-Operatorgrenzen für Verankerung und regulären Lifecycle beider Authority-Domänen
+
+- LQ-215 controlled authority lifecycle operators:
+  `docs/lq-215-controlled-authority-lifecycle-operators.md`
+  - Status:
+    - ergänzt separate Console Entry Points liquent-oidc-trust-authority und liquent-membership-authority für LQ-213-Verankerung und LQ-214-Lifecycle
+    - beide Operatoren lesen DSN und exakte Requests nur aus owner-only regulären Dateien und verlangen einen neuen Resultatpfad in owner-only Verzeichnis
+    - Requests akzeptieren ausschließlich Actor, stabile domänenspezifische Change-ID, bei Apply Ziel, Intent und erwartete Revision sowie im Membership-Fall den exakten Workspace
+    - sichere Change-ID-Kommandos erzeugen je Domäne unabhängige opake Werte; Anchor und Apply generieren niemals spontan einen Ersatz für die bewahrte Request-ID
+    - Ergebnisse enthalten nur Change-ID und resultierende Revision, werden exklusiv synchronisiert als 0600-Datei geschrieben und niemals überschrieben
+    - exakter Retry mit unveränderter Datei liefert dieselbe Revision auch nach späterem Actor-Entzug; Konsolenausgaben bleiben konstante detailfreie Outcomes und Fehlercodes
+    - Prozess-eigene Engine wird immer disposed, Schema nie migriert und weder HTTP-, Startup-, Provider-, Session- noch Deployment-Pfad geöffnet
+    - getrennte Runbooks dokumentieren Verankerung, Grant, sichere Rotation, Retry und Cleanup ohne reale Credentials oder automatische Aktion
+    - keine Bootstrap-, Recovery-, Trust-Konfigurations-, Membership-/Permission-, Nutzer-, Workspace-, Route-, Settings- oder Environment-Mutation
+    - nächster Slice sind eng begrenzte domänenspezifische Offline-Recovery-Mutationen mit eigener Recovery-ID und historischer Eligibility
+
+- LQ-216 offline authority recovery mutations:
+  `docs/lq-216-offline-authority-recovery-mutations.md`
+  - Status:
+    - implementiert getrennte persistente Offline-Recovery-Ports für globale OIDC-Trust- und workspacebezogene Membership-Management-Authority ohne SessionPrincipal
+    - Recovery öffnet nur einen bereits verankerten Scope ohne irgendeinen wirksamen aktiven Manager und akzeptiert keine neue Person, Rolle, Allow- oder Statusentscheidung
+    - Ziel muss als aktiver interner Nutzer im exakten Scope bereits historisch autorisiert und aktuell authority-inaktiv sein; Workspace-Recovery verlangt zusätzlich aktiven exakten Workspace
+    - erwartete Revision muss dem Current-Pointer entsprechen oder bei fehlendem Pointer eindeutig terminale letzte Entscheidungsrevision sein; revisionsloser Bootstrap bleibt geschlossen
+    - operativer Authority-Bestand und erwarteter vollständiger Snapshot müssen exakt übereinstimmen, andernfalls endet Recovery technisch fail-closed
+    - Erfolg reaktiviert nur den Ziel-Authority-Fakt und erzeugt atomar neue vollständige Set-Revision, Current-Pointer und getrennte persistente Recovery-Entscheidung
+    - exakte Recovery-ID-Wiederholung liefert dieselbe Revision auch nach späterer Foundation-Änderung; abweichende Wiederverwendung bleibt detailfreier Konflikt
+    - PostgreSQL ordnet konkurrierende Recoveries desselben geschlossenen Scopes mit genau einem Erfolg; andere Workspace-Scopes bleiben fachlich getrennt
+    - keine Migration, CLI, Operator-Credentials, Bootstrap-, Anchor-, reguläre Lifecycle-, Nutzer-, Workspace-, Trust- oder Membership-/Permission-Mutation
+    - nächster Slice sind getrennte owner-only Offline-Recovery-Operatoren mit privaten Request-/Resultatdateien und stabil bewahrter Recovery-ID
+
+- LQ-217 controlled offline authority recovery operators:
+  `docs/lq-217-controlled-offline-authority-recovery-operators.md`
+  - Status:
+    - ergänzt separate Console Entry Points liquent-oidc-trust-authority-recovery und liquent-membership-authority-recovery ausschließlich für LQ-216
+    - jeder Prozess besitzt nur new-recovery-id und recover; Bootstrap-, Anchor-, reguläre Lifecycle-, Inspect-, Force- oder Reset-Kommandos existieren nicht
+    - Requests akzeptieren nur stabile Recovery-ID, historisches Ziel, erwartete Revision und beim Membership-Fall den exakten Workspace; Actor, Intent, Rolle und Allow sind verboten
+    - DSN und Request werden ausschließlich aus owner-only regulären Dateien gelesen; Resultate verlangen einen neuen Pfad in owner-only Verzeichnis
+    - Resultat enthält nur Recovery-ID und resultierende Revision, wird exklusiv synchronisiert als 0600-Datei geschrieben und niemals überschrieben
+    - exakter Retry mit unveränderter Datei liefert dieselbe Revision auch nach späterer Foundation-Änderung; Konsolenausgaben und Fehlercodes bleiben detailfrei
+    - Prozess-eigene Engine wird immer disposed, Schema nie migriert und kein HTTP-, Session-, Startup-, Environment- oder Deployment-Pfad geöffnet
+    - getrennte Emergency-Runbooks verlangen unabhängige Prüfung, private Vorbereitung, stabile ID-Bewahrung, exakten Retry und sichere Bereinigung
+    - keine neue Recovery-Eligibility, Bootstrap-, Lifecycle-, Nutzer-, Workspace-, Trust-Konfigurations- oder Membership-/Permission-Mutation außerhalb LQ-216
+    - nächster Slice ist der End-to-End-Nachweis für Inbetriebnahme, Rotation, Entzug und Recovery beider Authority-Domänen mit erneutem LQ-177-Audit
+
+- LQ-218 authority lifecycle end-to-end audit:
+  `docs/lq-218-authority-lifecycle-end-to-end-audit.md`
+  - Status:
+    - reiner End-to-End-Audit ohne neue Ports, Modelle, Migration, Mutation, CLI, Route, Settings- oder Runtime-Verdrahtung
+    - bestätigt vollständige getrennte Bootstrap-, Anchor-, Grant-/Deactivate-/Reactivate-, Operator- und Recovery-Ketten für beide Management-Authority-Domänen
+    - unterstützter leerer Startpfad erreicht ersten Nutzer, Workspace, beide ersten Management-Authorities und ihre Set-Verankerung ohne direkte SQL-Provisionierung
+    - letzter-Manager-Schutz lehnt Deaktivierung des einzigen Bootstrap-Managers korrekt ab und darf für einen Readiness-Nachweis nicht abgeschwächt werden
+    - verbleibender Blocker: kein regulärer Nutzer-Lifecycle erzeugt einen zweiten aktiven internen Nutzer für Rotation, Membership-Ziel oder vorbereitete Recovery
+    - zusätzlicher Blocker: kein regulärer Workspace-Lifecycle unterstützt weitere Workspaces sowie deren Aktivierung, Deaktivierung und kontrolliertes Offboarding
+    - Onboarding und Admission binden externe Identität nur an bestehende Zielnutzer und sind weder Self-Sign-up noch Ersatz für interne Nutzeranlage
+    - HTTP-Prozess bleibt frei von Bootstrap-, Authority-Lifecycle-, Recovery- und Operatorimports; diese Isolation ist korrekt und kein Restblocker
+    - LQ-177 bleibt bis zur Nutzer-/Workspace-Control-Plane und einem echten Mehrnutzer-End-to-End-Nachweis konkret blockiert
+    - nächster Slice ist der Vertrag für minimalen sicheren persistenten Nutzer- und Workspace-Lifecycle ohne Bootstrap-Wiederöffnung oder implizite Authority
+
+- LQ-219 persistent user and workspace lifecycle contract:
+  `docs/lq-219-persistent-user-workspace-lifecycle-contract.md`
+  - Status:
+    - entscheidet getrennte globale User- und Workspace-Lifecycle-Management-Authorities ohne Ableitung aus Session, Membership, Research, Onboarding oder Trust
+    - UserId und WorkspaceId bleiben stabile nicht wiederverwendbare interne Fakten; unbekannt und inaktiv wirken bei jeder späteren Entscheidung fail-closed
+    - Nutzeranlage erzeugt nur einen neuen aktiven internen Nutzer; Deaktivierung verlangt vorher vollständigen Drain aller Sessions, Admissions, Memberships und Management-Authorities
+    - Nutzerreaktivierung stellt ausschließlich den Nutzerstatus wieder her und reaktiviert keine abhängigen Fähigkeiten
+    - Workspace-Anlage erzeugt atomar einen neuen aktiven Workspace und genau dessen explizit gebundenen ersten Onboarding-Manager, aber keine Membership oder weitere Authority
+    - Workspace-Deaktivierung ist terminal; erhaltene Unterfakten können deshalb nicht durch spätere pauschale Reaktivierung unbemerkt wieder wirksam werden
+    - vollständige Nutzer- und Workspace-Revisionen, stabile Change-IDs und aktuelle Authority-Auflösung sichern Konkurrenz, Retry und späteren Entzug
+    - fachliche Abwesenheit bleibt neutral, abweichende ID-Wiederverwendung detailfreier Konflikt und technische Nichtverfügbarkeit separat ohne neuen Exception-Namen
+    - Bootstrap bleibt getrennt und darf die ersten Lifecycle-Authorities später atomar ergänzen; Migrationen seeden oder erraten keine Authority
+    - keine Schema-, SQL-, Port-, Modell-, Signatur-, Migration-, Test-, CLI-, Route- oder Wiring-Entscheidung; nächster Slice ist die additive persistente Foundation
+
+- LQ-220 persistent user and workspace lifecycle foundation:
+  `docs/lq-220-persistent-user-workspace-lifecycle-foundation.md`
+  - Status:
+    - ergänzt getrennte globale User- und Workspace-Lifecycle-Management-Authorities mit aktuellen fail-closed read-only Lookups
+    - vier neue opaque IDs bezeichnen vollständige Nutzer-/Workspace-Revisionen und immutable Change-Entscheidungen; der sichere Generator zieht sie unabhängig
+    - additive Revision 20260813_0014 speichert getrennte vollständige Status-Snapshots und je einen eindeutigen Current-Pointer
+    - Nutzer-Changes erlauben strukturell nur create, deactivate und reactivate mit erwarteter und resultierender Revision
+    - Workspace-Changes erlauben nur create oder terminales deactivate; create verlangt exakt einen internen ersten Onboarding-Manager
+    - Authority, Revision, Pointer und Change-Bestände starten vollständig leer; vorhandene Nutzer und Workspaces werden weder geseedet noch stillschweigend verankert
+    - SessionPrincipal identifiziert nur den Actor; aktive Nutzer- und jeweils passende Authority-Fakten werden bei jedem Lookup neu aus Persistenz aufgelöst
+    - committierter Entzug sperrt spätere Lookups, fachliche Abwesenheit bleibt neutral und technische Nichtverfügbarkeit detailfrei separat
+    - keine Bootstrap-, Anchor-, Authority-Lifecycle-, Nutzer-/Workspace-Mutation, Drain-Prüfung, CLI, Route oder Runtime-Verdrahtung
+    - nächster Slice erweitert den einmaligen leeren Bootstrap atomar und verankert bestehende Bootstrap-Bestände getrennt
+
+- LQ-221 initial lifecycle bootstrap and anchor:
+  `docs/lq-221-initial-lifecycle-bootstrap-and-anchor.md`
+  - Status:
+    - erweitert den vollständig leeren Identity-Bootstrap atomar um beide globalen Lifecycle-Authorities sowie vollständige erste Nutzer- und Workspace-Revisionen
+    - alle vier internen IDs werden getrennt sicher erzeugt; Fehler hinterlassen weder Identity-, Authority-, Revisions- noch Pointer-Teilbestand
+    - Bootstrap-Schließung und PostgreSQL-Tabellensperren umfassen nun auch die gesamte Lifecycle-Foundation und bleiben zustandsbasiert dauerhaft geschlossen
+    - eine getrennte argumentlose Anchor-Grenze akzeptiert ausschließlich exakt einen aktiven kanonischen Altbestand aus Nutzer, Workspace und Onboarding-Manager
+    - Anchor erzeugt beide aktiven Lifecycle-Authorities, beide Einzelmember-Ausgangsrevisionen und beide Current-Pointer in genau einer Transaktion
+    - Leerstand, Inaktivität, Zusatzbestand, partielle Foundation und Wiederholung bleiben neutral; Migration oder Caller wählen keine bestehende Identität aus
+    - konkurrierende PostgreSQL-Anchors ergeben genau einen Erfolg; ungültige Generierung und technische Fehler rollen vollständig zurück und bleiben detailfrei
+    - Initial-Bootstrap-Operator-Recovery verlangt jetzt den vollständigen neuen kanonischen Bestand und lehnt Lifecycle-Changes oder Teilzustand ab
+    - keine reguläre User-/Workspace-Mutation, Authority-Rotation, Drain-Prüfung, Anchor-CLI, Route oder Runtime-Verdrahtung
+    - nächster Slice verankert und implementiert den regulären Lifecycle beider neuen Management-Authority-Domänen
+
+- LQ-222 lifecycle management authority sets:
+  `docs/lq-222-lifecycle-management-authority-sets.md`
+  - Status:
+    - ergänzt getrennte Set-Revisionen und Change-IDs für User- und Workspace-Lifecycle-Management ohne Vermischung mit Nutzer-/Workspace-Statusrevisionen
+    - additive Revision 20260813_0015 erzeugt je Domäne leere vollständige Set-, Member-, Current- und Change-Inventare ohne Seed oder stille Verankerung
+    - getrennte Anchor-Ports übernehmen den aktuellen Authority-Bestand nur bei aktivem Actor derselben Domäne und vollständig leerer Set-Historie
+    - reguläre Stores erlauben ausschließlich Grant, Deactivate und Reactivate eines aktiven internen Zielnutzers gegen die exakte Current-Revision
+    - jede erfolgreiche Änderung persistiert Authority-Zeile, vollständige neue Set-Revision, Current-Pointer und immutable Change-Entscheidung atomar
+    - Deactivate schützt den letzten wirksamen aktiven Manager; Self-Deactivate bleibt nur bei einem weiteren wirksamen Manager zulässig
+    - exakter Change-ID-Retry bleibt nach späterem Entzug auflösbar, abweichende Wiederverwendung detailfreier Konflikt und stale Revision neutral
+    - beide öffentlichen ID-, Port- und Persistenzdomänen bleiben getrennt; ein intern geteilter Algorithmus akzeptiert keine caller-gesteuerte Domänenwahl
+    - keine User-/Workspace-Mutation, Drain-Prüfung, Recovery, Operator-CLI, Route oder Runtime-Verdrahtung
+    - nächster Slice implementiert reguläre autorisierte User-Lifecycle-Mutation gegen die vollständige aktuelle Nutzerrevision
+
+- LQ-223 authorized user lifecycle mutation:
+  `docs/lq-223-authorized-user-lifecycle-mutation.md`
+  - Status:
+    - implementiert getrennte Create- und Status-Operationen, sodass Nutzeranlage strukturell keine caller-supplied UserId akzeptiert
+    - jede neue Entscheidung löst aktiven Actor, dedizierte User-Lifecycle-Authority und exakte Current-Nutzerrevision atomar aus Persistenz auf
+    - Create erzeugt ausschließlich einen neuen aktiven internen Nutzer und eine vollständige Revision, aber keine Identitätsbindung, Session, Membership oder Authority
+    - Deactivate verlangt vollständigen Drain lebender Sessions, nutzbarer Admissions, aktiver Memberships sowie aller Management-Authority-Domänen ohne Cascade
+    - Reactivate ändert ausschließlich den historischen Nutzerstatus und stellt keine abhängige Fähigkeit wieder her
+    - operative Nutzer und vollständige erwartete Revision müssen exakt übereinstimmen; Inkonsistenz bleibt technische Nichtverfügbarkeit statt neuer Historie
+    - stabile Change-ID ermöglicht exakten Retry einschließlich derselben intern erzeugten Ziel-UserId nach späterem Authority-Entzug; abweichende Wiederverwendung konfligiert detailfrei
+    - Revision 20260813_0016 ergänzt nur fehlende Session- und Admission-Drain-Indizes; bestehende Primärschlüssel vermeiden redundante Membership-/Onboarding-Indizes
+    - PostgreSQL ordnet konkurrierende Creates derselben Revision; persistente Sessionauflösung, -anlage und -rotation prüfen zusätzlich den aktuell aktiven Nutzer
+    - nächster Slice implementiert reguläre Workspace-Anlage mit erstem Onboarding-Manager und terminale Workspace-Deaktivierung
+
+- LQ-224 authorized workspace lifecycle mutation:
+  `docs/lq-224-authorized-workspace-lifecycle-mutation.md`
+  - Status:
+    - implementiert getrennte Create- und Deactivate-Operationen; Workspace-Anlage akzeptiert strukturell keine caller-supplied WorkspaceId
+    - jede neue Entscheidung löst aktiven Actor, dedizierte Workspace-Lifecycle-Authority und exakte vollständige Current-Revision atomar auf
+    - Create bestätigt einen expliziten aktiven internen ersten Onboarding-Manager und bindet ihn atomar mit neuem aktivem Workspace
+    - Create erzeugt keine Membership, Research-Permission, Membership-Management-, Trust- oder Lifecycle-Authority
+    - Deactivate setzt ausschließlich den Workspace terminal inaktiv; historische Unterfakten bleiben erhalten und wegen fehlendem Reactivate fail-closed
+    - operativer Workspacebestand und vollständige erwartete Revision müssen exakt übereinstimmen; Inkonsistenz bleibt technische Nichtverfügbarkeit
+    - stabile Change-ID liefert exakten Retry einschließlich derselben intern erzeugten WorkspaceId nach Entzug; abweichende Wiederverwendung konfligiert detailfrei
+    - PostgreSQL ordnet konkurrierende Creates derselben Revision mit genau einem Erfolg; die Best-Practices-Gegenprüfung verlangt keine neue Migration oder Indizes
+    - keine automatische Unterfakt-Mutation, User-Lifecycle-Mutation, Authority-Recovery, CLI, Route oder Runtime-Verdrahtung
+    - nächster Slice ergänzt getrennte kontrollierte Offline-Operatoren für reguläre User- und Workspace-Lifecycle-Entscheidungen
+
+- LQ-225 controlled user and workspace lifecycle operators:
+  `docs/lq-225-controlled-user-workspace-lifecycle-operators.md`
+  - Status:
+    - ergänzt getrennte owner-only Entry Points für regulären Nutzer- und Workspace-Lifecycle ohne HTTP-, Startup- oder Deployment-Aufruf
+    - Create-Shapes schließen caller-supplied UserId beziehungsweise WorkspaceId strukturell aus; das Kommando bindet jeden Übergangsintent
+    - private Requests verlangen Actor, stabile domänenspezifische Change-ID und exakte vollständige Current-Revision
+    - Workspace-Create bestätigt nur einen bestehenden aktiven ersten Onboarding-Manager und erzeugt keine gewöhnliche Membership oder Research-Capability
+    - persistente Adapter lösen Actorstatus und dedizierte Lifecycle-Authority atomar aus dem System of Record; SessionPrincipal gewährt selbst nichts
+    - exakte Retries liefern nach späterem Authority-Entzug dieselbe Revision und intern erzeugte Ziel-ID; abweichende Wiederverwendung konfligiert detailfrei
+    - Erfolg erzeugt exklusive owner-only Resultate; neutraler Reject sowie Input-, Konflikt- und Unavailable-Ausgänge bleiben detailfrei getrennt
+    - beide Prozesse besitzen und disposen genau eine Engine, migrieren, bootstrappen, ankern und recovern jedoch nichts
+    - getrennte Runbooks und End-to-End-Nachweise decken sichere Anwendung, Retry, Scope und fehlende Nebenfakterzeugung ab
+    - nächster Slice auditiert die vollständige User-/Workspace-Lifecycle-Kette unabhängig gegen PostgreSQL und Betriebsgrenzen
+
+- LQ-226 user and workspace lifecycle end-to-end audit:
+  `docs/lq-226-user-workspace-lifecycle-end-to-end-audit.md`
+  - Status:
+    - bestätigt den unterstützten Weg vom leeren migrierten Bestand über Bootstrap zu regulärem zweitem Nutzer und zweitem Workspace
+    - korrigiert den historischen LQ-218-Test, der die inzwischen implementierten Lifecycle-Ports und Operatoren noch als fehlend voraussetzte
+    - markierter PostgreSQL-Nachweis führt beide owner-only Operatoren aus und bindet die systemgenerierte UserId als ersten Manager des neuen Workspace
+    - PostgreSQL bestätigt aktive neue Fakten, exakte Onboarding-Bindung, owner-only Resultate und weiterhin fehlende gewöhnliche Membership
+    - bestehende Konkurrenznachweise ordnen User- und Workspace-Creates gegen vollständige erwartete Revisionen
+    - stabile Change-IDs bewahren exakte Resultate nach Authority-Entzug, während neue Entscheidungen aktuellen Widerruf sehen
+    - Audit bestätigt fehlende Delete-/ID-Reassignment-Pfade sowie vollständige HTTP-Runtime-Isolation
+    - keine Migration, Produktmutation, Recovery-Erweiterung, Route oder Production-Freigabe
+    - der frühere Lifecycle-Fähigkeitsblocker ist geschlossen; offen bleibt nur der letzte integrierte LQ-177-Mehrnutzernachweis
+    - nächster Slice ist LQ-227 als abschließender Shared-Environment-End-to-End-Audit
+
+- LQ-227 shared environment end-to-end audit:
+  `docs/lq-227-shared-environment-end-to-end-audit.md`
+  - Status:
+    - stoppt den integrierten leeren Startpfad an einer konkreten operativen Revision-Übergabelücke statt direkten SQL-Ersatz zu verwenden
+    - Identity-Bootstrap erzeugt beide ersten Lifecycle-Revisionen, sein owner-only Resultat enthält jedoch ausschließlich UserId und WorkspaceId
+    - User- und Workspace-Lifecycle-Create verlangen jeweils zwingend die exakte Current-Revision und akzeptieren zu Recht keinen revisionslosen Start
+    - kein kontrollierter Offline-Operator stellt die initiale User- oder Workspace-Revision read-only bereit
+    - LQ-226 beweist Persistenz mit injizierten bekannten Testrevisionen, aber nicht die reale Übergabe zufällig erzeugter Bootstrap-Revisionen
+    - Recovery erzeugt weder Bestand noch Revision und bleibt im gesunden Managerbestand zu Recht neutral geschlossen
+    - Audit-Tests bestätigen exaktes Bootstrap-Resultat, verpflichtende Operatorinputs sowie fehlende Runtime-, Runbook- und SQL-Abkürzungen
+    - keine Produktmutation, Migration, Lookup-Grenze, Recovery-Erweiterung oder Production-Freigabe
+    - LQ-177 bleibt ausschließlich an kontrollierter minimaler Lifecycle-Revision-Beobachtbarkeit blockiert
+    - nächster Slice LQ-228 entscheidet deren Vertrag einschließlich Retry, Rekonstruktion, owner-only Shape und Current-Konsistenz
+
+- LQ-228 controlled lifecycle revision observability contract:
+  `docs/lq-228-controlled-lifecycle-revision-observability-contract.md`
+  - Status:
+    - entscheidet die additive Ausgabe der beiden beim Identity-Bootstrap atomar erzeugten Lifecycle-Revisionen im bestehenden owner-only Resultat
+    - erfolgreicher Shape enthält exakt UserId, WorkspaceId, User-Revision und Workspace-Revision ohne Authority-, Status- oder Bestandsdetails
+    - frischer Commit und exakte kanonische Retry-Rekonstruktion müssen dieselben vier IDs liefern
+    - Recovery bestätigt beide Current-Pointer, exakte Einzelmember, aktive kanonische Fakten und weiterhin fehlende reguläre Change-Historie gemeinsam
+    - bereits regulär mutierter oder sonst nichtkanonischer Bestand bleibt neutral geschlossen; teilweise Revisionsausgabe ist unzulässig
+    - Revisionen sind keine Authority und stale Werte scheitern weiterhin atomar gegen die Current-Pointer
+    - kein allgemeiner Inspect-/Current-Lookup, keine revisionslose erste Mutation und keine neue Exception
+    - keine Migration, Produktmutation, HTTP-/Startup-Verdrahtung oder Bootstrap-Wiederöffnung
+    - LQ-177 bleibt bis zur Implementierung und erneuten integrierten Kette blockiert
+    - nächster Slice LQ-229 implementiert den Vier-Felder-Shape für frischen Bootstrap und exakte Recovery einschließlich PostgreSQL-Nachweis
+
+- LQ-229 bootstrap lifecycle revision observability:
+  `docs/lq-229-bootstrap-lifecycle-revision-observability.md`
+  - Status:
+    - erweitert ausschließlich das owner-only Identity-Bootstrap-Resultat auf UserId, WorkspaceId und beide initialen Lifecycle-Revisionen
+    - bestehende Domain-Bootstrap-Signatur bleibt unverändert; prozesslokale Wrapper bewahren exakt die atomar gezogenen Revisionswerte
+    - kanonische Recovery liest beide bestätigten Current-Pointer und liefert denselben Vier-Felder-Shape ohne neue ID-Erzeugung
+    - frischer Erfolg und Retry nach verlorenem Resultat sind bytegleich, exklusiv und Modus 0600
+    - integrierter Nachweis speist beide regulären Create-Operatoren ausschließlich aus dem geschützten Bootstrap-Ergebnis
+    - kein injiziertes Revisionswissen, direkter SQL-Lookup, allgemeiner Inspector oder revisionsloser Start
+    - PostgreSQL-CLI-Nachweis bestätigt Vier-Felder-Shape, exakten Retry und owner-only Resultate
+    - Runbook ordnet beide Revisionen ihren ersten regulären Lifecycle-Requests zu
+    - keine Migration, Authority-Ausweitung, Runtime-Verdrahtung oder neue Produktmutation
+    - nächster Slice LQ-230 wiederholt den vollständigen integrierten Shared-Environment-Audit bis zur Runtime-Wirkung
+
+- LQ-230 integrated shared environment audit:
+  `docs/lq-230-integrated-shared-environment-audit.md`
+  - Status:
+    - ergänzt eine durchgängige markierte PostgreSQL-Kette ohne direkte SQL-Provisionierung fachlicher Produktfakten
+    - verbindet Vier-Felder-Bootstrap, systemgenerierten zweiten Nutzer und Workspace sowie getrennte Trust- und Membership-Authority-Rotation
+    - zweiter Manager vergibt reguläre Membership mit expliziten Research-Permissions gegen die persistente Revisionsgrenze
+    - persistente Browser-Session und aktuelle Membership autorisieren beobachtbar einen geschützten Research-Read mit HTTP 200
+    - autorisierter Membership-Entzug wirkt ohne App-Neustart oder Cache-Flush auf den nächsten Request als neutrales HTTP 404
+    - Recovery bleibt bei vorhandenem wirksamem Manager in beiden Domänen neutral geschlossen; Disaster-Recovery bleibt separat belegt
+    - alle Operatorresultate bleiben exklusiv owner-only und IDs werden nur über geschützte Shapes weitergereicht
+    - kein weiterer fachlicher oder architektonischer LQ-177-Produktblocker gefunden
+    - lokaler Lauf ist mangels pytest/sqlalchemy blockiert; erfolgreicher verpflichtender PostgreSQL-Lauf bleibt Release-Gate
+    - nächster Slice LQ-231 führt die vollständige PostgreSQL-Verifikation aus und dokumentiert die finale Readiness-Entscheidung
+
+- LQ-231 PostgreSQL verification and readiness decision:
+  `docs/lq-231-postgresql-verification-and-readiness-decision.md`
+  - Status:
+    - führt den LQ-230-Einzelnachweis tatsächlich gegen einen isolierten lokalen PostgreSQL-16-Cluster aus: 1 passed
+    - erster vollständiger Marker-Lauf findet zwei veraltete Testvorbedingungen bei 72 bestandenen PostgreSQL-Tests
+    - ergänzt dem alten Onboarding-Material-Sentinel die seit LQ-221 verpflichtenden Lifecycle-Revisionsgeneratoren
+    - bootstrapped im Login-/Session-Composition-Test einen aktiven Nutzer statt die LQ-223-Fail-closed-Prüfung abzuschwächen
+    - gezielter Regression-Retry besteht mit 2 Tests; keine Produktlogik wurde verändert
+    - vollständige Pflicht-DSN-PostgreSQL-Suite besteht mit 74 Tests ohne Skip- oder SQLite-Fallback
+    - gesamte Suite besteht gemeinsam mit 2887 Tests und 53 bestehenden SQLite/Python-3.12-Deprecation-Warnungen
+    - temporärer Unix-Socket-Cluster wurde nach dem Lauf kontrolliert gestoppt und vollständig entfernt
+    - LQ-177 ist technisch verifiziert abgeschlossen; konkrete Deployment- und Organisationsfreigabe bleibt separat
+    - nächster optionaler Slice LQ-232 ist ein kontrollierter Release-Handoff-Audit ohne Commit, Push oder Environment-Mutation
+
+- LQ-232 controlled release handoff audit:
+  `docs/lq-232-controlled-release-handoff-audit.md`
+  - Status:
+    - auditiert den gesamten kumulierten Worktree als technisch reviewfähigen, aber noch unpublizierten Handoff-Scope
+    - bestätigt detached HEAD auf 83699b1, vier Commits vor origin/main und vollständig ungestagten Änderungsbestand
+    - lineare Alembic-Kette von 20260726_0001 bis zum einzigen Head 20260813_0016 ohne Merge- oder Nebenhead
+    - `git diff --check`, Konfliktmarkersuche, Python-Syntax und vollständige LQ-231-Testevidenz sind sauber
+    - getrennte Entry Points und owner-only Runbooks decken Bootstrap, Trust, Membership, Authority-Lifecycle/Recovery sowie User-/Workspace-Lifecycle ab
+    - HTTP-Runtime bleibt von Offline-Control-Plane und Recovery getrennt; keine automatische Managementaktion
+    - ignorierte Python-Caches sind nicht im Git-Scope, temporärer PostgreSQL-Cluster ist vollständig entfernt
+    - begrenzte Secret-Signatursuche findet keine offensichtlichen Private Keys oder bekannten Tokenformen
+    - kein Staging, Branch, Commit, Push, Pull Request oder Deployment ausgeführt
+    - nächster optionaler Slice LQ-233 entwirft ausschließlich den Commit-/PR-Zuschnitt für den großen Scope
+
+- LQ-233 commit and pull request scope plan:
+  `docs/lq-233-commit-and-pr-scope-plan.md`
+  - Status:
+    - bewertet 208 uncommitted Dateien und vier zusammenhängende Vorgängercommits auf detached HEAD
+    - verwirft einen mechanischen Slice-pro-Commit-Ansatz, weil zentrale Finaldateien und spätere Migrationen keine grünen historischen Zwischenstände bilden
+    - empfiehlt Branch `codex/lq-177-shared-environment-readiness` direkt vom aktuellen Commit 83699b1
+    - empfiehlt einen atomaren kumulierten Commit `feat: complete persistent shared-environment control plane`
+    - gliedert den PR-Review in Identity/Onboarding, Login/Runtime, Research, Trust, Membership, Authority-Recovery, Lifecycle und End-to-End-Handoff
+    - definiert sichere spätere Staging-Prüfung gegen Top-Level-Scope, Whitespace, Secrets, Migrationen und Entry Points
+    - verlangt vollständige normale und PostgreSQL-Pflichttests vor Commit sowie denselben Remote-CI-Gate nach Push
+    - mehrere Commits erfordern ausdrücklich historische Dateirekonstruktion und Tests jedes Zwischenstands statt bloßem Hunk-Staging
+    - keine Produkt-, GitHub-, CI-, Branch-, Staging-, Commit-, Push-, PR- oder Deployment-Mutation ausgeführt
+    - nächster Schritt benötigt explizite Entscheidung für atomaren Publish-Pfad oder aufwendige mehrteilige Rekonstruktion
+
+- LQ-234 release artifact preflight:
+  `docs/lq-234-release-artifact-preflight.md`
+  - Status:
+    - baut Wheel und Source-Distribution erfolgreich aus dem aktuellen Worktree ohne Netzwerk- oder Registryzugriff
+    - Wheel enthält alle 16 Migrationen, zehn Operatormodule und exakt zwölf erwartete Console Entry Points
+    - separate temporäre Wheel-Installation lädt alle Entry Points und besteht vollständige Bytecode-Kompilierung
+    - Runtime-Wheel ist technisch vollständig; Build-spezifische SHA-256-Werte wurden erfasst und Artefakte anschließend entfernt
+    - Source-Distribution enthält 217 Tests, aber null Operations-Runbooks und null Slice-/Auditdokumente
+    - vollständiger operatorischer Handoff ist deshalb durch die aktuellen Python-Artefakte allein nicht abgedeckt
+    - zweiter sdist-Build hat abweichenden Hash; reproducible-build-, Signatur-, SBOM- und Provenance-Claims bleiben offen
+    - alle lokalen build-, egg-info- und temporären Artefakte wurden nach validierter Prüfung entfernt
+    - keine Packaging-, Versionierungs-, Git-, Registry-, PR- oder Deployment-Mutation ausgeführt
+    - nächster Slice LQ-235 entscheidet den Vertrag für ein versioniertes operatives Release-Bundle
+
+- LQ-235 versioned operational release bundle contract:
+  `docs/lq-235-versioned-operational-release-bundle-contract.md`
+  - Status:
+    - entscheidet ein separates deterministisches Operationsbundle statt Runbooks in das Runtime-Wheel oder die unvollständige sdist zu mischen
+    - Formatversion 1 bindet genau ein Wheel, neun Runbooks, ausgewählte Sicherheitsverträge, Beispiele, Manifest, Checksummen und Testevidenz
+    - Bundle-Build verlangt vollständigen clean Source-Commit; dirty Worktree und unbekannte Dateien bleiben fail-closed
+    - Manifest bindet Paketversion, vollständigen Commit, Migration-Head, Wheel-Metadaten, Entry Points und jedes Dokument per SHA-256
+    - strukturierte Evidence muss aus demselben Workflow stammen und vollständige Suite sowie PostgreSQL-Pflichtgate belegen
+    - deterministischer tar/gzip-Bau verlangt sortierte Pfade, feste IDs/Modi/Mtime, kanonisches JSON und bytegleichen Doppelbuild
+    - Secret-, private Resultat-, DSN-, Credential-, Echtdaten- und Environment-Bindungen sind strukturell ausgeschlossen
+    - unsigned Archiv bleibt Release-Kandidat; Promotion verlangt detached Signatur über SHA256SUMS und unabhängige Prüfung
+    - sdist, Container-SBOM, Signiertechnologie, Versionierung und Deployment bleiben getrennt unentschieden
+    - nächster Slice LQ-236 implementiert lokalen nicht publizierenden Builder und read-only Verifier für Formatversion 1
+
+- LQ-236 local operational release bundle builder and verifier:
+  `docs/lq-236-local-operational-release-bundle-builder-and-verifier.md`
+  - Status:
+    - implementiert lokalen Standardbibliothek-Builder und read-only In-Memory-Verifier für Bundle-Formatversion 1
+    - normaler CLI-Build bindet exakten Commit und lehnt staged, modified sowie untracked Source ohne Bypass fail-closed ab
+    - nimmt exakt ein Wheel, neun Runbooks, neun Pflichtverträge, ein Beispiel und geschlossene Verification-Evidence auf
+    - validiert Wheel-Name und -Metadaten, zwölf Entry Points, neunzehn lineare Migrationen bis Head 20260817_0019 und zehn Operatormodule
+    - erzeugt kanonisches Manifest, vollständige sortierte SHA256SUMS und byteidentische tar/gzip-Archive mit festen Metadaten
+    - Verifier extrahiert nichts und sperrt unbekannte Pfade, Links, Modi, Inhalte, Hashes, Inventare und nicht kanonische Metadaten
+    - erfolgreicher Verify bestätigt nur Integrität; Signatur bleibt not_verified und Promotion ausdrücklich false
+    - acht gezielte Tests sowie vollständige datenbankunabhängige Suite mit 2821 passed, 74 skipped und 53 warnings sind grün
+    - aktueller dirty Worktree erzeugt bewusst kein Bundle; keine Signatur-, Release-, Git-, Registry- oder Deploymentmutation
+    - nächster Slice LQ-237 entscheidet unabhängigen detached-Signatur- und Promotion-Vertrag
+
+- LQ-237 detached release signature and promotion contract:
+  `docs/lq-237-detached-release-signature-and-promotion-contract.md`
+  - Status:
+    - trennt technische Bundle-Integrität, autorisiertes Signing, unabhängige Promotion-Prüfung und späteres Deployment
+    - entscheidet detached SSHSIG mit Ed25519 über die exakten SHA256SUMS-Bytes und festem Namespace liquent-operations-release-v1
+    - führt Release-Signing-Authority als eigene Control-Plane-Domäne außerhalb aller Produktrollen, Memberships und Runtime-Rechte
+    - verlangt stabile nicht wiederverwendbare Signer- und Key-IDs sowie aktuelle Authority-, Key-, Fingerprint- und Policy-Auflösung aus dem System of Record
+    - Signatur allein ist keine Promotion; getrennte Verification muss Bundle, Signatur, Authority und Revocation selbst erneut prüfen
+    - committierte Deaktivierung oder Key-Revocation sperrt jede spätere Promotion und eröffnet für bereits veröffentlichte Releases Reassessment
+    - Rotation erzeugt neue Key-ID und Fingerprint; alte, neue und kompromittierte Signaturen bleiben unveränderlich auditierbar
+    - detailarme Promotion-Evidence bindet Bundle-, Checksum- und Signaturhash, Commit, Signer, Key, Policy und unabhängigen Prüfer
+    - keine Registry-, Schema-, Schlüssel-, CLI-, Git-, Publikations-, Promotion- oder Deploymentmutation ausgeführt
+    - nächster Slice LQ-238 implementiert lokale read-only SSHSIG-Prüfung und kontrollierte Release-Authority-Registry-Grenze
+
+- LQ-238 read-only release promotion verification:
+  `docs/lq-238-read-only-release-promotion-verification.md`
+  - Status:
+    - implementiert lokale read-only Promotion-Prüfung über einen einzigen unveränderlichen LQ-236-Bundle-Snapshot
+    - löst Authority, Key, Fingerprint, Namespace, Status und Policy aus einer geschlossen validierten externen Registry auf
+    - prüft registryweite Eindeutigkeit stabiler Authority-/Key-IDs und Fingerprints sowie aktuelle Inaktivität, Expiry und Revocation fail-closed
+    - bindet exakten Signaturdateinamen und kanonisches SSHSIG-Armor ohne tolerierte Präfixe, Suffixe oder angehängte Bytes
+    - verifiziert Ed25519-Fingerprint und SSHSIG über exakte SHA256SUMS-Bytes mit festem Namespace über lokalen OpenSSH-Provider
+    - positive detailarme Evidence bindet Bundle-, Checksum-, Signatur- und Registry-Hash, Commit, Key, Policy, Prüfer und UTC-Zeit
+    - fachliche Ablehnung und technische Nichtverfügbarkeit bleiben getrennt, detailarm und in beiden Fällen nicht promotable
+    - acht neue SSHSIG-Tests, 16 gemeinsame Release-Tests und vollständige Suite mit 2829 passed, 74 skipped, 53 warnings sind grün
+    - keine privaten Schlüssel, Signierung, Registrymutation, Evidence-Datei, Git-, Publikations-, Promotion- oder Deploymentmutation
+    - nächster Slice LQ-239 entscheidet Signing-Operator und Release-Authority-Registry-Lifecycle
+
+- LQ-239 release signing operator and authority lifecycle contract:
+  `docs/lq-239-release-signing-operator-and-authority-lifecycle-contract.md`
+  - Status:
+    - trennt Release-Signing-Authority, Registry-Lifecycle-Authority, unabhängige Promotion-Verifikation und Deployment
+    - definiert stabile nicht wiederverwendbare Authority-, Key-, Revision-, Lifecycle-, Signing-, Recovery- und Emergency-IDs
+    - reguläre Mutationen binden aktuellen Lifecycle-Actor, exakte Registry-Set-Revision und eng begrenzte Transition atomar
+    - Key-Lifecycle führt über inaktive Provisionierung, unabhängigen Fingerprint, Proof of Possession, Aktivierung, Rotation und irreversible Revocation
+    - kontrolliertes Signing bindet einen LQ-236-Snapshot, aktuelle Authority/Policy, Provider-Fingerprint und persistente idempotente Signing-Entscheidung
+    - Signing-Executor und Promotion-Verifier müssen getrennt sein; eigene Registry-/Key-Änderungen benötigen unabhängige Freigabe
+    - Security-Revocation darf alle Signing-Keys sperren; nur der letzte wirksame Registry-Lifecycle-Manager erhält Lockout-Schutz
+    - Bootstrap, reguläre Recovery und Emergency-Revocation bleiben getrennte eng begrenzte Pfade ohne Release-Signierung
+    - keine Modelle, Persistenz, Keys, Signatur, CLI-, Git-, Promotion-, Publikations- oder Deploymentmutation ausgeführt
+    - nächster Slice LQ-240 implementiert persistente Release-Authority-Registry-Foundation und stabile Decision-Typen
+
+- LQ-240 persistent release authority registry foundation:
+  `docs/lq-240-persistent-release-authority-registry-foundation.md`
+  - Status:
+    - ergänzt neun getrennte stabile repr-freie IDs für Signer, Lifecycle-Authority, Key, Registry/Policy-Revision und Decision-Domänen
+    - sichere Erzeugung zieht für jede ID unabhängig mindestens 32 Byte Betriebssystementropie und gewährt selbst keine Authority
+    - additive Revision 20260817_0017 erzeugt zehn leere historienerhaltende Registry-, Revision-, Lifecycle- und Signing-Inventare ohne Seed
+    - Authority- und Key-Existenz bleiben stabil; vollständige Revisionen tragen getrennte Signer-, Lifecycle-, Key- und Policy-Status
+    - Fingerprint und Public Key sind eindeutig; historische Key-Snapshots binden Key und Signer gemeinsam und verhindern Wiederzuweisung
+    - Lifecycle-Decisions verlangen genau ein typisiertes Ziel sowie erwartete und resultierende Revision; Signing-Decisions binden alle Release-Hashes und Bytes
+    - etablierte den damals eindeutigen linearen Head 20260817_0017; LQ-241 baut additiv darauf auf
+    - SQLite- und echter PostgreSQL-16-Nachweis sowie vollständige Pflichtsuite mit 2965 passed und 53 warnings sind grün
+    - keine Seeds, Ports, Bootstrap-, Key-, Signing-, Recovery-, Operator-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-241 implementiert einmaligen persistenten Release-Registry-Bootstrap ohne Key-Aktivierung oder Signing
+
+- LQ-241 initial release registry bootstrap:
+  `docs/lq-241-initial-release-registry-bootstrap.md`
+  - Status:
+    - ergänzt stabile repr-freie Bootstrap-ID, geschlossenes Public-Key-Modell und detailarmes Bootstrap-Ergebnis
+    - additive Revision 20260817_0018 persistiert unveränderliche Bootstrap-Entscheidungen ohne Seed und bleibt einziger linearer Head
+    - atomarer Erstbestand enthält aktive Lifecycle-/Signer-Authority, aktiven Policy-Fakt und exakt einen inaktiven Ed25519-Key
+    - Port akzeptiert nur caller-stabile Bootstrap-ID und Public Key; alle Authority-, Key- und Revisions-IDs entstehen intern sicher
+    - exakter Retry derselben ID und desselben Keymaterials liefert dieselben IDs ohne Generatorzug oder zweite Mutation
+    - abweichende ID-Wiederverwendung ist detailfreier Konflikt; jede andere sichtbare Voll- oder Teilhistorie schließt Bootstrap dauerhaft
+    - PostgreSQL-Lock serialisiert konkurrierende unterschiedliche Bootstrap-IDs, sodass genau eine vollständige Registry committet
+    - LQ-236 erwartet nun achtzehn Migrationen bis Head 20260817_0018; vollständige Pflichtsuite besteht mit 2987 passed und 53 warnings
+    - keine Key-Aktivierung, Signing-, Lifecycle-, Recovery-, Operator-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-242 implementiert Proof of Possession und kontrollierte initiale Key-Aktivierung ohne Release-Signing
+
+- LQ-242 controlled release key proof and activation:
+  `docs/lq-242-controlled-release-key-proof-and-activation.md`
+  - Status:
+    - aktiviert einen aktuell inaktiven Release-Key nur mit registrygebundenem Proof of Possession und unabhängiger Approval-Verifikation
+    - Challenge bindet Change, Actor, Key, erwartete Revision, Fingerprint und Public-Key-Hash unter eigenem Nicht-Release-Namespace
+    - aktuelle Lifecycle-/Signer-Authority, Policy, Keystatus und Keymaterial werden atomar aus dem System of Record aufgelöst
+    - neue Revision kopiert den vollständigen Snapshot und ändert ausschließlich den Zielkey auf active; Historie bleibt unverändert
+    - Migration 20260817_0019 persistiert Challenge-/Proof-/Approval-Hashes, Reviewer und resultierende Revision
+    - exakter Retry liefert dieselbe Entscheidung ohne Reverification; abweichende Wiederverwendung bleibt detailfreier Konflikt
+    - PostgreSQL-Konkurrenztest lässt gegen dieselbe erwartete Revision genau eine Aktivierung committen
+    - vollständige Pflichtsuite mit 3003 passed und 53 warnings ist grün; Bundle-Gate erwartet neunzehn Migrationen bis Head 0019
+    - keine privaten Keys, konkrete Provider, Signing-, Operator-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-243 implementiert read-only Registry-Projektion für den LQ-238-Verifier
+
+- LQ-243 persistent release registry projection:
+  `docs/lq-243-persistent-release-registry-projection.md`
+  - Status:
+    - implementiert parameterlose read-only Projektion des aktuellen persistenten Registry-Snapshots in geschlossene LQ-238-JSON-Bytes
+    - Verification-Identität wird als eigener repr-freier Typ beim Adapteraufbau injiziert und kann pro Aufruf nicht überschrieben werden
+    - PostgreSQL Repeatable Read beziehungsweise SQLite Serializable bindet Pointer, Revision, Member, Keys und Inventarzahlen an eine Lesesicht
+    - vollständige Inventardeckung, eindeutige IDs/Fingerprints, Status, Key-/Signer-Zuordnung, Algorithmus, Namespace und Public Key werden fail-closed geprüft
+    - fehlender Current-Pointer bleibt neutrales None; Teilbestand und technische Fehler bleiben detailfreie ProjectionUnavailable
+    - kanonische sortierte Ausgabe wird direkt vom bestehenden LQ-238-Registryparser akzeptiert
+    - jeder Aufruf liest aktuell neu, sodass committierte Key-Aktivierung oder späterer Entzug sofort auf die nächste Projektion wirkt
+    - PostgreSQL-Nachweis und vollständige Pflichtsuite mit 3015 passed und 53 warnings sind grün
+    - keine Datei-, Registry-, Key-, Signing-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-244 komponiert persistente Projektion direkt mit read-only Promotionprüfung ohne caller-kontrollierte Registry-Datei
+
+- LQ-244 persistent release promotion composition:
+  `docs/lq-244-persistent-release-promotion-composition.md`
+  - Status:
+    - komponiert die parameterlose persistente Registry-Projektion direkt mit der bestehenden read-only Bundle- und SSHSIG-Prüfung
+    - akzeptiert an der neuen Grenze keinen Registry-Pfad und keine caller-gelieferten Authority-, Status-, Rollen-, Key- oder Allow-Fakten
+    - ruft die Projektion pro Entscheidung exakt einmal auf und verwendet dieselben unveränderten Bytes für Authority-Auflösung und Evidence-Hash
+    - behandelt fehlenden Current-Snapshot als detailarme Ablehnung und Projektionsfehler oder ungültige Ergebnisse als detailarme technische Nichtverfügbarkeit
+    - verwendet keinen Cache, zweiten Lookup, älteren Snapshot, Default-Key oder dateibasierten Fallback; spätere committierte Revocation wirkt auf die nächste Entscheidung
+    - erhält die bestehende dateibasierte LQ-238-Funktion und CLI rückwärtskompatibel, ohne sie in die persistente Komposition einzubeziehen
+    - benötigt keine Migration und hält den linearen Head 20260817_0019; vollständige Pflichtsuite mit 3020 passed und 53 warnings ist grün
+    - keine Registry-, Key-, Signing-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-245 implementiert den kontrollierten persistent authority-gebundenen Signing-Operator ohne Promotion oder Veröffentlichung
+
+- LQ-245 controlled persistent release signing:
+  `docs/lq-245-controlled-persistent-release-signing.md`
+  - Status:
+    - bindet jede neue Signing-Entscheidung atomar an exakt erwartete aktuelle Registry-Revision, aktive Policy, Signer-Authority und aktiven Ed25519-Key
+    - liest und verifiziert genau einen LQ-236-Bundle-Snapshot und signiert ausschließlich dessen exakte SHA256SUMS-Bytes unter festem Release-Namespace
+    - akzeptiert keine caller-gelieferten Authority-, Status-, Rollen-, Public-Key-, Fingerprint-, Algorithmus-, Namespace-, Allow- oder Promotionfakten
+    - verlangt exakten Provider-Fingerprint und unabhängige Signaturverifikation vor dem persistenten Commit
+    - persistiert kanonische Evidence und verifizierte Signaturbytes in der bestehenden historienerhaltenden LQ-240-Decision-Foundation
+    - exakter Retry liefert dieselben persistierten Bytes ohne Provider-, Verifier- oder Clock-Aufruf; abweichende Decision-ID-Wiederverwendung bleibt detailarmer Konflikt
+    - fachlich fehlende aktuelle Authority bleibt neutrales None; Bundle-, Registry-, Provider-, Verifier- und Transaktionsfehler bleiben detailarme Nichtverfügbarkeit
+    - benötigt keine Migration und hält Head 20260817_0019; vollständige Pflichtsuite mit 3027 passed und 56 warnings ist grün
+    - keine Datei-, CLI-, Registry-, Key-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-246 implementiert owner-only Signing-Operator und exklusive retry-sichere Signatur-/Evidence-Dateimaterialisierung
+
+- LQ-246 controlled release signing operator:
+  `docs/lq-246-controlled-release-signing-operator.md`
+  - Status:
+    - ergänzt den expliziten owner-only Offline-Entry-Point `liquent-release-signing` ohne HTTP-, Startup-, CI-, Promotion- oder Deploymentwirkung
+    - liest Datenbank-URL, Executor-ID, geschlossenen Request und privaten OpenSSH-Key ausschließlich aus privaten nicht verlinkten Dateien
+    - akzeptiert keine caller-gelieferten Authority-, Public-Key-, Fingerprint-, Policy-, Status-, Rollen-, Namespace-, Allow- oder Promotionfakten
+    - bindet lokalen Ed25519-Key per SHA-256-Fingerprint an die aktuelle LQ-245-Registryentscheidung und verifiziert jede SSHSIG unabhängig vor Commit
+    - materialisiert Signatur und Evidence über private fsync-gesicherte temporäre Dateien und exklusive Hardlinks, ohne vorhandene Ziele zu überschreiben
+    - vollständiger bytegleicher Retry liefert recovered; partielle, verlinkte, zu offene oder abweichende Ziele bleiben fail-closed technisch nicht verfügbar
+    - bereinigt bei kontrollierten Fehlern nur selbst erzeugte Links und temporäre Dateien; fremde oder vorbestehende Dateien werden nie entfernt
+    - erweitert das LQ-236-Wheelgate auf dreizehn Entry Points und elf Operatormodule; Migration-Head bleibt 20260817_0019
+    - vollständige Pflichtsuite mit echtem PostgreSQL 16 besteht mit 3034 passed und 56 warnings
+    - keine Registry-, Key-, Git-, Promotion-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-247 implementiert kontrollierte persistenzgebundene Promotion-Evidence ohne Veröffentlichung oder Deployment
+
+- LQ-247 controlled persistent release promotion operator:
+  `docs/lq-247-controlled-persistent-release-promotion-operator.md`
+  - Status:
+    - ergänzt den expliziten owner-only Offline-Entry-Point `liquent-release-promotion` ohne HTTP-, Startup-, CI-, Veröffentlichungs- oder Deploymentwirkung
+    - liest Datenbank-URL, unabhängige Verification-ID und geschlossenen Request ausschließlich aus privaten nicht verlinkten Dateien
+    - akzeptiert keinen Registry-Pfad und keine caller-gelieferten Authority-, Public-Key-, Fingerprint-, Policy-, Status-, Rollen-, Namespace-, Allow- oder Publishfakten
+    - komponiert pro Lauf genau eine aktuelle persistente LQ-243-Projektion direkt mit der vollständigen LQ-244-Bundle-, Fingerprint- und SSHSIG-Prüfung
+    - bindet kanonische positive Evidence an Bundle-, Checksum-, Signatur- und Registry-Hash sowie Signer, Key, Policy, Verifier und UTC-Zeit
+    - materialisiert Evidence privat, fsync-gesichert und exklusiv; vorhandene Dateien oder Symlinks werden nie überschrieben oder als Authority-Retry verwendet
+    - spätere committierte Deaktivierung, Expiry, Revocation oder Policy-Sperre schließt jeden neuen Lauf ohne Cache oder Fallback
+    - erweitert das LQ-236-Wheelgate auf vierzehn Entry Points und zwölf Operatormodule; Migration-Head bleibt 20260817_0019
+    - vollständige Pflichtsuite mit echtem PostgreSQL 16 besteht mit 3039 passed und 56 warnings
+    - keine Registry-, Key-, Git-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-248 entscheidet den kontrollierten Release-Publication-Handoff-Vertrag ohne Veröffentlichung oder Deployment
+
+- LQ-248 controlled release publication handoff contract:
+  `docs/lq-248-controlled-release-publication-handoff-contract.md`
+  - Status:
+    - trennt Build, Signing, aktuelle Promotionprüfung, Publication-Handoff, tatsächliche Veröffentlichung und Deployment als unabhängige Entscheidungen
+    - definiert Publisher-Authority und kontrollierte Publication-Channels als eigene Release-Control-Plane-Fakten außerhalb aller Produkt-, Signing- und Promotionrechte
+    - bindet Handoff-ID, unveränderliche Bundle-/Wheel-/Checksum-/Signatur-/Evidence-Hashes, Source-Commit, Version, Channel und erwartete Channel-Policy
+    - verlangt vor Handoff und späterer Execution erneut aktuelle Registry-, Revocation-, Publisher-Authority- und Channel-Auflösung ohne caller-gelieferte Allow- oder Ziel-URL
+    - gleiche Version mit anderen Bytes bleibt Konflikt; exakter Retry derselben Decision ist idempotent und überschreibt nie bestehende Artefakte
+    - `ready_for_publication` committet nur einen persistenten Handoff und führt keinen Netzwerkaufruf, Upload, Package-Index-, Git-Release- oder Deploymenteffekt aus
+    - spätere Publication muss Provider-Receipt und extern beobachtete Hashes binden; unklarer Ausgang verlangt read-only Zielabgleich vor Retry
+    - Revocation nach Publication erzeugt Reassessment-/Withdrawal-Bedarf, löscht aber keine Historie oder externen Bytes
+    - keine Typ-, Port-, Schema-, Migrations-, Provider-, Datei-, Git-, Netzwerk-, Publikations- oder Deploymententscheidung implementiert
+    - nächster Slice LQ-249 implementiert persistente leere Publication-Handoff-Foundation und stabile Decision-Typen ohne Seed oder Upload
+
+- LQ-249 persistent release publication foundation:
+  `docs/lq-249-persistent-release-publication-foundation.md`
+  - Status:
+    - ergänzt sieben getrennte repr-freie stabile IDs für Handoff, Publisher-Authority, Channel, Channel-Policy-Revision, Publication-Decision, Provider-Receipt und Reassessment
+    - sichere Erzeugung zieht pro ID unabhängig mindestens 32 Byte Betriebssystementropie und gewährt selbst keine Publisher-Authority
+    - additive Migration 20260817_0020 erzeugt acht leere historienerhaltende Channel-, Authority-, Revision-, Handoff-, Receipt- und Reassessment-Inventare ohne Seed
+    - Channel-Revisionen binden Status, feste Operational-Bundle-Klasse, Paket, Providerart und kanonischen Zielnamen; Credentials oder freie Caller-URLs werden nicht gespeichert
+    - zusammengesetzte Foreign Keys binden Current-Pointer und Handoffs an exakt denselben Channel sowie Signing-Key an seine unveränderliche Signer-Zuordnung
+    - Handoffs sind für eindeutige `ready_for_publication`-Decisions und vollständige Artefakt-/Promotion-/Policy-Hashbindung vorbereitet, akzeptieren aber noch nichts
+    - Receipts und Reassessments verlangen bekannte Handoffs, bleiben historisch getrennt und überschreiben keine Publication-Fakten
+    - LQ-236 erwartet nun zwanzig lineare Migrationen bis zum eindeutigen Head 20260817_0020
+    - vollständige Pflichtsuite mit echtem PostgreSQL 16 besteht mit 3086 passed und 56 warnings
+    - keine Seeds, Ports, Bootstrap-, Handoff-, Provider-, Git-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-250 implementiert einmaligen Publication-Control-Plane-Bootstrap ohne Handoff, Upload oder Deployment
+
+- LQ-250 initial release publication control-plane bootstrap:
+  `docs/lq-250-initial-release-publication-control-plane-bootstrap.md`
+  - Status:
+    - ergänzt stabile repr-freie Bootstrap-ID, geschlossene Channel-Definition und detailarmes Resultat mit intern erzeugten Publisher-, Channel- und Revisions-IDs
+    - additive Migration 20260817_0021 persistiert unveränderliche Bootstrap-Entscheidungen und bleibt einziger linearer Head
+    - atomarer Erstbestand enthält genau einen aktiven Channel, eine aktive Publisher-Authority, vollständige Channel-Revision und passenden Current-Pointer
+    - Port akzeptiert nur caller-stabile Bootstrap-ID sowie Paket-, Provider- und Zieldefinition; Authority-, Channel- und Revisions-IDs entstehen intern sicher
+    - exakter Retry derselben ID und Definition liefert dieselben IDs ohne Generatorzug oder zweite Mutation
+    - abweichende ID-Wiederverwendung ist detailarmer Konflikt; jede andere sichtbare Voll- oder Teilhistorie schließt Bootstrap dauerhaft
+    - PostgreSQL-Lock serialisiert konkurrierende unterschiedliche Bootstrap-IDs, sodass genau eine vollständige Control-Plane committet
+    - Handoff-, Receipt- und Reassessment-Inventare bleiben leer; aktiver Publisher und Channel gewähren allein keine Releaseveröffentlichung
+    - LQ-236 erwartet nun 21 Migrationen bis Head 20260817_0021; vollständige Pflichtsuite besteht mit 3101 passed und 56 warnings
+    - keine Lifecycle-, Handoff-, Provider-, CLI-, Git-, Publikations- oder Deploymentmutation
+    - nächster Slice LQ-251 implementiert autorisierten persistenten Publication-Handoff ohne Upload oder Deployment
+
+- LQ-251 authorized persistent release publication handoff:
+  `docs/lq-251-authorized-persistent-release-publication-handoff.md`
+  - Status:
+    - bindet jeden neuen Handoff an einmal gelesene Bundle-, Signatur- und kanonische LQ-247-Evidence-Bytes sowie deren SHA-256-Werte
+    - führt unter normativer PostgreSQL-Lock-Reihenfolge eine neue vollständige LQ-244-Prüfung gegen genau eine aktuelle persistente Registry-Projektion aus
+    - verlangt Gleichheit aller Promotionfelder außer neuer Entscheidungszeit, sodass Revocation, Registrywechsel oder manipulierte Evidence neutral sperren
+    - löst aktuellen Release-Key, Signer, Registry-/Policy-Revision, aktiven Publisher und exakt current Channel-Revision aus den Systemen of Record auf
+    - persistiert Bundle-, Wheel-, Checksum-, Signatur- und Evidence-Hash sowie Commit, Version, Verifier, Publisher, Channel und Status `ready_for_publication`
+    - exakter Retry liefert dieselbe Decision ohne Projektions-, Clock- oder Mutationszug; abweichende Handoff- oder Decision-ID-Wiederverwendung bleibt Konflikt
+    - stale Channel, inaktiver Publisher, falsche Signatur oder geänderte Evidence bleiben neutrales None; technische Fehler bleiben detailarme Nichtverfügbarkeit
+    - benötigt keine Migration und hält Head 20260817_0021; vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3107 passed und 62 warnings
+    - erzeugt kein Receipt und führt keinen Provider-, Netzwerk-, Git-, Publikations- oder Deploymenteffekt aus
+    - nächster Slice LQ-252 entscheidet kontrollierten Publication-Executor und Receipt-Semantik ohne Deployment
+
+- LQ-252 controlled release publication executor contract:
+  `docs/lq-252-controlled-release-publication-executor-contract.md`
+  - Status:
+    - trennt aktuellen Authority-/Artefakt-Preflight, persistenten Execution-Attempt, externen create-only Provider-Write, Reconciliation und Receipt-Commit
+    - definiert eigene Executor- und Execution-Identitäten außerhalb von Signing-, Promotion-, Publisher-, Produkt- und Deploymentrechten
+    - verlangt unveränderliche Artifact-Source-Auflösung und erneute Hash-, Bundle-, SSHSIG-, Revocation-, Publisher- und Channel-Prüfung vor jedem Write
+    - hält keine Datenbanklocks über unbeschränkte Netzwerkaufrufe, sondern committet zuerst einen eindeutigen `prepared` Attempt und reconciled danach aktuell neu
+    - Providergrenze muss read-before-write, immutable Create, read-after-write und beobachtete Hash-/Receipt-Auflösung getrennt anbieten
+    - Timeout oder Prozessverlust nach möglichem Write wird persistent `outcome_unknown`; Retry inspiziert zuerst read-only und lädt niemals blind erneut hoch
+    - erfolgreiche externe Bytes werden auch bei paralleler Revocation als Receipt erfasst und atomar mit `pending` Reassessment markiert
+    - exakter Retry liefert dasselbe Receipt ohne Provider-Write; abweichende Execution-/Versionsbindung bleibt Konflikt und bestehende Artefakte werden nie überschrieben
+    - Receipt bestätigt nur Channel-Verfügbarkeit und erzeugt keine Environment-, Runtime- oder Deploymentwirkung
+    - keine Typ-, Port-, Schema-, Migrations-, Provider-, Netzwerk-, Publikations- oder Deploymententscheidung implementiert
+    - nächster Slice LQ-253 implementiert persistente Publication-Execution-Foundation und stabile Attempt-/Executor-Typen ohne Upload
+
+- LQ-253 persistent release publication execution foundation:
+  `docs/lq-253-persistent-release-publication-execution-foundation.md`
+  - Status:
+    - ergänzt drei getrennte repr-freie stabile IDs für Publication-Executor, normative Execution und einzelne Attempts
+    - sichere Erzeugung zieht pro ID unabhängig mindestens 32 Byte Betriebssystementropie und gewährt selbst keine Publisher- oder Execution-Authority
+    - additive Migration 20260817_0022 erzeugt fünf leere historienerhaltende Executor-, Execution-, Attempt-, Receipt-Reconciliation- und Reassessment-Zuordnungsinventare
+    - jede Execution bindet bekannten Handoff, Executor, Publisher, Channel-Revision und Artefakthashes; höchstens eine normative Execution pro Handoff
+    - Attempts besitzen positive pro Execution eindeutige Nummern und geschlossene Status für prepared, write_started, outcome_unknown und reconciled
+    - Receipt-Reconciliation bindet Receipt eindeutig an Execution, Attempt, externe Artefaktidentität, Providerrevision und bestätigten Status
+    - published_reassessment_required bewahrt externen Erfolg bei zugleich notwendiger Securityprüfung, ohne Receipt oder Handoff zu überschreiben
+    - Foreign Keys sperren unbekannte Handoffs, Executor, Channels, Attempts, Receipts und Reassessments strukturell
+    - LQ-236 erwartet nun 22 Migrationen bis Head 20260817_0022; vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3130 passed und 62 warnings
+    - keine Ports, Adapter, Provider-, Netzwerk-, Upload-, Git-, Receipt- oder Deploymentmutation
+    - nächster Slice LQ-254 implementiert persistenten Publication-Attempt-Preflight ohne Provider- oder Netzwerkzugriff
+
+- LQ-254 persistent release publication attempt preflight:
+  `docs/lq-254-persistent-release-publication-attempt-preflight.md`
+  - Status:
+    - implementiert einen schmalen Port und persistenten Adapter, dessen Executor-ID kontrolliert bei der Komposition gebunden wird
+    - löst Handoff, aktuellen Channel, aktive Publisher-Zuordnung, aktuelle Registry-Policy sowie aktiven Signer und Key ausschließlich aus dem System of Record auf
+    - akzeptiert keine Rolle, Allow-Entscheidung, Ziel-URL, Providerangabe, Credentials, Artefaktbytes oder Hashüberschreibung
+    - sperrt neue Attempts bei bestehendem Receipt oder offenem Reassessment und behandelt Revocation oder stale Authority neutral fail-closed
+    - validiert alle fünf persistierten Handoff-Hashes strukturell und behandelt beschädigte Persistenz als detailfreie technische Nichtverfügbarkeit
+    - erzeugt atomar genau eine prepared Execution und Attempt 1; exakter Retry liefert denselben Attempt ohne neue Materialerzeugung
+    - abweichende Wiederverwendung von Execution oder bereits gebundenem Handoff ist ein detailarmer Konflikt ohne Überschreiben
+    - verwendet LQ-253 ohne neue Migration; Head bleibt 20260817_0022 mit 22 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3140 passed und 88 warnings; keine Artifact Source, Datei-, Provider-, Netzwerk-, Upload-, Receipt-, Git- oder Deploymentmutation
+    - nächster Slice LQ-255 implementiert kontrollierte Artifact Source und bytegenauen Pre-Provider-Integrity-Check ohne Provider-Write
+
+- LQ-255 controlled release publication artifact integrity:
+  `docs/lq-255-controlled-release-publication-artifact-integrity.md`
+  - Status:
+    - ergänzt repr-freie Binding-, Byte- und verifizierte Payload-Typen sowie getrennte Source- und Integrity-Ports
+    - öffentliche Prüfung akzeptiert ausschließlich vorbereitete Execution- und Attempt-ID; Handoff, Pfade, URLs und Hashwerte werden intern aufgelöst
+    - kontrollierte lokale Source bindet vorkonfigurierte reguläre Dateien exakt an Handoff und drei primäre Hashes und verweigert Symlinks oder Pfadsubstitution
+    - hasht Bundle, Signatur und Promotion-Evidence vollständig neu und prüft historische Evidence gegen sämtliche persistierten Handoff-Fakten
+    - verwendet bestehende LQ-236/237-Prüfung für kanonisches Bundle, SHA256SUMS, Wheel, SSHSIG, Fingerprint und Namespace
+    - prüft Signer und Key erneut gegen genau eine aktuelle Registry-Projektion, sodass spätere Revocation positive Entscheidungen sperrt
+    - positives read-only Payload bindet Execution, Attempt, Handoff, Paketversion, alle fünf Hashes und geprüfte Bytes ohne Authority-Cache
+    - verwendet bestehende Tabellen ohne Migration; Head bleibt 20260817_0022 mit 22 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3148 passed und 116 warnings; keine Provider-, Netzwerk-, Upload-, Receipt-, Git- oder Deploymentmutation
+    - nächster Slice LQ-256 implementiert read-only Provider-Zielinspektion und create-only Entscheidung ohne Upload
+
+- LQ-256 read-only release publication target inspection:
+  `docs/lq-256-read-only-release-publication-target-inspection.md`
+  - Status:
+    - ergänzt kontrollierte Target-, Observation- und geschlossene Decision-Typen sowie getrennte read-only Inspector- und Orchestrierungsports
+    - öffentliche Grenze akzeptiert nur vorbereitete Execution- und Attempt-ID und verlangt zuerst den vollständigen LQ-255-Integritätsnachweis
+    - löst Providerart, kanonischen Zielnamen, Paketname und Version ausschließlich aus aktuellem Channel, Handoff und aktiver Publisher-Zuordnung auf
+    - bestätigt fehlendes Ziel als CREATE_ALLOWED, ohne dadurch einen Create oder dauerhaftes Publication-Ticket auszuführen
+    - klassifiziert bytegleich sichtbares Ziel als RECONCILIATION_REQUIRED und verbietet dadurch einen zweiten Upload
+    - klassifiziert abweichenden Hash, Namen, Version oder Sichtbarkeit als detailarmen CONFLICT ohne Überschreiben
+    - technische oder untypisierte Providerantwort ist niemals Abwesenheit und bleibt detailfreie Target-Inspection-Unavailability
+    - ändert Execution und Attempt nicht und verwendet bestehende Tabellen ohne Migration; Head bleibt 20260817_0022
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3158 passed und 152 warnings; kein konkreter Provider-, Netzwerk-, Upload-, Receipt-, Git- oder Deploymentwrite
+    - nächster Slice LQ-257 implementiert atomaren Write-Start und kontrollierte immutable Create-Grenze mit Unknown-Outcome-Sicherung
+
+- LQ-257 controlled immutable release publication create:
+  `docs/lq-257-controlled-immutable-release-publication-create.md`
+  - Status:
+    - ergänzt repr-freie Provider-Acknowledgement und Pending-Reconciliation sowie getrennte immutable Creator- und Create-Orchestrierungsports
+    - verlangt ein frisches LQ-256 CREATE_ALLOWED und prüft danach Channel, Publisher, Registry, Signer, Key, Sperren und alle fünf Hashbindungen erneut aktuell
+    - committet Attempt write_started atomar vor genau einem externen Creator-Call und hält keine Datenbanktransaktion über Provider-I/O offen
+    - übergibt nur kontrolliertes Ziel, vollständig verifiziertes Payload und stabile Execution-ID als Idempotency-Key
+    - positiver Return, Timeout und ungültige Providerantwort enden sämtlich konservativ in Execution/Attempt outcome_unknown
+    - Retry bei write_started oder outcome_unknown führt weder Zielinspektion noch Create erneut aus und verlangt Reconciliation
+    - Revocation zwischen Inspection und Write-Start verhindert den Creator-Call ohne positiven Authority-Cache
+    - erzeugt weder Receipt noch published-Status und verwendet bestehende Tabellen ohne Migration; Head bleibt 20260817_0022
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3166 passed und 180 warnings; kein konkreter Provideradapter, Read-back, Receipt-, Git- oder Deploymentwrite
+    - nächster Slice LQ-258 implementiert read-only Unknown-Outcome-Reconciliation ohne blinden Retry-Upload
+
+- LQ-258 read-only release publication unknown-outcome reconciliation:
+  `docs/lq-258-read-only-release-publication-unknown-outcome-reconciliation.md`
+  - Status:
+    - ergänzt geschlossene Published-, Absence- und Conflict-Reconciliation-Typen sowie einen read-only Unknown-Outcome-Port
+    - akzeptiert nur Execution und Attempt im persistenten outcome_unknown und löst das externe Ziel aus historischer Handoff-/Channel-Bindung auf
+    - bytegleich sichtbares Artefakt ergibt PUBLISHED_CONFIRMED, bestätigte Abwesenheit ABSENCE_CONFIRMED und jede Abweichung CONFLICT
+    - technische Providerunklarheit ist niemals Abwesenheit oder Erfolg und bleibt detailfreie Reconciliation-Unavailability
+    - prüft aktuelle Channel-, Publisher-, Registry-, Signer-, Key- und Reassessment-Authority separat und führt sie als current_authority mit
+    - inspiziert externe Realität auch nach Revocation weiter, damit ein möglicher Write nicht verschwiegen wird
+    - ändert Execution und Attempt nicht, erzeugt kein Receipt, Reassessment oder Attempt 2 und lädt niemals erneut hoch
+    - verwendet bestehende Tabellen ohne Migration; Head bleibt 20260817_0022 mit 22 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3177 passed und 220 warnings; kein Create-, Upload-, Receipt-, Git- oder Deploymentwrite
+    - nächster Slice LQ-259 implementiert atomaren persistenten Reconciliation-Abschluss und gegebenenfalls pending Reassessment
+
+- LQ-259 persistent release publication reconciliation finalization:
+  `docs/lq-259-persistent-release-publication-reconciliation-finalization.md`
+  - Status:
+    - ergänzt geschlossenen Published-/Reassessment-Finalstatus, finales Receipt-Ergebnis und persistenten Finalizer-Port
+    - akzeptiert nur Execution und Attempt, verlangt LQ-258 PUBLISHED_CONFIRMED und prüft Observation, historischen Zielkontext und Unknown-Zustand atomar erneut
+    - erzeugt Receipt und Receipt-Reconciliation, setzt Attempt reconciled mit Finish-Zeit und Execution published in einer Transaktion
+    - prüft Channel, Publisher, Registry, Signer, Key und pending Reassessment beim Commit erneut statt den LQ-258-Boolean zu vertrauen
+    - bewahrt bestätigte externe Realität nach Revocation als published_reassessment_required und erzeugt atomar ein pending Reassessment samt Execution-Zuordnung
+    - exakter und konkurrierender Retry liefert denselben Abschluss ohne Provider-Read, neue IDs oder doppelte Fakten
+    - bestätigte Abwesenheit und Konflikt bleiben outcome_unknown und erzeugen weder Receipt noch Retry-Upload
+    - verwendet bestehende Tabellen ohne Migration; Head bleibt 20260817_0022 mit 22 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3184 passed und 258 warnings; kein Create-, Upload-, Git- oder Deploymentwrite
+    - nächster Slice LQ-260 entscheidet kontrollierte Absence-/Conflict-Recovery und sichere Regeln für einen möglichen Attempt 2
+
+- LQ-260 persistent release publication absence and conflict recovery:
+  `docs/lq-260-persistent-release-publication-absence-conflict-recovery.md`
+  - Status:
+    - ergänzt stabile repr-freie Recovery-ID, finales Recovery-Ergebnis und persistenten Absence-/Conflict-Finalizer
+    - additive Migration 20260818_0023 erzeugt ein leeres historienerhaltendes Recovery-Entscheidungsinventar mit getrennten Evidence-Invarianten
+    - bestätigte Abwesenheit schließt Attempt 1 reconciled, setzt Execution prepared und speichert aktuelle Retry-Eignung ohne Attempt 2 zu erzeugen
+    - Revocation schließt bestätigte Abwesenheit weiterhin historisch, setzt Retry-Eignung jedoch fail-closed auf false
+    - Konflikt speichert externe Artefaktidentität und Providerrevision, schließt Attempt 1 und erzeugt atomar ein pending Reassessment
+    - Konflikte bleiben ohne Receipt und ohne Retry-Eignung; Execution bleibt fail-closed outcome_unknown
+    - exakter und konkurrierender Retry liefert denselben Recovery-Fakt ohne Provider-Read, neue IDs oder doppelte Reassessments
+    - LQ-236 erwartet nun 23 lineare Migrationen bis Head 20260818_0023
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3200 passed und 294 warnings; kein Attempt 2, Create-, Upload-, Receipt-, Git- oder Deploymentwrite
+    - nächster Slice LQ-261 implementiert persistenten Attempt-2-Preflight ausschließlich nach retry-eligible Abwesenheitsabschluss
+
+- LQ-261 persistent release publication attempt-two preflight:
+  `docs/lq-261-persistent-release-publication-attempt-two-preflight.md`
+  - Status:
+    - akzeptiert nur Execution und abgeschlossenen Attempt 1 und leitet Retry-Eignung ausschließlich aus dem persistenten LQ-260-Absence-Recovery ab
+    - behandelt gespeicherte Retry-Eignung nicht als Ticket, sondern prüft aktuelle Channel-, Publisher-, Registry-, Signer- und Key-Authority erneut
+    - führt vor Attempt 2 die vollständige LQ-255-Artefaktintegrität erneut aus und bindet alle Handoff-Hashes an die lokalen Artefakte
+    - liest das persistierte Providerziel erneut read-only; jede inzwischen sichtbare Observation sperrt Attempt 2 ohne Überschreiben
+    - persistiert atomar genau Attempt 2 als prepared mit stabiler neuer ID und ohne Receipt, Upload oder Execution-Umschreibung
+    - exakter und konkurrierender Retry liefert denselben vorbereiteten Attempt 2 ohne erneute Integritätsprüfung, Providerinspektion oder ID-Erzeugung
+    - Revocation, Conflict-Recovery, Receipt, pending Reassessment und inkonsistente Fakten sperren fail-closed; technische Fehler bleiben detailfrei
+    - verwendet bestehende Tabellen ohne Migration; Head bleibt 20260818_0023 mit 23 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3207 passed und 333 warnings; kein Create-, Upload-, Git- oder Deploymentwrite
+    - nächster Slice führt kontrollierten immutable Create für Attempt 2 mit frischem Read-before-write und Unknown-Outcome-Sicherung aus
+
+- LQ-262 controlled immutable release publication attempt-two create:
+  `docs/lq-262-controlled-immutable-release-publication-attempt-two-create.md`
+  - Status:
+    - akzeptiert ausschließlich Execution und persistent vorbereiteten Attempt 2 mit passendem reconciled Attempt 1 und bestätigtem Absence-Recovery
+    - prüft Artefaktintegrität und Providerziel erneut und löst aktuelle Channel-, Publisher-, Registry-, Signer- und Key-Authority vor dem Write neu auf
+    - sperrt jede sichtbare Zielobservation, jedes Receipt, pending Reassessment und jede zwischenzeitliche Revocation vor dem Create
+    - committet Attempt 2 atomar als write_started, bevor genau ein immutable Provider-Create ohne offene Datenbanktransaktion erfolgt
+    - verwendet die stabile Attempt-2-ID als eigene Provider-Idempotenzidentität und vermeidet eine Kollision mit Attempt 1
+    - positiver Return, Timeout und ungültiger Return enden gleichermaßen mit Execution und Attempt 2 in outcome_unknown
+    - exakter Retry und Crash-Wiederaufnahme führen weder Integritätsprüfung noch Provider-Read oder weiteren Create aus
+    - verwendet bestehende Tabellen ohne Migration; Head bleibt 20260818_0023 mit 23 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3214 passed und 375 warnings; kein Receipt-, Git- oder Deploymentwrite
+    - nächster Slice erweitert read-only Unknown-Outcome-Reconciliation und persistenten Abschluss kontrolliert auf Attempt 2
+
+- LQ-263 read-only release publication attempt-two reconciliation:
+  `docs/lq-263-read-only-release-publication-attempt-two-reconciliation.md`
+  - Status:
+    - erweitert den bestehenden unveränderten Reconciliation-Port auf outcome_unknown Attempt 2 mit zwingendem Bezug zu reconciled Attempt 1 und Absence-Recovery
+    - rekonstruiert das Ziel ausschließlich aus historischer Handoff- und Channel-Bindung; der Caller liefert weder Ziel noch Authority oder Retry-Entscheidung
+    - unterscheidet bytegleichen sichtbaren Erfolg, bestätigte Abwesenheit und Konflikt mit den bestehenden geschlossenen Ergebnisarten
+    - technische Providerunklarheit bleibt detailfreie Nichtverfügbarkeit und verändert Execution sowie Attempt 2 nicht
+    - prüft aktuelle Channel-, Publisher-, Registry-, Signer- und Key-Authority als Begleitfakt, ohne Revocation zur Verschleierung externer Realität zu verwenden
+    - führt ausschließlich einen read-only Providerzugriff aus; kein Creator, Upload, Receipt, Reassessment, Attempt 3 oder sonstiger Write ist erreichbar
+    - erhält die LQ-258-Semantik für Attempt 1 unverändert und verwendet bestehende Tabellen ohne Migration; Head bleibt 20260818_0023
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3224 passed und 445 warnings; kein Git- oder Deploymentwrite
+    - nächster Slice LQ-264 persistiert Published-, Absence- oder Conflict-Abschluss für Attempt 2 atomar und ohne automatischen Attempt 3
+
+- LQ-264 persistent release publication attempt-two finalization:
+  `docs/lq-264-persistent-release-publication-attempt-two-finalization.md`
+  - Status:
+    - erweitert bestehende Published- und Recovery-Finalizer auf outcome_unknown Attempt 2 mit zwingender Bindung an Attempt-1-Absence-Recovery
+    - bytegleicher Erfolg erzeugt atomar Receipt, Receipt-Reconciliation, reconciled Attempt 2 und published Execution
+    - Published nach Revocation bewahrt externe Realität als published_reassessment_required samt pending Reassessment
+    - bestätigte Abwesenheit speichert einen getrennten Attempt-2-Recovery-Fakt und beendet die Execution terminal als not_published
+    - Konflikt speichert externe Evidence, erzeugt pending Reassessment und beendet die Execution terminal als publication_conflict
+    - Attempt-2-Absence und Conflict sind nie retry-fähig und erzeugen weder Attempt 3 noch weiteren Provider-Create
+    - exakter und konkurrierender Retry liefert denselben Abschluss ohne Provider-Read, neue IDs oder doppelte Fakten
+    - additive Migration 20260819_0024 erweitert ausschließlich terminale Execution-Status; Bundle-Gate erwartet 24 lineare Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3229 passed und 494 warnings; kein CLI-, Git- oder Deploymentwrite
+    - nächster Slice LQ-265 auditiert den vollständigen zweistufigen Publication-Lebenszyklus end-to-end
+
+- LQ-265 release publication lifecycle end-to-end audit:
+  `docs/lq-265-release-publication-lifecycle-end-to-end-audit.md`
+  - Status:
+    - auditiert die vollständige Kette von Attempt-1-Create über Absence-Recovery und Attempt-2-Preflight bis zum terminalen Abschluss
+    - bestätigt genau zwei kontrollierte immutable Creates mit getrennter Execution- beziehungsweise Attempt-2-Idempotenzidentität
+    - Published endet mit genau einem Receipt und zwei reconciled Attempts; Revocation bewahrt Erfolg mit pending Reassessment
+    - zweite bestätigte Abwesenheit endet terminal not_published, Konflikt terminal publication_conflict; beide erzeugen niemals Attempt 3
+    - Revocation zwischen Attempt-2-Preflight und Write wird erneut aus dem System of Record erkannt und sperrt vor Providerzugriff
+    - bestätigt Unknown-Outcome-, Retry-, Konkurrenz- und Historieninvarianten ohne Caller-Allow, Rollen-, Ziel- oder Observation-Bypass
+    - neuer vollständiger Zwei-Create-Published-Pfad besteht auch auf echtem PostgreSQL 16
+    - keine Produktionsmutation oder Migration; Head bleibt 20260819_0024 mit 24 linearen Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3234 passed und 530 warnings; kein CLI-, Git- oder Deploymentwrite
+    - nächster Slice LQ-266 entscheidet kontrollierte betriebliche Composition eines konkreten immutable Provideradapters
+
+- LQ-266 controlled release publication provider composition contract:
+  `docs/lq-266-controlled-release-publication-provider-composition-contract.md`
+  - Status:
+    - entscheidet eine standardmäßig deaktivierte dedizierte Publication-Worker-Composition außerhalb von HTTP-, OIDC- und Research-Runtime
+    - bindet genau einen package-index-Adapter an system-of-record-abgeleitetes Ziel und einen vorab erlaubten HTTPS-Origin ohne Caller-URL oder Fallback
+    - trennt read-only Inspector und immutable Creator sowie optional deren Read- und Write-Credentials
+    - legt owner-only Credential-Quelle, minimale Prozessrechte, TLS-, Timeout-, Redirect-, Antwortgrößen- und Logging-Grenzen fest
+    - verlangt kanonische Observation und create-only Semantik; Authfehler, Rate-Limits und technische Fehler sind niemals bestätigte Abwesenheit
+    - übernimmt Execution- beziehungsweise Attempt-2-ID unverändert als Idempotenzidentität und verbietet semantische SDK-Retry-Schleifen nach möglichem Effekt
+    - Provider-Acknowledgement bleibt kein Receipt; Already-exists und mögliche Writes gehen ausschließlich über outcome_unknown und read-only Reconciliation
+    - keine Implementierung, Port-, Modell-, Schema-, Migration-, CLI- oder Wiring-Entscheidung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - vollständige Pflichtsuite bleibt bei 3234 passed und 530 warnings; kein Provider-, Git- oder Deploymentwrite
+    - nächster Slice LQ-267 implementiert providerneutral testbaren Package-Index-Inspector, immutable Creator und kontrollierte lokale Konfiguration
+
+- LQ-267 controlled package-index publication adapter:
+  `docs/lq-267-controlled-package-index-publication-adapter.md`
+  - Status:
+    - ergänzt immutable repr-freie lokale Configuration für genau einen kanonischen HTTPS-Origin, Zielnamen und begrenztes Credential
+    - führt schmalen injizierten PackageIndexProviderTransport mit ausschließlich inspect_package und create_package ein
+    - Adapter implementiert bestehenden Inspector sowie Attempt-1- und Attempt-2-Creator ohne neue fachliche Publication-Entscheidung
+    - bindet provider kind package-index, Ziel stable/konfiguriert und Paket liquent vor jedem Transportzugriff
+    - mappt ausschließlich typisierte kanonische Artifact- und Create-Records; rohe Providerantworten werden nicht interpretiert
+    - übergibt Execution- oder Attempt-ID unverändert als Transport-Idempotenzwert und führt keine automatische Wiederholung aus
+    - neue detailfreie Provider-Nichtverfügbarkeit schützt Credential-, Origin-, Ziel- und Response-Details
+    - Integration mit LQ-257 bestätigt genau einen Inspect, einen Create und anschließend persistent outcome_unknown
+    - keine Migration, HTTP-Transport-, Worker-, CLI- oder Wiring-Änderung; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3255 passed und 534 warnings; kein echter Provider-, Git- oder Deploymentwrite
+    - nächster Slice LQ-268 implementiert den begrenzten HTTPS-Transport für die eingefrorene Package-Index-Schnittstelle
+
+- LQ-268 bounded package-index HTTPS transport:
+  `docs/lq-268-bounded-package-index-https-transport.md`
+  - Status:
+    - implementiert exakt einen read-only GET oder create-only PUT auf dieselbe kanonische percent-encoded Versionsressource
+    - 404 gilt nur mit leerem Body als Abwesenheit; Redirects, Authfehler, Rate-Limits, Konflikte und Serverfehler bleiben technische Nichtverfügbarkeit
+    - PUT bindet If-None-Match *, unveränderten Idempotency-Key und deterministische Base64-Payload samt allen Artefakthashes
+    - nur 200-Inspection beziehungsweise 201-Create mit exakt typisiertem duplicate-freiem JSON werden akzeptiert; already exists ist kein Erfolg
+    - entfernt Client-Cookies, deaktiviert zusätzliche Clientauth und verwendet ausschließlich das kurzlebige Bearer-Credential
+    - begrenzt Connect-, Read-, Gesamtzeit, Request- und inkrementelle Responsegröße; rückwärts laufende Clock sperrt fail-closed
+    - deaktiviert Redirects und implementiert keinerlei automatische Retry-, Backoff-, Mirror- oder Fallbacklogik
+    - alle Transport-, Status-, Framing- und Parsingfehler bleiben detailfreie Provider-Nichtverfügbarkeit
+    - keine Migration, Credential-Source, Worker-, CLI- oder Production-Composition; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3289 passed und 534 warnings; Tests verwenden ausschließlich MockTransport
+    - nächster Slice LQ-269 implementiert owner-only Credential-Source und vollständige lokale Client-/Adapter-Composition
+
+- LQ-269 owner-only package-index credential and local composition:
+  `docs/lq-269-owner-only-package-index-credential-and-local-composition.md`
+  - Status:
+    - lädt genau ein begrenztes UTF-8-Credential aus einer absoluten owner-only Datei mit O_NOFOLLOW, O_CLOEXEC und fstat-Bindung
+    - akzeptiert ausschließlich reguläre, einfach verlinkte Dateien des effektiven Prozessnutzers mit Modus 0400 oder 0600
+    - erlaubt höchstens ein abschließendes LF; Oversize, Whitespace, Steuerzeichen, CRLF, Symlinks und ungültiges UTF-8 sperren fail-closed
+    - erzeugt genau einen Client mit trust_env=False, deaktivierten Redirects und einem auf eine Verbindung begrenzten Pool
+    - komponiert bestehende Configuration, HTTPS-Transport und Package-Index-Adapter als eine unveränderliche lokale Dependency-Gruppe
+    - besitzt und schließt den Client idempotent; auch partieller Aufbau und Context-Manager-Fehler schließen Ressourcen
+    - Aufbau liest nur die Credential-Datei und führt keinen Provider-, DNS-, TLS-, Datenbank- oder Discovery-Zugriff aus
+    - alle Credential- und Client-Aufbaufehler bleiben bestehende detailfreie Provider-Nichtverfügbarkeit ohne neuen Exception-Typ
+    - keine Migration, Port-, Worker-, CLI-, Production-Wiring- oder echte Provideränderung; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3307 passed und 534 warnings; kein echter Providerwrite
+    - nächster Slice LQ-270 definiert den kontrollierten Offline-Publication-Worker um genau eine persistente Arbeitseinheit
+
+- LQ-270 controlled offline publication worker contract:
+  `docs/lq-270-controlled-offline-publication-worker-contract.md`
+  - Status:
+    - friert einen kurzlebigen dedizierten Offline-Worker für genau eine bestehende persistente Publication-Execution ein
+    - geschlossener Input identifiziert nur Execution, Handoff, Publisher, Channel und erwartete Revision; keine Phase, Attempt-ID oder Providerparameter
+    - aktueller Zustand, Ziel, Artefakte und Authority stammen ausschließlich aus System of Record und kontrollierter lokaler Composition
+    - jeder Aufruf führt höchstens einen semantischen Create aus; nach möglichem Write sind alle Operationen read-only
+    - Unknown-Outcome wird vor Erfolgsbewertung persistiert und bei Wiederaufnahme ausschließlich reconciled, niemals blind erneut hochgeladen
+    - Attempt 2 ist nur nach persistenter Attempt-1-Abwesenheit in einem späteren Aufruf möglich; Attempt 3 bleibt ausgeschlossen
+    - begrenzte Ergebnisfamilien trennen neutral not_actionable, pending_reconciliation und detailfreie technische unavailable
+    - Worker besitzt Engine, Credential und Client vollständig und schließt sie in allen Ergebnis- und Fehlerpfaden
+    - keine Implementierung, CLI-, Scheduler-, Port-, Schema-, Migration- oder Production-Wiring-Entscheidung; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite bleibt bei 3307 passed und 534 warnings; kein Provider-, Git- oder Deploymentwrite
+    - nächster Slice LQ-271 implementiert die providerneutral testbare Einzelarbeits-Composition ohne betriebliche Aktivierung
+
+- LQ-271 provider-neutral publication work composition:
+  `docs/lq-271-provider-neutral-publication-work-composition.md`
+  - Status:
+    - implementiert einen geschlossenen repr-freien Work-Request aus Execution, Handoff, Publisher, Channel und erwarteter Revision
+    - neuer State-Lookup-Port bindet diese Referenzen an genau einen persistent aufgelösten Attempt- oder Terminalzustand
+    - Composition routet initial, Attempt 1 prepared/unknown/recovered und Attempt 2 prepared/unknown ohne caller-gesteuerte Phase
+    - Attempt-1- und Attempt-2-Creator bleiben disjunkt; jeder Aufruf erreicht höchstens einen semantischen Create
+    - Unknown-Wiederaufnahme und terminale Wiederholung erreichen keinen Creator; Attempt 3 ist strukturell nicht darstellbar
+    - ein Current-Outcome-Finalizer-Port wählt nach genau einer Inspection den passenden Success- oder Recovery-Abschluss
+    - begrenzte Resultate enthalten nur published, reassessment, not-published, conflict, pending oder neutral not-actionable
+    - beschädigte Portresultate und technische Fehler werden als detailfreie ReleasePublicationWorkUnavailable vereinheitlicht
+    - keine Persistenzimplementierung, Migration, CLI-, Scheduler-, HTTP- oder Production-Verdrahtung; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3320 passed und 534 warnings; kein echter Providerwrite
+    - nächster Slice LQ-272 implementiert State-Lookup und atomaren Current-Outcome-Finalizer persistent
+
+- LQ-272 persistent publication work state and current-outcome finalization:
+  `docs/lq-272-persistent-publication-work-state-and-current-outcome-finalization.md`
+  - Status:
+    - implementiert read-only State-Auflösung mit exakter Execution-, Handoff-, Publisher-, Channel- und Revisionsbindung
+    - unbekannte Execution bleibt neutral None, vorhandener Mismatch wird not_actionable und beschädigte Persistenz technisch detailfrei abgelehnt
+    - akzeptiert höchstens zwei lückenlos nummerierte Attempts und validiert Prepared-, Unknown-, Recovery- und Terminalkombinationen vollständig
+    - write_started wird fail-closed zum bestehenden Creator geroutet, der Unknown sichert ohne einen zweiten Create auszuführen
+    - Attempt 2 verlangt persistente reconciled Attempt-1-Abwesenheit; Attempt 3 und offene caller-gesteuerte Zustände bleiben undarstellbar
+    - Current-Outcome-Finalizer löst exakte Abschlüsse vor Providerzugriff und reconciled andernfalls genau einmal
+    - typisiertes Published erreicht nur Receipt-Commit, Absence oder Conflict nur Recovery-Commit; beide prüfen aktuelle Fakten erneut atomar
+    - bestehende Finalizer-APIs bleiben kompatibel und erhalten additive Commitpfade für bereits reconciliertes Outcome
+    - keine Migration, CLI-, Scheduler-, HTTP- oder Production-Verdrahtung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3327 passed und 566 warnings; kein echter Providerwrite
+    - nächster Slice LQ-273 komponiert den vollständigen lokalen Worker ohne betriebliche Aktivierung
+
+- LQ-273 complete local release-publication worker composition:
+  `docs/lq-273-complete-local-release-publication-worker-composition.md`
+  - Status:
+    - übernimmt genau eine Engine und eine vollständig validierte LQ-269-Package-Index-Composition als geschlossene Worker-Ressourcen
+    - komponiert aktuelle Registry-Projektion, gebundene Artifact-Integrity und sämtliche Attempt-1-/Attempt-2-Persistenzadapter
+    - Inspection, beide Creator und Reconciliation verwenden dasselbe Package-Index-Adapterobjekt und denselben unveränderlichen Providerkontext
+    - State-Lookup und Current-Outcome-Finalizer werden mit allen persistenten Preflight-, Create- und Abschlussports in LQ-271 verdrahtet
+    - Clock und ID-Generatoren bleiben injiziert und werden beim Aufbau weder gelesen noch aufgerufen
+    - Aufbau führt keinen Datenbank-, Artifact- oder Providerzugriff aus und erzeugt keinen teilweise nutzbaren Fallback
+    - Context Manager schließt in allen Pfaden Providerclient und Engine; partieller Aufbau wird bestmöglich detailfrei bereinigt
+    - End-to-End-Test bestätigt GET absent, genau einen PUT create-only, GET read-back und atomaren Published-Receipt-Abschluss
+    - keine Migration, CLI-, Scheduler-, HTTP- oder Production-Aktivierung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - vollständige Pflichtsuite mit PostgreSQL 16 besteht mit 3330 passed und 581 warnings; kein echter Providerwrite
+    - nächster Slice LQ-274 entscheidet den owner-only Offline-Worker-Operatorvertrag vor CLI-Implementierung
+
+- LQ-274 owner-only release-publication worker operator contract:
+  `docs/lq-274-owner-only-release-publication-worker-operator-contract.md`
+  - Status:
+    - friert einen expliziten kurzlebigen Offline-Prozess für genau einen LQ-273-Work-Aufruf ein
+    - CLI akzeptiert ausschließlich Pfade zu owner-only Datenbank-, Work-, Artifact-, Provider-, Executor- und Verifier-Dateien
+    - Work-Request enthält exakt fünf interne Referenzen und keine Phase, Attempt-ID, Provider-, Artifact-, Allow- oder Ergebnisbehauptung
+    - Artifact-Datei bindet nur Handoff und drei absolute Pfade; sämtliche Hashes und Authority-Fakten stammen aus dem System of Record
+    - Providerdatei bindet genau einen HTTPS-Origin, Zielnamen, Credential-Pfad und begrenzte HTTP-Policy außerhalb des Work-Requests
+    - Attempt-, Receipt-, Recovery- und Reassessment-IDs werden intern kryptografisch erzeugt und ausschließlich persistent stabilisiert
+    - jeder Prozess baut genau eine Engine und einen Client, ruft worker.process exakt einmal und führt keine Schleife oder Auto-Retry aus
+    - stdout enthält nur eine von sechs kanonischen Outcome-Familien mit festen Exitcodes; Input und technische Fehler bleiben stderr-detailfrei
+    - keine Implementierung, Entry-Point-, Scheduler-, Schema-, Migration- oder Production-Aktivierung; Head bleibt 20260819_0024
+    - vollständige Pflichtsuite bleibt bei 3330 passed und 581 warnings; kein Provider-, Datei-, Git- oder Deploymentwrite
+    - nächster Slice LQ-275 implementiert den owner-only Offline-Operator ohne automatische Aktivierung
+
+- LQ-275 owner-only release-publication worker operator:
+  `docs/lq-275-owner-only-release-publication-worker-operator.md`
+  - Status:
+    - implementiert den expliziten kurzlebigen `liquent-release-publication`-Prozess für genau einen LQ-273-Work-Aufruf
+    - akzeptiert nur sechs absolute owner-only Dateipfade; sichere Descriptor-Öffnung prüft Typ, Eigentümer, Linkzahl, Modus und Größe
+    - geschlossene kanonische JSON-Parser binden fünf Work-Referenzen, genau eine Handoff-Artifact-Quelle und genau eine begrenzte HTTPS-Providerkonfiguration
+    - Authority, aktuelle Phase, Attempts, Hashes und zulässiger nächster Schritt stammen weiterhin ausschließlich aus persistenter Wahrheit
+    - technische Executor- und Verifier-IDs bleiben getrennt; neue Attempt-, Receipt-, Recovery- und Reassessment-IDs entstehen kryptografisch intern
+    - exakter Migration-Head wird vor Credential- und Providerzugriff geprüft; danach entstehen genau eine Engine, ein Providerclient und eine Worker-Composition
+    - stdout bildet sechs normale Outcomes auf feste Exitcodes ab; Input-Ablehnung und technische Nichtverfügbarkeit bleiben auf stderr detailfrei getrennt
+    - operatives Release-Bundle prüft additiv nun 15 Console Entry Points; keine bestehende Commandgrenze wurde entfernt
+    - keine Migration, Route, Schleife, Auto-Retry-, Scheduler-, Service-, CI- oder Production-Aktivierung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3346 passed und 581 warnings; kein echter Providerwrite
+    - nächster Slice LQ-276 definiert kontrolliertes manuelles Runbook und End-to-End-Operator-Audit ohne automatische Aktivierung
+
+- LQ-276 controlled manual release-publication operator audit:
+  `docs/lq-276-controlled-manual-release-publication-operator-audit.md`
+  - Status:
+    - ergänzt ein owner-only Runbook für einen beaufsichtigten LQ-275-Aufruf mit sieben privaten Eingabequellen
+    - auditiert die echte Prozessfunktion über Parser, Readiness, neue Engine, LQ-269, LQ-273 und persistente Finalisierung
+    - kontrollierter realer Package-Index-Adapter beobachtet exakt GET absent, einen create-only PUT und GET read-back
+    - Erfolg erzeugt genau ein Receipt, terminale Published-Persistenz, minimale stdout-Ausgabe und Exit 0
+    - derselbe Audit läuft mit einer zweiten unabhängigen Engine auf einem isolierten PostgreSQL-16-Bestand
+    - Runbook bindet alle normalen Outcomes und Fehlercodes an explizite Review-, Reconciliation- oder Abschlussentscheidungen
+    - Unknown Outcome verlangt unveränderte beaufsichtigte Wiederaufnahme und verbietet manuellen Ersatz-PUT
+    - keine Schleife, Timer-, Queue-, Daemon-, Restart-, CI-, Deployment-, HTTP- oder Startup-Aktivierung
+    - keine Produktionscode-, Port-, Schema- oder Migrationsänderung; Head bleibt 20260819_0024 mit 24 Migrationen und 15 Entry Points
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3348 passed und 588 warnings; kein externer Providerwrite
+    - nächster Slice LQ-277 auditiert Publication-Betriebsbereitschaft und verbleibenden Gesamt-Release-Handoff
+
+- LQ-277 release-publication operational readiness audit:
+  `docs/lq-277-release-publication-operational-readiness-audit.md`
+  - Status:
+    - auditiert den unterstützten Weg vom leeren migrierten Release-Bestand bis zum terminalen Publication-Receipt
+    - Signing-, Promotion- und Publication-Worker-Prozesse sind installiert und ihre hintere Kette ist integriert geprüft
+    - Gesamtweg bleibt blockiert, weil Registry-Bootstrap und Key-Aktivierung nur als persistente Adapter ohne owner-only Operator existieren
+    - Publication-Control-Plane-Bootstrap und autorisierter Handoff besitzen ebenfalls keine installierte Prozessgrenze
+    - der Worker selbst kann Execution und Attempt 1 intern atomar vorbereiten; ein zusätzlicher Preflight-Command ist kein festgestellter Pflichtblocker
+    - Audit verbietet direkte SQL-, Python-REPL-, Fixture- oder App-Startup-Abkürzungen für die vier fehlenden Grenzen
+    - statischer Nachweis bestätigt drei vorhandene Release-Entry-Points, vier fehlende Prozesse, vorhandene Adapter und Runtime-Isolation
+    - externer Providerbetrieb, Credential-Scope und TLS-Abnahme bleiben environmentbezogene spätere Freigaben
+    - keine Produktionscode-, Port-, Schema- oder Migrationsänderung; Head bleibt 20260819_0024 mit 24 Migrationen und 15 Entry Points
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3352 passed und 588 warnings; kein externer Providerwrite
+    - nächster Slice LQ-278 entscheidet den owner-only Registry-Bootstrap- und Key-Aktivierungsprozessvertrag
+
+- LQ-278 owner-only release-registry bootstrap and key-activation operator contract:
+  `docs/lq-278-owner-only-release-registry-bootstrap-and-key-activation-operator-contract.md`
+  - Status:
+    - friert zwei getrennte kurzlebige Offline-Prozesse für einmaligen Registry-Bootstrap und spätere Key-Aktivierung ein
+    - Bootstrap akzeptiert nur private Datenbank-, Ein-Feld-Request- und Public-Key-Dateien; Fingerprint und fünf Ergebnis-IDs entstehen intern
+    - geschützte Bootstrap-Ausgabe übergibt exakt Bootstrap-, Lifecycle-, Signer-, Key-, Registry- und Policy-Identitäten
+    - Key-Aktivierung wird explizit in read-only Challenge-Materialisierung und späteres Apply mit unverändertem Request getrennt
+    - Challenge wird aus aktuellem Registrybestand rekonstruiert; caller-gelieferter Challengeinhalt, Allow oder Status gewährt keine Authority
+    - Proof bindet privaten Key extern, Approval bindet dieselben Bytes über eine unabhängige kontrollierte Reviewer-Verifier-Grenze
+    - Reviewer-Trust, Reviewer-ID und Reviewer-Key dürfen weder aus Request noch aus frei wählbarer CLI-Trustdatei stammen
+    - exakte Retries bewahren Bootstrap- beziehungsweise Change-ID und bytegleiche Key-, Proof- und Approval-Fakten
+    - neutrale Ablehnung, Konflikt, Inputfehler und technische Nichtverfügbarkeit besitzen getrennte detailfreie Outcomes
+    - keine Implementierung, Entry Points, Kryptografieadapter, Migration oder automatische Aktivierung; Head bleibt 20260819_0024
+    - vollständige PostgreSQL-16-Pflichtsuite bleibt bei 3352 passed und 588 warnings
+    - nächster Slice LQ-279 entscheidet und implementiert Proof-/Approval-Formate und feste Verifier-Composition vor den Operatoren
+
+- LQ-279 fixed release-key proof and approval verification:
+  `docs/lq-279-fixed-release-key-proof-and-approval-verification.md`
+  - Status:
+    - implementiert detached Ed25519-SSHSIG für Key-Proof und unabhängiges Approval über exakt dieselben LQ-242-Challengebytes
+    - feste getrennte Namespaces verhindern Umdeutung zwischen Possession-Proof, Approval und Release-Signatur
+    - Approval trägt keine Reviewerbehauptung; Identität entsteht nur durch genau einen Match im beim Aufbau fest gebundenen Trustsatz
+    - Reviewer-ID, Public Key und unabhängig erneut berechneter SHA-256-Fingerprint sind jeweils eindeutig und repr-frei gebunden
+    - Composition baut Proof- und Approval-Verifier ohne Datei-, subprocess-, Datenbank- oder Netzwerk-I/O auf
+    - OpenSSH-Verifikation verwendet argv ohne Shell, private temporäre Dateien und Challengebytes ausschließlich über stdin
+    - falsche Signaturen bleiben neutral; Tool-, Fingerprint- und Prozessfehler werden detailfrei technisch nicht verfügbar
+    - integrierter Test aktiviert einen echten persistenten Key mit getrennten realen Signing- und Reviewer-Ed25519-Schlüsseln
+    - keine CLI-, Trustdatei-, Entry-Point-, Schema- oder Migrationsänderung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3357 passed und 588 warnings
+    - nächster Slice LQ-280 implementiert Registry-Bootstrap- und Challenge/Apply-Aktivierungsoperatoren mit festem Reviewer-Trust
+
+- LQ-280 owner-only release-registry bootstrap and key-activation operators:
+  `docs/lq-280-owner-only-release-registry-bootstrap-and-key-activation-operators.md`
+  - Status:
+    - implementiert `liquent-release-registry-bootstrap` mit privatem Ein-Feld-Request und unabhängig fingerprint-geprüftem Ed25519-Public-Key
+    - fünf erste Authority-, Key-, Registry- und Policy-IDs entstehen intern; geschütztes Resultat bleibt bei exaktem Retry stabil
+    - ergänzt read-only aktuelle Challenge-Auflösung und exklusive owner-only Materialisierung ohne Registrymutation
+    - `liquent-release-key-activation apply` bindet Proof und Approval über LQ-279 an dieselbe intern rekonstruierte Challenge
+    - Reviewer-Trust stammt ausschließlich aus festem Systempfad und ist weder per CLI, Request noch Environment überschreibbar
+    - Aktivierung erzeugt resultierende Revision intern, hält Actor und Reviewer getrennt und bewahrt exakte Retrysemantik
+    - Input, Konflikt, neutrale Nichtausführung und technische Nichtverfügbarkeit bleiben detailfrei getrennt
+    - operatives Bundle erwartet additiv 17 Entry Points und 16 Operatormodule
+    - keine Migration, Route, Scheduler-, CI-, Signing-, Promotion- oder Publication-Automatik; Head bleibt 20260819_0024
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3359 passed und 588 warnings
+    - nächster Slice LQ-281 implementiert den owner-only Publication-Control-Plane-Bootstrap
+
+- LQ-281 owner-only release-publication control-plane bootstrap:
+  `docs/lq-281-owner-only-release-publication-control-plane-bootstrap.md`
+  - Status:
+    - implementiert `liquent-release-publication-bootstrap` als kurzlebigen owner-only Prozess mit Datenbank- und kanonischer Requestdatei
+    - Request bindet stabile Bootstrap-ID sowie fest `liquent`, `package-index` und einen begrenzten kanonischen Zielnamen
+    - Publisher-, Channel- und Channel-Revision-ID entstehen intern erst nach atomar bestätigter vollständiger Leere
+    - geschützter Erfolg und exakter Retry liefern dieselben vier stabilen IDs ohne Provider-, Credential- oder Pfaddetails
+    - andere Bootstrap-ID nach Historie bleibt neutral; abweichende Wiederverwendung derselben ID ist detailfreier Konflikt
+    - Handoff-, Receipt-, Reassessment-, Executor- und Execution-Inventare bleiben nach Bootstrap leer
+    - operatives Bundle erwartet additiv 18 Entry Points und 17 Operatormodule
+    - keine Migration, Route, Provider-, Scheduler-, CI- oder Deploymentwirkung; Head bleibt 20260819_0024 mit 24 Migrationen
+    - Audit bestätigt zusätzliche betriebliche Lücke: der Worker verlangt einen registrierten Executor, für den noch kein unterstützter Prozess existiert
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3366 passed und 588 warnings
+    - nächster Slice LQ-282 entscheidet Handoff-Operator und getrennte Publication-Executor-Registrierung
+
+- LQ-282 release-publication executor registration and handoff operator contract:
+  `docs/lq-282-release-publication-executor-registration-and-handoff-operator-contract.md`
+  - Status:
+    - trennt persistente technische Executor-Registrierung vom autorisierten Publication-Handoff und vom späteren Attempt
+    - Registration-ID ist stabiler Retry-Anker; Executor-ID entsteht intern und gewährt keine Publisher- oder Channel-Authority
+    - exakter Registrierungsretry liefert dieselbe Executor-ID; Lifecycle, Deaktivierung und Rotation bleiben getrennte spätere Grenzen
+    - Handoff-Request bindet LQ-251-Referenzen und Artifactpfade geschlossen ohne Allow-, Hash-, Provider- oder Attemptbehauptung
+    - stabile neue Execution-ID wird im bewahrten Handoff-Request mitgeführt, aber erst durch LQ-254 beim Worker-Preflight persistiert
+    - aktueller Registry-, Signer-, Key-, Channel- und Publisherbestand wird bei jedem neuen Handoff aus dem System of Record geprüft
+    - geschützter Handoff-Erfolg liefert minimale IDs für den exakt fünfteiligen LQ-275-Work-Request
+    - Registration und Handoff besitzen getrennte neutrale, Konflikt-, Input- und technische Fehlerfamilien sowie exakte Retries
+    - keine Implementierung, Migration, Entry Points, Provider-, Scheduler-, CI- oder Runtimewirkung; Head bleibt 20260819_0024
+    - vollständige PostgreSQL-16-Pflichtsuite bleibt bei 3366 passed und 588 warnings
+    - nächster Slice LQ-283 implementiert persistente Executor-Registrierungsentscheidung und Port
+
+- LQ-283 persistent release-publication executor registration:
+  `docs/lq-283-persistent-release-publication-executor-registration.md`
+  - Status:
+    - ergänzt stabile repr-freie Registration-ID und Ergebnisbindung getrennt von der technischen Executor-ID
+    - geschlossener Port akzeptiert ausschließlich die Registration-ID; Executor-ID wird innerhalb der Persistenzgrenze sicher erzeugt
+    - Erstregistrierung persistiert Executor und unveränderliche Bindung atomar; ohne Commit wird keine ID ausgegeben
+    - exakter Retry liefert dieselbe Executor-ID ohne erneuten Generatorzug; verschiedene Registration-IDs bleiben getrennt
+    - PostgreSQL linearisiert konkurrierende Retries serverseitig; SQLite trägt denselben Einzelprozessvertrag
+    - technische Identität gewährt keine Publisher-, Channel-, Registry-, Signing-, Workspace- oder Research-Authority
+    - additive Revision 20260819_0025 seedet nichts; Operational Bundle erwartet 25 lineare Migrationen
+    - keine CLI, kein Entry Point, Handoff, Attempt, Providerzugriff oder Executor-Lifecycle in diesem Slice
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3374 passed und 588 warnings
+    - nächster Slice LQ-284 implementiert die getrennten owner-only Registration- und Handoff-Operatorgrenzen
+
+- LQ-284 release-publication executor and handoff operators:
+  `docs/lq-284-release-publication-executor-and-handoff-operators.md`
+  - Status:
+    - ergänzt getrennte owner-only Entry Points für technische Executor-Registrierung und autorisierten Handoff
+    - beide Commands akzeptieren nur private Database-URL- und kanonische Requestdateien und prüfen exakte Migration-Readiness
+    - Executor-Request enthält ausschließlich Registration-ID; sichere interne Generierung und exakter persistenter Retry bleiben LQ-283-gebunden
+    - Handoff-Request bindet Actor, Current-Channel-Revision, drei absolute Artifactpfade und stabile noch unpersistierte Execution-ID
+    - aktuelle Registry-, Signer-, Key-, Channel- und Publisher-Authority wird beim neuen Handoff erneut aus dem System of Record geprüft
+    - prozessfeste Verifier-ID ist kein caller-gesteuertes Authorityfeld; neutrale Ablehnung, Konflikt und Technik bleiben getrennt
+    - Erfolg gibt minimale kanonische IDs aus, schreibt keine Worker-Datei und startet weder Worker noch Providerzugriff
+    - Operational Bundle erwartet additiv 20 Entry Points und 19 Operatormodule bei unverändert 25 Migrationen
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3386 passed und 588 warnings
+    - nächster Slice LQ-285 prüft den geschlossenen operativen Ablauf als End-to-End-Audit und Runbook-Handoff
+
+- LQ-285 release-publication end-to-end readiness and runbook handoff:
+  `docs/lq-285-release-publication-end-to-end-readiness-and-runbook-handoff.md`
+  - Status:
+    - Reaudit schließt alle vier LQ-277-Prozessblocker über die installierten LQ-280-/281-/284-Grenzen
+    - Runbook führt nun vom leeren migrierten Store in Authority-Reihenfolge bis zum beaufsichtigten Publication-Worker
+    - Registry-, Publication- und Executor-Bootstrap bleiben getrennt von Aktivierung, Signing, Promotion und Handoff
+    - akzeptierter Handoff und bewahrter Request schließen die exakt fünfteilige Worker-Brücke ohne automatischen Start
+    - prozessgebundene Promotion-Verifier-ID bleibt außerhalb caller-gesteuerter Requestfelder
+    - statischer Audit bestätigt acht Offline-Entry-Points, Reihenfolge, Runtime-Isolation und fehlende SQL-/Fixture-Abkürzungen
+    - keine Produktionscode-, Port-, Schema-, Migrations-, Entry-Point-, Provider- oder Deploymentwirkung
+    - interner Betriebsweg ist geschlossen; externe Provider-, Credential-, TLS- und Umgebungsfreigabe bleibt separat
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3391 passed und 588 warnings
+    - nächster Slice LQ-286 grenzt die environmentbezogene Provider- und Deployment-Freigabe vertraglich ab
+
+- LQ-286 environment provider and deployment release contract:
+  `docs/lq-286-environment-provider-and-deployment-release-contract.md`
+  - Status:
+    - trennt extern bewahrte Environment-Freigabe von Publication-Handoff, Runtime-Authority und caller-gesteuerten Allow-Feldern
+    - bindet exakt Origin, Package, Ziel, Credential-Identität und Scope, TLS-/DNS-/Egresspfad, Host, Prozesskonto und Bundle
+    - verlangt getrennte Provider-, Security-, Operations- und Release-Reviews mit revisionsfesten Evidence-Referenzen
+    - providerrepräsentative Abnahme prüft 404, create-only 201, GET-Readback, Hashbindung und Fail-closed-Semantik ohne Production-Testupload
+    - Credential bleibt minimal auf Read/Create begrenzt; Rotation, Scope-, Trust-, Host- oder Provideränderung invalidiert spätere Starts
+    - Unknown Outcome nutzt ausschließlich bewahrte IDs und beaufsichtigte Reconciliation, niemals Ersatzupload oder neue Execution-ID
+    - Package-Publication, Deployment, Application-Rollback und späteres Yank/Delete bleiben getrennte Entscheidungen
+    - keine Code-, Schema-, Port-, CLI-, Migration-, Provider-, Credential-, Netzwerk-, Git- oder Deploymentwirkung
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3396 passed und 588 warnings
+    - nächster Slice LQ-287 implementiert eine evidence-basierte Offline-Readiness-Checkliste ohne Production-Upload
+
+- LQ-287 evidence-based offline provider readiness audit:
+  `docs/lq-287-evidence-based-offline-provider-readiness-audit.md`
+  - Status:
+    - materialisiert den LQ-286-Vertrag als eingeschränkte Offline-Checkliste ohne technischen Approval-Schalter
+    - bindet Environment, Origin, Package, Ziel, Credential-Identität, Bundle, Host, Prozesskonto und Gültigkeitsfenster
+    - verlangt referenzierte und SHA-256-gebundene Provider-, Credential-, Netzwerk-, Host-, Incident- und Deployment-Evidence
+    - vier getrennte Provider-, Security-, Operations- und Release-Attestierungen decken denselben finalen Evidence-Set-Digest
+    - unabhängiger Vollständigkeitsaudit prüft Hashgleichheit, Scope, Ablauf, Revocation, Supersession und Secretfreiheit read-only
+    - außerhalb des geschützten Records erscheinen nur approved, rejected, expired, revoked oder unavailable ohne Detailleck
+    - kein DNS-, TLS-, Credential-, Datenbank-, Provider-, Production-Upload-, Prozessstart- oder Deploymentzugriff
+    - keine Produktionscode-, Port-, Schema-, Migrations-, CLI-, Entry-Point- oder Bundleänderung
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3401 passed und 588 warnings
+    - nächster Slice LQ-288 reauditert den vollständigen Release-Bereich auf verbleibende Blocker und widersprüchliche Claims
+
+- LQ-288 release-scope final blocker and claim reaudit:
+  `docs/lq-288-release-scope-final-blocker-and-claim-reaudit.md`
+  - Status:
+    - bestätigt acht installierte Offline-Prozessgrenzen und keinen verbleibenden internen Blocker der beaufsichtigten Package-Publication-Kette
+    - Environment-Evidence bleibt getrenntes fail-closed Gate; interne Vollständigkeit ist keine Production- oder Providerfreigabe
+    - Migration-Head 20260819_0025, 25 Migrationen, 20 Entry Points und 19 Operatormodule stimmen über Gates und Dokumentation
+    - HTTP-Runtime, Compose und CI starten keinen Release-Publication-Operator automatisch
+    - historischer LQ-277-Blockerclaim bleibt als Snapshot erhalten und ist durch LQ-280/281/284/285 chronologisch superseded
+    - korrigiert veralteten Compose-Claim: Control Plane existiert, aber der allgemeine liquent-research-worker bleibt unimplementiert
+    - Offline-Publication-Operator ist kein Ersatz für den fehlenden langlebigen Research-Worker oder Deploymentprozess
+    - keine Produktionscode-, Schema-, Migration-, CLI-, Provider-, Service-, Git- oder Deploymentwirkung
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3407 passed und 588 warnings
+    - nächster Slice LQ-289 auditiert den allgemeinen Compose-Research-Worker-Blocker getrennt vom Release-Bereich
+
+- LQ-289 persistent research-worker foundation contract:
+  `docs/lq-289-persistent-research-worker-foundation-contract.md`
+  - Status:
+    - Audit bestätigt synchrone Control-Plane-Ausführung und ausschließlich prozesslokale InMemoryResearchJobs ohne Restart- oder Mehrprozesssicht
+    - vor einem Worker-Command sind persistente autorisierte Jobannahme, atomarer Claim, Lease/Heartbeat und Recovery zwingend
+    - Worker erhält keinen SessionPrincipal; Job bindet stabile Job-, Workspace-, Actor- und validierte Snapshotreferenzen ohne Allow-Feld
+    - geschlossener Resolver verbietet Importpfade, Shellbefehle, URLs, Pickles und freie Dateipfade aus Worker- oder Jobinput
+    - Ergebnis und immutable Artifactreferenzen müssen claim- und revisionsgebunden ohne sichtbares succeeded vor Vollständigkeit abschließen
+    - erster langlebiger Prozess bleibt bei Concurrency eins, begrenztem Warten, getrennter Liveness/Readiness und fail-closed SIGTERM-Recovery
+    - Research-Worker bleibt vollständig von kurzlebigem Publication-Worker, Providercredentials und Release-Handoffs getrennt
+    - keine Produktionscode-, Port-, Schema-, Migration-, CLI-, Queue-, Prozess-, Netzwerk- oder Compose-Aktivierung
+    - vollständige PostgreSQL-16-Pflichtsuite besteht mit 3413 passed und 588 warnings
+    - nächster Slice LQ-290 entscheidet persistente Research-Job-, Claim- und Lease-Foundation mit PostgreSQL-Konkurrenzsemantik
+
+- LQ-290 persistent research-job claim and lease foundation contract:
+  `docs/lq-290-persistent-research-job-claim-and-lease-foundation-contract.md`
+  - Status:
+    - trennt stabile Acceptance-, Job-, Revision-, Worker- und Claimidentitäten; Job-ID entsteht intern, Acceptance-ID stabilisiert exakten Retry
+    - autorisierte Annahme bindet Actor und validierten Snapshot atomar nach aktueller research:write-Auflösung ohne Session-/Allow-Persistenz
+    - Claim prüft Actor/Workspace-Authority erneut, invalidiert entzogene queued Jobs neutral und wählt FIFO mit Job-ID-Tie-Breaker
+    - PostgreSQL-Vertrag garantiert bei unabhängigen Verbindungen höchstens einen aktuellen Claim je Job ohne offene Ausführungstransaktion
+    - Claim- und Leasezeiten stammen serverseitig; Heartbeat verlangt aktuelle Revision, Worker und Claim und akzeptiert keine Ablaufbehauptung
+    - abgelaufene running Leases werden nicht blind requeued oder erneut ausgeführt, sondern bleiben explizite Recoveryevidence
+    - Lookup autorisiert research:read aktuell; Job-, Worker-, Claim-, Snapshot- und Statusfakten gewähren selbst keine Authority
+    - keine Typ-, Port-, Schema-, SQL-, Migration-, Lease-Dauer-, CLI-, Queue-, Prozess- oder Wiringentscheidung
+    - nächster Slice LQ-291 führt stabile Typen und geschlossene Acceptance-/Claim-/Heartbeat-/Lookupports ohne Persistenz ein
+
+- LQ-291 research-job types and closed ports:
+  `docs/lq-291-research-job-types-and-closed-ports.md`
+  - Status:
+    - führt strikte repr-geschützte Acceptance-, Revision-, Worker- und Claimidentitäten neben der bestehenden JobId ein
+    - begrenzt persistente Ergebnisse strukturell auf die kontrollierte Artifactklasse backtest_result_v1
+    - bindet Acceptance- und Claimergebnisse an Actor, Workspace, validierten Snapshot, Revision und serverseitige UTC-Zeiten
+    - trennt detailfreien Acceptance-Konflikt von neutraler Ablehnung ohne eine neue Exception zu benennen
+    - Claim erhält nur WorkerId; Heartbeat erhält nur Job, erwartete Revision, Worker und Claim ohne Callerzeit oder Status
+    - autorisierter Lookup erhält Actor und Job, gibt aber keine Claim-, Worker- oder Leaseinternas aus
+    - keine Persistenz-, Schema-, SQL-, Migration-, Leasepolicy-, CLI-, Workerloop-, Route- oder Wiringentscheidung
+    - vollständige lokale Suite besteht mit 3327 passed, 98 PostgreSQL-Skips und 588 bestehenden Warnungen
+    - nächster Slice LQ-292 implementiert additive Persistenz und atomare SQLite-/PostgreSQL-Adapter
+
+- LQ-292 persistent research-job adapters:
+  `docs/lq-292-persistent-research-job-adapters.md`
+  - Status:
+    - additive Migration 20260819_0026 persistiert Jobs, Acceptancebindungen und aktuelle Claims ohne Seeds
+    - Acceptance prüft aktuelle research:write-Authority atomar und konvergiert exakte Retries
+    - FIFO-Claim invalidiert entzogene queued Jobs und nutzt unter PostgreSQL FOR UPDATE SKIP LOCKED
+    - Lease und Heartbeat sind revisions-, worker- und claimgebunden ohne Callerzeit
+    - autorisierter Lookup prüft aktuelle Lesecapability und gibt keine Claiminternas aus
+    - technische Fehler bleiben als ResearchJobStoreUnavailable detailfrei getrennt
+    - keine Finalisierung, Recovery, Artifactpersistenz, CLI, Workerloop, Route oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3329 passed, 98 PostgreSQL-Skips und 595 warnings
+    - nächster Slice LQ-293 entscheidet kontrollierte Research-Job-Composition
+
+- LQ-293 controlled persistent research-job composition:
+  `docs/lq-293-controlled-persistent-research-job-composition.md`
+  - Status:
+    - komponiert Browser-Control-Plane und technische Worker-Control-Plane über exakt eine DatabaseResearchJobs-Instanz
+    - Acceptance prüft sessiongebundenes CSRF vor Persistenz und reicht ausschließlich die Actor-User-ID weiter
+    - Workergrenze exponiert nur Claim und revisionsgebundenen Heartbeat ohne Session-, Rollen- oder Allow-Input
+    - Composition besitzt Engine und Generatoren nicht und führt weder Datenbank-, Clock-, ID- noch Queuezugriff aus
+    - kein In-Memory-Fallback, Runnerstart, Thread, Prozess, Polling, CLI, Route oder Production-Wiring
+    - Head bleibt 20260819_0026; Schema, Bundle und Compose bleiben unverändert
+    - vollständige lokale Suite besteht mit 3333 passed, 98 PostgreSQL-Skips und 595 warnings
+    - nächster Slice LQ-294 entscheidet claimgebundene Result-/Failure-/Artifactfinalisierung
+
+- LQ-294 claim-bound research-job finalization:
+  `docs/lq-294-claim-bound-research-job-finalization.md`
+  - Status:
+    - additive Migration 20260819_0027 persistiert höchstens ein unveränderliches terminales Outcome je Research-Job
+    - Erfolg bindet kanonische Backtest-Summary und geprüfte immutable JSON-Artifactreferenz atomar an succeeded
+    - Fehler persistiert ausschließlich den kontrollierten detailarmen Code execution_failed ohne Summary oder Artifact
+    - beide Finalizer vergleichen Job, aktuelle Revision, Worker, Claim und nicht abgelaufene Lease
+    - stale, fremde, terminale oder abgelaufene Finalisierung bleibt neutral und vollständig mutationsfrei
+    - LQ-293-Worker-Control übernimmt alle Bindungen direkt aus dem ClaimedResearchJob
+    - kein ArtifactStore-Adapter, Runner, Recovery, CLI, Route, Workerloop oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3336 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-295 komponiert eine einzelne kontrollierte Worker-Ausführung
+
+- LQ-295 controlled single research-job execution:
+  `docs/lq-295-controlled-single-research-job-execution.md`
+  - Status:
+    - verarbeitet höchstens einen persistenten Claim pro Aufruf und liefert idle ohne weitere Seiteneffekte
+    - erneuert die Lease vor Resolver und Runner und übernimmt Revision sowie Ablauf in die Finalisierungsbindung
+    - führt ausschließlich den persistierten Snapshot über die bestehende geschlossene Resolvergrenze aus
+    - serialisiert die bestehende Evidenceprojektion kanonisch als JSON und anonymisiert die Job-ID im Artifactschlüssel
+    - Runnerfehler finalisieren detailarm; Artifact- und Serialisierungsfehler bleiben technische Nichtverfügbarkeit
+    - Erfolg wird erst nach immutable Artifactwrite und atomarem LQ-294-Finalizer sichtbar
+    - kein Loop, Thread, Polling, Signalhandling, Recovery, CLI, Entry-Point, Route oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3340 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-296 implementiert einen kontrollierten immutable lokalen Research-ArtifactStore
+
+- LQ-296 immutable local research artifact store:
+  `docs/lq-296-immutable-local-research-artifact-store.md`
+  - Status:
+    - implementiert owner-kontrollierten lokalen ArtifactStore unter einem absoluten bestehenden sicheren Root
+    - akzeptiert ausschließlich research/<64 lowercase hex>/result.json und folgt auf keiner Ebene Symlinks
+    - publiziert owner-only Bytes über fsync und atomaren Link ohne vorhandene Inhalte zu überschreiben
+    - exakter Retry ist idempotent; abweichender Retry bleibt detailfrei und unverändert
+    - jeder Read prüft reguläre Datei, Owner, Modus, Linkcount, Bytegröße und SHA-256 erneut
+    - Pfad-, Race-, I/O- und Integritätsfehler werden als research_artifact_store_unavailable vereinheitlicht
+    - keine Remoteanbindung, Retentionlöschung, Recovery, CLI, Route, Workerloop oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3350 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-297 komponiert den vollständigen einzelnen Research-Workerpfad
+
+- LQ-297 complete single research-worker composition:
+  `docs/lq-297-complete-single-research-worker-composition.md`
+  - Status:
+    - komponiert persistente Job-Control und ProcessOneResearchJob über exakt eine DatabaseResearchJobs-Instanz
+    - verlangt Engine, geschlossenen Resolver, ArtifactStore, getrennte Generatoren, Lease-Dauer und optionale Clock explizit
+    - Browser-Acceptance, Lookup, Claim, Heartbeat und beide Finalizer teilen dieselbe committierte Wahrheit
+    - Aufbau öffnet keine Datenbank und ruft weder Queue, Clock, Generator, Resolver noch ArtifactStore auf
+    - alle injizierten Ressourcen bleiben extern besessen; Composition besitzt keine Close- oder Dispose-Semantik
+    - kein Loop, Polling, Backoff, Signalhandling, CLI, Entry-Point, Compose- oder Production-Wiring
+    - Head bleibt 20260819_0027; Schema und Bundle bleiben unverändert
+    - vollständige lokale Suite besteht mit 3355 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-298 implementiert den begrenzten langlebigen Research-Worker-Loop
+
+- LQ-298 bounded research-worker loop:
+  `docs/lq-298-bounded-research-worker-loop.md`
+  - Status:
+    - verarbeitet ProcessOneResearchJob strikt seriell mit struktureller Maximalkonkurrenz eins
+    - prüft Stop vor jedem Claim und verwendet für Idle sowie Backoff ausschließlich unterbrechbares begrenztes Warten
+    - technische Nichtverfügbarkeit nutzt exponentiellen am Policymaximum gedeckelten Backoff
+    - kontrollierter Jitter stammt aus injizierter Quelle und wird bei jedem Wait fail-closed validiert
+    - claim_lost führt weder Requeue noch Recovery aus und wartet vor dem nächsten Claim begrenzt
+    - Rückgabe enthält nur neutrale Zähler ohne Job-, Authority-, Claim-, Pfad- oder Fehlerdetails
+    - kein Signalhandling, Configloader, Worker-ID-Quelle, CLI, Entry-Point, Compose- oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3368 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-299 implementiert geschlossene Processkonfiguration und stabile Worker-ID-Quelle
+
+- LQ-299 research-worker process configuration:
+  `docs/lq-299-research-worker-process-configuration.md`
+  - Status:
+    - lädt exakt geschlossene Processparameter aus einer owner-only regulären JSON-Datei ohne unbekannte oder doppelte Schlüssel
+    - verlangt absolute Worker-ID-, Research-Data- und Artifactpfade sowie begrenzte Lease- und LQ-298-Waitwerte
+    - erzwingt typstreng job_concurrency eins und trading_connectivity disabled
+    - liest stabile Worker-ID separat aus owner-only Datei ohne Symlink, Hardlink, Umgebung, Hostname, PID oder Zufallsfallback
+    - Worker-ID-Grammatik schließt Whitespace, Pfade, mehrere Zeilen und überlange Werte aus
+    - alle Datei-, JSON-, Typ- und Policyfehler bleiben als research_worker_configuration_unavailable detailfrei
+    - keine ID-Provisionierung, DB-Secretquelle, Signalhandler, CLI, Entry-Point, Compose- oder Production-Wiring
+    - vollständige lokale Suite besteht mit 3387 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-300 implementiert den owner-kontrollierten Research-Worker-Entry-Point
+
+- LQ-300 owner-controlled research-worker entry point:
+  `docs/lq-300-owner-controlled-research-worker-entrypoint.md`
+  - Status:
+    - installiert liquent-research-worker mit ausschließlich expliziter owner-only Config- und Datenbank-URL-Datei
+    - prüft stabile Worker-ID und exakten Datenbank-Migration-Head vor Resolver, ArtifactStore, Composition oder Loop
+    - komponiert lokalen geschlossenen Resolver, immutable ArtifactStore und vollständigen persistenten Einzeljobpfad
+    - SIGTERM und SIGINT setzen nur das Stop-Event; frühere Handler werden nach dem Loop wiederhergestellt
+    - processweite Engine wird bei jedem Ausgang disposed; Fehler bleiben als research_worker_operator_unavailable detailfrei
+    - Bundle-Gates erwarten nun 21 Entry Points und 20 Operatormodule bei unverändertem Head 20260819_0027
+    - Compose bleibt mangels owner-only Datei- und Argumentwiring nicht runnable; Statusdokumentation benennt den neuen Restblocker
+    - vollständige lokale Suite besteht mit 3392 passed, 98 PostgreSQL-Skips und 615 warnings
+    - nächster Slice LQ-301 implementiert kontrolliertes Compose-/Secret-Wiring und Runtime-Audit
+
+- LQ-301 controlled research-worker Compose wiring:
+  `docs/lq-301-controlled-research-worker-compose-wiring.md`
+  - Status:
+    - verdrahtet liquent-research-worker mit expliziter owner-only Konfiguration und bestehendem Datenbank-URL-Secret
+    - mountet stabile Worker-ID und Researchdaten getrennt read-only; nur das bestehende Artifactvolume bleibt beschreibbar
+    - liefert eine geschlossene Beispielkonfiguration mit exakt den festen Containerpfaden, Konkurrenz eins und Trading disabled
+    - verpflichtende Hostpfadvariablen brechen fehlendes Compose-Wiring bereits beim Rendern ab
+    - Migration-Gate, exakte Entry-Point-Readiness und 60 Sekunden Grace Period bilden gemeinsam die Start-/Stopgrenze
+    - Worker bleibt ohne Public-Netz und ohne veröffentlichten Port; Compose erzeugt keine Identität, Config, Secrets oder Daten
+    - keine Schema-, SQL-, Migration-, Port-, Modell- oder Signaturänderung und noch keine Production-Readiness-Behauptung
+    - nächster Slice LQ-302 erbringt den PostgreSQL-Mehrprozess- und End-to-End-Nachweis
+
+- LQ-302 PostgreSQL multiprocess research-worker proof:
+  `docs/lq-302-postgresql-multiprocess-research-worker-proof.md`
+  - Status:
+    - startet zwei spawn-getrennte Workerprozesse mit eigenen Engines und vollständigen Compositions gegen dieselbe Wegwerfdatenbank
+    - akzeptiert genau einen authority-geprüften lokalen CSV-Researchjob ausschließlich über den persistenten Control-Plane-Pfad
+    - PostgreSQL entscheidet den konkurrierenden Claim; erwartet werden exakt ein succeeded und ein neutrales idle
+    - erfolgreicher Prozess führt Claim, initialen Heartbeat, Backtest, immutable Artifactwrite und Finalisierung gemeinsam aus
+    - persistenter Audit prüft genau einen Claim, genau ein Outcome, terminalen Jobstatus und Artifact-SHA-256
+    - kein SQLite-Fallback; verpflichtender Lauf wird über LIQUENT_REQUIRE_POSTGRES_TESTS=1 fail-closed erzwungen
+    - keine Produktlogik-, Schema-, SQL-, Migration-, Port-, CLI-, Compose- oder Konfigurationsänderung
+    - nächster Slice LQ-303 auditiert reale Image-/Compose-/Secret-/SIGTERM-Stagingevidenz
+
+- LQ-303 research-worker staging-readiness audit:
+  `docs/lq-303-research-worker-staging-readiness-audit.md`
+  - Status:
+    - definiert ein fail-closed Runbook für genau einen gebundenen Staginglauf und unveränderlichen Image-Digest
+    - verlangt realen Compose-Render sowie effektive In-Container-UID-, Modus-, Read-only- und Artifactvolume-Evidence
+    - bindet Migration-Gate, exakten Head, stabilen Idle-Start und detailfreie Logs vor dem Jobnachweis
+    - prüft autorisierte Annahme, Claim, Heartbeat, terminales Outcome, Artifacthash und Revocation vor einem zweiten Claim
+    - verlangt kontrollierte Idle- und Running-SIGTERM-Evidence ohne doppelte Outcomes oder erfolgreichen SIGKILL-Pfad
+    - externer Status bleibt mangels Docker, gebundenem Image, Staging-PostgreSQL und Secrets detailfrei unavailable
+    - keine Container-, Secret-, Datenbank-, Deployment-, Produktlogik-, Schema-, Migration-, Port- oder CLI-Mutation
+    - nächster Slice LQ-304 führt das Gate in einer ausdrücklich freigegebenen isolierten Stagingumgebung aus
+
+- LQ-304 offline research-worker staging evidence verifier:
+  `docs/lq-304-offline-research-worker-staging-evidence-verifier.md`
+  - Status:
+    - installiert liquent-research-worker-staging-evidence für genau eine owner-only geschlossene JSON-Datei
+    - bindet Run, staging, Commit, immutable Image-Digest, Compose-Hash, aktuellen Migration-Head und Reviewfenster
+    - verlangt alle 29 LQ-303-Gates mit opaken Evidenzreferenzen und lowercase SHA-256-Nachweisen
+    - trennt unabhängige Vorbereiter-/Revieweridentitäten und akzeptiert weder Teilmenge noch caller-supplied Gesamt-Allow
+    - private URLs, DSNs, Pfade, Secret-/Credentialbegriffe und Keymaterial scheitern vor fachlicher Auswertung
+    - Ausgabe ist ausschließlich approved, rejected oder unavailable mit stabilen Exitcodes und ohne Detailleck
+    - keine Docker-, Netzwerk-, Datenbank-, Deployment-, Schema-, SQL-, Migration-, Port- oder Produktmutation
+    - Bundle-Gates erwarten nun 22 Entry Points und 21 Operatormodule; realer externer Status bleibt unavailable
+    - nächster Slice LQ-305 definiert einen kontrollierten ausdrücklich autorisierten Staging-Executor
+
+- LQ-305 controlled research-worker staging executor contract:
+  `docs/lq-305-controlled-research-worker-staging-executor-contract.md`
+  - Status:
+    - bindet genau einen staging-only Run an owner-only Autorisierung, Commit, Image-Digest, Compose-Hash, Head und Zeitfenster
+    - trennt Executor und Autorisierer sowie Executor-Evidence strikt von der unabhängigen LQ-304-Entscheidung
+    - definiert eine monotone nicht wiederholte Phasenfolge von Preflight über Migration, Job/Revocation und SIGTERM bis Evidence
+    - begrenzt Mutationen auf dedizierte Runressourcen und verbietet Überschreiben, implizites Cleanup sowie Productionzugriff
+    - Unknown Outcome stoppt spätere Phasen; fehlende Gates werden unavailable statt durch Retry oder Annahme ergänzt
+    - verlangt atomare LQ-304-kompatible Ausgabe, geschlossene Unterprozessargumente/-umgebung und strikte Redaction
+    - keine Executorimplementierung, Docker-, Datenbank-, Deployment-, Schema-, Migration-, Port-, CLI- oder Composewirkung
+    - nächster Slice LQ-306 implementiert den Executor über injizierte Prozess-, Clock- und Dateigrenzen
+
+- LQ-306 controlled staging executor state machine:
+  `docs/lq-306-controlled-staging-executor-state-machine.md`
+  - Status:
+    - lädt eine geschlossene owner-only staging-only Run-Autorisierung mit Digest-, Head-, Actor- und Zeitbindung
+    - ruft alle 29 Gates über eine injizierte Phasengrenze in fester Reihenfolge jeweils höchstens einmal auf
+    - nur passed setzt fort; failed, unavailable, ungültige Rückgabe oder Exception stoppt alle weiteren Phaseaufrufe
+    - nicht erreichte Gates werden deterministisch unavailable ohne Referenz oder Digest finalisiert
+    - schreibt kanonische Evidence über private Tempdatei, Fsync und atomaren Link ohne bestehende Ziele zu ersetzen
+    - erzeugte Evidence ist LQ-304-kompatibel, aber Executor importiert den Verifier nicht und entscheidet kein Approval
+    - keine CLI-, Docker-, PostgreSQL-, Deployment-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-307 definiert den owner-kontrollierten lokalen Prozessadapter
+
+- LQ-307 owner-controlled staging process adapter contract:
+  `docs/lq-307-owner-controlled-staging-process-adapter-contract.md`
+  - Status:
+    - definiert die lokale Grenze zwischen LQ-306-Phasen und ausdrücklich autorisierter Docker-Compose-Stagingumgebung
+    - verlangt explizite absolute Inputs, feste Executable-/Argumentlisten, leeres Arbeitsverzeichnis und geschlossene Umgebung
+    - bindet jeden Compose-Aufruf an Run-Projekt-ID, beide Environmentdateien, Composefile und feste Service-Allowlist
+    - bildet exakt 29 Phasen total ab, ohne versteckte Voraussetzungen, Retry, zusätzliche Services oder caller-supplied Optionen
+    - reduziert begrenzten Rohoutput auf neutrale Schemas; eindeutiger Bruch ist failed, Mehrdeutigkeit unavailable
+    - schreibt phasenspezifische Evidence privat und atomar; unavailable erzeugt keinen scheinbaren Nachweis
+    - begrenzt SIGTERM, Ressourcenbesitz und Mutationen; kein implizites down, prune, drop oder Cleanup
+    - keine Implementierung, CLI-, Docker-, Netzwerk-, Datenbank-, Schema-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-308 implementiert ProcessRunner, Capture, Redaction und neutrale Phasenparser
+
+- LQ-308 bounded staging process runner and neutral parsers:
+  `docs/lq-308-bounded-staging-process-runner-and-neutral-parsers.md`
+  - Status:
+    - implementiert explizite argv-Unterprozesse ohne Shell, mit DEVNULL-stdin, neuer Prozessgruppe und vollständig übergebener Umgebung
+    - begrenzt stdout und stderr separat per nicht blockierendem Selector und markiert Truncation ohne Detailweitergabe
+    - Timeout sendet einmal SIGTERM; erforderlicher SIGKILL bleibt als hard_killed beobachtbar und niemals erfolgreich
+    - reduziert exakt alle 29 Phasen über geschlossene Boolean-Faktschemas auf neutrales passed oder failed
+    - Nonzero, stderr, unbekannte/doppelte Schlüssel, falsche Typen, private Werte und technische Mehrdeutigkeit sind unavailable
+    - kanonischer reduzierter Output enthält keinen argv-, Umgebungs-, Pfad- oder Rohoutputkontext
+    - Bundle-Gates erwarten weiterhin 22 Entry Points und korrigiert 23 Operatormodule bei Head 20260819_0027
+    - keine Docker-Kommandotabelle, Evidencepersistenz, CLI-, Staging-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-309 implementiert feste Phase-Command-Composition und privaten EvidenceObjectSink
+
+- LQ-309 fixed staging phase composition and evidence sink:
+  `docs/lq-309-fixed-staging-phase-composition-and-evidence-sink.md`
+  - Status:
+    - bindet absolute Probe-/Dockerpfade, privates leeres CWD, Composefile und owner-only Environmentdateien
+    - plant für exakt 29 Phasen feste argv-Aufrufe, rungebundene Projekt-ID und Umgebung ausschließlich LANG/LC_ALL C
+    - verwendet feste 60-/300-Sekundenlimits, 65536 Byte je Kanal und fünf Sekunden Terminate-Grace
+    - speichert nur kanonisch reduzierten Output über 0600-Tempdatei, Fsync, atomaren Link und SHA-256-Read-back
+    - bestehende Evidence wird nie ersetzt; technischer Prozess-/Parser-/Storefehler erzeugt keinen scheinbaren Nachweis
+    - vollständige Composition liefert StagingPhaseEvidence an LQ-306, entscheidet aber kein Approval oder Retry
+    - Bundle-Gates erwarten 22 Entry Points und 24 Operatormodule bei unverändertem Head 20260819_0027
+    - keine Probe-CLI-, Docker-, Staging-, Datenbank-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-310 definiert den geschlossenen staging-only Probe-Command-Vertrag
+
+- LQ-310 closed staging probe command contract:
+  `docs/lq-310-closed-staging-probe-command-contract.md`
+  - Status:
+    - schließt die Probe-CLI auf sieben verpflichtende einmalige Argumente einschließlich owner-only Run-Autorisierung ohne Defaults, Environment- oder PATH-Fallback
+    - bindet Docker-/Compose-Aufrufe an absolutes Executable, beide Environmentdateien, Composefile, Runprojekt und Service-Allowlist
+    - definiert exakt eine kanonische neutrale JSON-Zeile und das feste Boolean-Faktum für jede der 29 Phasen
+    - trennt read-only Image-/Render-/Inspectphasen von eng begrenzten PostgreSQL-, Job-, Revocation- und SIGTERM-Mutationen
+    - verbietet versteckte Voraussetzungen, implizite Phasen, Retry, Shell, zusätzliche Services, Build/Push/Login und Cleanup
+    - Unknown Outcome bleibt technisch unavailable und darf weder wiederholt noch heuristisch als failed/passed rekonstruiert werden
+    - Secrets, Pfade, IDs, Rohoutput und Infrastrukturdetails verlassen die Probegrenze nicht; Ressourcen bleiben extern besessen
+    - keine Implementierung, Entry-Point-, Docker-, Datenbank-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-311 implementiert zuerst die rein read-only Probephasen
+
+- LQ-311 read-only staging image and Compose probe:
+  `docs/lq-311-read-only-staging-image-and-compose-probe.md`
+  - Status:
+    - wertet rohe begrenzte Imageinspect- und Compose-JSON-Snapshots selbst aus, ohne caller-supplied Allow-Fakten
+    - implementiert Image-Digest, Source-Revision und Runtime-UID/GID gegen die validierte Run-Autorisierung
+    - prüft Compose-Render, Trading disabled, exakten Workercommand, isolierte Netze, Mounts, Secretmodus und Grace
+    - unbekannte, mutierende oder nicht aus statischer Evidence beweisbare Phasen bleiben technisch unavailable
+    - Mismatch ist neutral failed; beschädigte, doppelte, übergroße oder gemischte Beobachtung bleibt unavailable
+    - kanonischer Output enthält nur Phase und ein Boolean; Hostpfade, Secrets, Volumenamen und Rohmodelle bleiben intern
+    - Bundle-Gates erwarten 22 Entry Points und 25 Operatormodule bei unverändertem Head 20260819_0027
+    - keine CLI-, Docker-, Datei-, Netzwerk-, Datenbank-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-312 implementiert die read-only Probe-CLI-Composition
+
+- LQ-312 read-only staging probe CLI composition:
+  `docs/lq-312-read-only-staging-probe-cli-composition.md`
+  - Status:
+    - installiert liquent-staging-phase-probe mit sieben einmaligen Inputs einschließlich owner-only Run-Autorisierung
+    - prüft Runprojekt, Compose-SHA-256, fünf immutable Imagewerte und exakte autorisierte Application-Image-Referenz vor Docker
+    - Imagephasen führen ausschließlich docker image inspect des autorisierten Digests mit ein MiB Capture aus
+    - Composephasen führen ausschließlich gebundenes compose config --format json mit zwei MiB Capture aus
+    - Prozessumgebung ist LANG/LC_ALL C, CWD temporär leer, Timeout 60 und Terminate-Grace fünf Sekunden
+    - nur kanonischer LQ-311-Output erreicht stdout; Parsing-, Binding- und Prozessfehler liefern still Exitcode zwei
+    - Bundle-Gates erwarten 23 Entry Points und 26 Operatormodule bei unverändertem Head 20260819_0027
+    - keine mutierende Phase, Stagingfreigabe, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-313 definiert read-only Runtime-Inspection für Entry Point, Ownership und Datenmounts
+
+- LQ-313 controlled runtime inspection contract:
+  `docs/lq-313-controlled-runtime-inspection-contract.md`
+  - Status:
+    - definiert Entry-Point-, effektive Inputownership- und Data-read-only-Inspection im exakten Image unter UID/GID 10001
+    - behandelt den kurzlebigen Containerstart korrekt als Dockerzustandsänderung ohne Produkt-, DB-, Job- oder Artifactmutation
+    - verlangt rungebundenen --rm-Container mit read-only Root, no-new-privileges, Cap-drop, network none und ohne Secrets
+    - nutzt ausschließlich festes liquent-runtime-inspect ohne Shell, python -c, PATH-Lookup oder caller-geliefertes Prüfprogramm
+    - Entry Point wird aus installierten Metadaten ohne Import/Start geprüft; Inputs über No-follow-Descriptoren ohne Inhaltsread
+    - Daten-read-only wird aus Mountinfo und effektiven Metadaten ohne absichtlich fehlschlagenden Probe-Write beobachtet
+    - Unknown Outcome, Hard Kill oder unklare Auto-Removal-Wirkung bleibt unavailable ohne Retry oder ungebundenes Cleanup
+    - keine Implementierung, CLI-, Container-, DB-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-314 implementiert das reine Runtime-Inspection-Executable; LQ-315 folgt mit Docker-Run-Composition
+
+- LQ-314 runtime inspection executable:
+  `docs/lq-314-runtime-inspection-executable.md`
+  - Status:
+    - installiert liquent-runtime-inspect mit ausschließlich entrypoint, input_ownership und data_read_only
+    - prüft exakten Console-Script-Metadateneintrag und sicheres reguläres Executable ohne Import oder Workerstart
+    - öffnet Config und Worker-ID No-follow und bewertet nur Owner, Linkcount und Modus ohne Inhaltsread
+    - prüft Datenroot und genau einen ro-Mountinfo-Eintrag sowie vorhandene Dateien ohne jede Schreibprobe
+    - eindeutiger Mismatch ergibt neutrales false; technische Mehrdeutigkeit endet still mit Exitcode zwei
+    - Output enthält nur kanonische Phase/Boolean-Evidence und keine Paket-, UID-, Mode-, Mount-, Pfad- oder Fehlerdetails
+    - Bundle-Gates erwarten 24 Entry Points und 27 Operatormodule bei unverändertem Head 20260819_0027
+    - keine Docker-, Secret-, Artifact-, DB-, Job-, Schema-, SQL-, Migration-, Port- oder Composewirkung
+    - nächster Slice LQ-315 implementiert die gehärtete rungebundene Docker-Run-Composition
+
+- LQ-315 hardened runtime inspection Docker composition:
+  `docs/lq-315-hardened-runtime-inspection-docker-composition.md`
+  - Status:
+    - erweitert die Probe-CLI um entrypoint, input_ownership und data_read_only mit genau einem Inspectioncontainer
+    - rendert und revalidiert zuvor alle statischen Workergrenzen; Mismatch stoppt vor docker run
+    - übernimmt ausschließlich drei absolute sichere Bindquellen und verlangt exakt das autorisierte Workerimage
+    - docker run ist --rm/--pull never, network none, read-only, UID/GID 10001, no-new-privileges und cap-drop ALL
+    - setzt feste PID-/Memory-/CPU-/tmpfs-/Loggrenzen und startet ausschließlich liquent-runtime-inspect
+    - enthält kein Secret, Artifactvolume, Port, Zusatznetz, Environmentargument, Device, Privileged, Shell oder PATH-Lookup
+    - unbekannter Containeroutcome bleibt unavailable ohne Retry, Stop-, Remove- oder Cleanupversuch
+    - Bundle bleibt 24 Entry Points/27 Operatormodule; keine reale Docker-, DB-, Schema-, Migration-, Port- oder Composewirkung in Tests
+    - nächster Slice LQ-316 definiert die kontrollierte bewusst schreibende Artifact-Capability-Probe
+
+- LQ-316 controlled artifact capability probe contract:
+  `docs/lq-316-controlled-artifact-capability-probe-contract.md`
+  - Status:
+    - definiert artifact_capabilities als erste strikt getrennte bewusst schreibende Stagingphase ohne Implementierung oder realen Containerstart
+    - bindet genau einen intern abgeleiteten runbezogenen Probe-Prefix außerhalb regulärer Research-Artifactschlüssel
+    - verlangt exklusive owner-only Create-, vollständige Write-, Fsync-, Hardlink-Publish-, No-overwrite- und Hash-Read-back-Semantik
+    - Erfolg setzt bestätigtes gezieltes Entfernen ausschließlich des eigenen Prefix voraus; bestehender Prefix stoppt vor Mutation
+    - eindeutiger Capability-Mismatch ist neutrales false, technische Mehrdeutigkeit bleibt detailfrei unavailable
+    - nach unbekanntem Effekt gibt es keinen Retry, Blind-Cleanup, Volume-Remove, Compose-Down oder Prune; Restbestand verlangt separaten Recoveryvertrag
+    - spätere Containercomposition erhält nur das Artifactvolume read-write und weder Netzwerk, Secret, DB, Workerinput noch Researchdaten
+    - keine CLI-, Docker-, Compose-, Bundle-, Schema-, SQL-, Migration-, Port-, Modell- oder Production-Wiring-Entscheidung
+    - nächster Slice LQ-317 implementiert das reine in-image Artifact-Capability-Executable
+
+- LQ-317 artifact capability inspection executable:
+  `docs/lq-317-artifact-capability-inspection-executable.md`
+  - Status:
+    - installiert liquent-artifact-capability-inspect mit geschlossenem 64-lowercase-Hex-Run-Token und festem Artifactroot
+    - verwendet einen reservierten rungebundenen Prefix außerhalb der regulären LQ-296-Research-Schlüsselgrammatik
+    - führt Create, vollständigen Write, Datei-/Directory-Fsync, exklusiven Hardlink-Publish und No-overwrite-Nachweis descriptor-relativ aus
+    - prüft finale Owner-, Modus-, Linkcount-, Größen-, Byte- und SHA-256-Semantik durch vollständigen Read-back
+    - Erfolg verlangt gezieltes Entfernen und bestätigte Abwesenheit ausschließlich des eigenen Probe-Prefix
+    - bestehender Prefix und technische Mehrdeutigkeit enden still unavailable ohne Retry oder Blind-Cleanup
+    - Output enthält nur das kanonische artifact_capabilities_valid-Boolean; Tests starten keinen Dockercontainer
+    - Bundle-Gates steigen auf 25 Entry Points und 28 Operatormodule bei 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-318 implementiert die gehärtete Docker-Run-Composition der schreibenden Probe
+
+- LQ-318 hardened artifact capability Docker composition:
+  `docs/lq-318-hardened-artifact-capability-docker-composition.md`
+  - Status:
+    - erweitert die Probe-CLI um artifact_capabilities mit vorgeschalteter Revalidierung aller statischen Workergrenzen
+    - übernimmt ausschließlich das exakt einmal gebundene benannte Artifactvolume und mountet nur dieses read-write
+    - startet das autorisierte Image ohne Pull mit network none, read-only Root, UID/GID 10001 und vollständig gedroppten Capabilities
+    - bindet PID-, Memory-, CPU-, tmpfs- und Loggrenzen sowie den absoluten LQ-317-Entrypoint
+    - leitet den 64-Hex-Probe-Token intern stabil aus autorisiertem Projektnamen und festem Phasennamen ab
+    - reicht weder Secret, DB, Config, Worker-ID, Researchdaten, Port, Environmentargument noch Bindmount weiter
+    - unbekannter Write-Ausgang bleibt unavailable ohne Retry, Stop, Remove, Down, Prune oder Blind-Cleanup
+    - Bundle bleibt bei 25 Entry Points, 28 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-319 definiert den getrennt autorisierten Recoveryvertrag für unbekannte Probeausgänge
+
+- LQ-319 controlled artifact probe recovery contract:
+  `docs/lq-319-controlled-artifact-probe-recovery-contract.md`
+  - Status:
+    - definiert Recovery unbekannter Artifact-Probe-Ausgänge als getrennt autorisierten Prozess ohne automatische Wiederholung der Capability-Probe
+    - bindet stabile Recovery-ID, ursprünglichen Run, Source, Image, Compose, intern reproduzierten Token und getrennte Executor-/Autorisiereridentitäten
+    - verlangt zwingend read-only Klassifikation in absent, exakt recoverable, conflict oder technisch unavailable vor jeder Schreibfähigkeit
+    - erlaubt nur feste LQ-317-Namen und exakt gebundene Owner-, Modus-, Linkcount-, Größen-, Inhalts- und Digestwerte als recoverable
+    - zusätzliche oder abweichende Objekte sind conflict und werden niemals automatisch verändert
+    - write-time Revalidierung muss den vollständigen Snapshot erneut bestätigen, bevor bekannte Probeobjekte gezielt entfernt werden
+    - Race oder unbekannter Remove-Ausgang bleibt unavailable ohne Retry, dritten Container, Volume-Remove, Down, Prune oder Blind-Cleanup
+    - ursprüngliche unavailable Phase bleibt unverändert; already_absent oder removed gewährt weder Readiness noch Artifactfähigkeit
+    - nächster Slice LQ-320 implementiert ausschließlich das read-only In-Image-Recovery-Inspection-Executable
+
+- LQ-320 artifact probe recovery inspection executable:
+  `docs/lq-320-artifact-probe-recovery-inspection-executable.md`
+  - Status:
+    - installiert liquent-artifact-probe-recovery-inspect mit geschlossenem 64-lowercase-Hex-Token und festem Artifactroot
+    - klassifiziert ausschließlich den exakten rungebundenen Prefix read-only als absent, recoverable oder conflict
+    - erkennt leeren, temporären, finalen und korrekt hartverlinkten LQ-317-Zwischenzustand anhand fester Namen und Bytes
+    - prüft no-follow Typ, Owner, Modus, Größe, Inhalt, SHA-256, Linkcount sowie gemeinsame Inode-/Devicebindung
+    - Symlinks, unbekannte Namen, unabhängige Dateien, externe Hardlinks und jede Metadatenabweichung sind conflict
+    - technische Mehrdeutigkeit endet still unavailable; es gibt keinen Retry, Scan, Write oder Cleanup
+    - Output enthält nur Inspectiontyp und neutralen Ausgang ohne Token-, Volume-, Pfad-, Datei- oder Metadatendetail
+    - Bundle-Gates steigen auf 26 Entry Points und 29 Operatormodule bei unverändert 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-321 implementiert das revalidierende gezielte In-Image-Remove-Executable
+
+- LQ-321 artifact probe recovery remove executable:
+  `docs/lq-321-artifact-probe-recovery-remove-executable.md`
+  - Status:
+    - installiert liquent-artifact-probe-recovery-remove mit geschlossenem Run-Token und festem Artifactroot
+    - behandelt bestätigte Prefixabwesenheit idempotent als already_absent ohne Write oder Capabilityaussage
+    - revalidiert ausschließlich die vier erreichbaren LQ-317-Zustände vollständig vor dem ersten Unlink
+    - prüft jeden bekannten Namen unmittelbar vor Unlink erneut einschließlich unveränderter Device-/Inodebindung
+    - entfernt nur temporären und finalen festen Namen, fsynct, verlangt leeres Verzeichnis und bestätigt Prefixabwesenheit
+    - unbekannte Namen, Symlinks, Metadatenabweichung, unabhängige Dateien und externe Hardlinks bleiben unveränderter conflict
+    - unbekannter Remove-Ausgang endet unavailable ohne Retry, Restcleanup, Volume-Remove, Down oder Prune
+    - Bundle-Gates steigen auf 27 Entry Points und 30 Operatormodule bei 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-322 implementiert die owner-kontrollierte read-only-then-write Recovery-Composition
+
+- LQ-322 owner-controlled artifact probe recovery composition:
+  `docs/lq-322-owner-controlled-artifact-probe-recovery-composition.md`
+  - Status:
+    - installiert liquent-artifact-probe-recovery mit historischer Run-Bindung und separater aktueller owner-only Recovery-Autorisierung
+    - bindet stabile Recovery-ID, Run, Phase, Source, Image und Compose sowie getrennte Recoveryidentitäten für höchstens eine Stunde
+    - rendert Compose erneut und revalidiert alle statischen Workergrenzen vor jedem Volumezugriff
+    - leitet Token und benanntes Artifactvolume ausschließlich intern aus der erneut geprüften Run-Bindung ab
+    - startet LQ-320 zuerst mit genau einem read-only Volume; absent und conflict stoppen ohne Schreibcontainer
+    - nur recoverable startet LQ-321 mit demselben Image, Token und einzigem Volume read-write
+    - unbekannter Inspect- oder Remove-Ausgang bleibt unavailable ohne Retry, dritten Container, Down, Prune oder Cleanup
+    - Bundle-Gates steigen auf 28 Entry Points und 31 Operatormodule bei 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-323 ergänzt private atomare Recovery-Evidence und finalen owner-kontrollierten Handoff
+
+- LQ-323 private artifact probe recovery evidence handoff:
+  `docs/lq-323-private-artifact-probe-recovery-evidence-handoff.md`
+  - Status:
+    - ergänzt den bestehenden Recovery-Operator um ein privates owner-only Evidenceverzeichnis ohne automatische Erstellung
+    - bindet Recovery-ID, Run, Phase, Source, Image, Compose, getrennte Identitäten, neutralen Ausgang und UTC-Abschlusszeit
+    - veröffentlicht kanonische 0600-Evidence exklusiv per Hardlink, fsynct und verifiziert den finalen Linkcount-eins-Inhalt
+    - erzeugt vor Prozesszugriff einen stabilen Recovery-ID-basierten Claim und verhindert dadurch konkurrierende Inspect-/Remove-Läufe
+    - exakte Wiederholung liest finale Evidence vor Claim und Docker und liefert denselben Ausgang ohne neue Wirkung
+    - abweichende Wiederverwendung, beschädigte Evidence oder vorhandener Claim endet detailfrei unavailable
+    - unbekannter Prozess- oder Finalisierungsausgang behält den Claim und erlaubt weder Retry noch Force-Unlock
+    - Bundle bleibt bei 28 Entry Points, 31 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-324 definiert kontrollierte Claim-Reconciliation gegen Evidence und aktuellen Prefixzustand
+
+- LQ-324 controlled artifact probe recovery claim reconciliation contract:
+  `docs/lq-324-controlled-artifact-probe-recovery-claim-reconciliation-contract.md`
+  - Status:
+    - definiert Claim-Reconciliation als neue owner-only Autorisierung mit stabiler ID und vollständiger historischer Recoverybindung
+    - erlaubt Claimentfernung nur nach exakt bestätigter finaler Evidence oder atomar finalisierter read-only Prefixabwesenheit
+    - bestehende gültige Recovery-Evidence bleibt unverändert maßgeblich und erhält getrennte evidence_confirmed-Reconciliation
+    - ohne Recovery-Evidence darf nur LQ-320 read-only laufen; absent wird neutral als absence_confirmed_after_unknown finalisiert
+    - recoverable, conflict und technische Unklarheit behalten Claim und Bestand ohne LQ-321 oder read-write Volume
+    - Evidence wird stets vor Claimentfernung exklusiv veröffentlicht, fsynct und zurückgelesen; Crash konvergiert auf Evidence-first
+    - IDs und vollständige Bindungen sind nicht wiederverwendbar; exakter Retry liefert denselben Ausgang ohne Docker oder neue Wirkung
+    - keine Implementierung, CLI-, Docker-, Schema-, SQL-, Migration-, Port-, Compose- oder Production-Wiring-Entscheidung
+    - nächster Slice LQ-325 implementiert den owner-only Claim-Reconciliation-Operator
+
+- LQ-325 owner-controlled artifact probe recovery claim reconciliation:
+  `docs/lq-325-owner-controlled-artifact-probe-recovery-claim-reconciliation.md`
+  - Status:
+    - installiert liquent-artifact-probe-recovery-reconcile mit historischer Run-/Recoverybindung und aktueller separater Reconciliation-Autorisierung
+    - erzeugt einen stabilen exklusiven Reconciliation-Claim und ordnet konkurrierende Versuche ohne Warten oder Force-Unlock
+    - bestätigt vorhandene finale Recovery-Evidence ohne Docker und entfernt verbliebene Recovery-Claims erst nach eigener Evidence
+    - führt ohne Recovery-Evidence ausschließlich LQ-320 mit erneut gebundenem Artifactvolume read-only aus
+    - absent finalisiert absence_confirmed_after_unknown und getrennte absence_finalized-Evidence vor Claimentfernung
+    - recoverable und conflict bleiben retained ohne LQ-321, zweiten Container oder read-write Volume
+    - exakter Retry liest Reconciliation-Evidence vor Claims und Docker und schließt valide Crashreste evidence-first
+    - Bundle-Gates steigen auf 29 Entry Points und 32 Operatormodule bei 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-326 auditiert die vollständige Artifact-Capability- und Recoverykette
+
+- LQ-326 artifact capability and recovery end-to-end audit:
+  `docs/lq-326-artifact-capability-recovery-end-to-end-audit.md`
+  - Status:
+    - auditiert die vollständige lokale Kette LQ-316 bis LQ-325 einschließlich Erfolg, Unknown Outcome, Recovery, Conflict und Reconciliation
+    - führt Capability, read-only Klassifikation und exaktes Remove real auf privaten temporären Dateisystemroots aus
+    - beweist vollständiges Cleanup bei Erfolg, recoverable Konvergenz nach verlorenem Link-Acknowledgement und unveränderten Conflict
+    - prüft artifact_capabilities nach data_read_only und vor migration_gate in der festen 29-Phasen-Reihenfolge
+    - bestätigt getrennte fünf Entry Points, read-only Claim-Reconciliation und Evidence-first-Retry ohne Dockerwirkung
+    - gleicht Bundle-Gates auf 29 Entry Points, 32 Operatormodule, 27 Migrationen und Head 20260819_0027 ab
+    - kein realer Dockercontainer, Digest-Image, Stagingvolume, PostgreSQL-, Job- oder Signalnachweis wurde ausgeführt
+    - externe Staging-Readiness bleibt unavailable; lokale Tests sind keine Freigabe oder Deploymentautorität
+    - nächster Slice LQ-327 definiert disposable PostgreSQL und rollback-current als nächste LQ-303-Gates
+
+- LQ-327 disposable PostgreSQL and current rollback evidence contract:
+  `docs/lq-327-disposable-postgresql-and-current-rollback-evidence-contract.md`
+  - Status:
+    - trennt die mutierende disposable_postgres-Bereitstellung strikt vom read-only rollback-Evidencenachweis
+    - bindet genau eine neue isolierte runbezogene PostgreSQL-Instanz, interne Netze und ein neues Datenvolume an autorisierte Digests
+    - verbietet Übernahme bestehender Datenbanken, externer Netze/Volumes, Hostports, Restore, Seed und Migration in der Bereitstellungsphase
+    - database_isolated verlangt gesunde Digestidentität, exklusive neue Ressourcen und Abwesenheit vorbestehender Produktfakten
+    - unbekannter Create-/Startausgang bleibt unavailable ohne zweiten Up, Down, Volume-/Network-Remove, Prune oder Blind-Cleanup
+    - rollback prüft ausschließlich aktuelle gebundene Backup-/Restore-/Application-Rollback-Evidence und führt keine Mutation aus
+    - rollback_current gewährt weder ausgeführten Rollback noch Promotion; Datenbankdowngrade, Restore und SQL-Rollback sind ausgeschlossen
+    - keine Implementierung, Docker-, Schema-, SQL-, Migration-, Port-, Compose- oder Production-Wiring-Entscheidung
+    - nächster Slice LQ-328 implementiert zuerst den read-only rollback_current-Evidence-Inspector
+
+- LQ-328 current rollback evidence inspector:
+  `docs/lq-328-current-rollback-evidence-inspector.md`
+  - Status:
+    - installiert liquent-rollback-evidence-inspect als strikt lokalen read-only Inspector mit zwei owner-only Dateien
+    - bindet Run, staging, Source, Kandidaten-Digest, vollständigen Evidence-SHA-256, getrennte Identitäten und UTC-Fenster
+    - prüft vorherigen gesunden Digest, identisches Rollbackziel, Backup-/Restore-Digests, Status und unabhängige Verifikation
+    - Hashabweichung, stale Evidence, Bindungsmismatch, gleiche Identitäten oder unbrauchbares Ziel ergeben neutrales false
+    - malformed Struktur, Duplikatschlüssel, private Dateiverletzung und technische Lesefehler enden still unavailable
+    - Output enthält ausschließlich das kanonische rollback_current-Boolean ohne IDs, Digests, Zeiten, Pfade oder Fehlerdetails
+    - kein Docker-, Compose-, Restore-, SQL-, Datenbankrollback-, Imagewechsel- oder Promotionseffekt ist erreichbar
+    - Bundle-Gates steigen auf 30 Entry Points und 33 Operatormodule bei 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-329 komponiert den lokalen Inspector in die Staging-Probe
+
+- LQ-329 rollback evidence staging probe composition:
+  `docs/lq-329-rollback-evidence-staging-probe-composition.md`
+  - Status:
+    - erweitert liquent-staging-phase-probe für rollback um genau zwei zusätzliche owner-only Evidenceinputs
+    - verlangt beide Rollbackdateien ausschließlich gemeinsam und weist sie bei jeder anderen Phase vor Prozesszugriff zurück
+    - bindet Run, Source, Kandidatendigest, Executor, Autorisierer und UTC-Fenster exakt an die aktuelle Staging-Autorisierung
+    - reduziert den kanonischen LQ-328-Output erneut über die geschlossene LQ-308-Phasengrenze
+    - aktuelle Evidence ergibt passed, eindeutiger Hash-, Evidence- oder Runbindungsmismatch neutrales failed
+    - malformed oder technisch nicht lesbare Inputs bleiben detailfrei unavailable und erzeugen keinen Output
+    - rollback startet keinen Prozess und erreicht weder Docker, Compose, Restore, SQL noch Application-Rollback
+    - Bundle-Gates bleiben bei 30 Entry Points, 33 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-330 implementiert disposable_postgres mit geschlossener Isolations- und Unknown-Outcome-Grenze
+
+- LQ-330 disposable PostgreSQL staging composition:
+  `docs/lq-330-disposable-postgresql-staging-composition.md`
+  - Status:
+    - validiert den SHA-gebundenen Compose-Render und geschlossenen PostgreSQL-Service vollständig vor Mutation
+    - verlangt exakt abgeleiteten Runcontainer, zwei interne nicht externe Runnetze und ein nicht externes Runvolume
+    - beweist die Abwesenheit aller vier Ressourcen über feste read-only Dockerlisten vor dem ersten Effekt
+    - führt höchstens einmal compose up --detach --no-build --no-recreate ausschließlich für postgres aus
+    - Unknown Outcome bleibt unavailable ohne zweiten Up, heuristisches Inspect, Down, Remove, Prune oder Cleanup
+    - inspiziert nur nach eindeutigem Start Gesundheit, Digest, Labels, Portfreiheit, Netze und Volumebindung
+    - eindeutiger Isolationsbruch ergibt neutrales failed; technische Mehrdeutigkeit erzeugt keinen Nachweis
+    - führt weder SQL, Migration, Seed, Restore, Produktfakterzeugung noch Application-Rollback aus
+    - Bundle-Gates stehen bei 30 Entry Points, 34 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-331 implementiert read-only Reconciliation für Unknown Outcomes dieser Phase
+
+- LQ-331 disposable PostgreSQL unknown-outcome reconciliation:
+  `docs/lq-331-disposable-postgresql-unknown-outcome-reconciliation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-reconcile als getrennten strikt read-only Recovery-Command
+    - verlangt eine neue aktuelle owner-only Reconciliation-Autorisierung zusätzlich zur historischen Runbindung
+    - bindet Run, Phase, Source, Kandidatendigest, Composehash, getrennte Identitäten und enges UTC-Fenster
+    - rendert Compose erneut und leitet Container, beide internen Netze und Volume ausschließlich aus dem Runmodell ab
+    - klassifiziert vollständig leeren Bestand als absent und partielle oder fremd gebundene Ressourcen als conflict
+    - isolated verlangt gesunden Digestcontainer, Portfreiheit, exakte Netze, Volume und Compose-Projektlabels
+    - technische Listen-/Inspectmehrdeutigkeit bleibt still unavailable ohne Mutation oder scheinbaren Conflict
+    - kein Ausgang wiederholt LQ-330, setzt die Phase fort, startet Migrationen oder gewährt Cleanup beziehungsweise Deployment
+    - Bundle-Gates steigen auf 31 Entry Points, 35 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-332 ergänzt private atomare Reconciliation-Evidence und detailarmen Operator-Handoff
+
+- LQ-332 private PostgreSQL reconciliation evidence handoff:
+  `docs/lq-332-private-postgresql-reconciliation-evidence-handoff.md`
+  - Status:
+    - erweitert liquent-disposable-postgres-reconcile um ein absolutes owner-only Evidenceverzeichnis
+    - bindet jeden Record unveränderlich an Reconciliation-ID, Run, Phase, Source, Image, Compose und getrennte Identitäten
+    - liefert exakte bestehende 0600-Evidence vor Compose- oder Dockerzugriff als denselben neutralen Ausgang zurück
+    - serialisiert neue Ausführung durch einen exklusiven fsyncten Claim aus dem SHA-256 der Reconciliation-ID
+    - publiziert Evidence über 0600-Tempdatei, Fsync, exklusiven Hardlink, Verzeichnis-Fsync und vollständigen Read-back
+    - entfernt den exakten Claim erst nach bestätigter Evidence; Evidence-first-Retry darf nur einen gültigen Restclaim entfernen
+    - unbekannter Beobachtungs- oder Publikationsausgang bleibt als Claim ohne erfundenes Ergebnis und ohne automatischen Retry sichtbar
+    - Reconciliation-ID und Evidence sind nicht unter neuer Bindung wiederverwendbar; kein Ausgang gewährt Resume, Cleanup oder Deployment
+    - Bundle-Gates bleiben bei 31 Entry Points, 35 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-333 implementiert separat autorisierte read-only Claim-Reconciliation ohne Ressourcenentfernung
+
+- LQ-333 disposable PostgreSQL claim reconciliation:
+  `docs/lq-333-disposable-postgresql-claim-reconciliation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-claim-reconcile mit dritter aktueller owner-only Autorisierungsgrenze
+    - bindet Claim-Reconciliation-ID, frühere Reconciliation, Run, Phase, Source, Image, Compose und beide Identitätspaare
+    - bestätigt vorhandene ursprüngliche Evidence ohne Docker oder klassifiziert Claimbestand erneut ausschließlich read-only
+    - publiziert bei Neuklassifikation zuerst ursprüngliche Evidence und danach eigene Claim-Reconciliation-Evidence
+    - entfernt ursprünglichen und eigenen Claim ausschließlich nach bestätigter atomarer Evidence in fester Reihenfolge
+    - liefert already_finalized, evidence_confirmed, drei detailarme finalized-Ausgänge oder not_found
+    - Unknown Outcome behält Claims ohne Retry, Altersheuristik, Force-Unlock oder erfundenes Ergebnis
+    - kein Ausgang entfernt PostgreSQL-Ressourcen, wiederholt LQ-330, setzt Migrationen fort oder gewährt Deployment
+    - Bundle-Gates steigen auf 32 Entry Points, 36 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-334 definiert getrennte Disposition für Retain, neuen Run und mögliches eng begrenztes Cleanup
+
+- LQ-334 disposable PostgreSQL recovery disposition contract:
+  `docs/lq-334-disposable-postgresql-recovery-disposition-contract.md`
+  - Status:
+    - definiert einen rein read-only Dispositionsvertrag über die vollständige private LQ-332/333-Evidencekette
+    - schließt neutrale Ausgänge auf retain, new_run_eligible, cleanup_review_eligible und investigation_required
+    - erlaubt einen neuen Run nur nach finalem absent, geschlossenen Claims und mit vollständig neuer nicht wiederverwendeter Run-ID
+    - behandelt isolated standardmäßig als retain und Cleanup lediglich als später separat autorisierbare Reviewmöglichkeit
+    - verlangt vor Cleanupprüfung Abwesenheit aller späteren Migration-, Worker-, Control-Plane- und Produktwirkungen
+    - conflict führt ausschließlich zu investigation_required; not_found und offene Claims bleiben technisch unavailable
+    - trennt Container-/Netzwerkentfernung strikt von ausdrücklich gebundener destruktiver Volumenlöschung
+    - verbietet Compose-Down, Prune, Wildcard-, Prefix- und Labelgruppencleanup sowie Retry nach möglichem Effekt
+    - keine Implementierung; Bundle bleibt bei 32 Entry Points, 36 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-335 implementiert zuerst den strikt read-only Dispositionsresolver ohne Cleanup
+
+- LQ-335 read-only PostgreSQL recovery disposition resolver:
+  `docs/lq-335-read-only-postgresql-recovery-disposition-resolver.md`
+  - Status:
+    - installiert liquent-disposable-postgres-disposition als strikt lokalen read-only Evidence-Resolver
+    - verlangt eine aktuelle owner-only Dispositionsautorisierung mit SHA-256 aller drei maßgeblichen Evidenceobjekte
+    - bindet historische Run-, Reconciliation- und Claim-Reconciliation-Kette vollständig ohne caller-gelieferten Ausgang
+    - sperrt jede Entscheidung bei offenem ursprünglichem oder Claim-Reconciliation-Claim
+    - prüft das geschlossene 29-Phasen-Stagingobjekt und verlangt ab disposable_postgres ausschließlich unavailable für Freigabeeignung
+    - bildet absent auf new_run_eligible, isolated auf cleanup_review_eligible und conflict auf investigation_required ab
+    - stuft absent oder isolated bei nachgewiesenem späterem Phaseneffekt sicher auf retain zurück
+    - führt weder Dockerzugriff, neuen Run, Claimmutation, Cleanup noch Dispositionsevidencepersistenz aus
+    - Bundle-Gates steigen auf 33 Entry Points, 37 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-336 definiert Cleanup-Autorisierung und read-only Preflight ohne Ressourcenentfernung
+
+- LQ-336 disposable PostgreSQL cleanup authorization and preflight contract:
+  `docs/lq-336-disposable-postgresql-cleanup-authorization-preflight-contract.md`
+  - Status:
+    - definiert eine neue owner-only Cleanup-Autorisierung ohne Autoritätsvererbung aus Staging, Reconciliation oder Disposition
+    - bindet Cleanup-ID, Run- und Reconciliationkette, alle Evidencehashes, getrennte Identitäten und enges UTC-Fenster
+    - trennt Scope runtime_only strikt von runtime_and_data_volume ohne nachträgliche Scopeerweiterung oder Herabstufung
+    - verlangt erneute Ableitung von cleanup_review_eligible, Claimfreiheit, Composebindung und aktuelle exakte Ressourcenisolation
+    - klassifiziert vollständig abwesenten Bestand als already_absent, exakten Bestand als ready und klare Abweichung als rejected
+    - fordert für Volumenlöschung zusätzlichen autoritativen Nachweis ohne Migration, Seed, Restore, Produktwirkung oder Retentionpflicht
+    - verbietet SQL-/Dateisystemheuristik, Compose-Down, --volumes, Prune, Wildcard-, Prefix- und Labelgruppencleanup
+    - ready gewährt noch keinen Effekt; spätere Mutation muss alles unmittelbar vor dem ersten Effekt erneut validieren
+    - keine Implementierung; Bundle bleibt bei 33 Entry Points, 37 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-337 implementiert ausschließlich den read-only Cleanup-Preflight ohne Remove
+
+- LQ-337 read-only disposable PostgreSQL cleanup preflight:
+  `docs/lq-337-read-only-disposable-postgresql-cleanup-preflight.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-preflight als getrennten read-only Cleanup-Eignungscommand
+    - validiert Cleanup-Scope, IDs, Evidencehashes, Dispositionshash, getrennte Identitäten und aktuelles UTC-Fenster
+    - sperrt bei Cleanup- oder früherem Reconciliation-Claim und leitet cleanup_review_eligible erneut über LQ-335 ab
+    - verwendet die bestehende LQ-331-Composition für erneuten Compose-Render sowie exakte Ressourcenlisten und Inspects
+    - klassifiziert exakten runtime_only-Bestand als ready, vollständige Abwesenheit als already_absent und klare Abweichung als rejected
+    - lehnt runtime_and_data_volume konservativ ab, solange keine autoritative Retention-/Legal-Hold-/Backup-Clearance existiert
+    - ready wird nicht persistiert, gewährt keine Löschung und muss vor späterer Mutation vollständig neu abgeleitet werden
+    - kein Up, Down, Start, Stop, Remove, Prune, SQL, Claim- oder Evidencewrite ist erreichbar
+    - Bundle-Gates steigen auf 34 Entry Points, 38 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-338 definiert mutierenden runtime_only-Cleanup bei ausdrücklich erhaltenem Datenvolume
+
+- LQ-338 runtime-only disposable PostgreSQL cleanup contract:
+  `docs/lq-338-runtime-only-disposable-postgresql-cleanup-contract.md`
+  - Status:
+    - definiert das Mutationsbudget ausschließlich für den exakten PostgreSQL-Container und seine zwei exklusiven internen Runnetze
+    - hält das rungebundene Datenvolume ausdrücklich unverändert und sperrt runtime_and_data_volume vollständig
+    - verlangt unmittelbar vor dem Effekt einen frischen LQ-337-Preflight und zusätzliche endpointgenaue Isolation
+    - ordnet owner-only Exclusive-Claim, kontrollierten Stop, Container-Remove und die zwei einzelnen Network-Removes strikt
+    - verbietet Compose-Down, Force, Kill, Volumeoptionen, Disconnect, Prune sowie Wildcard-, Prefix- und Labelcleanup
+    - stoppt ab dem ersten möglichen Effekt bei jeder Mehrdeutigkeit ohne Retry oder Fortsetzung mit offenem Claim
+    - persistiert finale private Evidence vor Claimfreigabe und bestätigt zuletzt ausdrücklich das erhaltene Volume
+    - keine Implementierung; Bundle bleibt bei 34 Entry Points, 38 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-339 implementiert den owner-kontrollierten runtime_only-Cleanupoperator ohne Volumenlöschung
+
+- LQ-339 owner-controlled runtime-only PostgreSQL cleanup:
+  `docs/lq-339-owner-controlled-runtime-only-postgresql-cleanup.md`
+  - Status:
+    - installiert liquent-disposable-postgres-runtime-cleanup mit frischem LQ-337-Preflight und erneuter endpointgenauer Isolation
+    - sperrt jeden anderen Scope vor Docker und adressiert nur den exakten Container sowie Application- und Data-Netz
+    - legt den SHA-abgeleiteten owner-only Cleanup-Claim exklusiv und synchronisiert vor dem ersten Effekt an
+    - stoppt und entfernt den Container kontrolliert, entfernt beide Netze einzeln und bestätigt jeden Schritt read-only
+    - inspiziert abschließend das unveränderte rungebundene Datenvolume; Force, Kill, --volumes, Down und Prune bleiben unerreichbar
+    - behält bei jeder Mehrdeutigkeit ab dem Stop den Claim ohne Retry, Fortsetzung oder Erfolgsoutput
+    - persistiert finale private Evidence vor Claimfreigabe und liefert exakte Wiederholung ohne Docker idempotent aus
+    - Bundle-Gates steigen auf 35 Entry Points, 39 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-340 definiert read-only Reconciliation offener runtime_only-Cleanup-Claims
+
+- LQ-340 read-only runtime cleanup claim reconciliation contract:
+  `docs/lq-340-read-only-runtime-cleanup-claim-reconciliation-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Cleanup-Reconciliation-Autorisierung ohne Fortsetzungs- oder Löschrecht
+    - validiert die vollständige Run-, Cleanup-, Claim- und Evidencebindung vor jedem Dockerzugriff
+    - behandelt exakte finale Evidence als final_evidence_present und vollständige Claim-/Evidence-Abwesenheit als not_found
+    - leitet Ressourcen erneut aus dem SHA-gebundenen Composemodell statt aus caller-gelieferten Namen ab
+    - klassifiziert runtime_intact, container_stopped, container_removed, application_network_removed und runtime_removed_evidence_missing
+    - stuft unmögliche Reihenfolge, Fremdbindung, zusätzliche Endpoints oder Volume-Abweichung ausschließlich als conflict ein
+    - verbietet jede Claim-, Evidence- oder Ressourcenmutation; kein Ausgang autorisiert Fortsetzung oder Finalisierung
+    - keine Implementierung; Bundle bleibt bei 35 Entry Points, 39 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-341 implementiert den read-only Cleanup-Claim-Inspector samt geschlossener Zustandsmatrix
+
+- LQ-341 read-only runtime cleanup claim inspector:
+  `docs/lq-341-read-only-runtime-cleanup-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-reconcile mit separater aktueller owner-only Reconciliation-Autorisierung
+    - validiert historische Run-, Dispositions-, Cleanup-, Claim- und Evidencebindung vollständig vor Docker
+    - liefert final_evidence_present und not_found ohne Docker und verändert einen vorhandenen Cleanup-Claim nie
+    - rendert Compose erneut und nutzt ausschließlich exakte Listen und Inspects für die vier gebundenen Ressourcen
+    - klassifiziert alle fünf LQ-340-Sequenzzustände einschließlich gestopptem Container und fehlender Final-Evidence
+    - behandelt unmögliche Reihenfolge oder klare Fremdbindung als conflict und technische Mehrdeutigkeit separat unavailable
+    - enthält keinen Ressourcen-, Claim- oder Evidencewrite; kein Ausgang gewährt Fortsetzungs- oder Löschrecht
+    - Bundle-Gates steigen auf 36 Entry Points, 40 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-342 definiert Evidence-first Finalisierung eindeutig beobachteter Cleanupzustände
+
+- LQ-342 evidence-first runtime cleanup finalization contract:
+  `docs/lq-342-evidence-first-runtime-cleanup-finalization-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Finalisierungsautorisierung und bindet den SHA-256 der vollständigen LQ-341-Autorisierung
+    - führt LQ-341 unmittelbar neu aus und akzeptiert keinen caller-gelieferten oder gespeicherten Zustandsstring
+    - finalisiert ausschließlich runtime_intact, runtime_removed_evidence_missing oder bereits vorhandene finale Cleanup-Evidence
+    - hält echte Teilzustände als continuation_required und conflict als investigation_required mit offenem Cleanup-Claim fest
+    - erzeugt getrennte Finalization-Evidence und fälscht keine fehlende historische LQ-339-Schrittbestätigung
+    - erlaubt Claimfreigabe erst nach atomarer Evidencepersistenz und behandelt unbekannte Freigabe idempotent evidence-first
+    - verbietet jede Docker-, Ressourcen- oder Volume-Mutation; Claimfreigabe erteilt kein neues Cleanuprecht
+    - keine Implementierung; Bundle bleibt bei 36 Entry Points, 40 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-343 implementiert den Evidence-first Cleanup-Finalizer samt Fake-basierten Ausgängen
+
+- LQ-343 evidence-first runtime cleanup finalizer:
+  `docs/lq-343-evidence-first-runtime-cleanup-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-finalize mit neuer owner-only Finalisierungsautorisierung
+    - bindet den vollständigen LQ-341-Autorisierungshash und führt ohne bestehende Evidence den Inspector unmittelbar neu aus
+    - finalisiert runtime_intact, runtime_removed_evidence_missing und final_evidence_present in getrennte neutrale Ausgänge
+    - lässt Teilzustände als continuation_required und conflict als investigation_required ohne Evidence- oder Claimänderung
+    - persistiert getrennte private Finalization-Evidence atomar und fälscht keine historische LQ-339-Cleanup-Evidence
+    - gibt erst danach ausschließlich den vollständig validierten exakten Cleanup-Claim frei
+    - wiederholt bei unbekannter Claimfreigabe evidence-first nur die Freigabe und führt weder Inspector noch Docker erneut aus
+    - Bundle-Gates steigen auf 37 Entry Points, 41 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-344 definiert strikt autorisierte Fortsetzung der drei eindeutigen Teilzustände
+
+- LQ-344 authorized runtime cleanup continuation contract:
+  `docs/lq-344-authorized-runtime-cleanup-continuation-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Continuation-Autorisierung mit geschlossenem resume_from für genau einen Teilzustand
+    - führt LQ-341 unmittelbar neu aus und verlangt exakte Übereinstimmung von container_stopped, container_removed oder application_network_removed
+    - begrenzt jedes Restbudget auf noch nicht abgeschlossene Container- und Network-Removes samt einzelner Abwesenheitsbestätigung
+    - wiederholt keinen früheren Schritt und verbietet insbesondere weiteren Stop, Kill, Force, Down, Disconnect oder Volumeoptionen
+    - legt einen getrennten Evidence-first Continuation-Claim an und behält den ursprünglichen Cleanup-Claim durchgehend offen
+    - stoppt ab erstem Remove bei Mehrdeutigkeit ohne Retry oder Fortsetzung mit beiden Claims
+    - persistiert getrennte Continuation-Evidence und bestätigt das Datenvolume ausschließlich read-only als erhalten
+    - keine Implementierung; Bundle bleibt bei 37 Entry Points, 41 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-345 implementiert den owner-kontrollierten Continuation-Operator mit drei minimalen Restbudgets
+
+- LQ-345 owner-controlled runtime cleanup continuation:
+  `docs/lq-345-owner-controlled-runtime-cleanup-continuation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-continue mit geschlossenem autorisiertem resume_from
+    - validiert historischen Cleanup, LQ-341-Autorisierung und ursprünglichen Cleanup-Claim vollständig vor Mutation
+    - führt LQ-341 frisch aus und lehnt jeden Zustandsmismatch vor Continuation-Claim und Docker neutral ab
+    - entfernt je Teilzustand ausschließlich den noch vorhandenen Container beziehungsweise die verbleibenden Netze
+    - bestätigt jeden Einzel-Remove read-only und inspiziert zuletzt ausschließlich das unverändert erhaltene Datenvolume
+    - behält bei unbekanntem Ausgang Cleanup- und Continuation-Claim ohne Retry oder Fortsetzung offen
+    - persistiert getrennte Continuation-Evidence und gibt nur den Continuation-Claim frei; LQ-343 bleibt separate Finalisierung
+    - Bundle-Gates steigen auf 38 Entry Points, 42 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-346 definiert read-only Reconciliation offener Continuation-Claims
+
+- LQ-346 read-only runtime cleanup continuation reconciliation contract:
+  `docs/lq-346-read-only-runtime-cleanup-continuation-reconciliation-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Continuation-Reconciliation-Autorisierung mit Hashbindung an LQ-341 und LQ-345
+    - prüft ursprünglichen Cleanup-Claim sowie Continuation-Claim und -Evidence vollständig vor Ressourcenbeobachtung
+    - liefert continuation_evidence_present und not_found ohne Docker und verändert keinen Claim
+    - führt bei offenem Doppelclaim LQ-341 frisch read-only aus und ordnet den Zustand relativ zum autorisierten resume_from ein
+    - erlaubt nur denselben oder einen späteren Präfix bis runtime_removed_evidence_missing und behandelt Regression als conflict
+    - bestätigt das Datenvolume in jedem zulässigen Zustand ausschließlich als unverändert rungebunden
+    - verbietet Claim-, Evidence- und Ressourcenmutation; kein Ausgang gewährt automatische Fortsetzung oder Finalisierung
+    - keine Implementierung; Bundle bleibt bei 38 Entry Points, 42 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-347 implementiert den read-only Continuation-Claim-Inspector samt Präfixmatrix
+
+- LQ-347 read-only runtime cleanup continuation claim inspector:
+  `docs/lq-347-read-only-runtime-cleanup-continuation-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-continue-reconcile als strikt read-only Operator
+    - bindet neue owner-only Autorisierung vollständig an LQ-341, LQ-345 und das historische resume_from
+    - prüft ursprünglichen Cleanup-Claim sowie Continuation-Claim und -Evidence vor jeder Ressourcenbeobachtung
+    - liefert continuation_evidence_present und not_found ohne LQ-341-Aufruf und ohne Claimänderung
+    - führt nur bei offenem Doppelclaim LQ-341 frisch aus und klassifiziert die geschlossene Präfixmatrix
+    - behandelt Regression, runtime_intact, Final-Evidence und fehlenden Ursprungsclaim geschlossen als conflict
+    - verändert in keinem Ausgang Claim, Evidence oder Ressource; technische Fehler bleiben detailfrei
+    - Bundle-Gates steigen auf 39 Entry Points, 43 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-348 definiert evidence-first Finalisierung reconciliierter Continuation-Claims
+
+- LQ-348 evidence-first runtime cleanup continuation finalization contract:
+  `docs/lq-348-evidence-first-runtime-cleanup-continuation-finalization-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Finalisierungsautorisierung mit Hashbindung an LQ-341, LQ-345 und LQ-347
+    - validiert ursprünglichen Cleanup-Claim und die vollständige historische Continuation-Kette erneut
+    - führt ohne Finalization-Evidence LQ-347 frisch aus und akzeptiert keinen caller-gelieferten Ausgang
+    - finalisiert Evidence, Nichtstart, spätere Teilpräfixe und vollständige Runtimeentfernung getrennt
+    - persistiert private Finalization-Evidence vor Freigabe ausschließlich des exakten Continuation-Claims
+    - behält ursprünglichen Cleanup-Claim, Datenvolume, Ressourcen und historische Evidence unverändert
+    - wiederholt nach unbekannter Claimfreigabe evidence-first nur den exakten Freigabeversuch
+    - keine Implementierung; Bundle bleibt bei 39 Entry Points, 43 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-349 implementiert den evidence-first Continuation-Finalizer samt geschlossenen Tests
+
+- LQ-349 evidence-first runtime cleanup continuation finalizer:
+  `docs/lq-349-evidence-first-runtime-cleanup-continuation-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-continue-finalize mit neuer owner-only Autorisierung
+    - validiert LQ-341-, LQ-345- und LQ-347-Bindung sowie den weiterhin offenen Cleanup-Claim vollständig
+    - führt ohne Finalization-Evidence LQ-347 frisch aus und ordnet fünf finalisierbare Beobachtungen geschlossen zu
+    - persistiert getrennte owner-only Finalization-Evidence atomar vor jeder Claimfreigabe
+    - gibt ausschließlich den exakten Continuation-Claim frei und behält Cleanup-Claim sowie Datenvolume unverändert
+    - wiederholt nach unbekannter Freigabe evidence-first nur den einzelnen Claimrelease ohne Inspector oder Docker
+    - behandelt not_found neutral und conflict oder fehlenden Cleanup-Claim als investigation_required ohne Write
+    - Bundle-Gates steigen auf 40 Entry Points, 44 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-350 definiert autorisierte erneute Continuation ab belegtem späterem Präfix
+
+- LQ-350 authorized runtime cleanup recontinuation contract:
+  `docs/lq-350-authorized-runtime-cleanup-recontinuation-contract.md`
+  - Status:
+    - erlaubt einen neuen Versuch ausschließlich aus kanonischer LQ-349-Evidence mit later_prefix_finalized
+    - verlangt eine neue owner-only Recontinuation-ID mit Hashbindung an LQ-341, LQ-345, LQ-347 und LQ-349
+    - setzt offenen ursprünglichen Cleanup-Claim und exakte Abwesenheit des alten Continuation-Claims voraus
+    - führt LQ-341 frisch aus und verlangt exakte Übereinstimmung mit dem belegten späteren resume_from
+    - begrenzt Mutation auf verbleibende Network-Removes und read-only Bestätigung des erhaltenen Datenvolumes
+    - legt einen neuen Evidence-first Recontinuation-Claim an und stoppt bei unbekanntem Ausgang ohne Blind-Retry
+    - persistiert getrennte Recontinuation-Evidence vor Freigabe ausschließlich des neuen Claims
+    - keine Implementierung; Bundle bleibt bei 40 Entry Points, 44 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-351 implementiert den owner-kontrollierten Recontinuation-Operator mit zwei Restbudgets
+
+- LQ-351 owner-controlled runtime cleanup recontinuation:
+  `docs/lq-351-owner-controlled-runtime-cleanup-recontinuation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-recontinue mit neuer owner-only Recontinuation-Autorisierung
+    - bindet LQ-349-Autorisierung und exakte later_prefix_finalized-Evidence bytegenau
+    - verlangt offenen Cleanup-Claim, abwesenden alten Continuation-Claim und frische exakte LQ-341-Bestätigung
+    - entfernt ab container_removed nur beide Netze und ab application_network_removed nur das Data-Netz
+    - bestätigt jeden Remove einzeln und inspiziert zuletzt ausschließlich das erhaltene rungebundene Datenvolume
+    - hält bei unbekanntem Ausgang Cleanup- und neuen Recontinuation-Claim ohne Blind-Retry offen
+    - persistiert getrennte Recontinuation-Evidence vor Freigabe ausschließlich des neuen Claims
+    - Bundle-Gates steigen auf 41 Entry Points, 45 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-352 definiert read-only Reconciliation offener Recontinuation-Claims
+
+- LQ-352 read-only runtime cleanup recontinuation reconciliation contract:
+  `docs/lq-352-read-only-runtime-cleanup-recontinuation-reconciliation-contract.md`
+  - Status:
+    - verlangt eine neue owner-only Reconciliation-Autorisierung mit Hashbindung an LQ-349 und LQ-351
+    - prüft Cleanup-Claim, Abwesenheit des alten Continuation-Claims sowie neuen Claim und Evidence vollständig
+    - liefert recontinuation_evidence_present und not_found ohne Docker und verändert keinen Claim
+    - führt bei offenem Doppelclaim LQ-341 frisch read-only aus und ordnet relativ zum belegten resume_from ein
+    - erlaubt nur denselben oder einen späteren Präfix bis runtime_removed_evidence_missing
+    - behandelt Regression, fremde Zustände, fehlenden Cleanup-Claim und Volumeabweichung geschlossen als conflict
+    - verbietet Claim-, Evidence- und Ressourcenmutation; kein Ausgang gewährt automatische Folgeautorität
+    - keine Implementierung; Bundle bleibt bei 41 Entry Points, 45 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-353 implementiert den read-only Recontinuation-Claim-Inspector samt Präfixmatrix
+
+- LQ-353 read-only runtime cleanup recontinuation claim inspector:
+  `docs/lq-353-read-only-runtime-cleanup-recontinuation-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-recontinue-reconcile als strikt read-only Operator
+    - bindet neue owner-only Autorisierung vollständig an LQ-349, LQ-351 und das historische resume_from
+    - prüft Cleanup-Claim, alten Continuation-Claim sowie neuen Recontinuation-Claim und -Evidence vor Docker
+    - liefert recontinuation_evidence_present und not_found ohne LQ-341-Aufruf und ohne Claimänderung
+    - führt nur bei offenem Doppelclaim LQ-341 frisch aus und klassifiziert die geschlossene Präfixmatrix
+    - behandelt Regression, fremde Zustände, fehlenden Cleanup-Claim und Volumeabweichung als conflict
+    - verändert in keinem Ausgang Claim, Evidence oder Ressource; technische Fehler bleiben detailfrei
+    - Bundle-Gates steigen auf 42 Entry Points, 46 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-354 definiert evidence-first Finalisierung reconciliierter Recontinuation-Claims
+
+- LQ-354 evidence-first runtime cleanup recontinuation finalization contract:
+  `docs/lq-354-evidence-first-runtime-cleanup-recontinuation-finalization-contract.md`
+  - Status:
+    - verlangt neue owner-only Finalisierungsautorisierung mit Hashbindung an LQ-349, LQ-351 und LQ-353
+    - validiert Cleanup-Claim, Abwesenheit des alten Continuation-Claims und vollständige historische Kette
+    - führt ohne Finalization-Evidence LQ-353 frisch aus und akzeptiert keinen caller-gelieferten Ausgang
+    - finalisiert Evidence, Nichtstart, späteren Teilpräfix und vollständige Runtimeentfernung getrennt
+    - persistiert private Finalization-Evidence vor Freigabe ausschließlich des Recontinuation-Claims
+    - behält Cleanup-Claim, Datenvolume, Ressourcen und sämtliche historische Evidence unverändert
+    - wiederholt nach unbekannter Claimfreigabe evidence-first nur den exakten Freigabeversuch
+    - keine Implementierung; Bundle bleibt bei 42 Entry Points, 46 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-355 implementiert den evidence-first Recontinuation-Finalizer samt geschlossenen Tests
+
+- LQ-355 evidence-first runtime cleanup recontinuation finalizer:
+  `docs/lq-355-evidence-first-runtime-cleanup-recontinuation-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-recontinue-finalize mit neuer owner-only Autorisierung
+    - validiert LQ-349-, LQ-351- und LQ-353-Bindung sowie Cleanup- und historische Claim-Gates vollständig
+    - führt ohne Finalization-Evidence LQ-353 frisch aus und ordnet vier finalisierbare Beobachtungen geschlossen zu
+    - persistiert getrennte owner-only Finalization-Evidence atomar vor jeder Claimfreigabe
+    - gibt ausschließlich den exakten Recontinuation-Claim frei und behält Cleanup-Claim sowie Datenvolume unverändert
+    - wiederholt nach unbekannter Freigabe evidence-first nur den Claimrelease ohne Inspector oder Docker
+    - behandelt not_found neutral und conflict oder fehlenden Cleanup-Claim als investigation_required ohne Write
+    - Bundle-Gates steigen auf 43 Entry Points, 47 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-356 auditiert den Abschluss der Runtime-Cleanup-Kette und legt den Finalisierungspfad fest
+
+- LQ-356 runtime cleanup chain completion audit:
+  `docs/lq-356-runtime-cleanup-chain-completion-audit.md`
+  - Status:
+    - auditiert die Claim-, Evidence- und Ressourceninvarianten von LQ-339 bis LQ-355 read-only
+    - routet recontinuation_evidence_confirmed und runtime_removal_ready_for_cleanup_finalization eindeutig zu LQ-343
+    - bestätigt LQ-343 als ausreichenden terminalen Abschluss durch frische LQ-341-Beobachtung und eigene Evidence
+    - hält recontinuation_attempt_finalized und later_prefix_finalized geschlossen als nichtterminal fest
+    - identifiziert für weitere Versuche die zwingende neue Hashbindung an LQ-355-Finalization-Evidence
+    - verbietet Rücksprung auf ausschließlich LQ-349-basierte Autorität, automatische Mutation und Claimfreigabe
+    - behält Datenvolume und sämtliche historischen Evidencegenerationen unverändert und unterscheidbar
+    - keine Implementierung; Bundle bleibt bei 43 Entry Points, 47 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-357 definiert den chained-Continuation-Vertrag für nichtterminale LQ-355-Ausgänge
+
+- LQ-357 authorized runtime cleanup chained continuation contract:
+  `docs/lq-357-authorized-runtime-cleanup-chained-continuation-contract.md`
+  - Status:
+    - erlaubt neue Versuche ausschließlich aus recontinuation_attempt_finalized oder later_prefix_finalized
+    - leitet resume_from geschlossen aus LQ-355-Evidence und historischer LQ-351-Autorisierung ab
+    - verlangt neue owner-only ID mit Hashbindung an LQ-349- und LQ-355-Finalization-Evidence
+    - setzt offenen Cleanup-Claim und exakte Abwesenheit aller historischen Continuation-Claims voraus
+    - führt LQ-341 frisch aus und verlangt exakte Übereinstimmung mit dem autoritativen Startpräfix
+    - begrenzt Mutation auf verbleibende Network-Removes und read-only Volumebestätigung
+    - persistiert getrennte Evidence vor Freigabe ausschließlich des neuen Claims
+    - keine Implementierung; Bundle bleibt bei 43 Entry Points, 47 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-358 implementiert den chained-Continuation-Operator mit zwei Restbudgets
+
+- LQ-358 owner-controlled runtime cleanup chained continuation:
+  `docs/lq-358-owner-controlled-runtime-cleanup-chained-continuation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-chain-continue mit neuer owner-only Autorisierung
+    - bindet LQ-355-Autorisierung und nichtterminale Finalization-Evidence bytegenau
+    - trennt historischen LQ-351-Startpräfix vom autoritativ abgeleiteten effektiven resume_from
+    - verlangt offenen Cleanup-Claim, abwesende historische Claims und frische exakte LQ-341-Bestätigung
+    - entfernt abhängig vom effektiven Präfix nur beide Netze oder ausschließlich das Data-Netz
+    - hält bei unbekanntem Ausgang Cleanup- und neuen Claim ohne Blind-Retry offen
+    - persistiert getrennte Evidence vor Freigabe ausschließlich des neuen Claims
+    - Bundle-Gates steigen auf 44 Entry Points, 48 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-359 definiert read-only Reconciliation offener Chained-Continuation-Claims
+
+- LQ-359 read-only runtime cleanup chained continuation reconciliation contract:
+  `docs/lq-359-read-only-runtime-cleanup-chained-continuation-reconciliation-contract.md`
+  - Status:
+    - verlangt neue owner-only Reconciliation-Autorisierung mit Hashbindung an LQ-355 und LQ-358
+    - prüft Cleanup-Claim, Abwesenheit historischer Claims sowie aktuellen Claim und Evidence vollständig
+    - liefert chained_continuation_evidence_present und not_found ohne Docker und Claimänderung
+    - führt bei offenem Doppelclaim LQ-341 frisch read-only aus und ordnet relativ zum effektiven resume_from ein
+    - erlaubt nur denselben oder einen späteren Präfix bis runtime_removed_evidence_missing
+    - behandelt Regression, fremde Zustände, fehlenden Cleanup-Claim und Volumeabweichung als conflict
+    - verbietet Claim-, Evidence- und Ressourcenmutation; kein Ausgang gewährt automatische Folgeautorität
+    - keine Implementierung; Bundle bleibt bei 44 Entry Points, 48 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-360 implementiert den read-only Chained-Continuation-Claim-Inspector
+
+- LQ-360 read-only runtime cleanup chained continuation claim inspector:
+  `docs/lq-360-read-only-runtime-cleanup-chained-continuation-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-chain-reconcile als strikt read-only Operator
+    - bindet neue owner-only Autorisierung vollständig an LQ-355, LQ-358 und beide Startpräfixe
+    - prüft Cleanup-Claim, historische Claims sowie aktuellen Claim und Evidence vor Docker
+    - liefert chained_continuation_evidence_present und not_found ohne LQ-341-Aufruf oder Claimänderung
+    - führt nur bei offenem Doppelclaim LQ-341 frisch aus und klassifiziert die geschlossene Präfixmatrix
+    - behandelt Regression, fremde Zustände, fehlenden Cleanup-Claim und Volumeabweichung als conflict
+    - verändert in keinem Ausgang Claim, Evidence oder Ressource; technische Fehler bleiben detailfrei
+    - Bundle-Gates steigen auf 45 Entry Points, 49 Operatormodule, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-361 definiert evidence-first Finalisierung reconciliierter Chained-Continuation-Claims
+
+- LQ-361 evidence-first runtime cleanup chained continuation finalization contract:
+  `docs/lq-361-evidence-first-runtime-cleanup-chained-continuation-finalization-contract.md`
+  - Status:
+    - verlangt neue owner-only Finalisierungsautorisierung mit Hashbindung an LQ-355, LQ-358 und LQ-360
+    - validiert Cleanup-Claim, Abwesenheit historischer Claims und vollständige Chained-Kette erneut
+    - führt ohne Finalization-Evidence LQ-360 frisch aus und akzeptiert keinen caller-gelieferten Ausgang
+    - finalisiert Evidence, Nichtstart, späteren Teilpräfix und vollständige Runtimeentfernung getrennt
+    - persistiert private Finalization-Evidence vor Freigabe ausschließlich des aktuellen Claims
+    - behält Cleanup-Claim, Datenvolume, Ressourcen und sämtliche historische Evidence unverändert
+    - wiederholt nach unbekannter Claimfreigabe evidence-first nur den exakten Freigabeversuch
+    - keine Implementierung; Bundle bleibt bei 45 Entry Points, 49 Operatormodulen, 27 Migrationen und Head 20260819_0027
+    - nächster Slice LQ-362 implementiert den evidence-first Chained-Continuation-Finalizer
+
+- LQ-362 evidence-first runtime cleanup chained continuation finalizer:
+  `docs/lq-362-evidence-first-runtime-cleanup-chained-continuation-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-chain-finalize mit neuer owner-only Autorisierung
+    - validiert LQ-355-, LQ-358- und LQ-360-Bindung sowie Cleanup- und historische Claim-Gates geschlossen
+    - reconciliert ohne Finalization-Evidence frisch und ordnet vier finalisierbare Ausgänge evidence-first zu
+    - schreibt private atomare Evidence vor Freigabe ausschließlich des aktuellen LQ-358-Claims
+    - wiederholt bei unbekannter Freigabe nur den exakten Claimrelease ohne Inspector oder Docker
+    - sieben fokussierte Tests bestehen; Bundle steigt auf 46 Entry Points und 50 Operatormodule bei 27 Migrationen
+    - nächster Slice LQ-363 auditiert den vollständigen Cleanup-Continuation-Chain-Abschluss
+
+- LQ-363 runtime cleanup chained continuation completion audit:
+  `docs/lq-363-runtime-cleanup-chained-continuation-completion-audit.md`
+  - Status:
+    - auditiert LQ-339 bis LQ-362 read-only mit Claims, Evidence, Reconciliation und Finalisierung
+    - bestätigt beide terminalen LQ-362-Ausgänge als eindeutig über den bestehenden LQ-343-Finalizer abschließbar
+    - hält für nichtterminale Ausgänge den jeweils jüngsten Evidence-Anker als zwingend fest
+    - weist nach, dass erneutes LQ-358 LQ-362-Evidence nicht binden kann und daher keine sichere Wiederholung bildet
+    - empfiehlt statt weiterer fest benannter Einmal-Slices einen generationengebundenen wiederholbaren Mechanismus
+    - keine Implementierung; Bundle bleibt bei 46 Entry Points, 50 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-364 definiert den generationengebundenen Runtime-Cleanup-Continuation-Vertrag
+
+- LQ-364 generation-bound repeatable runtime cleanup continuation contract:
+  `docs/lq-364-generation-bound-repeatable-runtime-cleanup-continuation-contract.md`
+  - Status:
+    - definiert positive direkte Generationen mit LQ-362 als erstem und jeweiliger Vorgängerevidence als späterem Anker
+    - erlaubt Folgeautorität nur aus attempt_finalized oder later_prefix_finalized der direkten Vorgängergeneration
+    - leitet Generation und Startpräfix aus kanonischer Evidence statt aus Callerangaben ab
+    - verlangt offenen Cleanup-Claim und Abwesenheit sämtlicher abgeschlossener untergeordneter Claims
+    - hält frische LQ-341-Bestätigung, minimales Restbudget und unknown-outcome Stop unverändert geschlossen
+    - keine Implementierung; Bundle bleibt bei 46 Entry Points, 50 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-365 implementiert den generationengebundenen Continuation-Operator
+
+- LQ-365 owner-controlled generation-bound runtime cleanup continuation:
+  `docs/lq-365-owner-controlled-generation-bound-runtime-cleanup-continuation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-generation-continue für Generation eins nach LQ-362
+    - bindet Vorgängerautorisierung und Finalization-Evidence bytegenau sowie historischen und effektiven Startpräfix getrennt
+    - führt LQ-341 vor Claimanlage frisch aus und mutiert nur bei exakter Präfixübereinstimmung
+    - beschränkt Docker weiterhin auf noch offene Network-Removes und read-only Volumeidentitätsprüfung
+    - schreibt private generationengebundene Evidence vor Freigabe ausschließlich des aktuellen Claims
+    - vier fokussierte Tests bestehen; Bundle steigt auf 47 Entry Points und 51 Operatormodule bei 27 Migrationen
+    - nächster Slice LQ-366 definiert die read-only Reconciliation generationengebundener Claims
+
+- LQ-366 read-only generation-bound runtime cleanup reconciliation contract:
+  `docs/lq-366-read-only-generation-bound-runtime-cleanup-reconciliation-contract.md`
+  - Status:
+    - verlangt separate owner-only Reconciliation-Autorisierung mit Generation und direkter Vorgängerbindung
+    - prüft Generation-Evidence vor Docker und behandelt gemeinsame Claim-/Evidence-Abwesenheit neutral
+    - klassifiziert offene kanonische Claims frisch über LQ-341 relativ zum effektiven Startpräfix
+    - schließt Nichtstart, späteren Präfix, vollständige Entfernung und Conflict ohne Mutation ab
+    - hält Generation eins als einzigen aktuell belegten Vorgängertyp fail-closed fest
+    - keine Implementierung; Bundle bleibt bei 47 Entry Points, 51 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-367 implementiert den read-only Generation-Continuation-Claim-Inspector
+
+- LQ-367 read-only generation-bound runtime cleanup claim inspector:
+  `docs/lq-367-read-only-generation-bound-runtime-cleanup-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-generation-reconcile mit separater owner-only Autorisierung
+    - bindet Generation eins, LQ-362-Vorgänger, beide Startpräfixe und LQ-365-Autorisierung geschlossen
+    - prüft Generation-Evidence vor Docker und gibt gemeinsame Claim-/Evidence-Abwesenheit neutral zurück
+    - klassifiziert offene Claims frisch über LQ-341 mit geschlossener Präfixmatrix und ohne Writes
+    - hält Cleanup-, historische und aktuelle Claims in sämtlichen Ausgängen unverändert
+    - neun fokussierte Tests bestehen; Bundle steigt auf 48 Entry Points und 52 Operatormodule bei 27 Migrationen
+    - nächster Slice LQ-368 definiert den evidence-first Generation-Claim-Finalisierungsvertrag
+
+- LQ-368 evidence-first generation-bound runtime cleanup finalization contract:
+  `docs/lq-368-evidence-first-generation-bound-runtime-cleanup-finalization-contract.md`
+  - Status:
+    - verlangt separate owner-only Finalisierungsautorisierung mit Generation sowie LQ-365-/LQ-367-Hashbindung
+    - führt ohne Finalization-Evidence LQ-367 frisch aus und akzeptiert keinen caller-gelieferten Ausgang
+    - finalisiert Evidence, Nichtstart, späteren Präfix und vollständige Runtimeentfernung getrennt
+    - persistiert kanonische Generation-Finalization-Evidence vor Freigabe nur des aktuellen Claims
+    - erlaubt nur nichtterminaler Evidence die direkte Vorgängerbasis für Generation zwei zu bilden
+    - keine Implementierung; Bundle bleibt bei 48 Entry Points, 52 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-369 implementiert den evidence-first Generation-Finalizer
+
+- LQ-369 evidence-first generation-bound runtime cleanup finalizer:
+  `docs/lq-369-evidence-first-generation-bound-runtime-cleanup-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-cleanup-generation-finalize mit neuer owner-only Autorisierung
+    - validiert Generation eins, LQ-362-, LQ-365- und LQ-367-Bindung sowie historische Claim-Gates
+    - reconciliert ohne Finalization-Evidence frisch und ordnet vier finalisierbare Ausgänge geschlossen zu
+    - schreibt kanonische Generation-Finalization-Evidence vor Freigabe ausschließlich des aktuellen Claims
+    - wiederholt bei unbekannter Freigabe nur den exakten Claimrelease ohne Inspector oder Docker
+    - sieben fokussierte Tests bestehen; Bundle steigt auf 49 Entry Points und 53 Operatormodule bei 27 Migrationen
+    - nächster Slice LQ-370 definiert Generation zwei aus nichtterminaler LQ-369-Evidence
+
+- LQ-370 direct generation-two runtime cleanup continuation contract:
+  `docs/lq-370-direct-generation-two-runtime-cleanup-continuation-contract.md`
+  - Status:
+    - definiert Generation zwei als exakten direkten Nachfolger nichtterminaler LQ-369-Finalization-Evidence
+    - verlangt predecessor_kind repeatable_generation, Vorgängergeneration eins und bytegenaue LQ-369-Hashbindung
+    - leitet historischen und effektiven Startpräfix getrennt aus dem Vorgängerausgang ab
+    - hält offenen Cleanup-Claim und Abwesenheit aller historischen untergeordneten Claims als harte Gates
+    - bewahrt frische LQ-341-Bestätigung, minimales Restbudget und unknown-outcome Stop unverändert
+    - keine Implementierung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-371 erweitert den Continuation-Operator um den Generation-2-Vorgängerresolver
+
+- LQ-371 owner-controlled generation-two runtime cleanup continuation:
+  `docs/lq-371-owner-controlled-generation-two-runtime-cleanup-continuation.md`
+  - Status:
+    - erweitert liquent-disposable-postgres-cleanup-generation-continue um den direkten LQ-369-Vorgängerresolver
+    - validiert Generation-1-Autorisierung, LQ-369-Autorisierung und exakte Finalization-Evidence historisch
+    - leitet Generation zwei sowie historischen und effektiven Präfix geschlossen aus nichtterminaler Evidence ab
+    - verlangt Abwesenheit des Generation-1-Claims und frische LQ-341-Übereinstimmung vor Mutation
+    - nutzt unverändert nur minimale Network-Removes, Abwesenheitsprüfungen und read-only Volumeidentität
+    - vier neue Tests bestehen; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-372 definiert die read-only Reconciliation offener Generation-2-Claims
+
+- LQ-372 read-only generation-two runtime cleanup reconciliation contract:
+  `docs/lq-372-read-only-generation-two-runtime-cleanup-reconciliation-contract.md`
+  - Status:
+    - verlangt separate owner-only Reconciliation-Autorisierung mit Generation zwei und direkter LQ-369-Bindung
+    - prüft Generation-2-Evidence vor Docker und behandelt gemeinsame Claim-/Evidence-Abwesenheit neutral
+    - verlangt offenen Cleanup-Claim sowie Abwesenheit aller historischen Claims einschließlich Generation eins
+    - klassifiziert offene Claims frisch über LQ-341 relativ zum aus LQ-369 abgeleiteten Präfix
+    - hält Claims, Evidence und Ressourcen in Nichtstart, Fortschritt, Entfernung und Conflict unverändert
+    - keine Implementierung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-373 erweitert den Inspector um Generation zwei und die geschlossene Präfixmatrix
+
+- LQ-373 read-only generation-two runtime cleanup claim inspector:
+  `docs/lq-373-read-only-generation-two-runtime-cleanup-claim-inspector.md`
+  - Status:
+    - erweitert liquent-disposable-postgres-cleanup-generation-reconcile um den direkten LQ-369-Resolver
+    - validiert Generation eins und LQ-369-Autorisierung samt Evidence an historischen Fenstermittelpunkten
+    - verlangt Abwesenheit des Generation-1-Claims und prüft Generation-2-Evidence vor Docker
+    - klassifiziert offene Claims frisch über LQ-341 mit geschlossener Präfixmatrix und ohne Writes
+    - hält Cleanup-, historische und aktuelle Claims in allen Ausgängen bytegenau unverändert
+    - neun neue Tests bestehen; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-374 definiert den evidence-first Generation-2-Finalisierungsvertrag
+
+- LQ-374 evidence-first generation-two runtime cleanup finalization contract:
+  `docs/lq-374-evidence-first-generation-two-runtime-cleanup-finalization-contract.md`
+  - Status:
+    - verlangt separate owner-only Finalisierungsautorisierung mit Generation zwei und direkter LQ-369-Bindung
+    - führt ohne Finalization-Evidence LQ-373 frisch aus und akzeptiert keinen caller-gelieferten Ausgang
+    - finalisiert Evidence, Nichtstart, späteren Präfix und vollständige Runtimeentfernung getrennt
+    - schreibt kanonische Generation-2-Finalization-Evidence vor Freigabe ausschließlich des aktuellen Claims
+    - erlaubt nur nichtterminaler Evidence die direkte Vorgängerbasis für Generation drei zu bilden
+    - keine Implementierung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-375 erweitert den evidence-first Finalizer um Generation zwei
+
+- LQ-375 evidence-first generation-two runtime cleanup finalizer:
+  `docs/lq-375-evidence-first-generation-two-runtime-cleanup-finalizer.md`
+  - Status:
+    - erweitert den bestehenden LQ-369-Finalizer um den geschlossenen Generation-2-Pfad mit direkter LQ-369-Basis
+    - validiert Vorgängerautorisierung und nichtterminale Finalization-Evidence vollständig und hashgenau
+    - führt ohne eigene Evidence LQ-373 frisch aus und akzeptiert keinen caller-gelieferten Zustand oder Ausgang
+    - schreibt kanonische Evidence vor Freigabe ausschließlich des aktuellen Generation-2-Claims
+    - Evidence-Retry überspringt Inspector und Docker und beendet eine zuvor unbekannte Claimfreigabe sicher
+    - sieben neue Tests bestehen; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-376 auditiert Generation eins und zwei als Basis dauerhaft sicherer Folgegenerationen
+
+- LQ-376 generation-one/two runtime cleanup completion audit:
+  `docs/lq-376-generation-one-two-runtime-cleanup-completion-audit.md`
+  - Status:
+    - auditiert Continuation, read-only Reconciliation und evidence-first Finalisierung für Generation eins und zwei
+    - bestätigt direkte Vorgängerbindung, frische Zustandsprüfung, minimales Restbudget und Freigabe nur des aktuellen Claims
+    - terminale Ausgänge besitzen mit LQ-343 einen eindeutigen Abschlussweg; neutrale und technische Ausgänge erteilen keine Autorität
+    - belegt Generation drei als sichere fail-closed Implementierungsgrenze der drei bestehenden Operatoren
+    - verwirft weitere hardcodierte Vorgängerpfade zugunsten einer endlichen vollständig verketteten Lineage
+    - read-only Audit ohne Codeänderung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-377 definiert den begrenzten Generation-Lineage-Vertrag für Generation drei und später
+
+- LQ-377 bounded generation lineage contract:
+  `docs/lq-377-bounded-generation-lineage-contract.md`
+  - Status:
+    - definiert ab Generation drei eine endliche geordnete Lineage exakt der Generationen eins bis n minus eins
+    - verlangt Genesisbindung an LQ-362 und vollständige direkte Verkettung jedes Continuation-/Finalization-Paars
+    - erlaubt nur nichtterminale Finalization-Evidence und verlangt exakte Abwesenheit sämtlicher historischer Generation-Claims
+    - begrenzt Lineagelänge implementierungseigen vor vollständiger Artefaktvalidierung und bleibt oberhalb fail-closed
+    - Lineage gewährt keine aktuelle Autorität und erweitert weder Restbudget noch Ressourcen oder automatische Ausführung
+    - keine Darstellungs- oder Implementierungsentscheidung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-378 implementiert die gemeinsame begrenzte Lineage-Auflösung zunächst für die Continuation
+
+- LQ-378 bounded generation lineage continuation:
+  `docs/lq-378-bounded-generation-lineage-continuation.md`
+  - Status:
+    - erweitert den bestehenden Continuation-Operator ab Generation drei um eine auf 16 historische Paare begrenzte Lineage
+    - validiert Genesis an LQ-362 sowie jedes Continuation-/Finalization-Paar vollständig, direkt und am historischen Fenstermittelpunkt
+    - rekonstruiert jeden effektiven Präfix aus nichtterminaler Evidence und verlangt exakte Abwesenheit aller historischen Claims
+    - behält frische LQ-341-Prüfung, minimales Restbudget, Unknown-Outcome-Claim und evidence-first Freigabe unverändert
+    - sechs neue Tests decken Generation drei, beide Präfixe, fehlerhafte Reihenfolge, fehlende Paare, Claim und Obergrenze ab
+    - kein neuer Entry Point oder Operatormodul; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-379 erweitert den read-only Generation-Inspector auf denselben begrenzten Lineage-Resolver
+
+- LQ-379 read-only bounded generation lineage inspector:
+  `docs/lq-379-read-only-bounded-generation-lineage-inspector.md`
+  - Status:
+    - erweitert den bestehenden Inspector ab Generation drei um denselben auf 16 Paare begrenzten LQ-378-Lineage-Resolver
+    - validiert Genesis, direkte Hash- und Präfixverkettung sowie Abwesenheit sämtlicher historischer Claims vollständig
+    - prüft aktuelle Evidence vor Claim und führt LQ-341 nur bei offenem exakt gebundenem aktuellem Claim frisch aus
+    - hält Cleanup-, aktuellen und historische Claims sowie alle Lineage-Dateien in sämtlichen Ausgängen bytegenau unverändert
+    - zehn neue Tests decken die Generation-3-Matrix, Evidence-Vorrang, Claimabwesenheit und vertauschte Lineage ab
+    - kein neuer Entry Point oder Operatormodul; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-380 erweitert den evidence-first Generation-Finalizer auf denselben begrenzten Lineage-Resolver
+
+- LQ-380 evidence-first bounded generation lineage finalizer:
+  `docs/lq-380-evidence-first-bounded-generation-lineage-finalizer.md`
+  - Status:
+    - erweitert den bestehenden Finalizer ab Generation drei um denselben auf 16 Paare begrenzten Lineage-Resolver
+    - validiert Genesis, direkte Hash- und Präfixverkettung sowie historische Claimabwesenheit vor aktueller Finalisierung
+    - führt ohne eigene Evidence LQ-379 frisch mit derselben Lineage aus und akzeptiert keinen caller-gelieferten Ausgang
+    - schreibt kanonische Evidence vor Freigabe ausschließlich des aktuellen Claims; neutrale Ausgänge verändern nichts
+    - sieben neue Tests decken vier Finalisierungen, zwei neutrale Ausgänge und sicheren Evidence-Retry ab
+    - kein neuer Entry Point oder Operatormodul; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-381 auditiert die vollständige begrenzte Generation-Lineage-Kette einschließlich Generation drei
+
+- LQ-381 bounded generation lineage completion audit:
+  `docs/lq-381-bounded-generation-lineage-completion-audit.md`
+  - Status:
+    - auditiert Continuation, read-only Inspector und evidence-first Finalizer für Generation eins bis drei
+    - bestätigt gemeinsamen Genesis-, Hash-, Präfix-, Evidence- und Claimresolver ab Generation drei ohne Rekursion
+    - belegt strukturelle Wiederholbarkeit bis Generation 17 und fail-closed Generation 18 vor historischen Reads
+    - terminale Ausgänge führen eindeutig zu LQ-343; nichtterminale Ausgänge starten keine Folgegeneration automatisch
+    - identifiziert nur noch einen expliziten Testnachweis für Generation vier und eine positive 16-Paar-Grenzlineage
+    - read-only Audit ohne Codeänderung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-382 ergänzt den Mehrgenerationen- und positiven Obergrenzenbeweis ohne Vertragserweiterung
+
+- LQ-382 multigeneration and positive lineage boundary proof:
+  `docs/lq-382-multigeneration-and-positive-lineage-boundary-proof.md`
+  - Status:
+    - belegt Generation vier vollständig über Continuation, read-only Inspector und evidence-first Finalizer
+    - erzeugt eine positive Generation-17-Lineage aus exakt 16 direkt verketteten historischen Paaren
+    - validiert Genesis, Autorisierungs- und Evidencehashes, Präfixe und historische Claimabwesenheit bis zur Obergrenze
+    - ergänzt die bestehende fail-closed Generation-18-Prüfung um den positiven Grenzfall ohne Limitänderung
+    - zwei neue Fake-Tests schließen die letzte Mehrgenerationen- und Obergrenzen-Verifikationslücke
+    - keine Produktionscode- oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-383 auditiert den operativen Handoff der Generation-Lineage an den bestehenden LQ-343-Abschluss
+
+- LQ-383 generation lineage to cleanup finalization handoff audit:
+  `docs/lq-383-generation-lineage-to-cleanup-finalization-handoff-audit.md`
+  - Status:
+    - auditiert ausschließlich terminale Generation-Ausgänge als manuellen Handoff an den bestehenden LQ-343-Finalizer
+    - bestätigt getrennte aktuelle LQ-343-Autorität und frische LQ-341-Beobachtung statt Übernahme historischer Generation-Ausgänge
+    - LQ-343 schreibt eigene Cleanup-Evidence vor Freigabe ausschließlich des ursprünglichen LQ-339-Claims
+    - Generation-Autorisierungen und Evidence bleiben außerhalb des LQ-343-Eingabe- und Schreibumfangs bytegenau erhalten
+    - identifiziert nur noch einen integrierten Fake-Nachweis für terminale Generation bis Cleanup-Claimfreigabe
+    - read-only Audit ohne Codeänderung; Bundle bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-384 ergänzt den integrierten terminalen Generation-zu-LQ-343-Handoff-Nachweis
+
+- LQ-384 integrated generation lineage cleanup finalization handoff proof:
+  `docs/lq-384-integrated-generation-lineage-cleanup-finalization-handoff-proof.md`
+  - Status:
+    - führt terminale Generation drei und den bestehenden LQ-343-Finalizer integriert im selben Run aus
+    - belegt neue getrennte LQ-343-Autorisierung und genau eine frische LQ-341-Beobachtung ohne Generation-Ausgangsübernahme
+    - bestätigt vorhandene Cleanup-Finalization-Evidence vor Freigabe ausschließlich des ursprünglichen LQ-339-Claims
+    - vergleicht sämtliche Generation-Autorisierungen und Evidence vor und nach LQ-343 erfolgreich bytegenau
+    - ein neuer Fake-Test schließt die letzte terminale Handoff-End-to-End-Verifikationslücke
+    - keine Produktionscode- oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-385 auditiert Runtime-Cleanup-Release- und Betriebsbereitschaft einschließlich offener Volume-Disposition
+
+- LQ-385 runtime cleanup release and operational readiness audit:
+  `docs/lq-385-runtime-cleanup-release-and-operational-readiness-audit.md`
+  - Status:
+    - bestätigt die interne 16-Command-Runtime-Cleanup-Kette als code-, vertrags- und testseitig vollständig
+    - hält Offline-, Claim-, Evidence-, Generation-, LQ-343- und Datenvolumegrenzen geschlossen und ohne automatische Ausführung
+    - identifiziert fehlendes zusammenhängendes Runbook, Autorisierungsmaterial-Handoff sowie Retention- und Incidentprozedur
+    - reale beaufsichtigte Environmentausführung bleibt bis zur Schließung dieser Betreiberlücke fail-closed
+    - separate Volume-Disposition blockiert keinen Runtime-Cleanup, aber jeden Claim vollständiger Umgebungsentsorgung
+    - read-only Audit ohne Code- oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-386 definiert den owner-kontrollierten Runtime-Cleanup-Betriebshandoff als Runbookvertrag
+
+- LQ-386 owner-controlled runtime cleanup operational handoff contract:
+  `docs/lq-386-owner-controlled-runtime-cleanup-operational-handoff-contract.md`
+  - Status:
+    - definiert das beaufsichtigte Offline-Runbook für alle 16 Runtime-Cleanup-Commands ohne linearen Blindlauf
+    - verlangt getrennte owner-only Autorisierungsmaterial-Handoffs und geschlossenes Routing nach jedem Ausgang
+    - friert Unknown-Outcome-, Inspector-, Finalizer-, Evidence-Retry-, Generation- und LQ-343-Routen ein
+    - verlangt private Lineage-Inventarisierung, Retention-Owner und fail-closed Incident-Stopregeln
+    - schließt Automatisierung, manuelle Docker-/Claim-Abkürzungen und Volume-Disposition ausdrücklich aus
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-387 implementiert das Runtime-Cleanup-Runbook und einen statischen Auditnachweis
+
+- LQ-387 runtime cleanup runbook and static audit:
+  `docs/lq-387-runtime-cleanup-runbook-and-static-audit.md`
+  - Status:
+    - implementiert operations/runbooks/disposable-postgres-runtime-cleanup.md als zusammenhängenden beaufsichtigten Offline-Prozess
+    - dokumentiert alle 16 installierten Commands in Authority-Reihenfolge mit geschlossenem Ausgangsrouting statt Blindlauf
+    - schließt Autorisierungshandoff, Unknown Outcome, Evidence-Retry, Generation-Lineage, LQ-343-Handoff und Retention operativ
+    - verbietet Automatisierung, manuelle Docker-/Claim-/Evidence-Abkürzungen und jede Volume-Disposition
+    - drei statische Tests prüfen Entry-Point-Inventar, Reihenfolge, Routing-, Incident-, Retention- und Volumegrenzen
+    - keine Produktionscode- oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-388 definiert die separate PostgreSQL-Volume-Disposition als eigenen Vertrag
+
+- LQ-388 PostgreSQL volume disposition contract:
+  `docs/lq-388-postgresql-volume-disposition-contract.md`
+  - Status:
+    - definiert die separate fail-closed Disposition des nach Runtime-Cleanup erhaltenen rungebundenen Datenvolumes
+    - trennt Retentionfreigabe, Legal-Hold-Entscheidung, Backup-/Restore-Nachweis und spätere Löschautorität
+    - erlaubt nur retain, deletion_review_eligible, investigation_required oder detailfreie technische Nichtverfügbarkeit
+    - bindet Actor, Zielvolume und sämtliche Abschlusslineage ausschließlich aus dem privaten System of Record
+    - friert Revocation, Evidence-first-Claimordnung, Unknown Outcome, Retention und Nichtwiederverwendung ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-389 definiert den strikt read-only PostgreSQL-Volume-Disposition-Resolver
+
+- LQ-389 read-only PostgreSQL volume disposition resolver contract:
+  `docs/lq-389-read-only-postgresql-volume-disposition-resolver-contract.md`
+  - Status:
+    - definiert eine explizite kurzlebige Offline-Grenze zur read-only Auflösung genau eines rungebundenen Datenvolumes
+    - verlangt vollständige bytegenaue Runtime-Abschlusslineage, geschlossene Claims und unveränderte Volumeidentität
+    - löst aktuelle Retention-, Legal-Hold-, Recovery- und Identitätsfakten bei jeder Entscheidung neu aus dem System of Record
+    - bildet ausschließlich retain, deletion_review_eligible, investigation_required oder detailfreie technische Nichtverfügbarkeit ab
+    - schließt Writes, Volumeinhaltszugriff, positive Caches, Caller-Authority und automatische Folgeprozesse aus
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 49 Entry Points, 53 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-390 implementiert die lokale strikt read-only Resolvergrenze mit Tests
+
+- LQ-390 read-only PostgreSQL volume disposition resolver:
+  `docs/lq-390-read-only-postgresql-volume-disposition-resolver.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-disposition als strikt lokalen read-only Resolver
+    - bindet owner-only Authority, bytegenaues Lineage-Manifest sowie aktuelle Retention-, Hold- und Recoveryentscheidungen
+    - prüft geschlossene Cleanup-Claims und genau ein intern abgeleitetes Docker-Volume ausschließlich read-only
+    - liefert nur retain, deletion_review_eligible, investigation_required oder detailfreie technische Nichtverfügbarkeit
+    - vierzehn Tests decken positive, negative, konfliktbehaftete, malformed und CLI-Ausgänge ohne Volumeeffekt ab
+    - Bundle steigt auf 50 Entry Points und 54 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-391 definiert den owner-only Autorisierungs- und Preflightvertrag für Volumenlöschung
+
+- LQ-391 owner-only PostgreSQL volume deletion authorization and preflight contract:
+  `docs/lq-391-owner-only-postgresql-volume-deletion-authorization-preflight-contract.md`
+  - Status:
+    - definiert neue owner-only Löschauthority mit data_volume_only-Scope und vorab gebundener nicht wiederverwendbarer Claim-ID
+    - verlangt frische LQ-390-Auflösung sowie erneute Retention-, Hold-, Recovery-, Revocation- und Lineageprüfung
+    - trennt claimfreien read-only Preflight von exklusiver Claimanlage erst im späteren mutierenden Operator
+    - schließt ready, rejected, investigation_required und detailfreie technische Nichtverfügbarkeit beobachtbar ab
+    - friert exakte Volumeableitung, Unknown Outcome, Evidence-first-Finalisierung, Retention und Nichtwiederverwendung ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 50 Entry Points, 54 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-392 implementiert den strikt read-only Volume-Deletion-Preflight mit Tests
+
+- LQ-392 read-only PostgreSQL volume deletion preflight:
+  `docs/lq-392-read-only-postgresql-volume-deletion-preflight.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-deletion-preflight als lokale strikt read-only Prüfgrenze
+    - bindet neue data_volume_only-Löschauthority bytegenau an Resolver, Lineage, Retention, Hold und Recovery
+    - prüft getrennte Identitäten, Claimfreiheit und den frisch erneut ausgeführten LQ-390-Ausgang ohne eigene Dockerwrites
+    - bildet ausschließlich ready, rejected, investigation_required oder detailfreie technische Nichtverfügbarkeit ab
+    - siebzehn Tests belegen Scope-, Hash-, Claim-, Revocation-, Volume-, CLI- und Seiteneffektgrenzen
+    - Bundle steigt auf 51 Entry Points und 55 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-393 definiert den owner-kontrollierten Evidence-first Volume-Deletion-Operatorvertrag
+
+- LQ-393 owner-controlled evidence-first PostgreSQL volume deletion contract:
+  `docs/lq-393-owner-controlled-evidence-first-postgresql-volume-deletion-contract.md`
+  - Status:
+    - definiert den mutierenden data_volume_only-Operator mit frischem LQ-392-Preflight und unveränderter owner-only Authority
+    - verlangt vor dem ersten Effekt exklusive durable Anlage des vorab gebundenen Volume-Deletion-Claims
+    - begrenzt Mutation auf genau einen intern abgeleiteten Volume-Remove mit anschließender exakter Abwesenheitsbestätigung
+    - friert Unknown Outcome ohne Blind-Retry sowie atomare finale Evidence vor Claimfreigabe und Evidence-Retry ein
+    - begrenzt volume_removed auf das lokale Volumeobjekt ohne Behauptung vollständiger Datenentsorgung
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 51 Entry Points, 55 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-394 implementiert den owner-kontrollierten Evidence-first Volume-Deletion-Operator mit Tests
+
+- LQ-394 owner-controlled evidence-first PostgreSQL volume deletion:
+  `docs/lq-394-owner-controlled-evidence-first-postgresql-volume-deletion.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete als owner-kontrollierten data_volume_only-Operator
+    - wiederholt LQ-392 frisch, legt den vorab gebundenen Claim exklusiv durable an und prüft die letzte Volumebindung
+    - führt genau einen exakten Volume-Remove aus und bestätigt Abwesenheit über eine verankerte Namensabfrage
+    - schreibt atomare finale Evidence vor Claimfreigabe und unterstützt Evidence-Retry ohne Preflight oder Docker
+    - vierzehn Tests belegen Mutationsbudget, Unknown Outcome, Idempotenz, Claim-, Evidence- und CLI-Grenzen
+    - Bundle steigt auf 52 Entry Points und 56 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-395 definiert die strikt read-only Reconciliation offener Volume-Deletion-Claims
+
+- LQ-395 read-only PostgreSQL volume deletion claim reconciliation contract:
+  `docs/lq-395-read-only-postgresql-volume-deletion-claim-reconciliation-contract.md`
+  - Status:
+    - definiert neue owner-only Inspectorauthority für offene Volume-Deletion-Claims ohne Verlängerung der Löschauthority
+    - priorisiert finale Evidence und not_found vor Docker und validiert den exakten Claim vollständig
+    - klassifiziert ausschließlich volume_present, volume_absent_evidence_missing oder conflict bei offenem Claim
+    - schließt Claimfreigabe, Evidencewrite, Volume-Remove, Retry, Finalisierung und Continuation vollständig aus
+    - friert detailarme technische Nichtverfügbarkeit, Retention, Nichtwiederverwendung und lokale Aussagegrenzen ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 52 Entry Points, 56 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-396 implementiert den strikt read-only Volume-Deletion-Claim-Inspector mit Tests
+
+- LQ-396 read-only PostgreSQL volume deletion claim inspector:
+  `docs/lq-396-read-only-postgresql-volume-deletion-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-reconcile als strikt lokalen read-only Claim-Inspector
+    - bindet neue aktuelle Reconciliation-Authority an historische Lösch-, Resolver-, Lineage- und Clearancefakten
+    - priorisiert finale Evidence und not_found vor Docker und validiert einen offenen Claim vollständig
+    - klassifiziert volume_present, volume_absent_evidence_missing und conflict nur über exakte read-only Volumeaufrufe
+    - dreizehn Tests belegen Zustandsmatrix, technische Fehler, Evidencepriorität, Claimtreue, CLI und Writefreiheit
+    - Bundle steigt auf 53 Entry Points und 57 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-397 definiert die Evidence-first Finalisierung beobachteter Volume-Deletion-Zustände
+
+- LQ-397 evidence-first PostgreSQL volume deletion finalization contract:
+  `docs/lq-397-evidence-first-postgresql-volume-deletion-finalization-contract.md`
+  - Status:
+    - definiert neue owner-only Finalisierungsauthority mit frischer LQ-396-Entscheidung und fünfzehn getrennten Identitäten
+    - finalisiert volume_absent_evidence_missing und final_evidence_present über getrennte atomare Finalization-Evidence
+    - lässt volume_present als continuation_required ohne Write und mit offenem ursprünglichem Claim nichtterminal
+    - hält not_found und investigation_required write-frei und verbietet jede Ressourcenmutation oder gefälschte LQ-394-Evidence
+    - friert Claimfreigabe erst nach Evidence, Evidence-Retry, Retention, Nichtwiederverwendung und lokale Aussagegrenzen ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 53 Entry Points, 57 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-398 implementiert den Evidence-first Volume-Deletion-Finalizer mit Tests
+
+- LQ-398 evidence-first PostgreSQL volume deletion finalizer:
+  `docs/lq-398-evidence-first-postgresql-volume-deletion-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-finalize als owner-kontrollierten Evidence-first Finalizer
+    - führt LQ-396 frisch aus und finalisiert nur volume_absent_evidence_missing sowie final_evidence_present terminal
+    - hält volume_present als continuation_required sowie not_found und investigation_required vollständig write-frei
+    - schreibt atomare getrennte Finalization-Evidence vor Freigabe ausschließlich des exakten LQ-394-Claims
+    - zehn Tests belegen Zustandsabbildung, Evidenceordnung, Claimtreue, Evidence-Retry, CLI und Ressourcenwritefreiheit
+    - Bundle steigt auf 54 Entry Points und 58 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-399 definiert die streng autorisierte Continuation für volume_present
+
+- LQ-399 authorized PostgreSQL volume deletion continuation contract:
+  `docs/lq-399-authorized-postgresql-volume-deletion-continuation-contract.md`
+  - Status:
+    - definiert neue owner-only Continuation-Authority mit eigener stabiler ID und vorab gebundenem untergeordnetem Claim
+    - verlangt eine frische LQ-398-Entscheidung und erlaubt ausschließlich bei continuation_required den Fortsetzungsweg
+    - hält den ursprünglichen LQ-394-Claim durchgehend offen und reserviert dessen Freigabe für spätere LQ-398-Finalisierung
+    - begrenzt die Mutation auf genau einen weiteren exakten Volume-Remove mit anschließender Abwesenheitsbestätigung
+    - friert Unknown Outcome ohne Blind-Retry sowie atomare Continuation-Evidence vor Freigabe nur des untergeordneten Claims ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 54 Entry Points, 58 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-400 implementiert den owner-kontrollierten Volume-Deletion-Continuation-Operator mit Tests
+
+- LQ-400 owner-controlled PostgreSQL volume deletion continuation:
+  `docs/lq-400-owner-controlled-postgresql-volume-deletion-continuation.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-continue mit eigener aktueller owner-only Continuation-Authority
+    - führt LQ-398 frisch aus und erreicht ausschließlich bei continuation_required den untergeordneten exklusiven Claim
+    - validiert das exakte Volume zuletzt read-only und erlaubt genau einen weiteren Remove mit Abwesenheitsbestätigung
+    - hält den ursprünglichen LQ-394-Claim immer offen und schreibt getrennte atomare Continuation-Evidence vor Freigabe nur des Unterclaims
+    - fünfzehn Tests belegen Unknown Outcome, Einzelmutation, Doppelclaim, Evidence-Retry, Zustandsabbildung und CLI-Grenzen
+    - Bundle steigt auf 55 Entry Points und 59 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-401 definiert die strikt read-only Reconciliation offener Volume-Deletion-Continuation-Claims
+
+- LQ-401 read-only PostgreSQL volume deletion continuation reconciliation contract:
+  `docs/lq-401-read-only-postgresql-volume-deletion-continuation-reconciliation-contract.md`
+  - Status:
+    - definiert neue owner-only Inspectorauthority ohne Verlängerung von Lösch-, Finalisierungs- oder Continuation-Authority
+    - priorisiert exakt gebundene Continuation-Evidence und neutrale Claimabwesenheit vor jedem Dockerzugriff
+    - verlangt bei offenem Unterclaim einen vollständig gebundenen ursprünglichen LQ-394-Claim
+    - klassifiziert ausschließlich volume_present, volume_absent_evidence_missing oder conflict über exakte read-only Volumeaufrufe
+    - verbietet Claim-, Evidence- und Ressourcenwrites sowie jeden automatischen weiteren Remove
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 55 Entry Points, 59 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-402 implementiert den strikt read-only Volume-Deletion-Continuation-Claim-Inspector mit Tests
+
+- LQ-402 read-only PostgreSQL volume deletion continuation claim inspector:
+  `docs/lq-402-read-only-postgresql-volume-deletion-continuation-claim-inspector.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-continue-reconcile als strikt lokalen read-only Inspector
+    - bindet neue aktuelle owner-only Inspectorauthority bytegenau an die vollständige historische LQ-400-Kette
+    - priorisiert Continuation-Evidence und not_found vor Docker und verlangt sonst beide Claims vollständig gebunden
+    - klassifiziert volume_present, volume_absent_evidence_missing und conflict nur über exakte read-only Volumeaufrufe
+    - vierzehn Tests belegen Zustandsmatrix, technische Fehler, Evidencepriorität, Doppelclaimtreue, CLI und Writefreiheit
+    - Bundle steigt auf 56 Entry Points und 60 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-403 definiert die Evidence-first Finalisierung offener Volume-Deletion-Continuation-Claims
+
+- LQ-403 evidence-first PostgreSQL volume deletion continuation finalization contract:
+  `docs/lq-403-evidence-first-postgresql-volume-deletion-continuation-finalization-contract.md`
+  - Status:
+    - definiert neue owner-only Continuation-Finalization-Authority mit frischer LQ-402-Entscheidung
+    - finalisiert continuation_evidence_present und volume_absent_evidence_missing über getrennte atomare Evidence
+    - hält volume_present und conflict als investigation_required sowie not_found vollständig write-frei
+    - erlaubt nach Evidence ausschließlich die Freigabe des exakten LQ-400-Unterclaims und hält den LQ-394-Claim offen
+    - friert Evidence-Retry, späteren separaten LQ-398-Abschluss, Retention und lokale Aussagegrenzen ein
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 56 Entry Points, 60 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-404 implementiert den Evidence-first Volume-Deletion-Continuation-Finalizer mit Tests
+
+- LQ-404 evidence-first PostgreSQL volume deletion continuation finalizer:
+  `docs/lq-404-evidence-first-postgresql-volume-deletion-continuation-finalizer.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-continue-finalize mit eigener aktueller owner-only Authority
+    - führt LQ-402 frisch aus und finalisiert continuation_evidence_present sowie volume_absent_evidence_missing terminal
+    - hält volume_present, conflict und fehlenden ursprünglichen Claim als investigation_required vollständig write-frei
+    - schreibt atomare getrennte Finalization-Evidence vor Freigabe ausschließlich des exakten LQ-400-Unterclaims
+    - zehn Tests belegen Zustandsabbildung, Evidenceordnung, Doppelclaimtreue, Evidence-Retry, CLI und Ressourcenwritefreiheit
+    - Bundle steigt auf 57 Entry Points und 61 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-405 definiert den terminalen Handoff an eine frische LQ-398-Ausführung
+
+- LQ-405 controlled terminal PostgreSQL volume deletion finalization handoff contract:
+  `docs/lq-405-controlled-terminal-postgresql-volume-deletion-finalization-handoff-contract.md`
+  - Status:
+    - definiert neue owner-only Handoff-Authority gebunden an positive LQ-404-Evidence und neue aktuelle LQ-396-/LQ-398-Authorities
+    - verlangt freigegebenen LQ-400-Unterclaim und offenen exakt gebundenen ursprünglichen LQ-394-Claim
+    - komponiert LQ-398 genau einmal mit frischer read-only Volumeabwesenheitsbeobachtung über LQ-396
+    - vereinheitlicht nur terminale LQ-398-Ausgänge zu volume_deletion_finalized und hält alle anderen investigation_required
+    - besitzt keinen eigenen Writer; Evidence und Freigabe des ursprünglichen Claims bleiben ausschließlich LQ-398 vorbehalten
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 57 Entry Points, 61 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-406 implementiert den kontrollierten terminalen Volume-Deletion-Handoff mit Tests
+
+- LQ-406 controlled terminal PostgreSQL volume deletion finalization handoff:
+  `docs/lq-406-controlled-terminal-postgresql-volume-deletion-finalization-handoff.md`
+  - Status:
+    - installiert liquent-disposable-postgres-volume-delete-terminal-handoff als writerfreie kontrollierte LQ-398-Komposition
+    - bindet positive LQ-404-Evidence bytegenau an neue aktuelle owner-only LQ-396-/LQ-398-Authorities
+    - verlangt freigegebenen Unterclaim und offenen ursprünglichen Claim vor frischer read-only Abwesenheitsprüfung
+    - überlässt atomare Evidence und Freigabe des ursprünglichen Claims ausschließlich LQ-398
+    - neun Tests belegen beide positiven Pfade, Claim-Gates, Hashbindung, Retry ohne Docker, CLI und Mutationsgrenzen
+    - Bundle steigt auf 58 Entry Points und 62 Operatormodule; Migrationen bleiben bei 27
+    - nächster Slice LQ-407 auditiert den vollständigen PostgreSQL-Volume-Disposition- und -Deletion-Lebenszyklus
+
+- LQ-407 PostgreSQL volume disposition and deletion end-to-end audit:
+  `docs/lq-407-postgresql-volume-disposition-deletion-end-to-end-audit.md`
+  - Status:
+    - auditiert neun installierte Commands von read-only Disposition bis terminalem LQ-406-Handoff
+    - bestätigt höchstens zwei exakte Removeversuche, getrennte Claims und atomare Evidence vor jeder Claimfreigabe
+    - weist direkte und beide Unknown-Outcome-Routen sowie den terminalen claimfreien Zustand zusammenhängend nach
+    - fokussierte 116 Tests und die vollständige Suite mit 3941 Tests belegen interne Code-, Vertrags- und Testvollständigkeit
+    - hält lokale Volumeaussage strikt getrennt von vollständiger Datenentsorgung und jeder unbeaufsichtigten Automation
+    - Betriebsfreigabe bleibt wegen fehlendem Volume-Runbook sowie Authority-, Retention- und Incidentübergaben fail-closed
+    - nächster Slice LQ-408 definiert den owner-kontrollierten Betriebs- und Runbookvertrag der vollständigen Volume-Kette
+
+- LQ-408 owner-controlled PostgreSQL volume disposition and deletion operational handoff contract:
+  `docs/lq-408-owner-controlled-postgresql-volume-disposition-deletion-operational-handoff-contract.md`
+  - Status:
+    - definiert eine einzige beaufsichtigte Offline-Entscheidungsfolge für alle neun installierten Volume-Commands
+    - friert Environment-, Prozesskonto-, Rollen-, private Datei- und Authority-Materialgrenzen fail-closed ein
+    - routet direkte und beide Unknown-Outcome-Pfade ohne Blind-Retry oder automatischen Folgeschritt
+    - begrenzt Mutation auf höchstens zwei exakte Removeversuche und verbietet jede manuelle oder gruppenweite Abkürzung
+    - verlangt Incident-Stop, Evidence-Retention, Nichtwiederverwendung und terminale LQ-406-Bestätigung bei beiden abwesenden Claims
+    - keine Implementierung oder Bundleänderung; Bestand bleibt bei 58 Entry Points, 62 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-409 implementiert und auditiert das beaufsichtigte Volume-Disposition- und -Deletion-Runbook
+
+- LQ-409 PostgreSQL volume disposition and deletion runbook static audit:
+  `docs/lq-409-postgresql-volume-disposition-deletion-runbook-static-audit.md`
+  - Status:
+    - implementiert operations/runbooks/disposable-postgres-volume-disposition-deletion.md als beaufsichtigte Offline-Entscheidungsfolge
+    - dokumentiert alle neun installierten Commands, Authority-Handoffs und direkten sowie beide Unknown-Outcome-Pfade
+    - begrenzt Mutation auf zwei exakte Removeversuche und verbietet Blind-Retry, Automation und manuelle Abkürzungen
+    - verlangt Incident-Stop, private Evidence-Retention und terminale Bestätigung nur bei erhaltenem Nachweis und beiden abwesenden Claims
+    - vier statische Tests belegen Commandreihenfolge, Routing, Retry-, Retention-, Abschluss- und Aussagegrenzen ohne Docker
+    - Bundle bleibt bei 58 Entry Points, 62 Operatormodulen und 27 Migrationen
+    - nächster Slice LQ-410 auditiert die Betriebs- und Releasebereitschaft nach Schließung der Runbooklücke
+
+- LQ-410 PostgreSQL volume disposition and deletion operational release readiness reaudit:
+  `docs/lq-410-postgresql-volume-disposition-deletion-operational-release-readiness-reaudit.md`
+  - Status:
+    - bestätigt den Volume-Track mit neun Commands, 120 fokussierten Tests und zusammenhängendem beaufsichtigtem Runbook als intern vollständig
+    - schließt Code-, Vertrags-, Test- und allgemeine Runbookblocker ohne neue Funktion oder Bundleänderung
+    - hält reale Hostläufe weiterhin an konkrete environmentbezogene Authority-, Retention- und Incidentfreigaben gebunden
+    - bewertet Automatisierungsisolation und fehlenden Authority-Generator als beabsichtigte Sicherheitsgrenzen statt Funktionslücken
+    - friert lokale Volumeaussage gegenüber vollständiger Datenentsorgung weiterhin strikt ein
+    - identifiziert 574 kumulierte geänderte oder neue Pfade als nun wesentliches Integrations- und Releaserisiko
+    - nächster Slice LQ-411 auditiert und plant den reviewbaren Konsolidierungs- und Release-Handoff des Gesamtbestands
+
+- LQ-411 cumulative worktree integration and release handoff audit:
+  `docs/lq-411-cumulative-worktree-integration-release-handoff-audit.md`
+  - Status:
+    - inventarisiert detached HEAD 83699b1 mit 24 veränderten, 551 neuen und insgesamt 575 uncommitted Pfaden
+    - bestätigt den ungeteilten Endstand mit 3945 Tests, 58 Entry Points, 62 Operatormodulen und 27 linearen Migrationen
+    - verwirft mechanischen Slice-, Hunk- oder Verzeichnissplit wegen gemeinsam fortgeschriebener Ports, Migrationen, Wiring- und Gatefiles
+    - empfiehlt einen atomaren grünen Commit mit sieben fachlich getrennten PR-Reviewabschnitten und vollständiger Revertgrenze
+    - friert PostgreSQL-, Packaging-, Bundle-, Secret-, Konfliktmarker-, Migration- und Entry-Point-Prüfungen als Pflichtgates vor Staging ein
+    - führt weder Branch, Staging, Commit, Push, PR noch Deployment aus und empfiehlt bis Konsolidierung keine weiteren Features
+    - nächster Slice LQ-412 konsolidiert den Roadmap-Kopf und ergänzt einen statischen Status-/Gate-Konsistenznachweis
+
+- LQ-412 consolidated roadmap status and gate consistency:
+  `docs/lq-412-consolidated-roadmap-status-gate-consistency.md`
+  - Status:
+    - hebt den Roadmap-Kopf auf 3945 bestandene, 99 übersprungene und 615 gewarnte normale Tests sowie Dokumentationsstand LQ-412
+    - hält den letzten PostgreSQL-Pflichtnachweis mit 74 Integrationen getrennt und verlangt seine Wiederholung für den kumulierten Endstand
+    - zählt den aktuellen Paketbestand direkt als 58 Console Entry Points, 64 Operatormodule und 27 lineare Migrationen mit Head 20260819_0027
+    - korrigiert damit die bisherige 62-Modul-Aussage, ohne historische additive Sliceeinträge umzuschreiben
+    - ergänzt einen statischen Nachweis gegen erneute Kopf-, Inventar-, Migrations- und Releasegrenzendrift
+    - dokumentiert die veralteten 34-/38-Grenzen des Bundle-Prüfers als offenes Pflichtgate; kein Releaseartefakt gilt damit als final verifiziert
+    - verändert weder Produktlogik, Migration, Entry Point, Bundlewerkzeug, Branch, Staging, Commit, Push noch Deployment
+    - nächster Slice LQ-413 synchronisiert Bundleinventar und erforderliche Betriebsartefakte, bevor Packaging als bestanden gelten darf
+
+- LQ-413 operational release bundle inventory synchronization:
+  `docs/lq-413-operational-release-bundle-inventory-synchronization.md`
+  - Status:
+    - synchronisiert den Wheel-Prüfer auf 58 Console Entry Points, 65 gepackte Operator-Pythondateien einschließlich Paketinitialisierer und 27 Migrationen
+    - ersetzt verstreute Zahlen durch benannte fail-closed Inventarkonstanten und aktualisiert deterministische Bundlefixtures
+    - erweitert den Pflichtumfang von neun auf alle 17 aktuellen Runbooks und um abschließende Release-, Worker-, Staging-, Recovery-, Cleanup-, Volume- und Integrationsverträge
+    - behält exakte Manifestinventare, Checksummen, Secret-Scan, lineare Migrationen und detailfreie Ablehnung unverändert bei
+    - unterscheidet 64 Operatorimplementierungs- und Hilfsmodule vom zusätzlich gepackten Paketinitialisierer
+    - führt keine Publication, Signatur, Promotion, PostgreSQL-Verbindung, externe Umgebung oder Deploymentaktion aus
+    - Packaging bleibt bis zu einem echten Wheel-/SDist-Build und vollständigem Gate-Lauf offen
+    - nächster Slice LQ-414 führt den lokalen Packaging- und Bundle-Preflight gegen den konsolidierten Bestand aus
+
+- LQ-414 local packaging and bundle preflight:
+  `docs/lq-414-local-packaging-bundle-preflight.md`
+  - Status:
+    - bricht den lokalen Build fail-closed vor Artefakterzeugung ab, weil nur Python 3.9.6 statt mindestens 3.10 und kein Build-Frontend verfügbar sind
+    - weist Setuptools 58.0.4 und Wheel 0.37.0 gegenüber Mindest-/Lockgrenzen 61 beziehungsweise 80.10.2 und 0.47.0 als ungeeignet aus
+    - bestätigt fehlenden Pytest-Runner, fehlendes PostgreSQL-Test-DSN, fehlendes SOURCE_DATE_EPOCH und 580 uncommitted Pfade
+    - erzeugt weder Wheel, Source Distribution, Verification Evidence noch Operationsbundle und gibt kein Packaginggate als bestanden aus
+    - bestätigt zugleich statisch den vorgesehenen CI-Pfad mit Python 3.12, gelockten Buildwerkzeugen und nicht isoliertem Wheel-Build
+    - ergänzt einen statischen Nachweis für Blockertrennung, Nichtausführung und unveränderte Releasegrenzen
+    - führt keine Dependencyinstallation, Netzwerkauflösung, Publication, Signatur, Promotion, Branch-, Commit-, Push- oder Deploymentaktion aus
+    - nächster Slice LQ-415 definiert den kontrollierten grünen Build-Runner und dessen atomare Evidenzgrenze für eine geeignete Laufzeit
+
+- LQ-415 controlled green build runner and atomic evidence:
+  `docs/lq-415-controlled-green-build-runner-atomic-evidence.md`
+  - Status:
+    - implementiert zehn feste Runtime-, Source-, Test-, Distribution-, Wheel-, Entry-Point-, sdist-, Bundle- und Diffphasen ohne Skip- oder Optionalpfad
+    - akzeptiert nur kanonische phasengebundene Receipts mit selbst ermitteltem Faktendigest und durchgehend identischem Source-Commit
+    - veröffentlicht Ergebnisverzeichnis und kontrollierte Gesamtevidenz erst atomar nach zehn Erfolgen; jeder Fehler entfernt den privaten Zwischenstand
+    - lehnt fehlende, zusätzliche, fremde, nicht kanonische oder commitdivergente Gates detailfrei ab und überschreibt kein vorhandenes Ziel
+    - hält controlled-preflight.json getrennt von der faktenspezifischen Bundle-verification.json und setzt Publication sowie Deployment immer auf nicht autorisiert
+    - ergänzt weder Console Entry Point, CI-Wiring, Produktlogik, Migration noch Packagingkonfiguration und führt den echten Build lokal nicht aus
+    - die LQ-414-Umgebungsblocker bleiben offen; synthetische Runner-Tests sind kein Packaging- oder Releasenachweis
+    - nächster Slice LQ-416 implementiert die selbst messenden lokalen Gateadapter ohne automatische Aktivierung
+
+- LQ-416 self-measuring local release preflight gates:
+  `docs/lq-416-self-measuring-local-release-preflight-gates.md`
+  - Status:
+    - implementiert alle zehn selbst messenden Runtime-, Source-, Test-, Distribution-, Wheel-, Entry-Point-, sdist-, Bundle- und Diffadapter für den LQ-415-Runner
+    - bindet jede Phase frisch an denselben sauberen Git-Commit und erzeugt status=passed nur aus kanonisch gehashten Messfakten
+    - verlangt Python 3.12, gelockte Buildwerkzeuge, vollständige normale und erzwungene PostgreSQL-Tests sowie SOURCE_DATE_EPOCH aus Git
+    - baut privat Wheel und sdist, prüft 58 Entry Points, 65 Operator-Pythondateien, 27 Migrationen und lädt alle installierten Entry-Point-Objekte
+    - erzeugt Bundle-Evidenz aus vorangegangenen Messungen und akzeptiert nur ein integritätsgeprüftes, weiterhin nicht promotables Operationsbundle
+    - stellt keinen Publication-, Promotion- oder Deploymentadapter bereit und aktiviert weder CLI noch CI automatisch
+    - führt die echte Kette wegen ungeeigneter Laufzeit und uncommitted Sourcebaum nicht aus; kein Packaging- oder Releaseclaim
+    - nächster Slice LQ-417 verbindet Runner und Adapter in einer expliziten detailfreien lokalen Kommandooberfläche
+
+- LQ-417 explicit local controlled release preflight command:
+  `docs/lq-417-explicit-local-controlled-release-preflight-command.md`
+  - Status:
+    - verbindet exakt den LQ-415-Runner und alle zehn LQ-416-Adapter in einer bewusst aufzurufenden lokalen Python-Moduloberfläche
+    - akzeptiert nur Sourcewurzel und neues privates Ziel; keine freien Befehle, Pythonpfade, DSN-Werte, Erfolgsbooleschen, Skips oder Authorities
+    - gibt nur begrenztes JSON mit nicht autorisierter Publication und Deployment oder eine konstante detailfreie Ablehnung mit Exitcode 2 aus
+    - rendert weder absolute Pfade, Commit, Test-DSN, Prozessdetails noch Gatefehler und überschreibt kein bestehendes oder symbolisches Ziel
+    - installiert keinen Console Entry Point und verdrahtet nichts in Quality-CI, Compose, HTTP, Publication oder Deployment
+    - umgeht keine Runtime-, Source-, Test-, Wheel-, sdist-, Entry-Point-, Bundle- oder Diffprüfung; aktueller Worktree bleibt nicht buildfähig
+    - führt keinen echten Build, keine Dependencyinstallation und keine externe Aktion aus; kein Packaging- oder Releaseclaim
+    - nächster Slice LQ-418 reauditert Evidenzübersetzung und Bundle-/Final-Diff-Reihenfolge der gesamten lokalen Kette
+
+- LQ-418 controlled release preflight chain reaudit:
+  `docs/lq-418-controlled-release-preflight-chain-reaudit.md`
+  - Status:
+    - identifiziert die bisherige Bundle-vor-Final-Diff-Reihenfolge als zu weite Evidenzaussage und macht das Bundle zur terminalen zehnten Phase
+    - erzeugt diff_check=passed erst nach ausdrücklich erfolgreichem git diff --check und verlangt diesen gespeicherten Nachweis vor Bundle-Evidenz
+    - ersetzt den PostgreSQL-Versionsplatzhalter durch SHOW server_version über dieselbe verpflichtende Test-DSN und akzeptiert nur begrenzte numerische Versionen
+    - bindet Testzahlen, Wheel-/Entry-Point-/Migrationsfakten, Diffstatus, Payloadscan und verifiziertes nicht promotables Bundle an denselben sauberen Commit
+    - ergänzt statische Regressionstests für Reihenfolge, Evidenzherkunft, terminale Bundleverifikation und begrenzte Releaseclaims
+    - führt in der ungeeigneten aktuellen Laufzeit keinen echten Packaging- oder Bundlelauf aus und erzeugt kein Releaseartefakt
+    - erteilt keine Publication-, Promotion- oder Deploymentfreigabe und ändert weder Produktlogik, Migration, Entry Points noch externe Verdrahtung
+    - nächster Slice LQ-419 härtet Prozesszeitlimits, Outputgrößen, unbekannte Ausgänge und private Artefaktretention
+
+- LQ-419 release preflight process bounds and retention:
+  `docs/lq-419-release-preflight-process-bounds-and-retention.md`
+  - Status:
+    - begrenzt jeden lokalen Gateprozess fest auf 900 Sekunden und 1.048.576 Bytes kombinierte private stdout-/stderr-Ausgabe ohne CLI-Override
+    - verwendet anonyme temporäre Ausgabepuffer statt unbeschränkter Speicherpipes und akzeptiert nur vollständige Ausgabe nach eindeutigem Exitcode null
+    - beendet bei Timeout die eigene Prozessgruppe, wartet begrenzt nach und vereinheitlicht Timeout, Signal, Exitfehler, Killfehler und übergroße Ausgabe detailfrei
+    - erlaubt keinen automatischen Retry; unbekannter Ausgang stoppt alle späteren Gates und erzeugt weder Gesamtevidenz noch finales Ziel
+    - entfernt fehlgeschlagene private Zwischenartefakte mit dem Runner-Workspace und bewahrt erfolgreiche owner-kontrollierte Evidenz ohne automatische Rotation
+    - überschreibt oder verwendet vorhandene und symbolische Ziele nicht wieder; globale persistente Attempt-ID-Nichtwiederverwendung bleibt separat
+    - führt nur synthetische Kindprozessprüfungen aus, keinen Build, PostgreSQL-, Bundle-, Publication-, Promotion- oder Deploymentlauf
+    - nächster Slice LQ-420 reauditert Signalweitergabe, Operatorabbruch und fehlende Erfolgsevidenz nach unbekanntem Ausgang end-to-end
+
+- LQ-420 release preflight signal cleanup reaudit:
+  `docs/lq-420-release-preflight-signal-cleanup-reaudit.md`
+  - Status:
+    - identifiziert die Restartefakt- und Kindprozesslücke bei SIGINT/SIGTERM an den übergeordneten Preflight und schließt sie im Runner
+    - installiert temporäre SIGINT-/SIGTERM-Handler, vereinheitlicht Operatorabbruch detailfrei und stellt vorherige Handler nach Erfolg oder Fehler wieder her
+    - beendet bei asynchroner Unterbrechung während wait zuerst die gesamte Kindprozessgruppe, wartet begrenzt nach und verwirft jede partielle Ausgabe
+    - entfernt den privaten Workspace, ruft keine späteren Gates auf und erzeugt nach Signal oder unbekanntem Ausgang weder Ziel noch controlled-preflight.json
+    - schützt den einzelnen atomaren Commitmoment vor einer widersprüchlichen Ablehnung nach bereits vollständig verschobenem Erfolg
+    - belegt SIGINT, SIGTERM und Kindprozessunterbrechung synthetisch sowie Handlerwiederherstellung und konstante CLI-Ablehnung
+    - führt keinen echten Packaging-, PostgreSQL-, Bundle-, Publication-, Promotion- oder Deploymentlauf aus
+    - nächster Slice LQ-421 auditiert den geschlossenen lokalen Preflightpfad auf Code-, Test-, Doku- und Roadmapdrift
+
+- LQ-421 local release preflight final drift audit:
+  `docs/lq-421-local-release-preflight-final-drift-audit.md`
+  - Status:
+    - auditiert den gesamten lokalen Pfad LQ-414 bis LQ-420 auf Phasen-, Code-, Test-, Vertrags-, Inventar-, Wiring- und Roadmapdrift
+    - schließt das letzte Signalfenster nach erfolgreichem replace und vor Handlerwiederherstellung durch einen bis zum Kontextende gesetzten Commit-Boundary-Latch
+    - belegt mit echtem SIGTERM unmittelbar nach Betriebssystem-Replace, dass sichtbare vollständige Erfolgsevidenz nicht mehr mit Ablehnung kombiniert werden kann
+    - bestätigt zehn feste Phasen mit final_diff vor terminalem bundle sowie 58 Entry Points, 65 Operator-Pythondateien und 27 Migrationen
+    - weist für LQ-414 bis LQ-421 jeweils genau einen Vertrag, eine fokussierte Testdatei und chronologische additive Roadmapverlinkung nach
+    - bestätigt fehlende Installation und automatische CI-/Compose-Aktivierung sowie unveränderte Nichtautorisierung von Publication und Deployment
+    - 35 fokussierte statische und synthetische Kettenprüfungen ersetzen keinen echten Packaging-, PostgreSQL- oder Bundlelauf; LQ-414-Blocker bleiben offen
+    - nächster Slice LQ-422 inventarisiert den Gesamtbaum erneut und bereitet den sauberen Build- und Review-Handoff ohne Git- oder externe Mutation vor
+
+- LQ-422 cumulative clean build and review handoff:
+  `docs/lq-422-cumulative-clean-build-review-handoff.md`
+  - Status:
+    - unterscheidet erstmals exakt 599 normale Git-Status-Einträge von 663 tatsächlichen uncommitted Dateien, weil das neue Operatorverzeichnis standardmäßig zusammengefasst wird
+    - inventarisiert vor LQ-422 dateigenau 240 Docs-, 232 Test-, 167 Source-, 18 Operations-, fünf Tooldateien und pyproject.toml bei null gestagten Dateien
+    - bestätigt 58 Entry Points, 64 fachliche Operatormodule plus Paketinitialisierer, 27 Migrationen und Head 20260819_0027
+    - findet keine Konfliktmarker, Symlinks, ungetrackten Dateien über 1 MiB oder Scopeausreißer; zwei Secret-Pattern-Treffer sind begründete Negativtest-Fixtures
+    - gruppiert den kumulierten Bestand in sieben fachliche Reviewansichten, empfiehlt aber wegen gemeinsamer Ports, Migrationen, Wiring- und Gatefiles weiterhin einen atomaren grünen Commit
+    - friert geeignete Python-3.12-Laufzeit, gelockte Werkzeuge, PostgreSQL-DSN, realen kontrollierten Preflight und erneute staged Gates als Voraussetzungen ein
+    - führt weder Dependencyinstallation, Branch, Staging, Commit, Push, Build noch externe Releaseaktion aus; aktueller Bestand ist reviewbar, aber nicht commitbereit
+    - nächster Slice LQ-423 erzeugt ein deterministisches dateigenaues Pre-Staging-Manifest ohne Git- oder Releaseautorisierung
+
+- LQ-423 deterministic file-level pre-staging manifest:
+  `docs/lq-423-deterministic-file-level-pre-staging-manifest.md`
+  - Status:
+    - implementiert einen read-only Generator aus git status --porcelain=v1 -z --untracked-files=all, vollständigem HEAD-SHA und optionalem Branchnamen
+    - bindet jede reguläre Datei an relativen Pfad, modified/untracked-Status, Modus, Größe, SHA-256 und mindestens eine der sieben Reviewsektionen
+    - ordnet LQ-Dokumente und Tests nach Slicenummer sowie eindeutige Komponenten nach begrenzten Pfadregeln zu; gemeinsame Dateien fallen fail-safe in alle Sektionen
+    - lehnt staged, deleted, renamed, konfliktbehaftet, scopefremd, fehlend, nicht kanonisch, dupliziert, nicht regulär und symbolisch detailfrei ab
+    - erzeugt kanonisches zeit-, host- und pfadunabhängiges JSON nur auf stdout und schreibt selbst keine Manifestdatei
+    - setzt Staging, Commit, Publication und Deployment immer auf nicht autorisiert und installiert weder Entry Point noch CI-/Compose-Wiring
+    - führt keine Gitmutation, Dependencyinstallation, Build-, Datenbank- oder externe Releaseaktion aus
+    - nächster Slice LQ-424 reauditert Manifest, Dateiinventur, Reviewabdeckung und bekannte Secret-Pattern-Ausnahmen read-only
+
+- LQ-424 pre-staging manifest read-only reaudit:
+  `docs/lq-424-pre-staging-manifest-read-only-reaudit.md`
+  - Status:
+    - identifiziert symbolische Zwischenverzeichnisse und Zustandsdrift während der Manifestberechnung als verbleibende read-only Grenzen
+    - prüft jede Elternkomponente per lstat, öffnet die finale Datei mit O_NOFOLLOW und bindet Typ, Modus, Größe sowie Bytes an denselben Descriptor
+    - verlangt zwei identische Messungen von HEAD, Branch, Nullstatus und allen sortierten Dateieinträgen; jede sichtbare Git- oder Byte-Drift lehnt detailfrei ab
+    - bestätigt für jede reale Manifestdatei mindestens eine der sieben bekannten Reviewsektionen und vollständige Gesamtabdeckung
+    - begrenzt den privaten Schlüssel-Header weiterhin auf exakt zwei bekannte Negativtest-Fixtures und behauptet keinen vollständigen Secretscan
+    - ändert weder Manifestformat noch Nichtautorisierung von Staging, Commit, Publication und Deployment und schreibt kein persistentes Artefakt
+    - führt keine Dependencyinstallation, Gitmutation, Build-, Datenbank- oder externe Releaseaktion aus
+    - nächster Slice LQ-425 definiert einen privaten owner-kontrollierten Manifest-Handoffvertrag ohne Dateierzeugung
+
+- LQ-425 owner-controlled private manifest handoff contract:
+  `docs/lq-425-owner-controlled-private-pre-staging-manifest-handoff-contract.md`
+  - Status:
+    - trennt read-only Generator, privaten Writer, lokalen Owner und jede spätere Git- oder Releaseauthority strikt voneinander
+    - verlangt eine bestehende owner-eigene symlinkfreie 0700-Zielwurzel außerhalb des Sourcebaums, einen neuen begrenzten Namen und eine exklusive 0600-Temporärdatei
+    - bindet exakt die direkt erzeugten kanonischen Manifestbytes und verbietet caller-supplied JSON, Allow-Boolean, Dateizahl, Digest oder Authority
+    - friert Same-Directory-Write, Datei-fsync, Descriptor-Recheck, atomaren No-Overwrite-Bind, Verzeichnis-fsync und finale read-only Verifikation ein
+    - trennt target_not_absent und source_not_stable neutral von detailfreier manifest_handoff_unavailable sowie unbekanntem Ausgang nach möglichem Bindeeffekt
+    - verbietet Retry, zweiten Write, Rebind oder Löschung nach unbekanntem Ausgang und routet ausschließlich zu read-only Reconciliation
+    - hält erfolgreiche Evidenz bis Review-/Staging-/Commitentscheidung owner-kontrolliert; spätere Löschung braucht separate Retentionfreigabe
+    - implementiert keinen Writer, Reconciler, CLI, Port, Modell, Migration, Entry Point oder Gitmutation; nächster Slice LQ-426 implementiert den privaten Writer
+
+- LQ-426 owner-controlled private manifest writer:
+  `docs/lq-426-owner-controlled-private-manifest-writer.md`
+  - Status:
+    - implementiert eine explizite lokale Moduloberfläche, die Manifestbytes ausschließlich direkt vom gehärteten read-only Generator bezieht
+    - validiert owner-eigene symlinkfreie Source- und 0700-Zielwurzeln außerhalb voneinander sowie einen begrenzten neuen Handoffnamen
+    - schreibt exklusiv in ein unvorhersagbares Same-Directory-Tempfile mit 0600, vollständiger Write-Schleife, fsync und Descriptor-Recheck
+    - bindet ohne Overwrite per atomarem Hard-Link, synchronisiert das Verzeichnis, verifiziert final mit O_NOFOLLOW und entfernt erst danach den temporären Namen
+    - trennt manifest_handed_off von target_not_absent/source_not_stable, detailfreier manifest_handoff_unavailable und manifest_handoff_outcome_unknown
+    - entfernt Tempzustand nur vor möglichem Linkeffekt; nach Unknown bleiben Final- und Tempname für ausschließlich read-only Reconciliation erhalten
+    - installiert keinen Entry Point und führt keinen echten Writerlauf, Gitmutation, Build-, Publication-, Promotion- oder Deploymentvorgang aus
+    - nächster Slice LQ-427 definiert und implementiert den read-only Manifest-Handoff-Reconciler ohne Datei- oder Namensmutation
+
+- LQ-427 read-only private manifest handoff reconciliation:
+  `docs/lq-427-read-only-private-manifest-handoff-reconciliation.md`
+  - Status:
+    - implementiert eine explizite lokale read-only Reconciliation aus owner-eigener 0700-Zielwurzel und begrenztem bestehenden Handoffnamen
+    - beobachtet Final und exakt passende Writer-Tempnamen mit lstat, O_NOFOLLOW, 0600-, Owner-, kanonischer Schema-, Digest- und Dateizahlprüfung
+    - unterscheidet manifest_absent, manifest_handed_off, manifest_temporary_only, manifest_handed_off_pending_cleanup und manifest_handoff_conflict
+    - erkennt Pending-cleanup nur bei identischem Device/Inode, Digest und Filecount von Final und genau einem Tempnamen
+    - vereinheitlicht technische Zugriffsfehler detailfrei als manifest_handoff_reconciliation_unavailable und rendert keine internen Pfade
+    - schreibt, bindet, benennt, chmodet oder löscht keine Datei und autorisiert weder Namenswiederverwendung noch Staging oder Commit
+    - installiert keinen Entry Point und führt keine echte Handoff-, Git-, Build-, Publication-, Promotion- oder Deploymentaktion aus
+    - nächster Slice LQ-428 definiert den owner-kontrollierten Cleanupvertrag ausschließlich für belegten Pending-cleanup-Erfolg
+
+- LQ-428 owner-controlled private manifest handoff cleanup:
+  `docs/lq-428-owner-controlled-private-manifest-handoff-cleanup.md`
+  - Status:
+    - implementiert einen expliziten lokalen Cleanup ausschließlich nach aktueller read-only Klassifikation als manifest_handed_off_pending_cleanup
+    - akzeptiert weder Tempname, Digest, Dateizahl, Inode, Reconciliation-Ergebnis noch Löschfreigabe vom Caller und leitet alle Fakten aus der privaten 0700-Zielwurzel ab
+    - öffnet Final und genau einen Writer-Tempnamen erneut über den gebundenen Directory-Descriptor und belegt Owner, 0600, kanonische Bytes sowie identisches Device/Inode unmittelbar vor Mutation
+    - entfernt als einzige Mutation exakt den redundant verlinkten Tempnamen, synchronisiert das Verzeichnis und bestätigt den unveränderten finalen Inode ohne verbleibenden passenden Tempnamen
+    - lässt Abwesenheit, Temporary-only, vollständigen Erfolg und Konflikt unverändert; Drift wird vor Mutation als Cleanupkonflikt abgelehnt
+    - trennt detailfreie technische Unverfügbarkeit vor Mutation vom unbekannten Ausgang nach möglicher Entfernung und führt keinen Retry aus
+    - Finalname und Evidenz bleiben erhalten; Cleanup autorisiert weder Namenswiederverwendung noch Staging, Commit oder andere Releaseaktionen
+    - installiert keinen Entry Point und führt keinen echten Cleanup-, Git-, Build-, Publication-, Promotion- oder Deploymentvorgang aus
+    - nächster Slice LQ-429 führt den read-only Abschlussaudit und inventarisiert die verbleibende Retention- und Attempt-Registry-Lücke
+
+- LQ-429 private manifest handoff completion audit:
+  `docs/lq-429-private-manifest-handoff-completion-audit.md`
+  - Status:
+    - auditiert die LQ-425-bis-LQ-428-Kette statisch auf Vertrags-, Code-, Test-, Mutations- und Roadmapdrift, ohne echten Writer-, Reconciliation- oder Cleanup-Lauf
+    - bestätigt die getrennten Budgets aus atomarem No-Overwrite-Writer, vollständig read-only Reconciler und ausschließlich redundantem Tempnamen-Cleanup
+    - schließt Unknown-Routing über frische Reconciliation, begrenzte detailfreie Ausgänge und unveränderte Nichtautorisierung von Staging und Commit ab
+    - bestätigt je einen Vertrag und fokussierten Test pro Slice sowie weiterhin fehlende Console-Entry-Point-, CI-, Compose- und Production-Verdrahtung
+    - hält manifest_absent ausdrücklich ungeeignet als Nachweis historischer Namensfreiheit; Wiederverwendung bleibt ohne persistente Attempt-Registry verboten
+    - hält finale Manifestbytes nach Writer- und Cleanupabschluss als private Evidenz erhalten; Löschung benötigt eine separate aktuelle Retentionentscheidung
+    - führt keine Schema-, Tabellen-, SQL-, Migrations-, Port-, Modell-, Signatur- oder weitere Mutationsentscheidung ein
+    - nächster Slice LQ-430 definiert den persistenten nicht wiederverwendbaren Attempt-Registry-Vertrag; finale Evidence-Retention bleibt separat
+
+- LQ-430 persistent private manifest handoff attempt registry contract:
+  `docs/lq-430-persistent-private-manifest-handoff-attempt-registry-contract.md`
+  - Status:
+    - definiert stabile intern erzeugte, nicht reassigbare RegistryScopeId und HandoffAttemptId sowie eine dauerhafte eindeutige Namensbindung pro Scope
+    - macht die Registry zum späteren System of Record für historische Namensbelegung; Datei-, Temp- und Finalabwesenheit bleiben dafür niemals autoritativ
+    - verlangt durable atomare Reservierung vor jeder Writer-Dateimutation und serialisiert konkurrierende Erstbelegung ohne Check-then-insert oder In-Process-Lock
+    - bindet Actor, Scope und aktuelle Registryfähigkeit aus maßgeblichem Systemzustand und akzeptiert keinen Allow-Boolean, Rollenwert, Scope-Override oder freien Owner
+    - hält Retry an exakt dieselbe Attempt-ID und Absicht gebunden, bewahrt Unknown historiesicher und übernimmt Dateiergebnisse nur aus frischer Reconciliation
+    - trennt neutrale Ablehnung detailarm von technischer Unverfügbarkeit und erlaubt weder Writerstart noch Namensfreigabe aus irgendeinem Fehler- oder Cleanupzustand
+    - setzt Tombstone-Retention mindestens über die gesamte Namensraumlebensdauer, getrennt von finaler Manifest-Evidence-Retention
+    - trifft keine Schema-, SQL-, Migrations-, Port-, Modell-, Signatur-, Bootstrap-, CLI- oder Wiringentscheidung und verändert bestehende Module nicht
+    - nächster Slice LQ-431 konkretisiert persistente Registry-Foundation und geschlossene Ports; Composition, Bestandsverankerung und Evidence-Retention bleiben separat
+
+- LQ-431 persistent manifest handoff registry foundation:
+  `docs/lq-431-persistent-manifest-handoff-registry-foundation.md`
+  - Status:
+    - ergänzt repr-freie stabile Scope-, Attempt-, Reservierungs- und Observation-IDs, begrenzte Handoffnamen, reservierte Attempts, detailfreie Konflikte und ein geschlossenes Beobachtungsvokabular
+    - definiert autorisierte Reservierungs- und Lookupports nur aus Retryanker, Actor-UserId, Scope und Name; Attempt-ID und serverseitige Zeit entstehen intern
+    - führt Revision 20260819_0028 linear nach 0027 mit leeren Scope-, Scopeauthority-, Attempt- und append-only Observationstabellen ohne Seed oder Backfill ein
+    - erzwingt dauerhafte eindeutige Scope-/Name- und Reservierungsbindungen sowie geordnete Observationen ohne Statusfreigabe oder Cascade-Löschung
+    - reserviert active/inactive für Scope und exakte Userauthority; aktuelle Actor-, Scope- und Authorityprüfung bleibt Teil derselben späteren Reservierungstransaktion
+    - definiert bewusst keinen Observation-Write-Port, weil Outcomes nur aus kontrolliertem Writer/Cleanup oder frischer Reconciliation stammen dürfen
+    - verändert Writer, Reconciler und Cleanup nicht und fügt keinen Adapter, Bootstrap, Operator, Entry Point oder Production-Wiring hinzu
+    - nächster Slice LQ-432 implementiert autorisierte persistente Reservierung und Lookup; Observation-Composition, Bestandsverankerung und Evidence-Retention bleiben separat
+
+- LQ-432 persistent authorized manifest handoff registry:
+  `docs/lq-432-persistent-authorized-manifest-handoff-registry.md`
+  - Status:
+    - implementiert die geschlossenen Reservierungs- und Lookupports mit einer extern besessenen Engine sowie getrennten Attempt-/Observation-ID-Generatoren und UTC-Clock
+    - persistiert neue dauerhafte Scope-/Name-/Attempt-Bindung und initiale reserved-Observation atomar erst nach aktueller aktiver User-, Scope- und exakter Scopeauthority-Prüfung
+    - löst exakten Reservierungsretry vor erneuter Authority auf und liefert dieselbe Attempt-ID ohne Generator-, Clock- oder Observationsmutation
+    - vereinheitlicht divergenten Retry und neue Reservierung eines belegten Namens als detailfreien Konflikt ohne fremde Registryfakten
+    - liest für jeden Lookup aktuelle aktive User-, Scope- und Authorityfakten und rekonstruiert höchstens eine begrenzte View mit der höchsten Observation
+    - normalisiert beschädigte IDs, UTC-Zeit, Observationhistorie und technische Persistenzfehler detailfrei als Registry-Unverfügbarkeit
+    - startet keinen Writer, Reconciler oder Cleanup und ergänzt weder Migration, Bootstrap, Operator, Entry Point noch Production-Wiring
+    - nächster Slice LQ-433 definiert kontrolliertes Observation-Append; Scope-Bootstrap, Writer-Composition, Bestandsverankerung und Evidence-Retention bleiben separat
+
+- LQ-433 controlled manifest handoff observation append contract:
+  `docs/lq-433-controlled-manifest-handoff-observation-append-contract.md`
+  - Status:
+    - definiert ausschließlich quellenspezifische interne Appendgrenzen aus direktem Writer-, frischem Reconciliation- oder direktem Cleanupresultat ohne generisches caller-gesteuertes Outcome
+    - verlangt durable writer_started-Observation vor erster möglicher Writer-Dateimutation und verbietet danach jeden zweiten Writerlauf auch bei Abwesenheit oder Prozessneustart
+    - routet Writerablehnung, definitive Vorbindungsfehler und alle Unknown-Ausgänge zu frischer read-only Reconciliation statt zu erfundenen Statuswerten
+    - bindet Cleanupstart an aktuell letztes Pending-cleanup und sichert tatsächliche Ergebnisse nach Operationsstart auch bei zwischenzeitlichem Authorityentzug mechanisch
+    - nutzt intern kontrollierte stabile ObservationId als Retryanker; exakter Retry erzeugt weder neue Zeile noch Sequenz, abweichende Bindung bleibt detailfreier Konflikt
+    - bestimmt nächste Sequenz, UTC-Zeit und erlaubten Übergang atomar unter Persistenzserialisierung und akzeptiert keine caller-supplied Sequenz, Fakten oder Scopeüberschreibung
+    - hält Observationen append-only, Scope-/Name-Bindung dauerhaft und alle Ausgänge frei von Staging-, Commit- oder Releaseauthority
+    - trifft keine Typ-, Port-, Adapter-, Migrations-, Composition-, Bootstrap-, CLI- oder Wiringentscheidung
+    - nächster Slice LQ-434 konkretisiert geschlossene Append-Fakten und quellenspezifische Ports ohne Writer-Composition oder Production-Wiring
+
+- LQ-434 manifest handoff observation types and closed ports:
+  `docs/lq-434-manifest-handoff-observation-types-and-closed-ports.md`
+  - Status:
+    - ergänzt validierte repr-freie Manifestfakten, ein geschlossenes Append-Ergebnis und einen leeren detailfreien Observation-ID-Konflikt
+    - erzwingt Manifestfakten exakt für Writererfolg, drei manifesttragende Reconciliationzustände und Cleanupabschluss sowie Abwesenheit für Start, Unknown, Abwesenheit und Konflikt
+    - definiert getrennte Writer-, Reconciliation- und Cleanup-Portgruppen mit genau einer Methode je zulässiger interner Observationquelle
+    - akzeptiert je Methode nur kontrollierte Observation-ID, Attempt-ID und erforderliche Fakten, niemals Kind, Sequenz, Zeit, Scope, Name, Actor, Pfad oder Authoritywert
+    - lässt Sequenz, UTC-Zeit, Übergangsprüfung und Observationart als serverseitige beziehungsweise methodengebundene Entscheidungen
+    - hält aktuelle Startauthority außerhalb der Ergebnisports; nach Operationsstart sichern sie nur Evidenz und gewähren keine neue Mutation
+    - nutzt das bestehende 0028-Schema ohne Migration, Seed, Backfill oder neuen Eintrag und implementiert noch keinen Adapter
+    - nächster Slice LQ-435 implementiert atomaren persistenten Observation-Append; Writer-Composition, Scope-Bootstrap, Bestandsverankerung und Evidence-Retention bleiben separat
+
+- LQ-435 persistent manifest handoff observation append:
+  `docs/lq-435-persistent-manifest-handoff-observation-append.md`
+  - Status:
+    - implementiert alle zehn quellenspezifischen Appendmethoden hinter einem privaten gemeinsamen Persistenzalgorithmus ohne öffentliche generische Kindgrenze
+    - löst Observation-ID-Retry vor Attempt-, Authority- und Übergangsprüfung auf; exakte Wiederholung liefert dieselbe Sequenz/Zeit, divergente Bindung detailfreien Konflikt
+    - verlangt aktuelle aktive ursprüngliche User-, Scope- und Scopeauthority-Fakten nur für den einmaligen writer_started-Append nach reserved
+    - sichert spätere Writer-, Reconciliation- und Cleanupausgänge mechanisch auch nach Authorityentzug, ohne neue Operationsauthority zu gewähren
+    - validiert jede vollständige Historie lückenlos ab Sequenz 1, geschlossenes Kind, UTC-Zeit und exakte Manifestfaktenmatrix vor jedem neuen Append
+    - erzwingt feste Transitionen, serverseitige monotone Sequenz und UTC-Zeit atomar unter Persistenzserialisierung; stale Übergänge bleiben neutral
+    - vereinheitlicht beschädigte Historie und technische Fehler detailfrei und nutzt Revision 0028 ohne Migration, Seed oder Backfill
+    - nächster Slice LQ-436 definiert Registry-zu-Writer-Composition und Scope-/Zielwurzelbindung; Bootstrap, Bestandsverankerung und Evidence-Retention bleiben separat
+
+- LQ-436 controlled registry-to-writer composition contract:
+  `docs/lq-436-controlled-registry-to-writer-composition-contract.md`
+  - Status:
+    - definiert stabile nicht reassigbare Scopebindung an genau eine kontrollierte Source- und private Zielwurzel ohne caller-gelieferte Pfade oder Environment-Fallback
+    - ordnet Bindingauflösung, durable Reservierung, intern erzeugte Start-Observation-ID, bestätigten writer_started-Append und genau einen direkten Writeraufruf strikt
+    - sperrt Writer bei unklarem Startappend bis zum exakten Observation-ID-Retry und verbietet nach bestehendem writer_started jeden zweiten Writerlauf
+    - erkennt das offene Crashfenster ohne Execution-Claim; parallele oder timeoutbasierte Recovery bleibt bis belegtem Prozessende verboten
+    - bindet direkten Writererfolg und Writer-unknown an stabile Ergebnisobservationen und routet alle anderen beendeten Writerausgänge zu frischer Reconciliation
+    - mappt ausschließlich direkte LQ-427-Ergebnisse auf getrennte Appendmethoden und wiederholt bei unklarem Registrycommit nur denselben Append, niemals Writer
+    - trennt aktuelle Authority vor Reservierung/Start von mechanischer Ergebnissicherung danach und ruft keinen Cleanup auf
+    - trifft keine Typ-, Port-, Adapter-, Resolver-, Composer-, Claim-, Migrations-, Bootstrap-, CLI- oder Wiringentscheidung
+    - nächster Slice LQ-437 konkretisiert Scopebinding- und Compositiontypen/Ports; Execution-Recovery, Bootstrap, Bestandsverankerung, Cleanup und Retention bleiben separat
+
+- LQ-437 manifest handoff composition types and closed ports:
+  `docs/lq-437-manifest-handoff-composition-types-and-closed-ports.md`
+  - Status:
+    - ergänzt repr-freie stabile Scopebinding aus Scope-ID und absoluten lexikalisch getrennten Source-/Zielwurzeln ohne Dateisystemzugriff oder Reassignmentfeld
+    - definiert einen geschlossenen Request nur aus Reservierungs-ID, Actor-UserId, Scope-ID und Handoffname ohne Pfad-, Outcome-, Fakten- oder Observation-ID-Injektion
+    - begrenzt sichtbare Ergebnisse auf bestätigten Handoff mit Basename/Fakten oder Reconciliationbedarf ohne beides
+    - setzt Staging- und Commitautorisierung im Ergebnis nicht überschreibbar false und vereinheitlicht interne Konflikte als leeren Compositionkonflikt
+    - ergänzt minimalen Binding-Lookup nur nach Scope-ID und Compositionport nur mit geschlossenem Request
+    - hält Observation-ID-Factories als spätere Konstruktorabhängigkeiten und Execution-Recovery wegen fehlendem Claim separat
+    - nutzt Revision 0028 ohne Migration und implementiert weder Resolver, Composer, Dateioperation, Bootstrap, Entry Point noch Wiring
+    - nächster Slice LQ-438 implementiert statischen injizierten Scopebinding-Resolver; Composer, Recovery, Bootstrap, Cleanup und Retention bleiben separat
+
+- LQ-438 static manifest handoff scope-binding resolver:
+  `docs/lq-438-static-manifest-handoff-scope-binding-resolver.md`
+  - Status:
+    - implementiert den geschlossenen Binding-Lookupport als ausschließlich beim Aufbau explizit befüllten privaten Index ohne Discovery oder Defaultbinding
+    - löst nur die exakte Scope-ID auf, liefert unbekannt oder ungültig neutral `None` und bietet keine Add-, Replace-, Remove-, Reload- oder Aktivierungsoperation
+    - lehnt doppelte Scope-IDs sowie gleiche oder verschachtelte private Zielnamespaces fail-fast und ohne konkrete IDs oder Pfade im Fehlertext ab
+    - trennt jede Zielwurzel lexikalisch von allen Cross-Scope-Sourcewurzeln, erlaubt aber bewusst dieselbe kontrollierte Source für getrennte private Zielnamespaces
+    - führt weder Dateisystem-, Environment-, Datenbank-, Netzwerk-, Clock- noch Randomzugriff aus und erteilt keinerlei Authority
+    - nutzt Revision 0028 ohne Migration, Seed oder Bootstrap und ergänzt kein CLI-, Operator-, Factory-, Compose- oder Production-Wiring
+    - nächster Slice LQ-439 implementiert den kontrollierten Registry-zu-Writer-Composer; Execution-Recovery, Bootstrap, Bestandsverankerung, Cleanup und Retention bleiben separat
+
+- LQ-439 controlled persistent manifest handoff composer:
+  `docs/lq-439-controlled-persistent-manifest-handoff-composer.md`
+  - Status:
+    - komponiert exakte Bindingauflösung, autorisierte durable Reservierung, intern erzeugten bestätigten Startappend und höchstens einen direkten Writeraufruf in strikter Reihenfolge
+    - öffnet den Writer nur nach eigenem eindeutigem `writer_started`, wiederholt unklare Appends einmal mit derselben Observation-ID und bleibt bei weiter unklarem Commit fail-closed
+    - validiert direkten Writererfolg gegen persistenten Namen und geschlossene Fakten, sichert Writer-unknown vor jeder frischen Reconciliation und wiederholt den Writer nie
+    - routet alle fünf direkten Reconciliationausgänge auf getrennte Appendmethoden und liefert nur bestätigtes Handoff oder faktenfreies Reconciliation-required sichtbar
+    - trennt neutrales Fehlen, detailfreien Compositionkonflikt und detailfreie technische Unverfügbarkeit ohne Pfad-, Actor-, Authority-, Observation- oder Persistenzdetail
+    - nutzt Revision 0028 ohne Migration, Bootstrap, Cleanup, Retentionmutation, CLI-, Factory-, Compose- oder Production-Wiring
+    - nächster Slice LQ-440 definiert Execution-Ownership und Recovery für gestartete Attempts; Scope-Bootstrap, Bestandsverankerung, Cleanup und Retention bleiben separat
+
+- LQ-440 manifest handoff execution ownership and recovery contract:
+  `docs/lq-440-manifest-handoff-execution-ownership-and-recovery-contract.md`
+  - Status:
+    - verlangt einen persistent eindeutigen Execution-Claim vor `writer_started`, bindet genau einen kontrollierten Prozessowner und verbietet Reassignment oder parallele Writer
+    - behandelt Lease und Heartbeat nur als Livenesshinweis; Ablauf, Timeout, PID-Abwesenheit oder höhere Generation beweisen ohne fence-fähigen Writer niemals Prozessende
+    - öffnet Recovery erst nach durablem direktem Supervisor-Nachweis, dass der konkret gebundene Writerprozess terminal keine Dateiwirkung mehr erzeugen kann
+    - trennt einen autorisierten scopegebundenen Recovery-Claim vom Execution-Claim und begrenzt Recovery auf frische read-only LQ-427-Reconciliation ohne Writer oder Cleanup
+    - bindet aktuelle Recoveryfähigkeit aus dem System of Record, lässt Revocation spätere Entscheidungen sperren und sichert bereits beobachtete Fakten danach mechanisch
+    - hält Claims, Endnachweise und Historie nicht wiederverwendbar, stuft Altattempts ohne Claim nicht automatisch als beendet ein und nutzt Revision 0028 ohne Implementierungsentscheidung
+    - nächster Slice LQ-441 definiert geschlossene Ownership-/Recoverytypen und minimale Ports; Persistenz, Supervisor, Composition, Bestandsverankerung, Cleanup und Retention bleiben separat
+
+- LQ-441 manifest handoff ownership and recovery types and ports:
+  `docs/lq-441-manifest-handoff-ownership-and-recovery-types-and-ports.md`
+  - Status:
+    - ergänzt repr-freie stabile Execution-/Recovery-Claim-, Owner- und Endnachweis-IDs sowie positive serverseitige Leasewerte ohne Takeoverwirkung
+    - bindet claimed Writerstart an Claim, Attempt, Observation und Owner und schließt terminale Ergebnisse auf secured, unknown oder start-not-confirmed
+    - definiert pfadfreien Recoveryrequest und Recovery-Claim mit nicht überschreibbarer Writer-/Cleanup-Nichtautorisierung
+    - bindet Recoveryobservationen ausschließlich an die fünf LQ-427-Reconciliationarten und öffnet keine Writer- oder Cleanupgrenze
+    - ergänzt minimale autorisierte Claim-, Lease-, claimed-start-, quellenspezifische End- und Recovery-Append-Ports ohne generische Kind-, Zeit- oder Allow-Eingabe
+    - nutzt Revision 0028 ohne Adapter, Migration, Bootstrap, Supervisor, Composition oder Production-Wiring und lässt LQ-439 noch unverändert
+    - nächster Slice LQ-442 implementiert die additive persistente Ownership-/Recoveryfoundation; Supervisor, Integration, Recoverycomposition, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-442 persistent manifest handoff ownership and recovery foundation:
+  `docs/lq-442-persistent-manifest-handoff-ownership-and-recovery-foundation.md`
+  - Status:
+    - führt Revision 20260824_0029 linear nach 0028 mit acht leeren Ownership-, Lease-, End-, Recoveryauthority-, Recoveryclaim- und Observationstabellen ohne Seed oder Backfill ein
+    - erzwingt dauerhaft genau einen Execution-Claim je Attempt, eindeutige claimgebundene Starts und terminale Executionfakten ohne Claimfreigabe oder Writerretry
+    - bewahrt jede Lease-Renewal unter stabiler ID, behandelt Zeit weiterhin nicht als Prozessende und schließt die fehlende terminale Recovery-Ownerkette
+    - trennt explizite Recoveryauthority, bindet Claims an Execution-Endnachweise und begrenzt per partiellem Index jeden Attempt auf höchstens einen aktiven Recoveryowner
+    - bindet jede Recovery an höchstens eine bestehende Manifestobservation, ohne Outcome-/Digestduplikat oder Erweiterung der Observationkind-Liste
+    - synchronisiert Head und Inventargates auf 29/0029, implementiert aber keinen Adapter, Supervisor, Composer, Bootstrap oder Production-Wiring
+    - nächster Slice LQ-443 implementiert persistente Execution-Claims, Leases, claimed Start und Execution-Ende; Recovery, Supervisor, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-443 persistent manifest handoff execution ownership:
+  `docs/lq-443-persistent-manifest-handoff-execution-ownership.md`
+  - Status:
+    - implementiert Execution-Claim, Lease-Renewal, atomaren claimgebundenen `writer_started` und drei terminale Execution-Endquellen in einem transaktionalen Adapter
+    - löst exakte Claim-, Renewal-, Start- und End-ID-Retries vor späterem Zustand auf, lehnt divergente Wiederverwendung detailfrei ab und überschreibt keine Bindung
+    - bindet neue Claims und Starts an aktuelle aktive User-/Scope-/Registryauthority, sodass Revocation vor Start jede Writeröffnung fail-closed sperrt
+    - hält Leaseablauf ohne Takeoverwirkung, erlaubt nur demselben nicht terminalen Owner neue Renewals und erzeugt aus Zeit niemals Recoveryauthority
+    - verlangt für secured eine lückenlose claimgebundene Historie mit durablem Outcome, während unknown und start-not-confirmed getrennte direkte Supervisorfakten bleiben
+    - nutzt Revision 0029 ohne Migration, Recoverymutation, Composer-, Supervisor-, CLI-, Compose- oder Production-Wiring und ruft keinen Writer/Reconciler auf
+    - nächster Slice LQ-444 implementiert persistente Recoveryclaims, Recovery-Enden und claimgebundene Reconciliation-Appends; Integration, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-444 persistent manifest handoff recovery ownership:
+  `docs/lq-444-persistent-manifest-handoff-recovery-ownership.md`
+  - Status:
+    - implementiert autorisierte Recovery-Claims, fünf claimgebundene Reconciliation-Appends und drei terminale Recovery-Endquellen in einem transaktionalen Adapter
+    - leitet Attempt, Execution-Claim und direkten terminalen Execution-Endnachweis ausschließlich aus Persistenz ab und verlangt aktuelle explizite scopegebundene Recoveryauthority
+    - löst exakte Claim-, Observation- und End-ID-Retries vor späterem Zustand auf, trennt divergente Wiederverwendung detailfrei und serialisiert höchstens einen aktiven Recoveryowner
+    - bindet frische Reconciliationobservation und Recovery-Claim atomar, unterstützt start-not-confirmed ohne erfundenes writer_started und öffnet niemals Writer oder Cleanup
+    - terminalisiert Recoveryclaim und Endfakt atomar; unknown/start-not-confirmed erlauben danach nur eine neue Claim-ID und frische Beobachtung, niemals Wiederverwendung
+    - nutzt Revision 0029 ohne Migration, Reconcileraufruf, Supervisor-, Composer-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-445 definiert den kontrollierten Supervisor-/Prozessende-Adaptervertrag; Writerintegration, Recoverycomposition, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-445 controlled manifest handoff supervisor contract:
+  `docs/lq-445-controlled-manifest-handoff-supervisor-contract.md`
+  - Status:
+    - definiert getrennte feste Writer-/Reconciler-Prozessfähigkeiten ohne caller-geliefertes Executable, Command, Shell, cwd oder Environment
+    - verlangt einen direkt bestätigten startgesperrten Kindprozess, durable claimed Startbindung und erst danach genau eine Gatefreigabe vor jedem Writerdateizugriff
+    - behandelt unklaren Launch vor Start als start-not-confirmed nur nach terminalem Nachweis und jede Unsicherheit danach als unknown ohne zweiten Start oder Gate-Retry
+    - bindet opake controllerverlustfest beobachtbare Handles an Claim/Owner; PID, Timeout, Signal, Leaseablauf und Logstatus beweisen niemals Prozessende
+    - ordnet Recovery auf genau einen startgesperrten read-only Reconciler, fünf claimgebundene Appends und terminale Sicherung ohne Writer oder Cleanup
+    - trifft keine Typ-, Port-, Prozessbibliotheks-, IPC-, Migrations-, Adapter-, Composer-, CLI-, Compose- oder Production-Wiringentscheidung und nutzt Head 0029
+    - nächster Slice LQ-446 definiert geschlossene Supervisortypen und getrennte Ports; Prozessadapter, Integration, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-446 manifest handoff supervisor types and closed ports:
+  `docs/lq-446-manifest-handoff-supervisor-types-and-closed-ports.md`
+  - Status:
+    - ergänzt repr-freien opaken Handle und geschlossene Writer-/Recoveryrequests nur aus Claim, Owner, stabiler Binding und persistentem Namen ohne Prozesssteuerung
+    - modelliert getrennte gated-, running- und terminale Werte mit aware UTC sowie unveränderlichen Gate-, Terminal-, Writer-, Cleanup-, Staging- und Commitflags
+    - schließt Writeroutcomes auf fünf direkte Arten mit Fakten nur bei Erfolg und Recovery auf fünf LQ-427-Arten plus unknown mit exakter Fakten-/Filenamematrix
+    - ergänzt getrennte Writer-/Recoveryports nur mit prepare, release, inspect und terminate ohne Command-, Args-, Env-, cwd-, Shell-, Timeout-, Signal-, Clock- oder Authorityparameter
+    - hält Running nach Release/Terminate ausdrücklich nicht terminal, öffnet keine Endpersistenz und vereinheitlicht Handledivergenz als leeren Supervisorkonflikt
+    - nutzt Revision 0029 ohne Migration, Prozessadapter, IPC-, Composer-, CLI-, Compose- oder Production-Wiring und verändert LQ-439 nicht
+    - nächster Slice LQ-447 implementiert den startgesperrten lokalen Prozessadapter; Integration, Bestand, Cleanup und Retention bleiben separat
+
+- LQ-447 local manifest handoff supervisor feasibility decision:
+  `docs/lq-447-local-manifest-handoff-supervisor-feasibility-decision.md`
+  - Status:
+    - verwirft einen einfachen lokalen Popen-/Fork-/Thread-/multiprocessing-Adapter fail-closed, weil er nach Controllerverlust weder stabile Handlebindung noch terminales Ende autoritativ belegt
+    - dokumentiert, dass PID, PID-Datei, Lockfile, Pipe-EOF, Parent-Death-Signal, Process Group, Timeout und Leaseablauf allein keine Recoveryfreigabe erzeugen
+    - verlangt vor Prozesscode eine controllerunabhängig inspizierbare Supervisorquelle mit dauerhafter Capability-/Claim-/Owner-/Handle- und Gatebindung
+    - fordert stabile Prepare-, Release-, Terminate- und terminale Observation-IDs für idempotente Unknown-Auflösung ohne zweiten Prozess oder zweite Gatewirkung
+    - verbietet Fallback auf in-memory Handlecache oder direkten LQ-439-Writer und hält Altattempts ohne Supervisorhistorie fail-closed
+    - ändert keine Typen, Ports, Tabellen, Migrationen oder Prozesse, nutzt weiterhin Head 0029 und ergänzt kein CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-448 trifft Supervisorbackend- und Handlepersistenzentscheidung; erst danach folgen Prozessadapter, Integration, Bestand, Cleanup und Retention
+
+- LQ-448 manifest handoff supervisor backend and handle persistence decision:
+  `docs/lq-448-manifest-handoff-supervisor-backend-and-handle-persistence-decision.md`
+  - Status:
+    - entscheidet einen dedizierten controllerunabhängigen Supervisorservice mit eigenem durablem Journal als autoritative Gate-, Prozess- und Terminalquelle
+    - trennt Supervisorjournal und fachliches Registry: Prozesszustand bleibt beim Dienst, Claim-/Owner-/Capability- und Operationskorrelation bei der Plattform
+    - bindet stabile nicht wiederverwendbare Backendinstanz-, Handle-, Prepare-, Release-, Terminate- und Terminalidentitäten ohne PID-, Host- oder Produktautorität
+    - löst Prepare-, Release- und Terminate-Unknown nur mit derselben ID auf, ohne zweiten Prozess, zweite Gatewirkung, Adoption oder verteilte Transaktionsfiktion
+    - hält neutrale autoritativ belegte Abwesenheit getrennt von detailfreier technischer Unverfügbarkeit erwarteter Handles und öffnet keinen Production-Fallback
+    - wählt kein Produkt, Schema, SQL, Journalengine, Wireformat oder Portupdate, implementiert keinen Prozess und nutzt weiterhin Head 0029 ohne Wiring
+    - nächster Slice LQ-449 schafft die additive persistente Plattformfoundation für Backendinstanz-, Handle- und Operationskorrelationen; Supervisorjournal und Service folgen separat
+
+- LQ-449 persistent manifest handoff supervisor correlation foundation:
+  `docs/lq-449-persistent-manifest-handoff-supervisor-correlation-foundation.md`
+  - Status:
+    - führt Revision 20260824_0030 linear nach 0029 mit sechs leeren Tabellen für Backendinstanz, Prepare, Handle, Release, Terminate und terminale Korrelation ohne Seed oder Backfill ein
+    - trennt Writer- und Recovery-Prepare per Capability-/Claim-Check und bindet höchstens ein Prepare je Execution- oder Recoveryclaim
+    - bindet jeden opaken Handle genau einem Prepare und Backend sowie höchstens einer Release-, Terminate- und terminalen Observationkorrelation zu
+    - modelliert Operationen append-orientiert ohne frei überschreibbaren Prozess-, Gate-, Allow- oder Terminalstatus und ohne PID-, Host-, Container- oder Authorityfakten
+    - hält das externe Supervisorjournal autoritativ für physische Gatewirkung und direktes Prozessende; Tabellenanwesenheit allein erzeugt keine Wirkung
+    - synchronisiert Head-, Bundle- und Roadmap-Gates auf 0030 beziehungsweise 30 Migrationen ohne Adapter, Service, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-450 definiert geschlossene Plattformwerte und Ports für die persistenten Korrelationen; Supervisorjournal und Prozessservice folgen separat
+
+- LQ-450 manifest handoff supervisor correlation types and ports:
+  `docs/lq-450-manifest-handoff-supervisor-correlation-types-and-ports.md`
+  - Status:
+    - ergänzt fünf repr-freie stabile Backend-, Prepare-, Release-, Terminate- und Terminal-IDs sowie active/inactive Backendrecord mit aware UTC
+    - trennt Writer- und Recovery-Prepare in exakte Claim-/Ownertypen ohne nullable generischen Capabilityrequest und bindet Handle separat an Prepare und Backend
+    - modelliert Release-, Terminate- und Terminalanforderungen nur aus stabiler Operations-ID und Handle ohne Prozess-, Gate-, Status- oder Outcomebehauptung
+    - ergänzt parameterlosen aktuellen Backendlookup, sechs append-orientierte Storemethoden und fünf rein read-only ID-Auflösungen für Unknown-Reconciliation
+    - akzeptiert keine Authority-, Session-, Rollen-, Allow-, Command-, Env-, Timeout-, Signal-, Clock- oder freie Payloadparameter und vereinheitlicht Divergenz detailfrei
+    - nutzt Head 0030 ohne SQL, Migration, Persistenzadapter, Supervisorservice, Prozess-, IPC-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-451 implementiert aktuellen Backendlookup, sechs idempotente Korrelationsappends und fünf read-only Auflösungen persistent; Supervisorservice folgt separat
+
+- LQ-451 persistent manifest handoff supervisor correlations:
+  `docs/lq-451-persistent-manifest-handoff-supervisor-correlations.md`
+  - Status:
+    - implementiert aktuellen uncached Backendlookup sowie sechs idempotente Append- und fünf exakte read-only Auflösungsgrenzen gegen die LQ-449-Tabellen
+    - reserviert Writer-/Recovery-Prepare nur für eine aktive Backendinstanz und passenden offenen Claim/Owner; exakte Retries behalten ursprüngliche Zeit und Bindung
+    - bindet Handles einmalig an Prepare und Backend und vereinheitlicht divergente ID-, Claim-, Owner- oder Handlewiederverwendung als detailfreien Konflikt
+    - persistiert Writer-Release nur nach durablem ownergleichem claimed Start und Recovery-Release nur bei offenem Claim, ohne physische Gatewirkung zu behaupten
+    - hält Terminate und Terminal getrennt, löst Operations-Unknown ausschließlich über stabile IDs auf und interpretiert neutrales None niemals als Prozessende
+    - nutzt Head 0030 ohne Schema, Seed, Backfill, Supervisorjournal, Prozess-, Authority-, CLI-, Compose- oder Production-Wiring und verändert LQ-439 nicht
+    - nächster Slice LQ-452 definiert das interne durable Supervisorjournal und dessen idempotente Zustandsgrenzen; Serviceprozess und Integration folgen separat
+
+- LQ-452 durable manifest handoff supervisor journal contract:
+  `docs/lq-452-durable-manifest-handoff-supervisor-journal-contract.md`
+  - Status:
+    - definiert das Supervisorjournal als einzige direkte Quelle für Prepare-, Gate-, Lauf-, Terminierungs- und Terminalbeobachtung getrennt von Plattformkorrelationen
+    - bindet Backend, Capability, Claim/Owner, Prepare und Handle unveränderlich an eine append-orientierte Folge bis terminal_observed ohne Reset, Rebind oder Adoption
+    - verlangt Prepare-Registrierung und stabilen Launch-Commit vor Spawn sowie direkt beobachtetes prepared_gated, ohne zweiten Prozess bei Launch-Unknown
+    - bindet genau eine Release-ID an einen höchstens einmal konsumierbaren durablem Gateübergang und löst Release-Unknown nur read-only ohne neue ID oder Wirkung
+    - trennt termination_requested strikt von terminal_observed und akzeptiert weder Signal, Timeout, PID-Abwesenheit, EOF noch Service-Neustart als Endnachweis
+    - nutzt Head 0030 ohne Journalengine-, Schema-, Typ-, Port-, Prozess-, IPC-, CLI-, Compose- oder Production-Wiringentscheidung
+    - nächster Slice LQ-453 definiert geschlossene Journalidentitäten, Zustände, Requests, Resultate und getrennte Writer-/Recoveryports; Foundation und Service folgen separat
+
+- LQ-453 manifest handoff supervisor journal types and ports:
+  `docs/lq-453-manifest-handoff-supervisor-journal-types-and-ports.md`
+  - Status:
+    - ergänzt drei repr-freie Launch-, Gated- und Running-IDs sowie exakt sieben geschlossene Journalzustände von prepare_registered bis terminal_observed
+    - trennt Writer-/Recoveryregistrierungen mit Backend, Prepare, Launch, Handle und passendem LQ-446-Prozessrequest ohne nullable Capabilityform
+    - modelliert Launch-, Gated-, Release-, Running-, Terminate- und getrennte Terminalrequests nur aus stabilen IDs, Handle und geschlossenem Completionresultat
+    - ergänzt immutable Writer-/Recoveryviews mit strikter Release-/Terminate-/Terminalmatrix und aware UTC ohne freie Status- oder Resultpayload
+    - ergänzt getrennte Writer-/Recoveryjournalports mit je acht expliziten Methoden einschließlich read-only Inspect ohne set_state-, Authority-, Prozess- oder Clockparameter
+    - nutzt Head 0030 ohne SQL, Migration, Journaladapter, Serviceprozess, IPC-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-454 schafft die additive persistente Foundation für Jobbindungen und append-orientierte Journalübergänge; Adapter und Service folgen separat
+
+- LQ-454 persistent manifest handoff supervisor journal foundation:
+  `docs/lq-454-persistent-manifest-handoff-supervisor-journal-foundation.md`
+  - Status:
+    - führt Revision 20260824_0031 linear nach 0030 mit leeren Job- und append-orientierten Transitionstabellen ohne Seed oder Backfill ein
+    - bindet Handle, Backend, Prepare, Launch, Capability, Claim/Owner, Scope, feste Roots und Handoffname unveränderlich und eindeutig je Journaljob
+    - trennt Writer-/Recoveryclaim per Capabilitycheck und bindet jede Transition über Handle plus Capability an genau einen Job
+    - erzwingt eindeutige Transition-ID, Sequenz und Zustandsart ohne überschreibbaren current_state oder gate_released und hält Nichtterminalpayload leer
+    - schließt terminale Writer-/Recoveryoutcomes sowie Filename-/Manifestfaktenmatrix relational ein und speichert keine freie stdout-, stderr- oder Fehlerpayload
+    - synchronisiert Head-, Bundle- und Roadmap-Gates auf 0031 beziehungsweise 31 Migrationen ohne Adapter, Service, Prozess- oder Production-Wiring
+    - nächster Slice LQ-455 implementiert den persistenten Journaladapter mit strikter Vorwärtszustandsmaschine; Serviceprozess folgt separat
+
+- LQ-455 persistent manifest handoff supervisor journal:
+  `docs/lq-455-persistent-manifest-handoff-supervisor-journal.md`
+  - Status:
+    - implementiert getrennte Writer-/Recoveryjournalports gegen Revision 0031 und bindet den Adapter konstruktiv an genau eine Backendinstanz
+    - registriert Handle, Prepare, Launch, Capability, Claim/Owner und feste Prozessbinding idempotent; exakte Retries rekonstruieren, Divergenz bleibt detailfreier Konflikt
+    - erzwingt die strikte Vorwärtsfolge von Launch über Gated, Release und Running sowie Terminierung ab Launch und Terminal ab jedem direkt beobachtbaren Zustand
+    - bindet Launchtransition an die registrierte Launch-ID, hält jede Transitionart einmalig und validiert bei jeder Projektion lückenlose Sequenz und Capability
+    - rekonstruiert Writer-/Recoveryterminalpayload ausschließlich über geschlossene LQ-446-Typen und interpretiert Inspection-None niemals als Prozessende
+    - nutzt Head 0031 ohne Schema, Seed, Backfill, Prozess-, Gate-, Authority-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-456 definiert den kontrollierten Supervisor-Serviceprozess- und Gateprimitive-Vertrag; Prozessadapter und Plattformintegration folgen separat
+
+- LQ-456 controlled manifest handoff supervisor service and gate contract:
+  `docs/lq-456-controlled-manifest-handoff-supervisor-service-and-gate-contract.md`
+  - Status:
+    - bindet alle Writer-/Recoverykindprozesse an einen controllerunabhängigen, backendfesten Supervisorservice; Anwendungscontroller bleiben ausschließlich authentisierte Clients
+    - verlangt Journalregistrierung und Launch-Commit vor genau einem Wrapperstart sowie direkten gebundenen Gatehandshake vor jedem Capabilitycode oder Dateizugriff
+    - definiert eine höchstens einmal mit stabiler Release-ID konsumierbare Gateprimitive und Journal-vor-Gate-Reihenfolge mit read-only Unknown-Auflösung
+    - hält Termination-requested, Signal und Timeout strikt nichtterminal und appendiert Terminal nur nach direktem Prozessende mit geschlossenem Resultat und Endzeit
+    - rekonstruiert nach Serviceneustart nichtterminale Jobs ohne Respawn, Prozessadoption, PID-, EOF-, Lock- oder Dateiabwesenheitsannahme
+    - nutzt Head 0031 ohne Primitive-, Produkt-, Typ-, Port-, Schema-, Prozess-, IPC-, CLI-, Compose- oder Production-Wiringimplementation
+    - nächster Slice LQ-457 wählt die konkrete lokale Prozess- und Gateprimitive und weist Restart-/Einmaligkeitseigenschaften fail-closed nach
+
+- LQ-457 docker engine supervisor process and gate primitive decision:
+  `docs/lq-457-docker-engine-supervisor-process-and-gate-primitive-decision.md`
+  - Status:
+    - wählt einen lokalen Linux-Docker-Engine-Adapter mit genau einem nicht automatisch neugestarteten und nicht auto-entfernten Container je Journaljob ohne Popen-/systemd-Fallback
+    - bindet die runtime-eigene Container-ID dauerhaft an Backend, Journalhandle und Launch-Commit, pinnt das Wrapperimage per Digest und hält Enginezugriff ausschließlich beim Service
+    - trennt Writer-/Recovery-Mountprofile, deaktiviert Netzwerk und Privilegien und gibt Kindcontainern weder Registry-, Plattform- noch Enginecredentials
+    - entscheidet ein privates dauerhaftes Control-Directory mit atomar unveränderlichem Ready-, Release-Token-, Consumed-Ack- und terminalem Envelopeprotokoll
+    - erkennt Running erst aus Journalrelease plus Token/Ack und Enginezustand sowie Terminal nur aus gebundener Runtime-Terminalität; Exitcode allein erzeugt keinen Erfolg
+    - hält fehlende erwartete Container, Engineausfall und Daemonrestart fail-closed, nutzt Head 0031 und implementiert weder Schema, Adapter, Container noch Wiring
+    - nächster Slice LQ-458 schafft die persistente Foundation für Engine-Runtimebinding und private Control-Artefaktidentitäten; Typen und Adapter folgen separat
+
+- LQ-458 persistent manifest handoff supervisor runtime foundation:
+  `docs/lq-458-persistent-manifest-handoff-supervisor-runtime-foundation.md`
+  - Status:
+    - führt Revision 20260824_0032 linear nach 0031 mit leeren Runtimebinding- und Control-Artefakttabellen ohne Seed oder Backfill ein
+    - bindet je Journalhandle genau eine Creation-ID, Runtime-Container-ID, private Control-Directory-ID und digest-gepinnte Imageidentität dauerhaft und nicht wiederverwendbar
+    - speichert keine Hostpfade, Engine-Sockets, PIDs, Runtimezustände oder Authorityfakten und referenziert ausschließlich einen bestehenden Journaljob
+    - schließt Artefakte auf wrapper_ready, release_token, release_consumed und terminal_envelope mit genau einer Rolle je Handle sowie stabiler Korrelation ein
+    - verlangt für jedes Artefakt nicht leere ID, 64-stelligen Digest, positive Bytezahl und serverseitige Publikationszeit ohne freie Payloadspalte
+    - synchronisiert Head-, Bundle- und Roadmap-Gates auf 0032 beziehungsweise 32 Migrationen ohne Runtimeadapter, Enginezugriff, Datei-, Container- oder Production-Wiring
+    - nächster Slice LQ-459 definiert geschlossene Runtimebinding-, Artefakt- und Lookup-/Appendports; Adapter und Engineprimitive folgen separat
+
+- LQ-459 manifest handoff supervisor runtime types and ports:
+  `docs/lq-459-manifest-handoff-supervisor-runtime-types-and-ports.md`
+  - Status:
+    - ergänzt vier repr-freie Creation-, Runtimecontainer-, Control-Directory- und Artefakt-IDs, strikten sha256-Image-Digest und begrenzte Artefaktfakten
+    - schließt Rollen auf wrapper_ready, release_token, release_consumed und terminal_envelope sowie deren Gated-, Release- beziehungsweise Terminalkorrelationsklassen
+    - trennt die vier Artefaktrequests typseitig, sodass keine caller-gelieferte Rollen-/Korrelationskombination oder freie Payload möglich ist
+    - ergänzt Runtimebinding-Store, read-only Handle-/Creation-Lookup, vier explizite Artefaktappendmethoden und read-only Artefakt-/Rollenauflösung
+    - vereinheitlicht divergente Runtime-/Artefaktbindungen detailfrei und akzeptiert keine Pfad-, Host-, Socket-, Prozess-, Authority-, Clock- oder Engineparameter
+    - nutzt Head 0032 ohne SQL, Migration, Persistenzadapter, Dateicodec, Engine-, Container-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-460 implementiert Runtimebinding- und Artefaktkorrelation persistent; Engine- und Dateiprimitiven folgen separat
+
+- LQ-460 persistent manifest handoff supervisor runtime:
+  `docs/lq-460-persistent-manifest-handoff-supervisor-runtime.md`
+  - Status:
+    - implementiert idempotente Runtimebinding sowie read-only Handle-/Creation-Auflösung gegen Revision 0032 nur für bestehende Journaljobs
+    - persistiert Ready erst nach Launch-Commit, Release-token nur mit exakt korreliertem Release-Commit und Consumed-Ack zusätzlich nur nach demselben Token
+    - hält Terminal-envelope als typisierte Vorstufe ohne Terminal- oder Runtime-Endbehauptung und interpretiert keine Artefaktkorrelation als Prozesswirkung
+    - vergleicht Artefakt-ID, Handle, Rolle, Korrelation, Digest und Bytezahl bei Retry vollständig und vereinheitlicht jede Rollen-/ID-Divergenz detailfrei
+    - löst Artefakte read-only nach ID oder Handle/Rolle auf und rekonstruiert Gated-, Release- und Terminalkorrelationen in ihre exakten Domainklassen
+    - nutzt Head 0032 ohne Schema, Seed, Backfill, Docker-, Datei-, Prozess-, Authority-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-461 definiert den geschlossenen Docker-Engine-Adaptervertrag für Create, Inspect, Start, Wait und Terminate; Fileprimitive folgt separat
+
+- LQ-461 closed manifest handoff supervisor engine contract:
+  `docs/lq-461-closed-manifest-handoff-supervisor-engine-contract.md`
+  - Status:
+    - definiert einen einzigen Engineport mit exakt Create, Inspect, Start, Wait-terminal und Terminate sowie getrennten typisierten Requests und Bestätigungen
+    - schließt Prozessprofile auf Writer und Recovery sowie direkte Enginezustände auf created, running, exited und dead ohne freien Status oder fachliches Outcome
+    - bindet Create ausschließlich an Handle, stabile Creation-/Control-Directory-IDs, digestgepinntes Image und festes Profil; Runtime-ID entsteht nur als Engineergebnis
+    - hält Create-Unknown, erwartete Containerabwesenheit, blinden Neustart und fremden oder divergenten Bestand fail-closed; Terminate-Annahme behauptet keine Terminalität
+    - akzeptiert keine Socket-, Host-, Pfad-, Command-, Args-, Env-, Timeout-, Restart-, Authority- oder Allowparameter und bietet kein Remove oder Cleanup
+    - nutzt Head 0032 ohne Schema, Migration, Docker-SDK-Adapter, Datei-, Persistenz-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-462 implementiert den lokalen Docker-Engine-Adapter gegen den geschlossenen Vertrag; atomare Fileprimitive folgen separat
+
+- LQ-462 local docker manifest handoff supervisor engine adapter:
+  `docs/lq-462-local-docker-manifest-handoff-supervisor-engine-adapter.md`
+  - Status:
+    - implementiert den LQ-461-Port über einen konstruktiv an genau einen lokalen Daemon gebundenen Minimalclient ohne neue Docker-SDK- oder Shellabhängigkeit
+    - reconciliert Create zuerst über dieselbe Creation-ID, adoptiert nur exakt passende Labels, Digest, Profil und Sicherheitswerte und erzeugt bei Divergenz keinen zweiten Container
+    - erzwingt adapterseitig network none, restart no, kein Auto-Remove, read-only Rootfilesystem, vollständigen Capability-Drop, unprivilegierten und privaten PID-Betrieb
+    - inspiziert nur unveränderliche Container-IDs, startet ausschließlich created, akzeptiert Wait nur für exited/dead und hält Stop-/Kill-Annahme von Terminalität getrennt
+    - bietet kein Remove, Prune, Restart, Authority-, Datei-, Persistenz- oder fachliches Outcome und vereinheitlicht technische Client-/Enginefehler detailfrei
+    - nutzt Head 0032 ohne Schema, Migration, Seed, Production-Client, Endpoint-, CLI-, Compose-, Service- oder Plattform-Wiring
+    - nächster Slice LQ-463 definiert Control-Artefaktcodec und atomare lokale Filepublisher-Grenze; Production-Client und Supervisorservice folgen separat
+
+- LQ-463 closed control artifact codec and atomic file contract:
+  `docs/lq-463-closed-control-artifact-codec-and-atomic-file-contract.md`
+  - Status:
+    - definiert vier getrennte Dokumenttypen für Ready, Release-Token, Consumed-Ack und Terminal-Envelope mit fest gesetzter Rolle und exakt typisierter Korrelation
+    - bindet Terminal-Envelope ausschließlich an geschlossene Writer-/Recoveryabschlüsse desselben Handles und eröffnet keinen freien Payload-, Log- oder Diagnosekanal
+    - begrenzt repr-freie Artefaktbytes auf 65.536 Bytes und verlangt exakt passende SHA-256- sowie Bytezahlfakten im kodierten Record
+    - trennt minimalen kanonischen Codec, atomaren No-replace-Publisher und read-only Rollenreader ohne caller-gelieferte Pfade, Dateinamen oder Overwriteoption
+    - verlangt vollständigen Write, File-fsync, atomare Publikation und Directory-fsync; exakter Byte-Retry bleibt Erfolg, jede Divergenz detailfreier Konflikt
+    - nutzt Head 0032 ohne Schema, Migration, Fileimplementation, Authority-, Engine-, Wrapper-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-464 implementiert kanonischen Codec und atomaren lokalen Fileadapter; Wrapper und Supervisorservice folgen separat
+
+- LQ-464 canonical control artifact codec and atomic local file adapter:
+  `docs/lq-464-canonical-control-artifact-codec-and-atomic-local-file-adapter.md`
+  - Status:
+    - implementiert ein versioniertes kanonisches JSON-Schema mit exakten Schlüsselmengen, Duplicate-Key-Ablehnung und byteidentischer Decode-/Encode-Round-trip-Sperre
+    - rekonstruiert Writer-/Recovery-Terminaloutcomes vollständig über bestehende Domainkonstruktoren und berechnet SHA-256 sowie Bytezahl nur aus begrenzten kanonischen Bytes
+    - löst Jobverzeichnisse ausschließlich über private Registry, direktes Root und O_NOFOLLOW-Deskriptoren auf und verlangt Owner sowie exakt 0700/0600
+    - publiziert über exklusive Tempdatei, vollständigen Write, File-fsync, atomaren No-replace-Hardlink, Temp-Unlink und Directory-fsync ohne Replace oder Overwrite
+    - vergleicht bestehende und konkurrierend publizierte Rollen bytegenau, liest nur reguläre private Single-link-Dateien begrenzt und behandelt ausschließlich ENOENT neutral
+    - nutzt Head 0032 ohne Schema, Migration, Authority-, Engine-, Cleanup-, Wrapper-, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-465 definiert den geschlossenen Gatewrapper-Vertrag für Ready, Tokenkonsum, Consumed-Ack und Terminal-Envelope
+
+- LQ-465 closed manifest handoff gate wrapper contract:
+  `docs/lq-465-closed-manifest-handoff-gate-wrapper-contract.md`
+  - Status:
+    - definiert die einzige reguläre Gatefolge als Startbindung, dauerhaftes Ready, exakt akzeptiertes Release-Token und dauerhaftes Consumed-Ack mit unveränderter typisierter Vorgängerkette
+    - bindet Profil, Handle, Control-Directory sowie verschiedene Ready-/Consumed-/Terminal-IDs vorab, während Release- und Token-ID ausschließlich aus dem gelesenen Token entstehen
+    - macht Released nach passender Consumed-Publikation zum einzigen Ausführungsmarker ohne Allowboolean und erlaubt weder Ready noch Token allein als Capabilityfreigabe
+    - erlaubt geschlossene Terminalisierung nach Ready oder Released, prüft Writer-/Recoveryoutcome gegen festes Profil und denselben Handle und trennt Envelope von Runtime-Terminalität
+    - akzeptiert nur dauerhafte LQ-464-Publikationsbelege, enthält keine Bytes, Pfade, Prozess-, Engine- oder Authorityparameter und vereinheitlicht Divergenz detailfrei
+    - nutzt Head 0032 ohne Schema, Migration, Fileimplementation, Wrapperentrypoint, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-466 implementiert den Gatewrapper gegen LQ-464; Supervisorservice und Productionentrypoint folgen separat
+
+- LQ-466 file-backed manifest handoff gate wrapper:
+  `docs/lq-466-file-backed-manifest-handoff-gate-wrapper.md`
+  - Status:
+    - implementiert Ready-, Await-release-, Consumed- und Terminaloperationen ausschließlich über injizierten LQ-464-Codec, Publisher und Reader ohne direkten Dateizugriff
+    - erzeugt Ready nur aus vorgebundener ID/Handle/Gated-Korrelation, liest ausschließlich release_token und akzeptiert nur kanonisches Tokendokument desselben Handles
+    - übernimmt Token- und Release-ID nur aus gelesenen Bytes, publiziert Consumed unter vorgebundener Ack-ID mit derselben Release-ID und liefert erst danach Released
+    - unterstützt Terminal-Envelope aus validiertem Ready oder Released mit vorgebundener Terminal-ID/-Korrelation und geschlossenem profilgebundenem Outcome
+    - übersetzt ausschließlich immutable Filekonflikt in detailfreien Wrapperkonflikt, hält technische Fehler separat und verwendet None nur für echte Tokenabwesenheit
+    - nutzt Head 0032 ohne Schema, Migration, Capabilityausführung, Engine-, direkte Datei-, Authority-, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-467 definiert einen Capabilityexecutor, der ausschließlich Released akzeptiert und einen geschlossenen Outcome liefert
+
+- LQ-467 closed manifest handoff capability executor contract:
+  `docs/lq-467-closed-manifest-handoff-capability-executor-contract.md`
+  - Status:
+    - definiert getrennte Writer-/Recoveryexecutionrequests, die ausschließlich einen Released-Marker, den profilspezifisch vorbereiteten Prozess und den bestehenden geschlossenen Capabilityrequest akzeptieren
+    - bindet Gatehandle an Prepared sowie Claim und Owner zwischen Prepared und Request vollständig, sodass Cross-Job-, Cross-Claim-, Cross-Owner- und Cross-Profile-Ausführung konstruktiv scheitert
+    - liefert profilspezifische Executed-Records mit bestehenden geschlossenen Outcomes und prüft Handle, Claim sowie Owner am Ergebnis erneut vollständig
+    - bietet genau execute_writer und execute_recovery ohne neutrales None, generischen Runpfad, Allowboolean, freie Prozessparameter oder Retrybehauptung
+    - hält Capabilityausführung von Gateartefakten, Terminal-Envelope, Enginezustand, Persistenz und Plattformauthority getrennt und benennt keinen neuen Fehler- oder Konflikttyp
+    - nutzt Head 0032 ohne Schema, Migration, Executoradapter, Datei-, Prozess-, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-468 adaptiert die kontrollierten Writer-/Recoveryprimitive hinter den Executorvertrag; Servicecomposition folgt separat
+
+- LQ-468 controlled supervisor capability executor adapter:
+  `docs/lq-468-controlled-supervisor-capability-executor-adapter.md`
+  - Status:
+    - implementiert eine konservative LQ-467-Composition über die vorhandenen kontrollierten Writer-/Recovery-Supervisorports, deren konkrete Primitive im Bestand weiterhin fehlt
+    - delegiert je Execution exakt einmal profilspezifisch mit Handle, Claim und Owner aus Prepared und akzeptiert ausschließlich einen unmittelbar terminalen geschlossenen Outcome
+    - behandelt Prepared, Running, Konflikt, None und falschen Ergebnistyp als technische Unverfügbarkeit ohne Polling, Inspect, Terminate, Retry oder zweite Capabilitywirkung
+    - rekonstruiert Executed nur über die erneute LQ-467-Handle-/Claim-/Ownerprüfung und hält Terminal-Envelope sowie Engine-Terminalität getrennt
+    - enthält keine Datei-, Gate-, Engine-, Authority-, Prozessparameter- oder Capabilityimplementation und vereinheitlicht Abhängigkeitsfehler detailfrei
+    - nutzt Head 0032 ohne Schema, Migration, konkrete Supervisorprimitive, Entry Point, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-469 definiert direkte asynchrone Outcome-Inspect-/Wait-Reconciliation ohne zweiten Release oder Start
+
+- LQ-469 asynchronous capability outcome inspect and wait contract:
+  `docs/lq-469-asynchronous-capability-outcome-inspect-and-wait-contract.md`
+  - Status:
+    - definiert getrennte read-only Writer-/Recoveryinspectionrequests, die ausschließlich den bereits Released-, Prepared-, Claim-, Owner- und Capability-gebundenen LQ-467-Executionrequest tragen
+    - modelliert nichtterminal nur profilspezifisches Running mit erneuter Handle-/Claim-/Ownerprüfung und terminal ausschließlich die bestehenden vollständig korrelierten Executed-Records
+    - schließt Outcomeunions auf Running oder Executed; Prepared, Abwesenheit, freier Status und None sind für erwartete Prozesse keine neutralen Beobachtungen
+    - trennt unmittelbares Inspect von konstruktiv begrenztem terminal-only Wait ohne caller-gelieferten Timeout, Pollintervall, Clock oder Retryentscheidung
+    - bietet keine Release-, Start-, Terminate-, Gateartefakt-, Engine-, Authority- oder Prozessparameterwirkung und benennt keinen neuen Konflikttyp
+    - nutzt Head 0032 ohne Schema, Migration, Adapter, Poller, Thread, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-470 implementiert Inspect und begrenztes Wait über vorhandene Supervisor-Inspectmethoden ohne Release, Terminate oder zweiten Start
+
+- LQ-470 controlled capability outcome inspect and bounded wait:
+  `docs/lq-470-controlled-capability-outcome-inspect-and-bounded-wait.md`
+  - Status:
+    - implementiert getrenntes Immediate-Inspect über genau einen vorhandenen inspect_writer-/inspect_recovery-Aufruf mit Handle, Claim und Owner ausschließlich aus Prepared
+    - rekonstruiert nur exaktes profilspezifisches Running oder vollständig korreliertes Executed und behandelt Prepared, None, Konflikt sowie fremde Typen als technische Unverfügbarkeit
+    - implementiert terminal-only Wait über 1 bis 10.000 konstruktiv begrenzte Inspections und eine injizierte wirkungsfreie Pause nur zwischen verbleibenden Running-Versuchen
+    - führt kein Release, Start, Execute, Terminate, Retry oder Ersatzprozess aus und deutet ausgeschöpftes Wait weder als None noch als Terminalität
+    - besitzt keine Gateartefakt-, Datei-, Engine-, Authority- oder caller-gelieferte Timingwirkung und vereinheitlicht Supervisor-/Pausefehler detailfrei
+    - nutzt Head 0032 ohne Schema, Migration, konkrete Supervisorprimitive, Thread, Entry Point, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-471 definiert den persistenten Supervisorservice-Orchestrierungsvertrag über Journal, Runtime, Engine, Gate, Executor und Outcomebeobachtung
+
+- LQ-471 persistent manifest handoff supervisor service orchestration contract:
+  `docs/lq-471-persistent-manifest-handoff-supervisor-service-orchestration-contract.md`
+  - Status:
+    - definiert die zwingende Preparefolge Launch-Commit vor Create, Runtimebinding vor Start sowie Engine-Running plus dauerhaftes Ready und Artefaktkorrelation vor Journal-Gated
+    - definiert Release-Commit vor Token, Token vor Consumed, persistierte Artefaktfakten plus direkte Engine-Running-Beobachtung vor Journal-Running und Released vor Capabilityexecution
+    - verlangt für Terminalität geschlossenen Outcome, kanonisches Envelope, persistierte Fakten und direkte exited/dead-Beobachtung vor profilspezifischer Terminaltransition
+    - persistiert Terminate vor Stop/Kill, hält Annahme nichtterminal und reconciliert alle sieben Journalzustände ohne zweiten Create, Start, Release oder Capabilityaufruf
+    - trennt Journal, Runtime, Engine, Dateien, Gate und Outcome als jeweilige Systeme of Record, behandelt erwartete Abwesenheit fail-closed und hält Inspect strikt read-only
+    - nutzt Head 0032 ohne neue Typen, Ports, Signaturen, Schema, Migration, Serviceimplementation, Thread, Entry Point, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-472 definiert geschlossene Servicecommands/-ergebnisse und minimale Writer-/Recovery-Serviceports; Implementation folgt separat
+
+- LQ-472 persistent supervisor service commands results and ports:
+  `docs/lq-472-persistent-supervisor-service-commands-results-and-ports.md`
+  - Status:
+    - definiert getrennte Writer-/Recovery-Preparecommands mit vollständiger Journalregistrierung, Creation-, Control-Directory-, Image- und profilspezifischer Gatebindung sowie minimale Release-/Terminate-/Inspectcommands
+    - bindet sichtbare Serviceergebnisse an denselben Journal-, Runtime- und Prozesshandle sowie registrierten Claim/Owner und erlaubt nur prepared_gated/Prepared, running/Running, termination_requested/Running oder terminal_observed/Completed
+    - verlangt beim terminalen Result zusätzlich exakte Gleichheit mit dem persistenten Journaloutcome und hält interne prepare_registered-, launch_committed- und release_committed-Zustände unsichtbar
+    - ergänzt getrennte minimale Writer-/Recoveryports mit Prepare, Release, Terminate und read-only Inspect ohne freie Operation, Authority-, Prozess- oder Timingparameter
+    - identifiziert die noch nicht persistierte vorab reservierte Gatebindung, insbesondere Consumed-/Terminal-Artefakt-IDs, als expliziten Restart- und Productionimplementierungsblocker
+    - nutzt Head 0032 ohne Schema, Migration, Serviceimplementation, Journal-, Engine-, Datei-, Gate-, Executor-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-473 definiert die persistente unveränderliche Gatebinding-Foundation und read-only Lookup; Serviceimplementation folgt danach
+
+- LQ-473 persistent immutable supervisor gate binding foundation:
+  `docs/lq-473-persistent-immutable-supervisor-gate-binding-foundation.md`
+  - Status:
+    - führt Revision 20260825_0033 linear nach 0032 mit leerer Gatebinding- und normalisierter Gate-Artefaktreservierung ohne Seed, Backfill oder Adoption ein
+    - bindet genau ein Writer-/Recoveryprofil sowie eindeutige Gated-/Terminal-Observation-IDs an einen bestehenden Runtimehandle und dupliziert Control-Directory nicht
+    - reserviert Ready-, Consumed- und Terminal-Artefakt-IDs als globale Primärschlüssel mit genau einer geschlossenen Rolle je Handle und schließt Cross-Role-/Cross-Job-Wiederverwendung aus
+    - ergänzt atomaren bind_gate-Port, read-only Handle-/Artefakt-Lookup und feldlosen Gatebinding-Konflikt ohne Update, Delete, Rebind oder Token-Vorreservierung
+    - hält erwartete Abwesenheit, partielle/beschädigte Binding, Authority, Datei-, Engine- und Prozesswirkung getrennt und fordert vollständige Rekonstruktion über Runtime
+    - synchronisiert Head-, Bundle- und Roadmap-Gates auf 0033 beziehungsweise 33 Migrationen ohne SQL-Adapter, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-474 implementiert den persistenten Gatebinding-Adapter mit exaktem Retry, Konflikt und vollständigem read-only Lookup
+
+- LQ-474 persistent immutable supervisor gate binding adapter:
+  `docs/lq-474-persistent-immutable-supervisor-gate-binding-adapter.md`
+  - Status:
+    - implementiert bind_gate und read-only Handle-/Artefakt-Lookup gegen Revision 0033 nur bei passendem bestehendem Journaljob, Runtimehandle, Control-Directory und Writer-/Recoveryprofil
+    - schreibt Gatebinding sowie Ready-/Consumed-/Terminalreservierung atomar, sperrt belegte Observation-/Artefakt-IDs und erzeugt weder partielle Binding noch Release-Token-Vorreservierung
+    - rekonstruiert bei Handle-Retry und Lookup exakt drei geschlossene Rollen, beide Observation-IDs, Profil und Runtime-Control-Directory und vergleicht vollständige Startbinding
+    - behandelt partielle, doppelte, unbekannte oder Cross-Profile-Persistenz als technische Unverfügbarkeit, exakte Abwesenheit neutral und jede belegte/divergente Wiederverwendung als detailfreien Konflikt
+    - serialisiert PostgreSQL-Writes über feste Journal-/Runtime-/Gate-Locks, hält SQLite als Testgrenze und bietet kein Update, Delete, Rebind oder Cleanup
+    - nutzt Head 0033 ohne Migration, Datei-, Engine-, Authority-, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-475 implementiert die Prepare-Orchestrierung über Journal, Engine, Runtimebinding, Gatebinding und Ready; Release/Terminal folgen separat
+
+- LQ-475 persistent supervisor prepare orchestration:
+  `docs/lq-475-persistent-supervisor-prepare-orchestration.md`
+  - Status:
+    - implementiert profilspezifisches Writer-/Recovery-Prepare über Journalregistrierung, durablem Launch-Commit, Create/Reconcile, Runtime- und Gatebinding, kontrolliertem Start, Running-Beobachtung, Ready-Korrelation und Gated-Transition
+    - verarbeitet restart-sicher nur Prepare-Registered, Launch-Committed und Prepared-Gated, verwendet alle stabilen Command-IDs erneut und startet einen bereits Running beobachteten Container nicht erneut
+    - bindet Runtime und vollständige Gateidentitäten vor Start, prüft Container-ID, Creation-ID, Image-Digest und Profil direkt und gibt Prepared erst aus persistentem Gated-Journalview zurück
+    - publiziert/reconciliert Ready erst nach direkter Running-Beobachtung, persistiert dessen Digest-/Größenfakten vor Gated und behandelt Prepared ohne Runtime oder Running als technische Unverfügbarkeit beziehungsweise Konflikt
+    - vereinheitlicht Journal-, Runtime-, Engine-, Wrapper- und Gatebinding-Divergenz detailfrei als Servicekonflikt; nur neutrale Ablehnung vor Wirkung bleibt None
+    - ergänzt keine Release-, Inspect-, Terminate-, Terminal-, Authority-, Cleanup-, Schema-, SQL-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-476 implementiert Release-Commit, Token, Consumed, direkte Running-Beobachtung und Journal-Running; Terminal und Terminate folgen separat
+
+- LQ-476 persistent supervisor release orchestration:
+  `docs/lq-476-persistent-supervisor-release-orchestration.md`
+  - Status:
+    - implementiert profilspezifisches Release nur aus Prepared-Gated/Release-Committed/Running über persistente Runtime-, Gate- und Ready-Belege sowie stabile Release-, Token- und Running-IDs
+    - appendiert Release-Commit vor kanonischer atomarer Tokenpublikation, persistiert Tokenfakten vor Wrapperkonsum und persistiert Consumed-Fakten vor direkter Engine-Running-Beobachtung
+    - appendiert Journal-Running erst nach vollständigem Released-Marker und direktem Containervergleich und übergibt erst danach genau einmal den persistent gebundenen Writer-/Recoveryrequest an den Capabilityexecutor
+    - rekonstruiert Running-Retries ohne erneute Datei- oder Capabilitywirkung aus Ready-, Token- und Consumedrecords, prüft Token und Engine-Running erneut und validiert die Running-ID über wirkungslosen Journalretry
+    - vereinheitlicht Journal-, Runtime-, Gate-, File-, Wrapper- und Enginekonflikte detailfrei; nur unbekannter Handle vor Wirkung bleibt None, erwarteter fehlender Bestand bleibt technische Unverfügbarkeit
+    - ergänzt keine Terminal-, Terminate-, Cleanup-, Authority-, Schema-, SQL-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-477 implementiert read-only Inspect für Prepared, Running und Terminal; Terminalisierung und Terminate folgen separat
+
+- LQ-477 read-only persistent supervisor inspect orchestration:
+  `docs/lq-477-read-only-persistent-supervisor-inspect-orchestration.md`
+  - Status:
+    - implementiert getrenntes Writer-/Recovery-Inspect ausschließlich für Prepared-Gated, Running und Terminal-Observed; unbekannter profilspezifischer Handle bleibt das einzige neutrale None
+    - verlangt für jeden sichtbaren Result passende Journal-, Runtime-, Gate- und kanonisch physisch gelesene Ready-Fakten sowie direkten Vergleich von Container-ID, Creation-ID, Image-Digest und Profil
+    - rekonstruiert Running nur mit derselben persistenten Release-ID, kanonischem Token, kanonischem Consumed und direktem Engine-Running; interne Zwischen- und Termination-Requested-Zustände bleiben technisch unverfügbar
+    - rekonstruiert Terminal nur bei identischem Journaloutcome, Gate-Terminal-ID, persistentem und kanonischem Terminal-Envelope sowie direktem Engine-Exited/Dead
+    - führt keinerlei Register-, Commit-, Record-, Bind-, Create-, Start-, Publish-, Execute-, Wait-, Terminate-, Repair- oder Cleanupwirkung aus und gibt keine Infrastrukturdetails zurück
+    - ergänzt keine Authority-, Schema-, SQL-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-478 implementiert Terminal-Outcome, Envelope, persistierte Fakten, Engineende und Terminaljournal; Terminate folgt separat
+
+- LQ-478 persistent supervisor terminal orchestration:
+  `docs/lq-478-persistent-supervisor-terminal-orchestration.md`
+  - Status:
+    - implementiert interne profilspezifische Completion nur aus Running und rekonstruiert bereits Terminal-Observed ausschließlich über read-only LQ-477-Inspect
+    - rekonstruiert dieselbe Released-/Executionbindung aus Journal, Runtime, Gate, Ready, Token und Consumed und inspiziert den Capabilityoutcome ohne zweiten Release oder Execute
+    - gibt einen weiterhin Running beobachteten Outcome wirkungslos zurück und publiziert nur für einen geschlossenen Executed-Outcome das kanonische Terminal-Envelope
+    - persistiert Envelope-Fakten vor direktem Wait auf denselben Enginecontainer, verlangt Exited/Dead und liest danach Envelope, Observation-ID und Outcome kanonisch erneut
+    - appendiert die profilspezifische Terminaltransition zuletzt mit derselben Gate-Terminal-ID und liefert erst aus dem bestätigten Terminalview den geschlossenen ServiceResult
+    - ergänzt keine Terminate-, Cleanup-, Authority-, Schema-, SQL-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-479 implementiert Termination-Requested vor Engine-Signal und konservative Terminalkorrelation
+
+- LQ-479 persistent supervisor terminate orchestration:
+  `docs/lq-479-persistent-supervisor-terminate-orchestration.md`
+  - Status:
+    - implementiert profilspezifisches Terminate für Ready-gebundene Prepared-, Release-Committed-, Running- und Termination-Requested-Jobs sowie read-only Terminal-Retry; Launch-Committed ohne Ready bleibt vor Signal gesperrt
+    - appendiert dieselbe stabile Terminate-ID dauerhaft vor jeder Enginewirkung und adressiert danach ausschließlich die persistierte Container-ID ohne caller-geliefertes Signal, Timeout oder Graceperiod
+    - verlangt nach Signalannahme direkte Exited/Dead-Beobachtung mit vollständigem Container-, Creation-, Image- und Profilvergleich und interpretiert Annahme nie als Ende
+    - bildet vor Release einen geschlossenen profilspezifischen Outcome-Unknown und verlangt nach vorhandener Release-ID vollständige Token-/Consumed-/Released-Bindung sowie begrenzten Outcome-Wait ohne zweiten Release oder Execute
+    - publiziert anschließend das kanonische Terminal-Envelope, persistiert dessen Fakten, prüft Bytes und Outcome erneut und appendiert die Terminaltransition zuletzt mit der stabilen Gate-Terminal-ID
+    - ergänzt keine Cleanup-, Authority-, Schema-, SQL-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-480 komponiert Prepare, Release, Inspect, Terminate und interne Completion zu den bestehenden profilspezifischen Serviceports
+
+- LQ-480 persistent supervisor service composition:
+  `docs/lq-480-persistent-supervisor-service-composition.md`
+  - Status:
+    - komponiert LQ-475 bis LQ-479 zu einer profilsicheren Fassade mit exakt Prepare, Release, Terminate und Inspect je Writer/Recovery ohne generische Operation oder Profilwahl
+    - delegiert Commands ausschließlich an den passenden Teilservice, prüft jeden Ausgang erneut auf profilspezifischen Result, neutral None oder zulässigen detailfreien Servicekonflikt
+    - führt nach erfolgreichem Release nur aus bestätigtem Journal-Running die interne Completion mit demselben Handle aus, sodass Running sichtbar bleibt oder ein bereits geschlossener Outcome terminal zurückkehrt
+    - überspringt Completion bei neutraler Ablehnung oder Konflikt, delegiert Terminate vollständig an LQ-479 und hält Inspect strikt read-only ohne Terminalisierung
+    - konstruiert keine Engine-, Datenbank-, Datei-, Codec-, Wrapper-, Executor- oder Outcomeabhängigkeit und startet keinen Worker, Thread, Poller oder Scheduler
+    - ergänzt keine Authority-, Schema-, SQL-, Domain-, Port-, CLI-, Compose- oder Production-Wiringentscheidung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-481 definiert kontrollierte konkrete Dependency-Composition ohne automatische Productionaktivierung
+
+- LQ-481 controlled persistent supervisor dependency composition:
+  `docs/lq-481-controlled-persistent-supervisor-dependency-composition.md`
+  - Status:
+    - implementiert eine explizite inert-until-called Factory aus bereits konfigurierter Datenbankengine, Backend-ID, geschlossener Supervisor-Engine, privater Control-Artefaktgrenze, Capabilityexecutor und Outcome-Beobachtung
+    - konstruiert und teilt genau ein Journal, einen Runtime-/Artefaktadapter, einen Gatebinding-Adapter, einen kanonischen Codec und einen File-Gatewrapper über alle LQ-475-bis-LQ-479-Teilservices
+    - verdrahtet denselben read-only Inspectservice für Fassaden-Inspect sowie Terminal-/Terminate-Retry und gibt ausschließlich die profilsichere LQ-480-Servicefassade zurück
+    - teilt optional eine konstruktive Clock über Journal, Runtime, Gatebinding und Terminate-Unknown, ohne Clock oder Betriebsparameter in Commands aufzunehmen
+    - öffnet beim Aufbau keine Datenbankverbindung, Datei oder Enginewirkung, führt keine Migration aus und registriert weder Route, CLI, Worker, Thread, Scheduler noch Lifecyclehook
+    - ergänzt keine Authority-, Schema-, SQL-, Domain-, Port-, Compose- oder Productionaktivierung; Head bleibt 0033 mit 33 Migrationen und Ressourcen bleiben extern besessen
+    - nächster Slice LQ-482 definiert den opt-in Production-Wiring-Vertrag für Aktivierung, Readiness, Ressourcenbesitz und Shutdown
+
+- LQ-482 controlled supervisor production wiring contract:
+  `docs/lq-482-controlled-supervisor-production-wiring-contract.md`
+  - Status:
+    - definiert Supervisor-Production-Wiring als vollständig explizites opt-in; Datenbank, Schema oder persistenter Bestand aktivieren allein nichts und partielle Betriebsgruppen scheitern fail-fast
+    - bindet genau eine App-Datenbankengine, stabile Backend-ID, digestgebundene geschlossene Engine, getrenntes privates Control-Root, Capabilityprimitive und feste Outcome-Waitpolicy mit klarem externem/process-eigenem Ressourcenbesitz
+    - verlangt Readiness gegen exakt Head 0033 ohne Migration oder Probeprozess, hält Liveness unabhängig und schließt process-eigene Clients/Pools geordnet ohne persistierte Jobs pauschal zu terminieren oder zu löschen
+    - erhält Journal, Runtime, Gate und Artefakte über Processrestart, verbietet automatische Startup-Reconciliation, Worker, Bootstrap, Retention und Cleanup und lässt spätere explizite Requests dieselben IDs fortsetzen
+    - fügt keine öffentliche Route oder Authority hinzu; SessionPrincipal, Settings-Allowwerte, Handles und Artefakte erteilen keine Supervisorfähigkeit und sensible IDs/Pfade bleiben aus Logs und Metriklabels
+    - trifft noch keine Settings-, Appfactory-, Entrypoint-, Compose- oder Environmentimplementation und ergänzt kein Schema, SQL, Domain oder Port; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-483 implementiert die vollständige Settingsgruppe und kontrollierte Lifespan-Composition; öffentliche Routen bleiben separat
+
+- LQ-483 supervisor production wiring implementation blocker audit:
+  `docs/lq-483-supervisor-production-wiring-implementation-blocker-audit.md`
+  - Status:
+    - bestätigt Journal-, Runtime-, Gate-, Service- und LQ-481-Composition als vorhanden, verweigert aber eine irreführende Settings-only- oder partielle Supervisoraktivierung
+    - identifiziert drei konkrete fehlende Productiongrenzen: besessener lokaler Engineclient-Adapter, processfähige getrennte Writer-/Recovery-Capabilityprimitiven und persistenter privater Control-Directory-Lifecycle samt Resolver
+    - schließt Shell-/DOCKER_HOST-/Socketfallback, Dummy-Outcome, In-Memory-Directorymapping und direkte ID-zu-Pfad-Abbildung als unsichere Ersatzwege aus
+    - lässt Settings, public_summary, Appfactory, Entrypoint, Lifespan, Compose und runtime.env unverändert und hängt insbesondere keinen Docker-Socket in den HTTP-Prozess
+    - hält Readiness, HTTP-Routen und Authority geschlossen, bis alle drei Abhängigkeiten vollständig konstruierbar und mit eindeutigem Ownership geordnet schließbar sind
+    - ergänzt keine Runtimeimplementation, Migration, Tabelle, SQL-, Domain- oder Portsignatur; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-484 definiert zuerst den persistenten privaten Control-Directory-Lifecycle; Schema, Adapter und Operator folgen getrennt
+
+- LQ-484 persistent private supervisor control-directory lifecycle contract:
+  `docs/lq-484-persistent-private-supervisor-control-directory-lifecycle-contract.md`
+  - Status:
+    - definiert Directory-ID, Supervisorhandle und opaqu generiertes persistentes Leaf als stabile nicht wiederverwendbare interne Fakten ohne caller-gelieferten Pfad oder direkte ID-zu-Pfad-Abbildung
+    - schließt den Lifecycle auf Reserved, Active und Retired: durable Reservation vor physischer No-follow-/0700-Anlage, Root-fsync vor Active und durable Retirement vor jedem späteren Cleanup
+    - erlaubt ausschließlich Active read-only aufzulösen, behandelt unbekannte ID neutral und sperrt Reserved, Retired, partielle Registry sowie fehlenden oder unsicheren physischen Bestand fail-closed
+    - definiert restart-sichere exakte Create-/Activate-Retries ohne neues Leaf, Adoption, Rotation oder Reaktivierung und hält Retired-Bestand bis separater Retention-/Cleanupentscheidung physisch erhalten
+    - fordert Registrytombstones mindestens entlang Journal-, Runtime-, Gate- und Artefaktretention und dauerhaft gegen ID-/Handle-/Leaf-Wiederverwendung, ohne konkrete Schema- oder Zeitentscheidung
+    - ergänzt keine Domainwerte, Ports, Tabelle, SQL, Migration, Datei-, Authority-, Operator- oder Productionwirkung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-485 definiert geschlossene Lifecyclewerte und minimale Store-/Lookupports; Schema und Adapter folgen getrennt
+
+- LQ-485 closed supervisor control-directory lifecycle values and ports:
+  `docs/lq-485-closed-supervisor-control-directory-lifecycle-values-and-ports.md`
+  - Status:
+    - implementiert repr-freies opakes 256-Bit-Hex-Leaf, exakt Reserved/Active/Retired und geschlossene Reserve-, Activate- und Retirewerte ohne Root-, Pfad- oder caller-gelieferte Leafwahl
+    - trägt bei jeder Transition die vollständige vorherige Stufe unverändert weiter, verlangt aware UTC und monotone Reserved-/Activated-/Retired-Zeiten und projiziert ID, Handle und Leaf nur read-only
+    - definiert eine geschlossene Lifecycleunion und feldlosen Directorykonflikt für spätere ID-, Handle-, Leaf-, State- oder physische Divergenz ohne Infrastrukturdetails
+    - ergänzt einen Storeport mit genau reserve/activate/retire sowie Lookupport nach Directory-ID und Handle, der alle Zustände statt einer Active-only-Normalisierung liefert
+    - bietet kein Update, Delete, Reactivate, Rotate, Adopt, Cleanup, Listen, Active-Filter oder Path-Resolution und erteilt keine Supervisor-, Datei- oder Authorityfähigkeit
+    - ergänzt keine Tabelle, SQL, Migration, Generator-, Filesystem-, Resolver-, Operator- oder Productionwirkung; Head bleibt 0033 mit 33 Migrationen
+    - nächster Slice LQ-486 definiert die persistente Registryfoundation; Filesystemadapter und Lifecyclecomposition folgen getrennt
+
+- LQ-486 persistent supervisor control-directory registry foundation:
+  `docs/lq-486-persistent-supervisor-control-directory-registry-foundation.md`
+  - Status:
+    - führt Revision 20260825_0034 linear nach 0033 mit genau einer leeren Control-Directory-Registry ohne Seed, Backfill, Adoption oder physische Directorywirkung ein
+    - bindet Directory-ID als Primärschlüssel sowie Supervisorhandle und opakes 64-Zeichen-Leaf jeweils global eindeutig und dauerhaft an einen bestehenden Journaljob
+    - schließt den Zustand auf Reserved/Active/Retired und erzwingt eine vollständige Nullmatrix für Activated-/Retired-Zeit sowie monotone Reserved→Activated→Retired-Reihenfolge
+    - speichert weder Root noch absoluten/relativen Pfad, Eigentümer, Modus, Filesystembeweis oder Authority und erlaubt keine Wiederverwendungs- oder Löschsemantik
+    - behält alle Lifecyclezeilen als Foundationfakten; Retirement ist eine Zustandsänderung und kein Cleanup, Reaktivierung oder Rotation
+    - synchronisiert Head-, Bundle- und Roadmap-Gates auf 0034 beziehungsweise 34 Migrationen ohne SQL-Adapter, Filesystem-, Service-, CLI-, Compose- oder Production-Wiring
+    - nächster Slice LQ-487 implementiert den persistenten Registryadapter mit internem Leafgenerator und exakten Lifecycle-Retries; Filesystem folgt separat
+
+- LQ-487 persistent supervisor control-directory registry adapter:
+  `docs/lq-487-persistent-supervisor-control-directory-registry-adapter.md`
+  - Status:
+    - implementiert alle drei Lifecycle-Storemethoden und beide vollständigen Lookups gegen Revision 0034 ohne Filesystemwirkung
+    - erzeugt Leafs intern mit token_hex(32), prüft höchstens vier Kollisionskandidaten und reserviert erst nach bestehendem Journaljob Directory-ID, Handle, Leaf und UTC-Zeit atomar
+    - rekonstruiert exakte Reserve-Retries auch aus Active/Retired ohne neue Zeit oder neues Leaf und behandelt belegte Cross-ID-/Cross-Handle-Bindungen detailfrei als Konflikt
+    - aktiviert ausschließlich vollständiges Reserved und retired ausschließlich vollständiges Active, hält beide Transitionen monoton, idempotent und vorwärtsgerichtet ohne Reaktivierung oder Löschung
+    - rekonstruiert Reserved/Active/Retired nach Directory-ID oder Handle vollständig, validiert State-/Nullmatrix und UTC erneut und lässt nur autoritative Unbekanntheit neutral
+    - serialisiert PostgreSQL-Writes über feste Journal-/Registrylocks, unterstützt SQLite nur als Testgrenze und ergänzt keine Migration, Datei-, Authority-, Service- oder Productionwirkung; Head bleibt 0034/34
+    - nächster Slice LQ-488 implementiert sichere lokale Reserved-Leaf-Anlage und Active-only-Auflösung; Lifecyclecomposition folgt danach
+
+- LQ-488 safe local supervisor control-directory adapter:
+  `docs/lq-488-safe-local-supervisor-control-directory-adapter.md`
+  - Status:
+    - legt ausschließlich das opake Leaf eines vollständigen persistenten Reserved-Werts relativ zu einem konstruktiv injizierten privaten Root an
+    - prüft Root und Leaf bei jedem Zugriff über No-follow-Directorydeskriptoren, effektive Prozess-UID, exakten Modus 0700 sowie stabile Device-/Inodebindung
+    - synchronisiert bei Neuanlage zuerst das Leaf und danach das Root; ein bereits vorhandenes exakt sicheres Leaf ist idempotenter Erfolg ohne chmod, chown oder Adoption
+    - fragt den vollständigen Lifecyclelookup pro Auflösung genau einmal aktuell ab und gibt nur für Active nach erneuter physischer Prüfung einen Pfad aus
+    - lässt unbekannt, Reserved und Retired ohne publizierbaren Pfad; fehlender oder unsicherer Active-Bestand bleibt detailfreie technische Unverfügbarkeit
+    - ergänzt keine Registrymutation, Migration, Authority, Löschung, Cleanup-, Service- oder Productionwirkung; Head bleibt 0034/34
+    - nächster Slice LQ-489 komponiert Reserve/Create/Activate retry-sicher; Retirement, Cleanup und Production-Wiring bleiben separat
+
+- LQ-489 retry-safe supervisor control-directory activation lifecycle:
+  `docs/lq-489-retry-safe-supervisor-control-directory-activation-lifecycle.md`
+  - Status:
+    - komponiert genau eine ensure_active-Operation in der festen Reihenfolge persistente Reservation, sichere physische Anlage und persistente Aktivierung
+    - lässt nur eine vor jeder Dateiwirkung fehlende Journalvoraussetzung neutral; Reservation- und Create-Konflikte stoppen ohne spätere Wirkung
+    - reicht ausschließlich das persistierte vollständige Reserved an Create und Activate weiter und verlangt im Active-Ergebnis exakt dieselbe Reservation
+    - behandelt fehlenden Aktivierungsbestand nach Reservation/Dateiwirkung als technische Divergenz statt neutraler Abwesenheit und kompensiert nie durch Löschung
+    - reconciliert Retries nach Reserved, Create und Active mit derselben Directory-ID, demselben Handle, Leaf und Reserved-Zeit; Retired bleibt nicht reaktivierbar
+    - ergänzt keine Migration, Domain-/Portsignatur, Authority, Retirement-, Cleanup-, Service-Facade- oder Productionwirkung; Head bleibt 0034/34
+    - nächster Slice LQ-490 definiert und komponiert kontrolliertes Retirement nach terminalen System-of-Record-Fakten; Cleanup und Production-Wiring bleiben separat
+
+- LQ-490 controlled terminal supervisor control-directory retirement:
+  `docs/lq-490-controlled-terminal-supervisor-control-directory-retirement.md`
+  - Status:
+    - löst den aktuellen vollständigen Directory-Lifecycle ausschließlich nach interner Directory-ID auf und akzeptiert keinen caller-gelieferten Active- oder Terminalstatus
+    - lässt autoritativ unbekannt neutral, Reserved als Konflikt und bereits Retired unverändert idempotent enden, jeweils ohne Journal- oder Dateiwirkung
+    - inspiziert für Active Writer- und Recoveryjournal desselben persistierten Handles und verlangt genau einen geschlossenen passenden View
+    - erlaubt die Storetransition nur nach durablem TERMINAL_OBSERVED mit Terminal-Observation-ID, geschlossenem Ergebnis und durchgängiger Handlebindung
+    - übergibt exakt den aktuellen vollständigen Active-Wert, behandelt Storeabwesenheit danach technisch und reconciliert paralleles exaktes Retirement ohne neue Zeit
+    - ergänzt keine Migration, Domain-/Portsignatur, Datei-, Cleanup-, Authority-, Service-Facade- oder Productionwirkung; Head bleibt 0034/34
+    - nächster Slice LQ-491 definiert Retention und Cleanup für dauerhaft Retired ohne physische Löschimplementation; Production-Wiring bleibt separat
+
+- LQ-491 retired supervisor control-directory retention and cleanup contract:
+  `docs/lq-491-retired-supervisor-control-directory-retention-and-cleanup-contract.md`
+  - Status:
+    - definiert dauerhaftes Retired als notwendige, aber nie hinreichende Cleanupvoraussetzung und bindet spätere Requests ausschließlich über die interne Directory-ID
+    - verlangt getrennte aktuelle zielgebundene Cleanupauthority und autoritative Retentionfreigabe sowie explizite Hold-, Recovery-, Investigation- und Referenzfreiheit
+    - hält physische Inhalte mindestens entlang Journal-, Runtime-, Gate-, Artefakt-, Restart-, Reconciliation- und Auditanforderungen ohne konkrete Zeit- oder Schemaentscheidung
+    - bewahrt Directory-ID, Handle, Leaf und Lifecyclezeiten unabhängig von physischer Entfernung dauerhaft als nicht wiederverwendbare Registry- oder Tombstonefakten
+    - fordert aktuelle No-follow-/Owner-/0700-/Inodeprüfung, geschlossene Artefaktinventur und später ausschließlich geordnete bekannte Löschungen mit Parent-fsync statt rekursivem Cleanup
+    - trennt autoritative Abwesenheit, Konflikt, technische Unverfügbarkeit und unklaren Mutationsausgang mit read-only Reconciliation vor jedem Retry
+    - ergänzt keine Domainwerte, Ports, Migration, Retentionquelle, Dateiimplementation, Operator- oder Productionwirkung; nächster Slice LQ-492 definiert geschlossene Cleanupwerte und minimale Ports
+
+- LQ-492 closed supervisor control-directory cleanup values and ports:
+  `docs/lq-492-closed-supervisor-control-directory-cleanup-values-and-ports.md`
+  - Status:
+    - ergänzt repr-freie stabile Cleanup-Attempt-, Retention-Decision- und Policyrevision-IDs sowie eine Retired-gebundene monotone Entscheidung mit genau retain/eligible
+    - definiert einen Cleanuprequest nur aus Attempt-ID, Actor-User-ID und interner Directory-ID ohne Leaf, Pfad, Rolle, Permission, Allowboolean oder weitergereichten Eligibilitysnapshot
+    - schließt dauerhafte Ergebnisse auf removed/already_absent und bindet technisch unklare Wirkung separat an dieselbe Attempt- und Directory-ID als Reconciliation-required
+    - schließt read-only Reconciliation auf absent/present/conflict und hält alle Zeitwerte aware UTC sowie IDs und Infrastrukturdetails repr-frei
+    - ergänzt genau einen Decision-Lookup-, einen Cleanup-Execution- und einen read-only Reconciliation-Port ohne Listen-, Batch-, TTL-, Prune- oder freie Deleteoberfläche
+    - ergänzt keine Tabelle, Migration, Retentionquelle, Holdsystem, Dateisystem-, Operator-, Service- oder Productionwirkung; Head bleibt 0034/34
+    - nächster Slice LQ-493 definiert die persistente Attempt-/Decision-Foundation und unknown-outcome-Bindung; Resolver und Dateisystemlöschung folgen getrennt
+
+- LQ-493 persistent supervisor control-directory cleanup foundation:
+  `docs/lq-493-persistent-supervisor-control-directory-cleanup-foundation.md`
+  - Status:
+    - führt Revision 20260825_0035 linear nach 0034 mit leeren append-only Retentionentscheidungen und nicht wiederverwendbaren Cleanupattempts ein
+    - sequenziert retain/eligible pro Directory und bindet jede Decision an Policyrevision, Entscheidungszeit und die bestehende dauerhafte Directory-ID
+    - bindet jeden Attempt zusammengesetzt an genau seine Decision und Directory-ID sowie an einen persistenten Actor-User ohne daraus Authority abzuleiten
+    - schließt Attemptzustand und Nullmatrix auf started, outcome_unknown, completed oder reconciled mit removed/already_absent beziehungsweise absent/present/conflict
+    - hält unklare Wirkung und spätere Reconciliation am selben Attempt, sperrt parallele unresolved Attempts pro Directory und bewahrt IDs ohne Deletepfad
+    - ergänzt keinen Resolver, aktuelle Authority-/Hold-/Recoveryentscheidung, SQL-Adapter, Dateizugriff, Cleanupoperator oder Productionwirkung; Head ist 0035/35
+    - nächster Slice LQ-494 implementiert den persistenten Decision-/Attempt-/Reconciliationadapter; physische Löschung und Production-Wiring bleiben separat
+
+- LQ-494 persistent supervisor control-directory cleanup registry adapter:
+  `docs/lq-494-persistent-supervisor-control-directory-cleanup-registry-adapter.md`
+  - Status:
+    - appendiert Retentionentscheidungen nur gegen den aktuellen exakt passenden Retired-Wert, sequenziert pro Directory und rekonstruiert den höchsten vollständigen Entscheid
+    - startet einen Attempt nur mit exaktem aktuell höchstem eligible-Decisionwert und bindet Attempt, Directory, Actor und Decision dauerhaft ohne daraus Authority abzuleiten
+    - implementiert ausschließlich started→outcome_unknown, started→completed und outcome_unknown→reconciled mit serverseitigen monotonen UTC-Zeiten und exakten Retries
+    - rekonstruiert Request, Reconciliation-required, Completed oder Reconciled vollständig und prüft State-/Nullmatrix und Zeitordnung erneut fail-closed
+    - serialisiert PostgreSQL-Writes über feste Identity-/Directory-/Decision-/Attemptlocks, unterstützt SQLite nur als Testgrenze und besitzt keinen Deletepfad
+    - ergänzt keine Migration, aktuelle Authority-/Hold-/Recoveryentscheidung, Datei-, Cleanup-Execution-Port-, Operator- oder Productionwirkung; Head bleibt 0035/35
+    - nächster Slice LQ-495 definiert die aktuelle Retention-/Hold-/Recovery-/Referenz- und Cleanupmanagement-Auflösung vor Attemptstart; physischer Cleanup folgt separat
+
+- LQ-495 current supervisor control-directory cleanup clearance resolution contract:
+  `docs/lq-495-current-supervisor-control-directory-cleanup-clearance-resolution-contract.md`
+  - Status:
+    - leitet das Ziel ausschließlich Directory-ID→aktuelles Retired→Handle→genau ein terminales Writer-/Recoveryjournal→persistierten Manifest-Handoff-Scope ab
+    - verlangt eine eigene aktive Actor-/Scope-Cleanupmanagementfähigkeit getrennt von Registryreservation, Recovery, Membership, Research, Onboarding, Session und Bootstrap
+    - fordert die höchste exakt Retired-gebundene eligible-Decision samt gültiger Policyrevision sowie aktuelle No-Hold-, Recovery-frei- und vollständige Referenzclearance
+    - bindet Authoritystatus, Scopeaktivität, Decision und externe stabile Clearance-Revisionen serialisierbar an den Attemptstart statt Preflightsnapshot, Cache oder Caller-Allow
+    - macht explizit, dass Revision 0035 diese Clearance-Revisionen noch nicht speichert und LQ-494-start allein keine Production-Löschfreigabe ist
+    - lässt Widerruf neue und noch wirkungslose Started-Attempts sperren, erlaubt bei outcome_unknown nur read-only Reconciliation und rekonstruiert terminale Ergebnisse ohne neue Wirkung
+    - ergänzt keine Werte, Ports, Migration, Authority-/Retentionquelle, Resolver-, Datei- oder Productionwirkung; nächster Slice LQ-496 definiert geschlossene Clearancewerte und Resolverports
+
+- LQ-496 closed supervisor control-directory cleanup clearance values and ports:
+  `docs/lq-496-closed-supervisor-control-directory-cleanup-clearance-values-and-ports.md`
+  - Status:
+    - ergänzt fünf repr-freie stabile Clearance-, Management-, Hold-, Recovery- und Referenzrevision-IDs sowie geschlossene active/inactive- und clear/blocked-Zustände
+    - bindet Management an Actor und autoritativen Handoffscope und bindet Hold-, Recovery- und Referenzentscheidungen jeweils an den vollständigen Retired-Wert
+    - aggregiert Request, Retired, Scope, vollständigen terminalen Writer-/Recoveryjournalview, Retentiondecision und alle vier Clearancefakten konstruktiv
+    - verlangt durchgängige Directory-/Handle-/Journal-/Scope-/Actorbindung, Management active, Retention eligible sowie Hold/Recovery/Referenzen clear und monotone UTC-Zeit
+    - ergänzt genau vier quellenspezifische read-only Lookups und einen aggregierten Clearance-Resolver ohne Grant, Revoke, Caller-Snapshot oder Mutation
+    - ergänzt keine Tabelle, Migration, Authority-/Retention-/Holdquelle, Datei-, Service- oder Productionwirkung; Head bleibt 0035/35
+    - nächster Slice LQ-497 definiert die additive persistente Management-/Clearancefoundation mit revisionsgebundener Attemptbindung; Resolveradapter und physischer Cleanup folgen getrennt
+
+- LQ-497 persistent supervisor control-directory cleanup clearance foundation:
+  `docs/lq-497-persistent-supervisor-control-directory-cleanup-clearance-foundation.md`
+  - Status:
+    - führt Revision 20260825_0036 linear nach 0035 mit vier leeren append-only Management-/Hold-/Recovery-/Referenz-Revisionsquellen und immutable Clearances ein
+    - sequenziert Management pro Actor/Scope mit active/inactive und die drei zielbezogenen Quellen pro Directory mit clear/blocked ohne Seeds oder lokale Policyberechnung
+    - bindet jede Clearance eindeutig an einen Attempt sowie zusammengesetzt an Retentiondecision/Directory, Managementrevision/Actor/Scope und alle drei Zielrevisionen
+    - bindet zusätzlich die persistente Terminal-Observation und Clearancezeit, ohne aus Fremdschlüsseln Journalterminalität, aktuelle Gültigkeit oder physische Wirkung abzuleiten
+    - bewahrt alle Revisionen und Clearance-IDs ohne Deletepfad; ein Attempt erhält höchstens eine immutable Clearance und Cross-Target-Revisionen scheitern strukturell
+    - ergänzt keinen Grant/Revoke-, Resolver-, Adapter-, Datei-, Cleanup-Execution-, Operator- oder Productionpfad; Head ist 0036/36
+    - nächster Slice LQ-498 implementiert den persistenten Management-/Quellrevision-/Clearanceadapter; physischer Cleanup und Production-Wiring bleiben separat
+
+- LQ-498 persistent supervisor control-directory cleanup clearance adapter:
+  `docs/lq-498-persistent-supervisor-control-directory-cleanup-clearance-adapter.md`
+  - Status:
+    - implementiert alle fünf LQ-496-Resolver read-only gegen Revision 0036 und liest pro Actor/Scope oder Directory stets die höchste aktuelle Revision
+    - bindet Management an aktive persistente User und Handoffscopes, hält Hold/Recovery/Referenzen getrennt und rekonstruiert jedes Ziel aus dem aktuellen vollständigen Retired-Wert
+    - beginnt Aggregation ausschließlich bei der persistenten Attempt-Clearance und revalidiert aktuelle Retention-, Management-, Hold-, Recovery-, Referenz- und Terminalrevisionen
+    - verlangt genau einen vollständigen terminalen Writer- oder Recoveryjournalview; fehlende oder doppelte Views und beschädigte Persistenz bleiben detailfreie technische Unverfügbarkeit
+    - lässt fehlende Einzelrevisionen oder Clearance neutral und weist vorhandene überholte, blockierte oder inactive Bindungen mit bestehendem Cleanupkonflikt zurück
+    - ergänzt keine Mutation, Migration, Dateioperation, Execution-, Session-, Membership-, Research-, Wiring- oder Productionauthority; Head bleibt 0036/36
+    - nächster Slice LQ-499 definiert autorisierte append-only Revisionsmutation und atomare Clearanceerzeugung; physischer Cleanup bleibt getrennt
+
+- LQ-499 authorized cleanup revision mutation and atomic clearance contract:
+  `docs/lq-499-authorized-cleanup-revision-mutation-and-atomic-clearance-contract.md`
+  - Status:
+    - trennt Management-Lifecycle-, Hold-, Recovery- und Referenzmutationen in vier eigene Systeme-of-Record-Authorities ohne Selbstvergabe oder generisches Allow
+    - verlangt append-only serverseitige Sequenz und UTC-Zeit, erwartete aktuelle Vorgängerrevision, stabile nichtwiederverwendbare Identität und exakten idempotenten Retry
+    - bindet eine positive Clearance ausschließlich durch einen internen Koordinator aus aktuell erneut gelesenen Actor-, Scope-, Retired-, Retention-, Management-, Ziel- und Terminalfakten
+    - verlangt Attempt- und Clearanceinsert in derselben serialisierten Transaktion und verbietet die nachträgliche Adoption eines separat angelegten Attempts
+    - lässt Inactive und Blocked spätere Entscheidungen sperren, bewahrt historische Revisionen und unterscheidet neutrale Abwesenheit, detailarme Kollision und technische Unverfügbarkeit
+    - ergänzt keine Werte, Ports, SQL, Migration, Adapter, Dateioperation oder Verdrahtung; Head bleibt 0036/36
+    - nächster Slice LQ-500 implementiert geschlossene Commands, Resultate, Konflikte und Ports; Persistenz und physischer Cleanup bleiben separat
+
+- LQ-500 closed cleanup revision mutation commands results and ports:
+  `docs/lq-500-closed-cleanup-revision-mutation-commands-results-and-ports.md`
+  - Status:
+    - ergänzt vier repr-freie nicht austauschbare Change-IDs und getrennte Management-/Hold-/Recovery-/Referenzcommands mit typgleicher optional erwarteter Vorgängerrevision
+    - bindet Management an Target-User/Scope und jede Zielquelle nur an die interne Directory-ID; Actor, Rolle, Authority, Sequenz und Zeit sind keine Commandbehauptungen
+    - ergänzt vier validierte committed Resulttypen, die die jeweilige Change-ID an den vollständigen Authority- oder Decisionwert binden, plus einen feldlosen detailfreien Mutationskonflikt
+    - ergänzt vier autorisierte Mutationsports mit separat übergebenem SessionPrincipal, der nur den Actor identifiziert und keine der getrennten Authorities erteilt
+    - ergänzt einen atomaren Clearance-Creation-Port nur aus Principal und geschlossenem Cleanuprequest ohne Caller-Clearance-ID, Revisionen, Scope, Journal oder Evidence
+    - ergänzt keine Persistenz, SQL, Migration, ID-/Zeitgenerierung, Dateioperation oder Verdrahtung; Head bleibt 0036/36
+    - nächster Slice LQ-501 implementiert append-only Revisionmutation und atomare Attempt-/Clearancepersistenz; physischer Cleanup bleibt separat
+
+- LQ-501 persistent cleanup revision change identity foundation:
+  `docs/lq-501-persistent-cleanup-revision-change-identity-foundation.md`
+  - Status:
+    - führt Revision 20260826_0037 linear nach 0036 mit vier leeren getrennten Change-Binding-Tabellen für Management, Hold, Recovery und Referenzen ein
+    - bindet jede nichtwiederverwendbare Change-ID eindeutig an genau eine Ergebnisrevision und optional an die beim Commit erwartete typgleiche Vorgängerrevision
+    - erzwingt Management-Ergebnis/Vorgänger auf demselben Actor-/Scope-Paar und jede Zielquelle auf demselben Directory ohne Cross-Source- oder Cross-Target-Adoption
+    - ergänzt keine verpflichtenden Spalten oder Backfills für vorhandene 0036-Historie; zukünftiger Adapter muss Revision und Changebinding gemeinsam atomar appendieren
+    - belässt Attempt-ID als Clearance-Retryidentität und ergänzt keine redundante Clearance-Changetabelle oder nachträgliche Adoption einzelner Attempts
+    - ergänzt keine Mutationsauthority, SQL-Adapter, Dateioperation oder Verdrahtung; Head ist 0037/37
+    - nächster Slice LQ-502 definiert getrennte persistente Mutationsauthority-Fakten; autorisierter Appendadapter und physischer Cleanup bleiben separat
+
+- LQ-502 persistent cleanup mutation authority facts contract:
+  `docs/lq-502-persistent-cleanup-mutation-authority-facts-contract.md`
+  - Status:
+    - definiert vier unabhängige scopegebundene vollständige Authority-Sets für Cleanupmanagement-Lifecycle, Hold-, Recovery- und Referenzrevisionmutation ohne globale Fallback- oder Super-Adminrolle
+    - verlangt aktive persistente User und Handoffscopes, aktuelle domänen-/scopegebundene Set-Revisionen und serverseitige Scopeableitung für Directoryziele über Retired und genau ein terminales Journal
+    - begrenzt regulären Lifecycle auf Grant/Deactivate/Reactivate durch aktuelle Holder derselben Domäne und schützt atomar den letzten wirksamen Authority-User
+    - trennt einmaligen Bootstrap pro Domäne/Scope und kontrollierte Offline-Recovery historisch bereits autorisierter aktiver User; keine Grenze ändert User- oder Scopestatus
+    - lässt committierten Entzug alle späteren neuen Quellmutationen sperren, erhält aber exakte bereits committete Change-ID-Retries rekonstruierbar
+    - ergänzt keine Werte, Ports, Tabellen, Migration, SQL, Adapter, Dateioperation oder Verdrahtung; Head bleibt 0037/37
+    - nächster Slice LQ-503 implementiert Authority-Set-, Lifecycle-, Bootstrap- und Recoverywerte sowie minimale Ports; Persistenz und physischer Cleanup bleiben separat
+
+- LQ-503 closed cleanup mutation authority values and ports:
+  `docs/lq-503-closed-cleanup-mutation-authority-values-and-ports.md`
+  - Status:
+    - ergänzt sechzehn repr-freie quellenspezifische Set-Revision-, Lifecycle-Change-, Bootstrap- und Recovery-IDs ohne generische Authority-Kind-Auswahl
+    - ergänzt vier vollständige scopegebundene Setwerte mit eindeutigen Usermitgliedern, Active/Inactive und mindestens einem Active-Member als konstruktivem Lockoutschutz
+    - ergänzt vier typisierte Lifecyclecommands mit erwarteter Set-Revision sowie je vier getrennte Bootstrap- und Offline-Recoverycommands
+    - ergänzt vier read-only Principal-/Scope-Lookups mit serverseitigem Boolresultat, das nie Callerinput einer fachlichen Mutation ist
+    - ergänzt vier Bootstrap-, vier principalgebundene Lifecycle- und vier principalfreie Offline-Recoveryports mit quellenspezifischen Setresultaten und feldlosem Authoritykonflikt
+    - ergänzt keine Persistenz, SQL, Migration, Dateioperation, Operator- oder Productionverdrahtung; Head bleibt 0037/37
+    - nächster Slice LQ-504 ergänzt die persistente Authority-Set-Foundation; autorisierter Revisionsadapter und physischer Cleanup bleiben separat
+
+- LQ-504 persistent cleanup mutation authority set foundation:
+  `docs/lq-504-persistent-cleanup-mutation-authority-set-foundation.md`
+  - Status:
+    - führt Revision 20260826_0038 linear nach 0037 mit vier physisch getrennten Authority-Inventaren und je Set-, Member-, Current-, Bootstrap-, Lifecycle- und Recoverytabelle ein
+    - bindet positive pro Scope sequenzierte Setrevisionen an vollständige Active/Inactive-Usermember und genau einen möglichen Current-Pointer ohne polymorphe Authority-Art
+    - begrenzt Bootstrap strukturell auf einmal pro Domäne/Scope und bindet Ergebnisrevision, Scope und Target zusammengesetzt an das erzeugte Setmitglied
+    - bindet Lifecycle-Actor an das erwartete Set, Target an das Ergebnis-Set, geschlossenes Grant/Deactivate/Reactivate und verschiedene Vorgänger-/Ergebnisrevisionen
+    - bindet Offline-Recoverytarget an historische Mitgliedschaft im erwarteten Set und an das Ergebnis-Set, ohne User- oder Scopestatus zu mutieren
+    - ergänzt keine Seeds, Backfills, Adapter, Authorityentscheidung, Dateioperation oder Verdrahtung; Head ist 0038/38
+    - nächster Slice LQ-505 implementiert Lookup, Bootstrap, Lifecycle und Offline-Recovery; Quellrevisionmutation und physischer Cleanup bleiben separat
+
+- LQ-505 persistent cleanup mutation authority adapter:
+  `docs/lq-505-persistent-cleanup-mutation-authority-adapter.md`
+  - Status:
+    - implementiert sechzehn fest quellenspezifische LQ-503-Methoden über einen internen gemeinsamen Algorithmus ohne caller-wählbare Authority-Art
+    - löst Lookups aus Current-Pointer, Active-Member sowie aktivem persistentem User und Handoffscope aktuell und ohne positiven Cache auf
+    - implementiert leeren einmaligen Bootstrap mit Retry-first, intern erzeugter Setrevision/UTC-Zeit und atomarem Set-, Member-, Pointer- und Decisioncommit
+    - implementiert principalgebundenen Lifecycle mit Retry-first, aktuellem Expected-/Actor-/Targetcheck, geschlossener Transition, vollständiger Setkopie und effektivem Last-Holder-Schutz
+    - implementiert principalfreie Offline-Recovery nur bei null wirksamen Holdern, historischer Targetmitgliedschaft und aktivem Target/Scope mit exaktem Retry
+    - ergänzt keine Quellrevision, Clearance, Dateioperation, Route, CLI, Operator- oder Productionverdrahtung; Head bleibt 0038/38
+    - nächster Slice LQ-506 implementiert autorisierte append-only Quellrevisionmutation; atomare Clearancecreation und physischer Cleanup bleiben separat
+
+- LQ-506 persistent cleanup revision change authorization binding foundation:
+  `docs/lq-506-persistent-cleanup-revision-change-authorization-binding-foundation.md`
+  - Status:
+    - führt Revision 20260826_0039 linear nach 0038 mit vier leeren quellenspezifischen Change-Authorizationtabellen für Management, Hold, Recovery und Referenzen ein
+    - bindet jede Change-ID höchstens einmal an die exakte autorisierende Authority-Set-Revision, den Handoffscope, den internen Principal-User und serverseitige Authorizationzeit
+    - erzwingt Changeexistenz in derselben Quelle und zusammengesetzte historische Memberbindung von Setrevision/Scope/Authorizer ohne Cross-Source- oder Cross-Scope-Adoption
+    - belässt Current-Pointer, Active-Member, aktiven User und Scope als atomare Adapterprüfungen; ein früheres Lookup-Bool oder SessionPrincipal allein genügt nicht
+    - ergänzt keine Adoption bestehender 0036-/0037-Historie; neue kontrollierte Writes müssen Revision, Change- und Authorizationbinding gemeinsam committen
+    - ergänzt keinen Quellrevisionsadapter, Authority-Lifecycle, Clearance-, Datei- oder Wiringpfad; Head ist 0039/39
+    - nächster Slice LQ-507 implementiert autorisierte append-only Quellrevisionmutation; atomare Clearancecreation und physischer Cleanup bleiben separat
+
+- LQ-507 authorized persistent cleanup source revision mutations:
+  `docs/lq-507-authorized-persistent-cleanup-source-revision-mutations.md`
+  - Status:
+    - implementiert vier fest quellenspezifische LQ-500-Mutationsmethoden mit Principalbindung und Retry-first aus Ergebnisrevision, Change- und Authorizationbinding
+    - revalidiert für neue Writes Current-Authority-Set, Active-Member, aktiven Authorizer/Scope und exakt erwartete höchste Quellrevision in derselben Transaktion
+    - bindet Management an aktiven Target-User/Scope und leitet für Hold/Recovery/Referenzen Retired-Ziel, Terminaljournal und Scope ausschließlich serverseitig aus der Directory-ID ab
+    - erzeugt intern stabile Revision-ID, nächste positive Sequenz und monotone UTC-Zeit und rekonstruiert vollständige committed Management- oder Zielresultate
+    - schreibt Ergebnisrevision, LQ-501-Changebinding und LQ-506-Authorizationbinding atomar; committierter Entzug sperrt neue Intents, exakte alte Retries bleiben auflösbar
+    - ergänzt keine Authority-Set-Mutation, Clearance, Attempt, Dateioperation oder Productionverdrahtung; Head bleibt 0039/39
+    - nächster Slice LQ-508 implementiert atomare Attempt-/Clearancecreation; physischer Cleanup und Production-Wiring bleiben separat
+
+- LQ-508 atomic persistent cleanup attempt clearance creation:
+  `docs/lq-508-atomic-persistent-cleanup-attempt-clearance-creation.md`
+  - Status:
+    - implementiert den LQ-500-Creation-Port nur aus Principal und geschlossenem Cleanuprequest mit exakter Principal-/Request-Actorbindung
+    - prüft Attempt und Clearance zuerst, verbietet Adoption einzelner LQ-494-Attempts und revalidiert bei Retry alle gespeicherten Revisionen gegen aktuellen positiven Bestand
+    - rekonstruiert Retired-Directory und vollständigen terminalen Journalview aus in derselben Transaktion gelesenen Job-/Historyzeilen und leitet daraus den aktiven Scope ab
+    - verlangt aktuelle Eligible-Retentiondecision, Active-Managementrevision sowie getrennte Clear-Hold-, Recovery- und Referenzrevisionen
+    - erzeugt Clearance-ID und monotone UTC-Zeit intern und schreibt Started-Attempt vor immutable Clearance atomar in derselben Transaktion
+    - ergänzt keine Quellrevisionmutation, Dateioperation, Cleanup-Execution oder Productionverdrahtung; Head bleibt 0039/39
+    - nächster Slice LQ-509 definiert den physischen Cleanup-Execution-Vertrag; Production-Wiring bleibt separat
+
+- LQ-509 physical supervisor control-directory cleanup execution contract:
+  `docs/lq-509-physical-supervisor-control-directory-cleanup-execution-contract.md`
+  - Status:
+    - öffnet physische Vorbereitung ausschließlich aus dem atomaren LQ-508-Paar und revalidiert aktuelle Clearance, Attempt, Retired-Ziel und alle gebundenen Quellfakten unmittelbar vor der Wirkung
+    - verlangt eine geschlossene read-only Descriptorinventur des kontrollierten `0700`-Roots, exakten Leafs und aller persistent gebundenen kanonischen Artefakte; unbekannter oder unsicherer Bestand sperrt fail-closed
+    - fordert vor dem ersten Dateieffekt einen eigenen atomar committierten Write-Claim; `outcome_unknown` bleibt ausschließlich ein bereits unklarer Ausgang und wird nicht als Vorwirkungslock umgedeutet
+    - begrenzt die einmalige Wirkung auf revalidierte relative Namen, verbietet rekursives Löschen und verlangt Parent-Synchronisierung sowie bestätigte Leafabwesenheit vor `removed`
+    - macht jeden Fehler nach Write-Claim reconciliation-pflichtig und verbietet blinden Retry desselben Attempts; persistente Identitäten und Historie bleiben dauerhaft nicht wiederverwendbar
+    - ergänzt keine Domainwerte, Ports, Tabelle, Migration, Dateioperation oder Verdrahtung; Head bleibt 0039/39
+    - nächster Slice LQ-510 definiert geschlossene Preflight-, Write-Claim-, Ergebnis- und Reconciliationwerte samt Ports; Persistenz und physischer Adapter bleiben separat
+
+- LQ-510 closed physical cleanup execution values and ports:
+  `docs/lq-510-closed-physical-cleanup-execution-values-and-ports.md`
+  - Status:
+    - ergänzt stabile repr-freie Preflight- und Write-Claim-IDs sowie minimale Attempt-/Directory-gebundene Preflight- und Prepared-Werte ohne Pfad-, Inventar- oder Authorityinput
+    - trennt sicher belegte Abwesenheit vor Wirkung von Prepared und bindet beide an die aktuelle Clearance; nur Prepared darf einen eigenen Claimcommand bilden
+    - bindet Claimed an intern persistierte Claim-ID, vollständiges Prepared und monotone UTC-Zeit; Attempt und Directory werden nur projiziert und nicht erneut caller-geliefert
+    - modelliert bestätigtes Removed getrennt vom persistenten Completed sowie einen detailfreien Unknown-Effekt, der weder Nichtwirkung behauptet noch Retry autorisiert
+    - ergänzt vier minimale Ports für read-only Preflight, persistenten Write-Claim, einmalige physische Wirkung und read-only Reconciliation; nach Claim ist neutrales `None` kein Wirkungsausgang
+    - ergänzt keine Tabelle, Migration, SQL, Dateioperation, Adaptercomposition oder Verdrahtung; Head bleibt 0039/39
+    - nächster Slice LQ-511 implementiert die persistente Write-Claim-Foundation und den atomaren `started`-Übergang; lokaler Adapter bleibt separat
+
+- LQ-511 persistent supervisor control-directory cleanup write claims:
+  `docs/lq-511-persistent-supervisor-control-directory-cleanup-write-claims.md`
+  - Status:
+    - führt Revision 20260826_0040 linear nach 0039 mit einer leeren nicht wiederverwendbaren Write-Claim-Tabelle und dem eigenen Attemptzustand `write_claimed` ein
+    - bindet Claim, Attempt, Directory, Clearance und Preflight zusammengesetzt, erzwingt höchstens einen Claim je Attempt und Preflight und hält offene Directories auch während Claim und Unknown eindeutig
+    - revalidiert für neue Claims aktuelle Actor-/Scope-, Retention-, Management-, Hold-, Recovery-, Referenz-, Registry- und Terminalfakten gegen die persistierte Clearance in derselben Transaktion
+    - erzeugt Claim-ID und monotone UTC-Zeit intern und committet Claimzeile plus bedingten `started`-zu-`write_claimed`-Übergang atomar; exakte Retries rekonstruieren nur denselben Claim
+    - verlangt Write-Claim für Removed, Outcome-unknown und Reconciliation, während `already_absent` als einziger claimfreier Abschluss direkt aus Started erhalten bleibt
+    - ergänzt keine Dateioperation, Preflightimplementation, physische Wirkung, Route, CLI oder Productionverdrahtung; Head ist 0040/40
+    - nächster Slice LQ-512 implementiert den sicheren lokalen read-only Cleanup-Preflight; physische Entfernung bleibt separat
+
+- LQ-512 safe local read-only supervisor control-directory cleanup preflight:
+  `docs/lq-512-safe-local-read-only-supervisor-control-directory-cleanup-preflight.md`
+  - Status:
+    - implementiert den LQ-510-Preflight-Port aus interner Started-Attempt-, aktueller Clearance- und Retired-Zielauflösung ohne caller-gelieferte Pfad-, Actor-, Rollen- oder Allowfakten
+    - öffnet kontrolliertes `0700`-Root und exaktes persistiertes `0700`-Leaf descriptorrelativ mit No-follow, Owner-, Device- und Inodebindung; sicher belegtes fehlendes Leaf liefert den clearancegebundenen Absent-Wert
+    - inventarisiert exakt die persistent vorhandenen vier geschlossenen Artefaktrollen über gemeinsam mit dem Publisher genutzte kanonische Namen; unbekannte, fehlende oder temporäre Einträge sperren fail-closed
+    - liest nur private reguläre `0600`-Single-Link-Dateien begrenzt und bindet kanonisch decodierte Artifact-ID, Handle, Rolle, Korrelation, Digest, Bytezahl und Bytes an den persistenten Record
+    - revalidiert Namen, Root, Leaf, aktuelle Clearance und alle Artefaktrecords nach der Inventur; Prepared enthält nur interne Preflight-/Attempt-/Directory-/Clearancebindung und keine Descriptorauthority
+    - ergänzt keine Persistenz, Migration, Claim-, Datei-, Outcome-, Reconciliation- oder Productionmutation; Head bleibt 0040/40
+    - nächster Slice LQ-513 implementiert einmalige lokale physische Entfernung mit vollständiger Post-Claim-Revalidierung; Outcome-Persistenz bleibt separat
+
+- LQ-513 one-shot local supervisor control-directory physical cleanup:
+  `docs/lq-513-one-shot-local-supervisor-control-directory-physical-cleanup.md`
+  - Status:
+    - implementiert den LQ-510-Physical-Port ausschließlich aus einem exakt aktuell persistent aufgelösten `write_claimed`-Wert und einem aktuell vollständigen Retired-Ziel ohne caller-gelieferte Pfade oder Allowfakten
+    - wiederholt die vollständige LQ-512-Root-, Leaf-, Namens-, private `0600`-Single-Link-Datei-, kanonische Byte- und persistente Artefaktrecordprüfung nach dem Claim
+    - revalidiert Claim, Retired-Ziel, alle Artefaktrecords, Restinventur und konkrete Datei unmittelbar vor jedem descriptorrelativen Einzel-Unlink und synchronisiert das Leaf nach jeder Wirkung
+    - entfernt erst danach das nachweislich leere exakte Leaf relativ zum Root, synchronisiert Root und verlangt bestätigte Leafabwesenheit sowie sichere Rootbindung vor Removed
+    - markiert vor jedem Unlink/Rmdir die mögliche Wirkungsschwelle und vereinheitlicht danach jeden Fehler oder jede Drift zu claimgebundenem Unknown ohne Retryfreigabe
+    - ergänzt keine Outcome-Persistenz, Reconciliation, Migration, SQL, Route, CLI oder Productionverdrahtung; Head bleibt 0040/40
+    - nächster Slice LQ-514 persistiert Removed beziehungsweise Unknown unmittelbar claimgebunden; read-only Reconciliation bleibt separat
+
+- LQ-514 claim-bound persistent physical cleanup outcomes:
+  `docs/lq-514-claim-bound-persistent-physical-cleanup-outcomes.md`
+  - Status:
+    - ergänzt einen minimalen Physical-Outcome-Store für ausschließlich LQ-513-Removed oder -Unknown und verwendet den bestehenden persistenten Cleanupzustandsautomaten als einzige Wahrheit
+    - bindet Claim-ID, Attempt-ID und Directory-ID erneut an den vollständigen persistenten `write_claimed`-Wert und verlangt dieselbe Claimzeile zusätzlich in der bedingten atomaren SQL-Transition
+    - persistiert Removed mit exakt der bestätigten physischen `removed_at`-Zeit als Completed/removed und Unknown mit intern erzeugter monotoner UTC-Zeit als Outcome-unknown/Reconciliation-required
+    - beschränkt den älteren generischen Completed-Pfad auf wirkungsfreies `already_absent` aus Started, sodass Removed nicht ohne vollständigen physischen Claim-Outcome behauptet werden kann
+    - rekonstruiert exakte terminale Retries ohne neue Zeit oder Mutation und weist Cross-Claim-, Cross-Directory-, Typ- und Zeitabweichungen detailfrei zurück
+    - ergänzt keine Tabelle, Migration, Dateioperation, Authorityentscheidung, Route, CLI oder Productionverdrahtung; Head bleibt 0040/40
+    - nächster Slice LQ-515 komponiert Preflight, Absent, Claim, einmalige Wirkung und unmittelbare Outcome-Persistenz; Reconciliation bleibt separat
+
+- LQ-515 controlled supervisor control-directory cleanup execution:
+  `docs/lq-515-controlled-supervisor-control-directory-cleanup-execution.md`
+  - Status:
+    - implementiert den bestehenden High-Level-Execution-Port nur für einen exakt aktuell persistenten Started-Request einschließlich Actorbindung und öffnet daraus intern den minimalen LQ-512-Preflight
+    - schließt sicher belegtes Absent wirkungsfrei direkt als `already_absent` ab und lässt ausschließlich vollständig gebundenes Prepared den atomaren LQ-511-Claim erreichen
+    - ruft LQ-513 nach erfolgreichem Claim an genau einer Stelle exakt einmal auf und besitzt keine Schleife, Resume-, Fallback- oder physische Retrymethode
+    - wandelt nach Claim jede Exception, jeden Konflikt, neutralen, fremden oder cross-gebundenen physischen Ausgang konservativ in denselben Unknown-Effekt um
+    - übergibt Removed beziehungsweise Unknown unmittelbar genau einmal an LQ-514 und akzeptiert nur exakt gebundenes Completed/removed mit identischer Zeit oder Reconciliation-required
+    - ergänzt keine Tabelle, Migration, SQL, Domain-, Port-, Route-, CLI-, Worker- oder Productionverdrahtung; Head bleibt 0040/40
+    - nächster Slice LQ-516 reconciliiert `write_claimed` nach Crash und `outcome_unknown` rein lesend; Production-Wiring bleibt separat
+
+- LQ-516 read-only supervisor control-directory cleanup reconciliation:
+  `docs/lq-516-read-only-supervisor-control-directory-cleanup-reconciliation.md`
+  - Status:
+    - ergänzt einen minimalen read-only Lookup, der den historischen LQ-511-Claim für claimabgeleitete Zustände vollständig aus Attempt, Directory, Preflight, Clearance und monotonen Zeiten rekonstruiert
+    - implementiert den lokalen Reconciliation-Inspector ausschließlich für `write_claimed` oder Reconciliation-required und klassifiziert den erneut vollständig sicheren Bestand geschlossen als absent, unverändert present oder conflict
+    - verwendet dieselben No-follow-Root-/Leaf-, exakten Inventar-, privaten Single-Link-Datei-, kanonischen Byte- und persistenten Recordprüfungen wie LQ-513, ohne irgendeine Dateimutation aufzurufen
+    - sichert einen nach Crash verbliebenen `write_claimed`-Attempt vor jeder Inspection konservativ über LQ-514 als Unknown; bestehendes Outcome-unknown wird ohne zweite Mutation gelesen
+    - inspiziert genau einmal read-only und persistiert die exakte Klassifikation anschließend über den bestehenden `outcome_unknown`-zu-`reconciled`-Übergang; derselbe Attempt wird niemals physisch wiederholt
+    - ergänzt keine Tabelle, Migration, neue Zustandsausprägung, Route, CLI, Worker- oder Productionverdrahtung; Head bleibt 0040/40
+    - nächster Slice LQ-517 verdrahtet Execution und Reconciliation explizit opt-in; automatische Planung und Batchcleanup bleiben geschlossen
+
+- LQ-517 explicit opt-in supervisor control-directory cleanup composition:
+  `docs/lq-517-explicit-opt-in-supervisor-control-directory-cleanup-composition.md`
+  - Status:
+    - ergänzt eine ausschließlich explizit aufrufbare, nach Aufbau inerte Factory aus extern besessener Engine, stabiler Backendinstanz-ID, absolutem privatem Control-Root und optional geteilter Clock
+    - exportiert genau Clearance-Erzeugung, einmalige LQ-515-Execution und read-only LQ-516-Reconciliation; Low-Level-Persistenz- und Dateisystemadapter bleiben intern
+    - teilt eine Engine, einen Root, einen kanonischen Codec sowie aktuelle Directory-, Attempt-, Runtime-, Journal-, Clearance- und historische Claimlookups über den gesamten Graphen
+    - bindet physische Wirkung ausschließlich an Execution und gibt Reconciliation nur ihre read-only Inspectiongrenze; Aufbau führt weder Lookup, Claim, Dateioperation noch persistente Mutation aus
+    - akzeptiert keine Session-, User-, Workspace-, Scope-, Rollen-, Permission- oder Allowentscheidung und umgeht keine aktuelle system-of-record Clearanceprüfung
+    - registriert keine Route, CLI, Appfactory-, Lifespan-, Worker-, Scheduler-, Listen- oder Batchgrenze und übernimmt weder Engine- noch Root-Lifecycle
+    - ergänzt keine Migration, SQL-, Domain- oder Portsignatur; Head bleibt 0040/40
+    - nächster Slice LQ-518 definiert ausdrücklich angefordertes Einzel-Operator-Wiring; automatische Planung, Directorysuche und Batchcleanup bleiben geschlossen
+
+- LQ-518 owner-controlled single supervisor control-directory cleanup operator contract:
+  `docs/lq-518-owner-controlled-single-supervisor-control-directory-cleanup-operator-contract.md`
+  - Status:
+    - friert einen ausdrücklich gestarteten kurzlebigen Offline-Prozess mit getrennten Einzelbefehlen `execute` und `reconcile` für exakt ein angegebenes Control Directory ein
+    - verlangt private Dateien für Datenbank-URL, stabile Backendinstanz-ID, absoluten privaten Control-Root und den befehlsspezifischen kanonischen Request ohne Environment- oder Defaultfallback
+    - lässt `execute` die Attempt-ID intern erzeugen, aktuelle LQ-508-Clearance genau einmal anfordern und nur danach LQ-515 höchstens einmal ausführen; Unknown startet niemals automatisch Reconciliation
+    - bindet `reconcile` ausschließlich an vorhandene Attempt-/Directory-ID und genau einen read-only LQ-516-Aufruf ohne Clearance-Erzeugung, Execution oder neuen Attempt
+    - trennt neutrale Nichtverfügbarkeit und detailfreie fachliche Ablehnung von technischer `operator_unavailable`-Antwort und begrenzt alle sichtbaren Ergebnisse auf IDs und geschlossene Outcomes
+    - schließt Directorysuche, Listing, Batch, Schleifen, Scheduler, Queue, Worker, Daemon, Appfactory- und Supervisor-Autostart aus
+    - ergänzt noch keinen CLI-Befehl, Entry Point, Schema-, SQL-, Domain- oder Portentscheid; Head bleibt 0040/40
+    - nächster Slice LQ-519 implementiert den owner-kontrollierten Einzel-Operator und separaten Console Entry Point; automatische Planung und Batchcleanup bleiben geschlossen
+
+- LQ-519 owner-controlled single supervisor control-directory cleanup operator:
+  `docs/lq-519-owner-controlled-single-supervisor-control-directory-cleanup-operator.md`
+  - Status:
+    - implementiert einen separaten kurzlebigen Console Entry Point mit ausschließlich `execute` und `reconcile`, vier privaten Dateieingängen und exakt einem angegebenen Control Directory pro Prozess
+    - öffnet Eingaben descriptorgebunden mit No-follow, Owner-, Single-Link-, `0400`-/`0600`-, Größen- und UTF-8-Prüfung und verlangt einen bestehenden kanonischen owner-kontrollierten `0700`-Root
+    - besitzt genau eine Engine, verlangt vor Composition den aktuellen Readiness-/Migrations-Head und disposed die Engine auf jedem Pfad ohne Migration oder Schemaerzeugung
+    - erzeugt Execute-Attempt-ID intern genau einmal, fordert LQ-508-Clearance genau einmal an und erreicht LQ-515 nur bei exakter Bindung an genau einer Stelle ohne Schleife oder Retry
+    - gibt Unknown als `reconciliation_required` aus, ohne Reconciliation automatisch zu starten; der separate Reconcile-Zweig ruft ausschließlich LQ-516 genau einmal und ohne Principal, Clearance oder Execution auf
+    - begrenzt stdout auf Attempt-ID, Directory-ID und geschlossene Outcomes sowie stderr auf feste Input-/Unavailable-Codes; keine Authority-, Pfad- oder Persistenzdetails verlassen die Grenze
+    - ergänzt keine Discovery-, Listen-, Batch-, Queue-, Scheduler-, Worker-, Appfactory-, HTTP-, Schema-, Domain- oder Portwirkung; Head bleibt 0040/40
+    - nächster Slice LQ-520 prüft den Einzel-Operator end-to-end mit wegwerfbarem PostgreSQL und privatem Control-Root; automatische Planung und Batchcleanup bleiben geschlossen
+
+- LQ-520 PostgreSQL single supervisor control-directory cleanup operator proof:
+  `docs/lq-520-postgresql-single-supervisor-control-directory-cleanup-operator-proof.md`
+  - Status:
+    - ergänzt einen echten End-to-End-Test auf einer pro Test wegwerfbaren bis Head migrierten PostgreSQL-Datenbank ohne SQLite-, In-Memory-, Composition- oder Wirkungs-Mock
+    - sät aktive User-/Scope-, vollständige Writer-Journal-/Terminal-, retired Directory- sowie aktuelle eligible/active/clear Cleanupquellen und ein exakt leeres privates `0700`-Leaf
+    - ruft den echten LQ-519-Execute-Pfad über vier getrennte `0600`-Dateien auf und belegt interne Attempt-ID, genau einen Write Claim, physische Leafentfernung und terminales `completed/removed`
+    - ruft anschließend den separaten echten Reconcile-Pfad für denselben terminalen Attempt auf und verlangt geschlossenes `rejected` ohne zweiten Claim, Reconciliationoutcome oder Dateiwirkung
+    - prüft stdout ausschließlich auf Attempt-ID, Directory-ID und geschlossene Outcomes und liest Persistenz sowie privaten Root nach beiden Prozessaktionen erneut
+    - simuliert bewusst keinen Unknown-Crash und ergänzt keine Production-, Schema-, Domain-, Port-, Discovery-, Batch- oder automatische Aktivierungswirkung; Head bleibt 0040/40
+    - PostgreSQL-Ausführung folgt dem bestehenden expliziten Integration-Gate und fällt bei verpflichtender, aber fehlender Konfiguration laut statt auf SQLite zurück
+    - nächster Slice LQ-521 beweist echte read-only Crashzustands-Reconciliation für absent, present und conflict; automatische Planung und Batchcleanup bleiben geschlossen
+
+- LQ-521 PostgreSQL supervisor control-directory cleanup crash reconciliation proof:
+  `docs/lq-521-postgresql-supervisor-control-directory-cleanup-crash-reconciliation-proof.md`
+  - Status:
+    - ergänzt drei echte parametrisierte PostgreSQL-End-to-End-Fälle mit jeweils eigener wegwerfbarer Datenbank, vollständiger LQ-520-Ausgangskette und konsistentem persistentem `write_claimed`-Attempt samt Clearance und Claim
+    - modelliert physisch bestätigte Leafabwesenheit, unverändertes leeres privates Leaf und abweichendes Inventar durch eine zusätzliche feste Datei als getrennte absent/present/conflict-Fälle
+    - ruft ausschließlich den echten LQ-519-Reconcile-Operator über private Dateien auf und verlangt geschlossene stdout-Outcomes ohne Monkeypatch, Fake-Inspector oder direkten Adapteraufruf
+    - belegt Unknown-Sicherung vor terminaler Klassifikation durch persistentes `unknown_at`, danach `reconciled` mit exakt passendem Reconciliationoutcome und monotonen Claim-/Unknown-/Reconciled-Zeiten
+    - vergleicht Leafanwesenheit, Modi, Namen und Bytes vor und nach jedem Lauf exakt und beweist damit read-only Verhalten auch bei conflict ohne Reparatur oder Remove
+    - verlangt weiterhin genau eine historische Write-Claim-Zeile und leere Cleanup-Outcome-/Completed-Felder; kein Fall erzeugt Retry, neuen Attempt oder neue physische Wirkung
+    - ergänzt keine Production-, Schema-, Domain-, Port-, Entry-Point-, Discovery-, Batch-, Scheduler- oder Autostartwirkung; Head bleibt 0040/40
+    - nächster Slice LQ-522 auditiert die gesamte Cleanup-Kette abschließend auf offene Production-, Recovery- und Betriebsblocker; automatische Planung und Batchcleanup bleiben geschlossen
+
+- LQ-522 supervisor control-directory cleanup end-to-end readiness audit:
+  `docs/lq-522-supervisor-control-directory-cleanup-end-to-end-readiness-audit.md`
+  - Status:
+    - bestätigt persistente Retention-/Authority-/Clearance-/Claim-/Outcomegrundlagen, descriptor-sichere einmalige Wirkung, Unknown-Sicherung, read-only Reconciliation und den expliziten Einzel-Operator ohne daraus Production-Readiness abzuleiten
+    - hält fest, dass LQ-520-/LQ-521-PostgreSQL-Quellen lokal nicht real ausgeführt wurden und keine neue commitgebundene Verification-Evidence SQL-, Lock-, Constraint- und Treiberverhalten belegt
+    - identifiziert weiterhin fehlendes vollständiges Supervisor-Production-Wiring und einen fehlenden operativen Aufrufer für das kontrollierte terminale Directory-Retirement
+    - identifiziert fehlende owner-kontrollierte Betriebsgrenzen für Retention-Eligibility, vier Cleanup-Mutationsauthority-Sets sowie Management-/Hold-/Recovery-/Reference-Quellrevisionen
+    - identifiziert fehlende private Root-/Backend-/Owner-Provisionierung, Runbook und durable Incidentübergabe der bei Unknown ausgegebenen Attempt-/Directory-IDs
+    - belegt konkrete Releaseinventardrift: aktueller Bestand 59 Entry Points/66 Operatorfiles, Bundlegate weiterhin 58/65 und damit fail-closed nicht releasefähig
+    - bewertet fehlende Automatik, Directorydiscovery, Batchcleanup und HTTP-Route ausdrücklich nicht als Blocker oder zulässige Schnellkorrektur; Head bleibt 0040/40
+    - nächster Slice LQ-523 synchronisiert zuerst das fail-closed Operational-Release-Bundle-Inventar für den separaten Cleanup-Operator; Authority-, Retirement- und Deployment-Wiring folgen getrennt
+
+- LQ-523 supervisor cleanup operational release inventory synchronization:
+  `docs/lq-523-supervisor-cleanup-operational-release-inventory-synchronization.md`
+  - Status:
+    - synchronisiert die benannten fail-closed Wheelgrenzen mit dem tatsächlichen Bestand auf 59 Console Entry Points, 66 gepackte Operator-Pythondateien einschließlich Paketinitialisierer und 40 Migrationen
+    - nimmt Retention-/Cleanupvertrag, owner-kontrollierten Einzel-Operatorvertrag und abschließenden Readiness-Audit als drei eindeutige required Contracts in das Operational Bundle auf
+    - aktualisiert aktive LQ-412-/LQ-413-/LQ-421-Inventarassertionen auf 59 Entry Points, 65 fachliche Operatormodule plus Paketinitialisierer und Head 0040/40
+    - erweitert die synthetische Bundle-Wheelfixture auf eine lineare 40er-Migrationskette bis `20260826_0040`, sodass Builder und Verifier weiterhin ihre exakten Grenzen tatsächlich durchlaufen
+    - behält das Runbookinventar unverändert bei 17, weil der fehlende Cleanup-Betriebsvertrag ein dokumentierter LQ-522-Blocker und noch nicht durch improvisierte Anleitung zu schließen ist
+    - ändert keinen Entry Point, Operator, Runtime-, Authority-, Retirement-, Deployment- oder Cleanupwirkungspfad und behauptet weder PostgreSQL- noch Build-Evidence
+    - ergänzt keine Migration, Domain- oder Portsignatur; Head bleibt 0040/40 und jede zusätzliche oder fehlende Wheelkomponente wird weiterhin detailfrei abgelehnt
+    - nächster Slice LQ-524 definiert die owner-kontrollierten Cleanup-Authority-Set- und Quellrevision-Operatorgrenzen; Retirement und Deployment bleiben separat
+
+- LQ-524 owner-controlled supervisor cleanup authority and source revision operator contract:
+  `docs/lq-524-owner-controlled-supervisor-cleanup-authority-and-source-revision-operator-contract.md`
+  - Status:
+    - friert vier getrennte kurzlebige Prozessgrenzen für Authority-Bootstrap, reguläre Lifecycle-Mutation, Offline-Recovery und Quellrevisionsmutation ein
+    - hält Management-, Hold-, Recovery- und Reference-Authority sowie ihre vier append-only Quellrevisionen strikt getrennt und verbietet frei wählbare Source-, Rollen- oder Allow-Eingaben
+    - behandelt `SessionPrincipal` nur als Actoridentität und verlangt aktuelle quellenspezifische Authority-, Foundation-, Scope- und Directoryauflösung aus dem System of Record innerhalb jeder Mutation
+    - begrenzt Bootstrap auf leere Mengen, Lifecycle auf grant/deactivate/reactivate und Recovery auf historische inaktive Mitglieder ohne neue User- oder Authorityerzeugung
+    - bindet Quelländerungen optimistisch an ihre eigene erwartete Revision und erlaubt nur Management active/inactive sowie Hold-/Recovery-/Reference-clear/blocked
+    - trennt detailfreies `rejected` von technischem `operator_unavailable`, bietet keine Discovery und startet weder Clearance, Retention, Retirement noch Cleanupwirkung
+    - ergänzt keinen Entry Point, Operator, Runtime-, Schema-, SQL-, Domain-, Port- oder Migrationsentscheid; Head bleibt 0040/40
+    - nächster Slice LQ-525 implementiert die drei owner-kontrollierten Authority-Set-Operatorgrenzen; Quellrevision, Retention, Retirement und Deployment bleiben separat
+
+- LQ-525 owner-controlled supervisor cleanup authority-set operators:
+  `docs/lq-525-owner-controlled-supervisor-cleanup-authority-set-operators.md`
+  - Status:
+    - implementiert drei separate kurzlebige Console Entry Points für Bootstrap, regulären Lifecycle und Offline-Recovery mit je vier festen Management-/Hold-/Recovery-/Reference-Unterbefehlen
+    - akzeptiert ausschließlich private Datenbank-URL-, Request- und Resultdateien, striktes JSON und keine Environment-, Source-, Rollen- oder Allow-Eingabe
+    - bindet jeden Unterbefehl explizit an vorhandene domänenspezifische Commands und LQ-505-Adaptermethoden; Lifecycle baut einen identifizierenden Principal, Recovery ausdrücklich keinen
+    - prüft aktuellen Readiness-Head vor Mutation, validiert Scope und domänenspezifischen Revisionstyp des Ergebnisses und disposed die einzige Engine auf jedem Pfad
+    - gibt Erfolg atomar nur mit Operation-, Scope- und Revision-ID aus und trennt detailfreies `rejected`, malformed Input und technisches `operator_unavailable`
+    - erzeugt keine Quellrevision, Clearance, Retentiondecision, Retirement-, Cleanup-, Discovery-, Batch-, HTTP- oder Productionwirkung
+    - synchronisiert das fail-closed Paketinventar auf 62 Entry Points, 66 fachliche Operatormodule plus Initialisierer und unverändert Head 0040/40
+    - nächster Slice LQ-526 implementiert den separaten owner-kontrollierten Quellrevisionsoperator; Retention, Retirement und Deployment bleiben separat
+
+- LQ-526 owner-controlled supervisor cleanup source revision operator:
+  `docs/lq-526-owner-controlled-supervisor-cleanup-source-revision-operator.md`
+  - Status:
+    - implementiert einen separaten kurzlebigen Console Entry Point mit vier festen Management-/Hold-/Recovery-/Reference-Unterbefehlen und genau einem Request pro Prozess
+    - verlangt für Management Actor, Change, Ziel-User, Scope, optionale erwartete Revision und active/inactive; die drei Directoryquellen verlangen Actor, Change, Directory, Erwartung und clear/blocked
+    - akzeptiert ausschließlich explizites JSON-`null` als initiale Revisionserwartung und keine Source-, Rollen-, Permission- oder Alloweingabe
+    - konstruiert `SessionPrincipal` nur als Actoridentität und bindet jeden Zweig explizit an die aktuelle LQ-507-Mutationsmethode mit transaktionaler LQ-525-Authorityauflösung
+    - prüft zurückgegebene Change-, Ziel-, Scope-/Directory- und Revisionbindung, schreibt nur IDs atomar privat und trennt detailfreies `applied`, `rejected` und technisches `operator_unavailable`
+    - erzeugt keine Authority-Menge, Clearance, Retentiondecision, Retirement-, Cleanup-, Discovery-, Batch-, HTTP- oder Productionwirkung
+    - synchronisiert Bundle und aktive Inventarguardrails auf 63 Entry Points, 67 fachliche Operatormodule plus Initialisierer und unverändert Head 0040/40
+    - nächster Slice LQ-527 definiert die owner-kontrollierte Retention-Eligibility-Operatorgrenze; Retirement und Deployment bleiben separat
+
+- LQ-527 owner-controlled supervisor cleanup retention-eligibility operator contract:
+  `docs/lq-527-owner-controlled-supervisor-cleanup-retention-eligibility-operator-contract.md`
+  - Status:
+    - friert einen separaten kurzlebigen owner-kontrollierten Prozess ein, dessen Request ausschließlich stabile Operation-ID und interne Directory-ID trägt
+    - verbietet caller-gelieferte retain-/eligible-Disposition, Policyrevision, Allow, TTL, Alter, Frist, Rolle sowie lokale mtime-, Größen- oder Speicherplatzpolicy
+    - verlangt aktuelle systemeigene Policyevaluation gegen einen vollständig rekonstruierten Retired-Wert und bindet Datenklasse, Policyrevision, Evaluationzeit und geschlossenes retain/eligible
+    - hält `eligible` von Actor- und Cleanupauthority getrennt und verlangt weiterhin aktuelle Hold-, Recovery-, Reference- und Clearance-Revalidierung vor physischer Wirkung
+    - fordert eine dauerhafte nichtwiederverwendbare Operation-/Directory-/Evaluation-/Decisionbindung und crashsicheren privaten Ergebnishandoff vor sicherer Implementation
+    - behandelt autoritatives `retain` als erfolgreichen Decisionappend, trennt neutrale Ablehnung von detailfreier technischer Unverfügbarkeit und benennt keine neue Exception
+    - ergänzt keinen Entry Point, Operator, Policyadapter, Store, Domainwert, Port, SQL oder Migration; Bestand bleibt 63/68 und Head 0040/40
+    - nächster Slice LQ-528 definiert geschlossene Evaluationstypen, read-only Policyport und persistente Operationbindung; Operator, Retirement und Deployment bleiben separat
+
+- LQ-528 supervisor cleanup retention evaluation and operation foundation:
+  `docs/lq-528-supervisor-cleanup-retention-evaluation-and-operation-foundation.md`
+  - Status:
+    - ergänzt eine stabile repr-freie Retention-Operation-ID, minimalen Operation-/Directory-Request und die einzige geschlossene Datenklasse `supervisor_control_directory`
+    - bindet Evaluation konstruktiv an vollständigen Retired-Wert, Policyrevision, retain/eligible und aware UTC Zeit sowie Bound erneut exakt an den bestehenden Decisionwert
+    - ergänzt genau einen read-only Policyevaluationsport und einen atomaren Operation-/Decision-Bindungsport ohne Policyadministration, Actor-, Rollen- oder Allowfläche
+    - führt Revision 20260826_0041 linear nach 0040 mit einer leeren append-only Operationstabelle für Operation, Directory, Decision, Policy, Datenklasse, Disposition und Zeiten ein
+    - erzwingt nichtwiederverwendbare Operation-ID, eindeutige Decisionzuordnung, zusammengesetzte Decision-/Directory-FK, geschlossene Werte und monotone Bindungszeit
+    - ergänzt noch keinen Policy- oder Storeadapter, Operator, Entry Point, Clearance-, Cleanup-, Retirement-, HTTP-, Compose- oder Productionpfad
+    - synchronisiert Head und Bundle auf 0041/41; Paketinventar bleibt bei 63 Entry Points und 67 fachlichen Operatormodulen plus Initialisierer
+    - nächster Slice LQ-529 implementiert den atomaren persistenten Retention-Operationstore; Policyadapter, Operator und Retirement bleiben separat
+
+- LQ-529 atomic persistent supervisor cleanup retention operation store:
+  `docs/lq-529-atomic-persistent-supervisor-cleanup-retention-operation-store.md`
+  - Status:
+    - implementiert einen separaten Store, der geschlossene LQ-528-Evaluation, bestehende Cleanup-Decision und dauerhafte Operationbindung atomar in einer Engine-Transaktion persistiert
+    - prüft vorhandene Operation zuerst und liefert nur bei exakt gleicher Evaluation und Decision-ID denselben Bound-Wert; divergente Wiederverwendung oder fremde Decision-ID kollidiert detailfrei
+    - löst für neue Operationen das Directory aktuell neu auf und verlangt den exakt gleichen vollständigen Retired-Wert, bevor es die nächste append-only Decisionsequenz bestimmt
+    - konstruiert Decision ausschließlich aus Evaluation und intern gelieferter Decision-ID, schreibt Decision vor Operation unter derselben Transaktion und verhindert damit partiellen Commit
+    - rekonstruiert Operation und Decision getrennt, prüft Policy, Datenklasse, Disposition, Zeiten und Retiredbindung erneut und lehnt beschädigte Persistenz technisch fail-closed ab
+    - serialisiert PostgreSQL-Writes mit fester Directory-/Decision-/Operation-Lockreihenfolge, unterstützt SQLite nur als Testgrenze und vereinheitlicht technische Fehler bestehend detailfrei
+    - ergänzt keine Policylogik, Migration, Authority-, Clearance-, Attempt-, Datei-, Operator-, Entry-Point-, HTTP- oder Productionwirkung; Head bleibt 0041/41 und Paketbestand 63/68
+    - nächster Slice LQ-530 definiert die autoritative Policyquell- und Administrationsgrenze; Policyadapter, Retentionoperator und Retirement bleiben separat
+
+- LQ-530 authoritative supervisor cleanup retention policy source and administration contract:
+  `docs/lq-530-authoritative-supervisor-cleanup-retention-policy-source-and-administration-contract.md`
+  - Status:
+    - friert immutable nicht wiederverwendbare Policyrevisionen für ausschließlich `supervisor_control_directory` mit strikt positiver begrenzter Mindestdauer ohne konkrete Defaultfrist ein
+    - definiert retain vor und eligible ab `retired_at + minimum_retention`, ausgewertet einmalig mit vertrauenswürdiger UTC-Clock ausschließlich durch die aktuelle autoritative Policyquelle
+    - verlangt höchstens eine aktive Revision, aktuellen lookup ohne positiven Cache oder Fallback und fail-closed Clearanceprüfung gegen die weiterhin aktive Decision-Policyrevision
+    - trennt Policyadministration vollständig von LQ-525-Authorities, Membership und Session; `SessionPrincipal` identifiziert nur den Actor einer aktuell autorisierten Mutation
+    - definiert separaten initialen Bootstrap, erwartungsgebundene immutable Nachfolgerevisionen, atomare Aktivierung, Deaktivierung und geschlossene Offline-Recovery ohne stille Altaktivierung
+    - verbietet reguläre Verkürzung der Mindestdauer; gleiche oder längere Revisionen wirken nach Commit auf jede spätere Evaluation und können frühere eligible-Decisions sperren
+    - ergänzt keine Typen, Ports, Persistenz, Policy-, Authority-, Evaluations- oder Operatorwirkung; Bestand bleibt 63/68 und Head 0041/41
+    - nächster Slice LQ-531 definiert geschlossene Policy-/Authoritywerte und minimale read-only/Mutationsports; Persistenz, Adapter, Operator und Retirement bleiben separat
+
+- LQ-531 closed supervisor cleanup retention policy and authority values and ports:
+  `docs/lq-531-closed-supervisor-cleanup-retention-policy-and-authority-values-and-ports.md`
+  - Status:
+    - ergänzt fünf getrennte repr-freie Bootstrap-/Policychange-/Authorityset-/Authoritychange-/Recovery-IDs sowie immutable Policyrevisionen für die einzige geschlossene Datenklasse
+    - verlangt strikt positive sekundengenaue `timedelta`-Mindestaufbewahrung, aware UTC Revisionserzeugung und monotone aktive Projektion ohne Defaultdauer oder Active-Boolean im Inhalt
+    - definiert vollständige eindeutige Authority-Sets mit mindestens einem aktiven Member und ausschließlich active/inactive sowie grant/deactivate/reactivate
+    - bindet Bootstrap an Ziel-User und Dauer, Policychange geschlossen an replace mit Dauer oder deactivate ohne Dauer und Authority-Lifecycle getrennt von principalfreier Recovery
+    - ergänzt minimalen parameterlosen Active-Policy-Lookup, atomare Bootstrap-/Policyadministration und getrennte aktuelle Authority-Permit-/Lifecycle-/Recoveryports
+    - hält `SessionPrincipal` außerhalb der Commands als reine Actoridentität und lässt monotone Nichtverkürzung bewusst als aktuelle system-of-record Adapterprüfung offen
+    - ergänzt keine Persistenz, Migration, Evaluation, Decision-, Operation-, Operator-, Entry-Point- oder Productionwirkung; Bestand bleibt 63/68 und Head 0041/41
+    - nächster Slice LQ-532 definiert die persistente Policy-/Aktivierungs-/Change-/Authority-/Bootstrap-/Recoveryfoundation; Adapter und Operator bleiben separat
+
+- LQ-532 persistent supervisor cleanup retention policy and authority foundation:
+  `docs/lq-532-persistent-supervisor-cleanup-retention-policy-and-authority-foundation.md`
+  - Status:
+    - ergänzt additive lineare Revision `20260826_0042` mit neun leeren Tabellen für immutable Policyrevisionen, aktive Projektion, Policychanges, Authority-Sets/-Member, aktuelle Authority, Authoritychanges, Bootstrap und Recovery
+    - bindet alle Fakten an die einzige Datenklasse `supervisor_control_directory`, positive ganzzahlige Mindestaufbewahrung und bestehende persistente Userfacts
+    - hält Policy- und Authorityhistorie append-only, trennt aktuelle Singletonprojektionen und speichert vollständige active/inactive Authority-Mengen mit eigener positiver Sequenz
+    - bindet Actor und Ziel sowie erwartete und resultierende Revisionen über Foreign Keys; caller-gelieferte Rollen, Memberships, Permissions oder Allow-Behauptungen existieren nicht
+    - ermöglicht späteren atomaren Initialbootstrap beider Seiten ohne Seed, Useranlage oder Backfill und hält Recovery als eigene nicht wiederverwendbare historische Operation
+    - ergänzt keine Adapter-, Policy-, Evaluation-, Mutation-, Operator-, CLI-, Entry-Point- oder Productionwirkung; Bestand bleibt 63/68, Head ist 0042/42
+    - nächster Slice LQ-533 implementiert atomaren Bootstrap und aktuelle Policy-/Authority-Lookups; reguläre Mutation und Recovery bleiben separat
+
+- LQ-533 persistent supervisor cleanup retention policy bootstrap and current lookups:
+  `docs/lq-533-persistent-supervisor-cleanup-retention-policy-bootstrap-and-current-lookups.md`
+  - Status:
+    - implementiert einen persistenten Adapter für atomaren initialen Policy-/Authority-Bootstrap, parameterlosen aktuellen Policylookup und principalgebundene aktuelle Authority-Permitauflösung
+    - schreibt immutable Policy- und vollständige Authorityrevision, aktiven Initialmember, beide Singletonprojektionen und Bootstrapfact unter genau einer Transaktion
+    - verlangt einen bestehenden aktiven Ziel-User, vollständig leere Foundation und intern erzeugte getrennte Revisionen; erzeugt keine User-, Workspace-, Membership- oder Rollenfacts
+    - behandelt identischen Bootstrap-Retry idempotent, abweichende ID-Wiederverwendung als detailfreien Conflict und vorhandenen fremden Bestand neutral ohne Übernahme
+    - rekonstruiert persistierte Domainwerte vollständig neu und liest Policy, Authoritymember und Userstatus ohne Cache, sodass spätere Deaktivierung beziehungsweise Entzug fail-closed wirken
+    - serialisiert PostgreSQL-Bootstrap mit fester Sperrreihenfolge, unterstützt SQLite nur als Testgrenze und vereinheitlicht technische Fehler bestehend detailfrei
+    - ergänzt keine Migration, reguläre Mutation, Recovery, Evaluation, Operator-, CLI-, Entry-Point- oder Productionwirkung; Bestand bleibt 63/68 und Head 0042/42
+    - nächster Slice LQ-534 implementiert erwartungsgebundene reguläre Policyadministration mit aktueller Authorityprüfung und Nichtverkürzung; Authority-Lifecycle und Recovery bleiben separat
+
+- LQ-534 authorized persistent supervisor cleanup retention policy administration:
+  `docs/lq-534-authorized-persistent-supervisor-cleanup-retention-policy-administration.md`
+  - Status:
+    - erweitert den persistenten LQ-533-Adapter um erwartungsgebundenes Replace und kontrolliertes Deactivate unter derselben serialisierten Datenbanktransaktion
+    - verwendet `SessionPrincipal` nur als Actor-ID und löst aktuellen aktiven User sowie separate aktuelle Policyauthority intern neu auf; kein caller-gelieferter Allowwert, Rolle oder Permission
+    - prüft identische Retries vor Authority, Erwartung, Clock und Generator, rekonstruiert historische Resultate ohne neue Wirkung und weist abweichende ID-Wiederverwendung detailfrei zurück
+    - verlangt exakte aktive Revision beziehungsweise geschlossene erwartete Abwesenheit, erzeugt Replace-Revisionen intern und schreibt Revision, Changefact und aktive Projektion atomar
+    - verbietet reguläre Verkürzung gegen die höchste historische Mindestdauer auch nach Deaktivierung; gleiche oder längere Dauer wirkt nach Commit auf jeden späteren Lookup
+    - Deactivate entfernt ausschließlich die aktuelle Projektion, hält Revisionen immutable und reaktiviert keine frühere Policy; committierter Authorityentzug sperrt spätere neue Mutationen
+    - ergänzt keine Migration, Authoritymutation, Recovery, Evaluation, Operator-, CLI-, Entry-Point- oder Productionwirkung; Bestand bleibt 63/68 und Head 0042/42
+    - nächster Slice LQ-535 implementiert persistenten Authority-Lifecycle mit vollständigen Set-Revisionen und Lockoutschutz; Offline-Recovery bleibt separat
+
+- LQ-535 persistent supervisor cleanup retention policy authority lifecycle:
+  `docs/lq-535-persistent-supervisor-cleanup-retention-policy-authority-lifecycle.md`
+  - Status:
+    - implementiert grant/deactivate/reactivate als erwartungsgebundene persistente Lifecycleänderungen der getrennten Retention-Policy-Administrationsauthority
+    - prüft identische Retries vor aktueller Authority, Userfacts, Generator und Clock und rekonstruiert historische vollständige Resultatsets ohne neue Wirkung
+    - verlangt exakte Current-Revision, aktiven Actor-Member sowie aktive persistente Actor- und Target-Userfacts; Session, Membership und andere Cleanup-Authorities erteilen keine Wirkung
+    - kopiert die vollständige Membermenge in eine intern erzeugte nächste immutable Set-Revision und schaltet den Current-Pointer erwartungsgebunden unter derselben Transaktion um
+    - erlaubt nur grant bei Abwesenheit, deactivate bei active und reactivate bei inactive; No-op, Doppelgrant, Revisionkollision und stale Erwartung liefern detailfreien Conflict
+    - verhindert die Deaktivierung des letzten effektiven aktiven Administrators unter Einbezug aktueller Userfacts; committierter Entzug sperrt jede spätere neue Mutation
+    - ergänzt keine Migration, Offline-Recovery, Evaluation, Operator-, CLI-, Entry-Point- oder Productionwirkung; Bestand bleibt 63/68 und Head 0042/42
+    - nächster Slice LQ-536 implementiert geschlossene persistente Offline-Recovery für nachgewiesenen Authority-Lockout und historisch bekanntes Ziel
+
+- LQ-536 persistent supervisor cleanup retention policy authority recovery:
+  `docs/lq-536-persistent-supervisor-cleanup-retention-policy-authority-recovery.md`
+  - Status:
+    - implementiert principalfreie persistente Offline-Recovery ausschließlich für eine exakt erwartete aktuelle Authorityrevision mit nachgewiesenem vollständigem effektivem Lockout
+    - prüft identische Recovery-Retries vor Current-, Lockout-, User-, Generator- und Clockzugriff und rekonstruiert historische vollständige Resultatsets ohne neue Wirkung
+    - verlangt einen bereits in der erwarteten vollständigen Menge historisch bekannten und aktuell aktiven persistenten Ziel-User; erzeugt oder reaktiviert keine Userfacts und grant-et keine neue Person
+    - lehnt Recovery bei jedem noch effektiven aktiven Administrator neutral ab und setzt ausschließlich den bekannten Zielmember in einer vollständigen neuen Set-Revision auf active
+    - schreibt nächste immutable Setrevision, alle Memberfacts, erwartungsgebundenen Current-Pointer und Recoveryfact atomar; frühere Revisionen bleiben unverändert
+    - spätere Permit- und Lifecycleaufrufe lesen die wiederhergestellte Current-Revision frisch, sodass erneuter Entzug oder inactive Userstatus wieder fail-closed wirkt
+    - ergänzt keine Migration, Operator-, CLI-, Entry-Point-, Route-, Composition- oder Productionwirkung; Bestand bleibt 63/68 und Head 0042/42
+    - nächster Slice LQ-537 definiert owner-kontrollierte Operatorgrenzen für Bootstrap, Policyadministration, Authority-Lifecycle und Offline-Recovery
+
+- LQ-537 owner-controlled supervisor cleanup retention policy operator contract:
+  `docs/lq-537-owner-controlled-supervisor-cleanup-retention-policy-operator-contract.md`
+  - Status:
+    - friert vier getrennte owner-kontrollierte One-Shot-Prozessgrenzen für Bootstrap, reguläre Policyänderung, Authority-Lifecycle und Offline-Recovery ohne generische Actionauswahl ein
+    - definiert geschlossene kanonische Requests ohne caller-gelieferte Revisionen, Rollen, Allowwerte, Membermengen oder Datenklasse; Actorprincipal bleibt reine Identität und Recovery principalfrei
+    - verlangt private owner-only no-follow Datenbank-, Request- und Ergebnisdateien ohne Argument-, Environment- oder interaktiven Secretfallback
+    - hält Policy-/Authorityrevisiongeneratoren und aware UTC-Clock intern, während caller-gelieferte Operation-IDs kontrollierte persistente Retries ermöglichen
+    - vereinheitlicht neutrale Abwesenheit und fachlichen Conflict als `rejected`, trennt detailfreie technische `operator_unavailable` und schreibt Erfolge atomar in private Ergebnisdateien
+    - verbietet Discovery, Batch, Folgeevaluation, Decision, Clearance, Cleanup oder implizite Verkettung der vier Grenzen
+    - ergänzt keine Implementation, Migration, Entry-Point-, Operator-, Route-, Compose- oder Productionwirkung; Bestand bleibt 63/68 und Head 0042/42
+    - nächster Slice LQ-538 implementiert die vier owner-kontrollierten One-Shot-Operatoren und ihren atomaren Ergebnishandoff
+
+- LQ-538 owner-controlled supervisor cleanup retention policy operators:
+  `docs/lq-538-owner-controlled-supervisor-cleanup-retention-policy-operators.md`
+  - Status:
+    - implementiert vier feste Console-Grenzen für Bootstrap, Policychange, Authority-Lifecycle und principalfreie Offline-Recovery in einem gemeinsamen internen Operatormodul
+    - parst je Grenze ausschließlich die exakte kanonische Requestform und akzeptiert keine caller-gelieferten Revisionen, Rollen, Allowwerte, Membermengen, Clock- oder Generatorwerte
+    - verwendet bestehende private owner-only Reader und atomaren Resultwriter, baut genau eine Engine pro Prozess und gibt sie im `finally` frei
+    - bindet aware UTC-Clock und getrennte kryptografisch starke Policy-/Authorityrevisiongeneratoren intern an den persistenten Adapter
+    - klassifiziert fachliche Ablehnung neutral als `rejected`, technische oder private Eingabefehler detailfrei als `operator_unavailable` und schreibt nur Erfolg atomar
+    - startet keine Evaluation, Decision, Clearance, Cleanup-, Discovery-, Batch-, Queue- oder Schedulerwirkung
+    - synchronisiert Bundle und aktive Inventargates auf 67 Entry Points, 68 fachliche Operatormodule plus Initialisierer und unverändert Head 0042/42
+    - nächster Slice LQ-539 komponiert die persistente aktive Policyquelle mit der bestehenden Retention-Evaluation ohne Folgeaktion
+
+- LQ-539 authoritative persistent supervisor cleanup retention evaluation:
+  `docs/lq-539-authoritative-persistent-supervisor-cleanup-retention-evaluation.md`
+  - Status:
+    - implementiert read-only Evaluation eines exakt gebundenen Retired-Control-Directories gegen genau eine frisch aufgelöste aktive persistente Policyrevision
+    - liefert bei Policyabwesenheit oder Directoryabweichung neutral keine Evaluation und verwendet weder Cache, Fallback noch Defaultdauer
+    - liest eine injizierte trusted UTC-Clock erst nach Policyauflösung und weist Zeitregression vor Retirement oder Policyaktivierung technisch fail-closed zurück
+    - entscheidet `retain` vor und `eligible` exakt ab `retired_at + minimum_retention` ohne Datei-, mtime-, Größen- oder Speicherheuristik
+    - bindet Ergebnis an Request, Retired-Wert, geschlossene Datenklasse, tatsächlich gelesene Revision, Disposition und Evaluationszeit
+    - ergänzt keine Persistenz, Decision, Operation, Clearance, Cleanup-, Operator-, Entry-Point- oder Productionwirkung; Bestand bleibt 67/68+Init und Head 0042/42
+    - nächster Slice LQ-540 komponiert Directoryauflösung, Evaluation, interne Decision-ID und atomaren Operationstore zu einer Retentionoperation
+
+- LQ-540 controlled persistent supervisor cleanup retention operation:
+  `docs/lq-540-controlled-persistent-supervisor-cleanup-retention-operation.md`
+  - Status:
+    - komponiert read-only Operation-Retrylookup, aktuelle Directoryauflösung, LQ-539-Evaluation, interne Decision-ID und atomaren LQ-529-Store zu genau einer Retentionoperation
+    - löst vorhandene Operationen vor Directory, Policy, Clock und Generator auf und gibt bei identischer Directorybindung das historische vollständige Ergebnis ohne neue Wirkung zurück
+    - behandelt auch einen concurrent First-Writer derselben Operation-/Directorybindung idempotent, ohne wegen abweichender interner Decision-ID oder Evaluationszeit eine zweite Decision zu erzeugen
+    - evaluiert nur einen aktuell vollständig rekonstruierten Retired-Wert; unbekannte, Reserved-, Active- oder policylose Ziele bleiben neutral ohne Operation
+    - erzeugt Decision-ID erst nach erfolgreicher Evaluation intern und lässt den Store Retiredbindung sowie atomare Decision-/Operationpersistenz erneut prüfen
+    - erweitert den Store-Port um genau einen read-only typisierten Operation-Lookup ohne Liste, Suche oder Discovery
+    - ergänzt keine Migration, Clearance, Cleanup-, Operator-, Entry-Point- oder Productionwirkung; Bestand bleibt 67/68+Init und Head 0042/42
+    - nächster Slice LQ-541 bindet die aktuelle aktive Policyrevision an die persistente Cleanup-Clearanceauflösung
+
+- LQ-541 active retention policy-bound cleanup clearance:
+  `docs/lq-541-active-retention-policy-bound-cleanup-clearance.md`
+  - Status:
+    - bindet Clearance-Erzeugung, Retry, read-only Clearance-Auflösung und Write-Claim-Revalidierung an die weiterhin exakt aktive Retention-Policyrevision
+    - liest den geschlossenen Active-Policy-Singleton innerhalb der serialisierten Clearance-/Claim-Transaktion und verlangt Gleichheit mit der aktuellen `eligible`-Decision
+    - behandelt fehlende, deaktivierte oder ersetzte Policy fail-closed ohne Fallback oder stille Reaktivierung einer historischen Revision
+    - sperrt durch jede Policyersetzung alte Eligibility bis eine neue LQ-540-Operation unter der neuen Revision eine aktuelle Decision bindet
+    - hält historische Decision-, Operation-, Clearance- und Attemptfacts unverändert und entscheidet ausschließlich über neue oder fortgesetzte physische Wirkung
+    - ergänzt keine Policy-, Evaluation-, Decision-, Datei-, Migration-, Operator-, Entry-Point- oder Productionwirkung; Bestand bleibt 67/68+Init und Head 0042/42
+    - nächster Slice LQ-542 ergänzt die explizite persistente Retentionoperation in die opt-in Cleanup-Composition ohne Automatik
+
+- LQ-542 explicit retention operation cleanup composition:
+  `docs/lq-542-explicit-retention-operation-cleanup-composition.md`
+  - Status:
+    - ergänzt die LQ-540-Retentionoperation als vierte explizite Grenze der bestehenden opt-in Cleanup-Composition neben Clearance, Execution und Reconciliation
+    - teilt dieselbe extern besessene Engine und denselben Directorylookup zwischen Policyquelle, Evaluation, Operationstore und bestehender Cleanupkette
+    - bindet genau einen persistenten aktuellen Policyadapter sowie interne geschlossene Policy-, Authority- und Decision-ID-Generatoren ohne Aufbau-I/O
+    - exponiert ausschließlich `retention_operation`; jeder Request benötigt einen ausdrücklichen Aufruf und `eligible` startet keine Clearance oder Cleanupwirkung
+    - hält Factory-Aufbau inert ohne Directory-, Policy-, Clock-, Decision-, Operation-, Clearance- oder Dateiwirkung
+    - ergänzt keine Route, Entry Point, Worker-, Scheduler-, Queue-, Compose- oder Productionaktivierung; Bestand bleibt 67/68+Init und Head 0042/42
+    - nächster Slice LQ-543 implementiert den owner-kontrollierten One-Shot-Retentionoperator mit privatem Ergebnishandoff
+
+- LQ-543 owner-controlled supervisor cleanup retention evaluation operator:
+  `docs/lq-543-owner-controlled-supervisor-cleanup-retention-evaluation-operator.md`
+  - Status:
+    - implementiert einen festen owner-kontrollierten One-Shot-Entry-Point für genau eine vollständige persistente Retentionoperation
+    - akzeptiert ausschließlich private Operation-ID und Directory-ID ohne Disposition, Policyrevision, Dauer, Decision-ID, Clock, Retired-Fakten oder Allowbehauptung
+    - verwendet dieselbe interne LQ-542-Retentionfactory wie die Cleanup-Composition und führt keine zweite Policy- oder Evaluationslogik ein
+    - schreibt bei Erfolg Operation, Directory, Decision, tatsächlich verwendete Policyrevision und geschlossene Disposition atomar in die private Ergebnisdatei
+    - behandelt neutrale Abwesenheit und Conflict als `rejected`, technische Fehler detailfrei als `operator_unavailable` und gibt die Engine im `finally` frei
+    - startet auch bei `eligible` keine Clearance, keinen Attempt, Cleanup, Batch, Worker, Queue oder Scheduler
+    - synchronisiert das Inventar auf 68 Entry Points, 68 fachliche Operatormodule plus Initialisierer und Head 0042/42
+    - nächster Slice LQ-544 ergänzt gezielte PostgreSQL-Integrationsnachweise für die vollständige Retentionkette und Revocation
+
+- LQ-544 PostgreSQL supervisor cleanup retention chain evidence:
+  `docs/lq-544-postgresql-supervisor-cleanup-retention-chain-evidence.md`
+  - Status:
+    - weist leeren Aufbau bis Head 0042 sowie Policybootstrap, Verlängerung, Authority-Lifecycle, effektiven Lockout und principalfreie Recovery auf echtem PostgreSQL nach
+    - bindet ein rekonstruiertes retired Directory durch LQ-539/LQ-540 atomar an genau eine aktuelle `eligible`-Decision und bestätigt den wirkungsfreien persistenten Retry
+    - erzeugt Clearance nur bei exakter Gleichheit von Decision- und aktiver Policyrevision sowie aktuellen User-, Scope-, Management-, Hold-, Recovery-, Reference- und Journalfakten
+    - belegt, dass Policyersetzung historische Fakten erhält, aber read-only Clearance und Clearance-Retry für spätere Wirkung sofort detailfrei sperrt
+    - korrigiert zwei PostgreSQL-Migrationshindernisse, zwei fehlende Port-Typimporte und den bestehenden Callable-Aufruf der Journal-Lookups ohne neue Schnittstelle
+    - ergänzt keine Migration, Tabelle, Route, Entry-Point-, Scheduler-, Queue-, Worker- oder automatische Cleanupwirkung; Bestand bleibt 68/68+Init und Head 0042/42
+    - nächster Slice LQ-545 führt vollständige Regression, PostgreSQL-Suite, Inventar- und Diffaudit zum Abschluss des Retentionstrangs aus
+
+- LQ-545 supervisor cleanup retention chain completion audit:
+  `docs/lq-545-supervisor-cleanup-retention-chain-completion-audit.md`
+  - Status:
+    - der Retention-Policy-Strang LQ-537 bis LQ-545 ist fachlich und technisch geschlossen mit expliziter Administration, Evaluation, Operationsbindung, Clearance-Revocation, Composition und Operatorgrenzen
+    - bestätigt 68 Entry Points, 68 fachliche Operatormodule plus Initialisierer, 42 Migrationen und Head 0042 in Quell-, Test- und Release-Bundle-Inventar
+    - belegt 80 fokussierte normale Tests sowie 104 PostgreSQL-Integrationstests außerhalb des getrennten älteren LQ-302-Mehrprozessbefunds
+    - weist sieben weitere bestehende Altregressionen außerhalb des Retentionstrangs offen aus, ohne Gates, Fail-closed-Verhalten oder Tests abzuschwächen
+    - bewahrt explizite Aufrufreihenfolge und fügt keine automatische Cleanupwirkung, Route, Worker-, Queue-, Scheduler-, Commit-, Push- oder Deploymentwirkung hinzu
+    - für den Retention-Policy-Strang ist kein weiterer Slice erforderlich; unabhängig sinnvoll ist die Bereinigung der ausgewiesenen Altregressionen
+
+- LQ-546 manifest handoff alt-regression stabilization:
+  `docs/lq-546-manifest-handoff-alt-regression-stabilization.md`
+  - Status:
+    - beseitigt die sieben normalen Altregressionen aus LQ-545 in LQ-432, LQ-438, LQ-443 und dem Repository-Architekturguard ohne Port-, Schema- oder Migrationsänderung
+    - trennt vorhandene Attempts ohne Observation wieder als technische Beschädigung von neutraler Attemptabwesenheit
+    - repariert exakten typisierten Scope-Bindinglookup, permanente Attempt-/Claim-Konflikte nach Authorityentzug und idempotente Renewal-Rekonstruktion
+    - hält reine Application-Services adapterfrei, erkennt explizite Composition Roots als Verdrahtungsgrenze und erlaubt nur den bestehenden gemeinsamen detailfreien Fehlertyp
+    - bestätigt 29 fokussierte sowie 5021 normale Gesamttests mit einem erwarteten Skip und sauberer Diffprüfung
+    - verändert den getrennten LQ-302-Mehrprozessbefund nicht; nächster Slice LQ-547 diagnostiziert und stabilisiert dessen Experiment-ID- und PostgreSQL-Prozessbindung
+
+- LQ-547 PostgreSQL research worker identity and evidence stabilization:
+  `docs/lq-547-postgresql-research-worker-identity-and-evidence-stabilization.md`
+  - Status:
+    - bindet den allowlist-basierten lokalen Runner durch einen geschlossenen Wrapper an die bereits akzeptierte persistente Snapshot-Experiment-ID, ohne nachgelagerte Identitätsprüfungen abzuschwächen
+    - verwendet für persistente Erfolgsfinalisierung und unveränderliches Artefakt dieselbe JSON-sichere Evidence-Projektion, sodass nicht-endliche Metriken kanonisch `null` werden
+    - bestätigt dreimal unabhängig genau einen erfolgreichen und einen idle Worker bei zwei PostgreSQL-Prozessen sowie genau einen Claim, ein Outcome und ein digestgeprüftes Artefakt
+    - schließt die vollständige PostgreSQL-Suite mit 105 Tests und die normale Suite mit 5023 normalen Tests plus einem erwarteten Skip
+    - ergänzt keine Migration, Portsignatur, Route, CLI, Entry-Point-, Claim-, Lease-, Authority- oder automatische Workerwirkung
+    - nächster Slice LQ-548 führt den abschließenden vollständig grünen Build-, Inventar-, Migrations- und Diffaudit aus
+
+- LQ-548 fully green build inventory and migration audit:
+  `docs/lq-548-fully-green-build-inventory-and-migration-audit.md`
+  - Status:
+    - bestätigt 5026 normale Tests plus einen erwarteten Skip und die vollständige PostgreSQL-Suite mit 105 Tests ohne ausgeschlossene PostgreSQL-Module
+    - baut Wheel `0.0.1` erfolgreich, importiert zentrale Pakete direkt daraus und bestätigt vollständige Entry-Point-, Operator-, Migrations- und Head-Metadaten
+    - synchronisiert Quellbestand, Release-Bundle, Inventargates und Wheel auf 68/69/42 sowie Head `20260826_0042`
+    - hält das Wheel außerhalb des Worktrees, entfernt ausschließlich erzeugte Buildzwischenprodukte und bestätigt eine saubere Diffprüfung
+    - weist 789 bekannte SQLite-Datetime-Deprecationwarnungen als getrennten Wartungsbedarf aus und behauptet trotz grüner lokaler Matrix keine Productionfreigabe
+    - für den Stabilisierungstrang LQ-546 bis LQ-548 ist kein weiterer Slice nötig; nächster unabhängiger Wartungsstrang ist die Python-3.12-SQLite-Datetime-Anpassung
+
+- LQ-549 Python 3.12 SQLite datetime compatibility contract:
+  `docs/lq-549-python-312-sqlite-datetime-compatibility-contract.md`
+  - Status:
+    - definiert explizite ISO-Adapter als reine SQLite-Laufzeitkompatibilität ohne neue fachliche Zeitsemantik, Normalisierung oder UTC-Legitimierung
+    - bewahrt Offset, Mikrosekunden und bestehende SQLAlchemy-Resultverarbeitung; PostgreSQL und Migrationen bleiben unberührt
+    - nächster Slice LQ-550 implementiert die Adapter zentral beim SQLite-Engineaufbau
+
+- LQ-550 explicit Python 3.12 SQLite datetime adapters:
+  `docs/lq-550-explicit-python-312-sqlite-datetime-adapters.md`
+  - Status:
+    - registriert explizite `date`- und `datetime`-ISO-Adapter ausschließlich für `sqlite:`-Engines vor dem verbindungslosen Engineaufbau
+    - ersetzt nur die veralteten impliziten Python-Adapter und verändert weder Converter, `detect_types`, fachliche UTC-Guards noch PostgreSQL
+    - nächster Slice LQ-551 belegt repräsentative Persistenzpfade unter strikter DeprecationWarning-Grenze
+
+- LQ-551 SQLite UTC persistence warning regression:
+  `docs/lq-551-sqlite-utc-persistence-warning-regression.md`
+  - Status:
+    - bestätigt Browser-, OIDC-, Research- und Manifest-Handoff-Persistenz einschließlich Leases, Retryzeiten und nullable Zeitwerten
+    - besteht mit 48 fokussierten Tests bei als Fehler behandelten DeprecationWarnings und ohne die zuvor 789 SQLite-Datetime-Warnungen
+    - nächster Slice LQ-552 führt den vollständigen warnungsfreien Normal-/PostgreSQL-/Buildaudit aus
+
+- LQ-552 warning-free Python 3.12 persistence completion audit:
+  `docs/lq-552-warning-free-python-312-persistence-completion-audit.md`
+  - Status:
+    - schließt LQ-549 bis LQ-552 mit 5032 normalen Tests plus einem erwarteten Skip und 105 PostgreSQL-Tests unter strikter DeprecationWarning-Fehlergrenze ab
+    - beseitigt die zuvor 789 SQLite-Datetime-Warnungen durch explizite ISO-Adapter ohne UTC-Normalisierung, Converter oder Änderung fachlicher Zeitguards
+    - baut und importiert Wheel `0.0.1`, bestätigt 68/69/42 und Head `20260826_0042` sowie entfernte Buildzwischenprodukte
+    - bestätigt saubere Diffprüfung und fügt keine Migration, Portsignatur, Route, Entry-Point-, Release- oder Productionwirkung hinzu
+    - für den Python-3.12-SQLite-Datetime-Wartungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-553 SQLite engine URL and pool contract:
+  `docs/lq-553-sqlite-engine-url-and-pool-contract.md`
+  - Status:
+    - definiert `sqlite://` und `sqlite:///:memory:` als gemeinsam prozesslokale Datenbank pro Engine, begrenzt auf deren Lebensdauer und ohne Persistenzzusage über Disposal oder mehrere Engines
+    - bewahrt dateibasiertes SQLite und PostgreSQL als getrennte Pool- und Persistenzfälle; nächster Slice LQ-554 setzt die Auswahl dialectbewusst um
+
+- LQ-554 dialect-aware database engine configuration:
+  `docs/lq-554-dialect-aware-database-engine-configuration.md`
+  - Status:
+    - verwendet für beide In-Memory-SQLite-URLs einen threadübergreifend nutzbaren StaticPool und bewahrt für dateibasiertes SQLite den begrenzten Queue-Pool
+    - erhält PostgreSQL-Poolgrenzen und Verbindungsaufbau-Timeout ohne SQLite-spezifische Optionen; nächster Slice LQ-555 prüft die Trennung regressiv
+
+- LQ-555 shared in-memory SQLite engine regression:
+  `docs/lq-555-shared-in-memory-sqlite-engine-regression.md`
+  - Status:
+    - bestätigt Engine-lokalen In-Memory-Bestand über Threads, offsetbewussten UTC-ISO-Roundtrip und beide URL-Formen unter strikter DeprecationWarning-Grenze
+    - bestätigt getrennt unveränderte dateibasierte SQLite- und PostgreSQL-Pooloptionen; nächster Slice LQ-556 führt den vollständigen Abschlussaudit aus
+
+- LQ-556 dialect-aware engine completion audit:
+  `docs/lq-556-dialect-aware-engine-completion-audit.md`
+  - Status:
+    - schließt LQ-553 bis LQ-556 mit 5041 normalen Tests und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Fehlergrenze ab
+    - baut und importiert Wheel `0.0.1`, bestätigt den `sqlite://`-Smoke-Test direkt aus dem Paket sowie Inventar 68/69/42 und Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keine Migration, Portsignatur, Route, CLI, Entry-Point- oder Productionwirkung
+    - für den In-Memory-SQLite-Enginewartungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-557 SQLite foreign-key enforcement contract:
+  `docs/lq-557-sqlite-foreign-key-enforcement-contract.md`
+  - Status:
+    - verpflichtet jede durch die zentrale Factory geöffnete SQLite-Verbindung zur Durchsetzung deklarierter Fremdschlüssel, einschließlich In-Memory-, Datei- und Reconnectfällen
+    - grenzt PostgreSQL, Migrationen und vorhandene Constraintsemantik ausdrücklich aus; nächster Slice LQ-558 aktiviert das Pragma zentral
+
+- LQ-558 central SQLite foreign-key activation:
+  `docs/lq-558-central-sqlite-foreign-key-activation.md`
+  - Status:
+    - registriert ausschließlich für SQLite einen verbindungslosen Connect-Listener, der pro neuer DBAPI-Verbindung `PRAGMA foreign_keys=ON` ausführt und seinen Cursor fehlerfest schließt
+    - bewahrt Adapter-, Pool- und PostgreSQL-Konfiguration aus LQ-550 bis LQ-556; nächster Slice LQ-559 prüft Enforcement und Reconnect regressiv
+
+- LQ-559 SQLite foreign-key regression evidence:
+  `docs/lq-559-sqlite-foreign-key-regression-evidence.md`
+  - Status:
+    - bestätigt tatsächliche Constraintabweisung für beide In-Memory-URLs und erneute Aktivierung auf einer dateibasierten Ersatzverbindung nach Disposal
+    - belegt fehlenden SQLite-Listener im PostgreSQL-Zweig und Cursorabschluss im Fehlerpfad; nächster Slice LQ-560 führt den vollständigen Abschlussaudit aus
+
+- LQ-560 SQLite foreign-key enforcement completion audit:
+  `docs/lq-560-sqlite-foreign-key-enforcement-completion-audit.md`
+  - Status:
+    - schließt LQ-557 bis LQ-560 mit 5051 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut und importiert Wheel `0.0.1`, bestätigt tatsächliche Fremdschlüsselabweisung direkt aus dem Paket sowie Inventar 68/69/42 und Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keine Migration, Constraintdefinition, Portsignatur, Route, CLI, Entry-Point- oder Productionwirkung
+    - für den SQLite-Fremdschlüssel-Wartungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-561 supported database backend contract:
+  `docs/lq-561-supported-database-backend-contract.md`
+  - Status:
+    - begrenzt die zentrale Enginefactory ausdrücklich auf strukturierte SQLite- und PostgreSQL-Backendnamen und lehnt andere Dialekte vor Engine-, Treiber- oder Verbindungsarbeit detailfrei ab
+    - trennt ungültige URLs von nicht unterstützten Backends ohne neuen Exceptiontyp; nächster Slice LQ-562 implementiert die fail-closed Grenze
+
+- LQ-562 fail-closed database backend boundary:
+  `docs/lq-562-fail-closed-database-backend-boundary.md`
+  - Status:
+    - bildet Parser- und Typfehler ohne Cause, Context oder Eingabedetail auf `invalid_database_url` sowie andere Backendnamen auf `unsupported_database_backend` ab
+    - bewahrt bestehende SQLite-/PostgreSQL-Adapter-, Pool-, Listener- und Timeoutverträge; nächster Slice LQ-563 prüft die Grenze regressiv
+
+- LQ-563 database backend boundary regression:
+  `docs/lq-563-database-backend-boundary-regression.md`
+  - Status:
+    - bestätigt für MySQL, Oracle und Microsoft SQL Server Ablehnung ohne Engineaufruf oder Passwortdetail sowie getrennte ungültige Eingaben
+    - bestätigt unverändertes Erreichen der Factory für SQLite, Pysqlite und PostgreSQL/Psycopg; nächster Slice LQ-564 führt den vollständigen Abschlussaudit aus
+
+- LQ-564 database backend boundary completion audit:
+  `docs/lq-564-database-backend-boundary-completion-audit.md`
+  - Status:
+    - schließt LQ-561 bis LQ-564 mit 5065 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut und importiert Wheel `0.0.1`, bestätigt SQLite sowie detailfreie MySQL-Ablehnung direkt aus dem Paket und Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keinen Exceptiontyp, Dialekt, Treiber, Fallback, keine Migration oder Productionwirkung
+    - für den Datenbank-Backend-Härtungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-565 supported database driver contract:
+  `docs/lq-565-supported-database-driver-contract.md`
+  - Status:
+    - begrenzt die synchrone Enginefactory exakt auf `sqlite`, `sqlite+pysqlite` und `postgresql+psycopg`, ohne Fallback oder automatischen Treiberwechsel
+    - bewahrt URL- und Backendablehnung als vorgelagerte Gründe; nächster Slice LQ-566 implementiert die detailfreie Treibergrenze
+
+- LQ-566 fail-closed database driver boundary:
+  `docs/lq-566-fail-closed-database-driver-boundary.md`
+  - Status:
+    - lehnt andere Treibernamen innerhalb erlaubter Backends vor SQLite-Adaptern, Engineaufbau, Treiberimport und Verbindung mit `unsupported_database_driver` ab
+    - bewahrt bestehende SQLite-/Pysqlite- und PostgreSQL-/Psycopg-Zweige vollständig; nächster Slice LQ-567 prüft Async-, Legacy- und erlaubte Treiber regressiv
+
+- LQ-567 database driver boundary regression:
+  `docs/lq-567-database-driver-boundary-regression.md`
+  - Status:
+    - bestätigt detailfreie Ablehnung für Aiosqlite, APSW, Asyncpg, Psycopg2 und bares PostgreSQL ohne Engine- oder Adapterwirkung
+    - bestätigt exakt erlaubte synchrone Pfade und Vorrang der Backendablehnung; nächster Slice LQ-568 führt den vollständigen Abschlussaudit aus
+
+- LQ-568 database driver boundary completion audit:
+  `docs/lq-568-database-driver-boundary-completion-audit.md`
+  - Status:
+    - schließt LQ-565 bis LQ-568 mit 5079 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut und importiert Wheel `0.0.1`, bestätigt Pysqlite sowie detailfreie Asyncpg-Ablehnung direkt aus dem Paket und Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keinen Treiber, Async-Pfad, Fallback, Exceptiontyp, keine Migration oder Productionwirkung
+    - für den Datenbanktreiber-Härtungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-569 redundant SQLite foreign-key test listener inventory:
+  `docs/lq-569-redundant-sqlite-foreign-key-test-listener-inventory.md`
+  - Status:
+    - inventarisiert exakt 16 testlokale Fremdschlüssel-Listener in Manifest-Handoff-, Release-Registry-, Signing- und Publication-Modulen, die seit LQ-558 die zentrale Wirkung überdecken
+    - begrenzt die Bereinigung auf Listenerblöcke und unbenutzte Eventimports ohne Fixture-, Assertion-, Migrations- oder Produktionsänderung; nächster Slice LQ-570 führt sie mechanisch aus
+
+- LQ-570 central SQLite foreign-key test adoption:
+  `docs/lq-570-central-sqlite-foreign-key-test-adoption.md`
+  - Status:
+    - entfernt ausschließlich die 16 redundanten Listener und Eventimports, sodass alle betroffenen dateibasierten SQLite-Tests die zentrale `build_engine`-Aktivierung verwenden
+    - bewahrt Seeds, Transaktionen, Constraint- und IntegrityError-Assertions sowie die direkten LQ-558-Listenerregressionen; nächster Slice LQ-571 prüft die Adoption vollständig
+
+- LQ-571 central SQLite foreign-key adoption regression:
+  `docs/lq-571-central-sqlite-foreign-key-adoption-regression.md`
+  - Status:
+    - bestätigt statisch vollständige Entfernung lokaler Aktivierungen aus allen 16 Modulen und verhindert ihre unbemerkte Wiedereinführung
+    - bestätigt Manifest-Handoff-, Release-Registry-, Signing- und Publication-Pfade gemeinsam mit 265 Tests unter strikter DeprecationWarning-Grenze; nächster Slice LQ-572 führt den Abschlussaudit aus
+
+- LQ-572 central SQLite foreign-key test adoption completion audit:
+  `docs/lq-572-central-sqlite-foreign-key-test-adoption-completion-audit.md`
+  - Status:
+    - schließt LQ-569 bis LQ-572 mit 5085 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut Wheel `0.0.1`, bestätigt zentrale SQLite-Fremdschlüsselabweisung direkt aus dem Paket sowie Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich 16 redundante Testlistener und unbenutzte Eventimports, bestätigt saubere Diffprüfung und verändert keine Produktionsdatei, Migration oder Productionwirkung
+    - für den zentralen SQLite-Fremdschlüssel-Testadoptionsstrang ist kein weiterer Slice erforderlich
+
+- LQ-573 SQLite connect-option precedence contract:
+  `docs/lq-573-sqlite-connect-option-precedence-contract.md`
+  - Status:
+    - definiert für jede SQLite-Verbindung zentral 5 Sekunden DBAPI-/Busy-Timeout, getrennt vom Pool-Timeout, und bewahrt `check_same_thread=False` für Engine-lokales In-Memory-SQLite
+    - entzieht caller-supplied URL-Querywerten die Policywirkung und hält PostgreSQL getrennt bei 3 Sekunden Connect-Timeout; nächster Slice LQ-574 setzt die Optionen um
+
+- LQ-574 central SQLite connect options:
+  `docs/lq-574-central-sqlite-connect-options.md`
+  - Status:
+    - übergibt dateibasiertem SQLite explizit `timeout=5` und In-Memory-SQLite gemeinsam `timeout=5` sowie `check_same_thread=False`
+    - bewahrt Pool-, Fremdschlüssel-, Backend-, Treiber- und PostgreSQL-Verträge ohne Aufbau-I/O; nächster Slice LQ-575 prüft URL-Priorität und Dialekttrennung
+
+- LQ-575 SQLite connect-option precedence regression:
+  `docs/lq-575-sqlite-connect-option-precedence-regression.md`
+  - Status:
+    - bestätigt trotz gegenteiliger URL-Werte tatsächlich 5000 Millisekunden SQLite-Busy-Timeout sowie threadübergreifenden In-Memory-Zugriff
+    - bestätigt explizite Factoryoptionen 5/False für SQLite und getrennt 3 Sekunden für PostgreSQL mit 32 fokussierten Tests; nächster Slice LQ-576 führt den Abschlussaudit aus
+
+- LQ-576 SQLite connect-option precedence completion audit:
+  `docs/lq-576-sqlite-connect-option-precedence-completion-audit.md`
+  - Status:
+    - schließt LQ-573 bis LQ-576 mit 5095 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut Wheel `0.0.1`, bestätigt zentralen 5000-Millisekunden-SQLite-Busy-Timeout trotz gegenteiliger URL-Werte sowie Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keine dynamische Timeoutpolicy, Retry-, Lock-, Migrations- oder Productionwirkung
+    - für den SQLite-Connect-Option-Härtungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-577 SQLite URL query policy contract:
+  `docs/lq-577-sqlite-url-query-policy-contract.md`
+  - Status:
+    - schließt SQLite-URL-Queryschlüssel auf die zentral überschriebenen Kompatibilitätswerte `timeout` und `check_same_thread`, ohne caller-gesteuerte Datei-, URI-, Cache-, Read-only- oder Lockingsemantik
+    - trennt die SQLite-Policy ausdrücklich von PostgreSQL-Queryoptionen und bewahrt URL-/Backend-/Treiberfehler als vorgelagerte Gründe; nächster Slice LQ-578 setzt die Grenze um
+
+- LQ-578 fail-closed SQLite URL query boundary:
+  `docs/lq-578-fail-closed-sqlite-url-query-boundary.md`
+  - Status:
+    - lehnt jeden anderen SQLite-Queryschlüssel vor Adapter-, Engine-, Treiber- oder Verbindungswirkung mit `unsupported_database_url_option` ab
+    - bewahrt zentrale Connect-Option-Priorität und PostgreSQL-Querywerte; nächster Slice LQ-579 prüft URI-, Mode-, Cache-, Locking- und Reihenfolgepfade regressiv
+
+- LQ-579 SQLite URL query boundary regression:
+  `docs/lq-579-sqlite-url-query-boundary-regression.md`
+  - Status:
+    - bestätigt detailfreie Ablehnung für URI, Memory-/Read-only-Mode, Shared Cache, Immutable, No-lock und unbekannte SQLite-Optionen ohne Engine- oder Adapterwirkung
+    - bestätigt erlaubte wirkungslose Kompatibilitätswerte, Fehlerreihenfolge und unveränderte PostgreSQL-Queries mit 53 fokussierten Tests; nächster Slice LQ-580 führt den Abschlussaudit aus
+
+- LQ-580 SQLite URL query boundary completion audit:
+  `docs/lq-580-sqlite-url-query-boundary-completion-audit.md`
+  - Status:
+    - schließt LQ-577 bis LQ-580 mit 5112 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut Wheel `0.0.1`, bestätigt zentrale Timeoutpriorität und detailfreie URI-/Memory-Mode-Ablehnung direkt aus dem Paket sowie Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keine SQLite-URI-, Read-only-, Shared-Cache-, Immutable-, No-lock-, Migrations- oder Productionwirkung
+    - für den SQLite-URL-Query-Härtungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-581 SQLite URL authority contract:
+  `docs/lq-581-sqlite-url-authority-contract.md`
+  - Status:
+    - schließt SQLite-URLs für Benutzername, Passwort, Host und Port und begrenzt sie auf Authority-freie Datei- sowie Engine-lokale In-Memory-Formen
+    - bewahrt URL-/Backend-/Treiberprüfung vor Authority, Querypolicy danach und PostgreSQL vollständig außerhalb; nächster Slice LQ-582 setzt die Grenze um
+
+- LQ-582 fail-closed SQLite URL authority boundary:
+  `docs/lq-582-fail-closed-sqlite-url-authority-boundary.md`
+  - Status:
+    - lehnt jedes vorhandene strukturierte SQLite-Authorityfeld vor Adapter-, Query-, Engine-, Datei- oder Netzwerkzugriff mit `unsupported_database_url_authority` ab
+    - bewahrt Authority-freie SQLite- und vollständige PostgreSQL/Psycopg-Pfade; nächster Slice LQ-583 prüft Felder, Reihenfolge und Dialekttrennung regressiv
+
+- LQ-583 SQLite URL authority boundary regression:
+  `docs/lq-583-sqlite-url-authority-boundary-regression.md`
+  - Status:
+    - bestätigt detailfreie Ablehnung von Benutzer-, Passwort-, Host- und Portkombinationen ohne Engine- oder Adapterwirkung sowie Vorrang vor Querypolicy
+    - bestätigt beide In-Memory-Formen, dateibasierte SQLite-Pfade und vollständige PostgreSQL-Authority mit 63 fokussierten Tests; nächster Slice LQ-584 führt den Abschlussaudit aus
+
+- LQ-584 SQLite URL authority boundary completion audit:
+  `docs/lq-584-sqlite-url-authority-boundary-completion-audit.md`
+  - Status:
+    - schließt LQ-581 bis LQ-584 mit 5127 normalen Tests, einem erwarteten Skip und allen 105 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze ab
+    - baut Wheel `0.0.1`, bestätigt Authority-freies SQLite und detailfreie Benutzer-/Passwort-/Host-/Port-Ablehnung direkt aus dem Paket sowie Inventar 68/69/42 bei Head `20260826_0042`
+    - entfernt ausschließlich erzeugte Buildzwischenprodukte, bestätigt saubere Diffprüfung und ergänzt keine SQLite-Netzwerk-, Credential-, Remote-Datei-, Migrations- oder Productionwirkung
+    - für den SQLite-URL-Authority-Härtungsstrang ist kein weiterer Slice erforderlich
+
+- LQ-585 owner-controlled supervisor control-directory retirement operator contract:
+  `docs/lq-585-owner-controlled-supervisor-control-directory-retirement-operator-contract.md`
+  - Status:
+    - schließt die operative LQ-522-Retirementlücke mit einem eigenen One-Shot-Prozess, dessen Request ausschließlich die interne Directory-ID trägt
+    - bindet Wirkung an aktuelle Registry- und genau eine vollständige Terminaljournalansicht aus dem System of Record, ohne Actor-, Rollen-, Allow-, Retention- oder Cleanupbehauptung; nächster Slice LQ-586 implementiert die Grenze
+
+- LQ-586 owner-controlled supervisor control-directory retirement operator:
+  `docs/lq-586-owner-controlled-supervisor-control-directory-retirement-operator.md`
+  - Status:
+    - implementiert den festen privaten Entry Point mit Readiness, gemeinsamer Engine, bestehender LQ-490-Grenze, atomarem Ergebnishandoff und garantiertem Disposal
+    - bestätigt auf SQLite terminales Retirement, stabilen Retry sowie wirkungsfreie Unknown-/Reserved-/Nonterminalablehnung und synchronisiert Inventar auf 69/70/42 bei Head `20260826_0042`
+    - nächster Slice LQ-587 belegt denselben Übergang und die Retry-/Ablehnungsgrenzen auf echtem PostgreSQL
+
+- LQ-587 PostgreSQL supervisor control-directory retirement evidence:
+  `docs/lq-587-postgresql-supervisor-control-directory-retirement-evidence.md`
+  - Status:
+    - belegt auf echtem PostgreSQL den aktuellen terminalen Active-zu-Retired-Übergang über Produktionsadapter und identischen Retry mit unveränderter Retirementzeit
+    - bestätigt wirkungsfreie Nonterminal- und Unknown-Ablehnung ohne SQLite-Fallback, manuelle Retirement-SQL-Wirkung oder nachgelagerte Retention-/Cleanupaktion
+    - nächster Slice LQ-588 führt vollständige Regression, PostgreSQL-, Wheel-, Inventar- und Diffaudit aus
+
+- LQ-588 supervisor control-directory retirement operator completion audit:
+  `docs/lq-588-supervisor-control-directory-retirement-operator-completion-audit.md`
+  - Status:
+    - schließt LQ-585 bis LQ-588 und beseitigt den operativen LQ-522-Retirementblocker mit privatem owner-kontrolliertem One-Shot-Prozess ohne automatische Folgeaktion
+    - schließt den Nachweis mit 5137 normalen Tests, einem erwarteten Skip und allen 107 PostgreSQL-Tests unter strikter DeprecationWarning-Grenze einschließlich terminalem Retirement, stabilem Retry und wirkungsfreier Ablehnung
+    - baut Wheel `0.0.1`, importiert den neuen Entry Point direkt, synchronisiert Inventar auf 69/70/42 bei Head `20260826_0042`, entfernt Buildzwischenprodukte und bestätigt saubere Diffprüfung
+    - ergänzt keine Migration, Domain-, Port-, Route-, Appfactory-, Lifespan-, Worker-, Scheduler- oder Deploymentwirkung; für den Retirement-Operatorstrang ist kein weiterer Slice erforderlich
+
+- LQ-589 supervisor production wiring blocker re-audit:
+  `docs/lq-589-supervisor-production-wiring-blocker-reaudit.md`
+  - Status:
+    - bestätigt den ursprünglichen Control-Directory-Lifecycleblocker durch LQ-484 bis LQ-588 als geschlossen und hält Production-Wiring weiterhin fail-closed
+    - weist als verbleibende process-ownable Blocker den konkreten lokalen Engineclient und feste Writer-/Recovery-Capabilityprimitiven aus; Settings-only- oder Teilaktivierung bleibt verboten
+    - nächster Slice LQ-590 definiert zuerst die geschlossene lokale Docker-HTTP-Client- und Ownershipgrenze
+
+- LQ-590 closed local Docker engine HTTP client contract:
+  `docs/lq-590-closed-local-docker-engine-http-client-contract.md`
+  - Status:
+    - bindet den minimalen Client konstruktiv an genau einen absoluten lokalen Unix-Socket, eine feste API-Version, feste Profile sowie begrenzte Zeit-, Status-, Antwort- und Ressourcenownershipregeln
+    - schließt Remotezugriff, Environment-/Contextauflösung, freie HTTP-Operationen, Pull, Remove, Exec, caller-supplied Mounts und Authoritywerte aus
+    - ergänzt noch keine Dependency, Implementation, Settings-, Appfactory-, Compose-, Socketmount-, Migrations- oder Productionwirkung; nächster Slice LQ-591 implementiert die Grenze
+
+- LQ-591 local Docker engine HTTP client:
+  `docs/lq-591-local-docker-engine-http-client.md`
+  - Status:
+    - implementiert den wirkungslos aufbauenden lokalen Unix-Socket-Client mit fester Docker-API `v1.45`, sieben geschlossenen Operationen, begrenzten Antworten und idempotentem Transportbesitz
+    - materialisiert feste Writer-/Recovery-Entrypoints, Containeruser, aktiven privaten Control-Mount und das vollständige LQ-462-Sicherheitsprofil ohne caller-gesteuerte Infrastrukturwerte
+    - nächster Slice LQ-592 belegt Übersetzung, Fail-closed-Grenzen und Ownership über einen injizierten Transport
+
+- LQ-592 local Docker engine HTTP client evidence:
+  `docs/lq-592-local-docker-engine-http-client-evidence.md`
+  - Status:
+    - belegt wirkungslosen Aufbau, kanonisches Find, geschlossenes Create, neutrales autoritatives Not-Found sowie feste Start-/Wait-/Stop-/Killpfade
+    - bestätigt Sperre unsicherer Overrides vor I/O, detailfreie Transport-/Decodefehler und genau einmaliges Close ohne reale Daemon- oder Deploymentevidence zu behaupten
+    - nächster Slice LQ-593 integriert denselben Client direkt mit dem bestehenden LQ-462-Engineadapter
+
+- LQ-593 local Docker client supervisor engine integration:
+  `docs/lq-593-local-docker-client-supervisor-engine-integration.md`
+  - Status:
+    - belegt Find-vor-Create, vollständige Reinspection und erneute Digest-, Profil-, Label- und Sicherheitsprüfung durch den bestehenden Adapter
+    - bewahrt terminale `exited`-/`dead`-Übersetzung ohne Capability-, Authority-, Servicefactory- oder Socketmountwirkung
+    - nächster Slice LQ-594 führt Client-, Adapter-, Architektur- und Diffabschlussaudit aus
+
+- LQ-594 local Docker engine client completion audit:
+  `docs/lq-594-local-docker-engine-client-completion-audit.md`
+  - Status:
+    - schließt LQ-590 bis LQ-594 als isolierte processfähige Engineclient-Komponente ohne Migration oder Productionaktivierung ab
+    - bestätigt 57 fokussierte sowie 5155 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält Settings, Appfactory, Lifespan und Compose geschlossen; konkrete Writer-/Recovery-Capabilityprimitiven bleiben der letzte process-ownable LQ-483-Blocker
+    - nächster Strang LQ-595 definiert diese festen Capabilityprimitiven unterhalb des bestehenden LQ-468-Executors
+
+- LQ-595 supervisor capability double-effect blocker audit:
+  `docs/lq-595-supervisor-capability-double-effect-blocker-audit.md`
+  - Status:
+    - weist nach, dass der heutige Parent Ready und Consumed selbst publiziert, den Container bereits startet und danach über LQ-468 eine zweite Capabilityprimitive aufrufen würde
+    - lehnt eine direkte Implementation der alten LQ-446-Ports für den Docker-Productiongraph wegen fehlendem direktem Kindprozesshandshake, Gatekonsum und physischer Einmaligkeit ab
+    - nächster Slice LQ-596 definiert stattdessen den kindprozess-eigenen festen Capability-Wrapper
+
+- LQ-596 child-owned supervisor capability wrapper contract:
+  `docs/lq-596-child-owned-supervisor-capability-wrapper-contract.md`
+  - Status:
+    - bindet Writer und read-only Recovery an getrennte digestgebundene Wrapperprofile ohne freie Commands, Args, Environment- oder Authoritywerte
+    - macht ausschließlich den Kindprozess zum Publisher von Ready, Consumed und Terminal-Envelope und sperrt Capabilitycode bis zum einmaligen gebundenen Releasekonsum
+    - nächster Slice LQ-597 definiert die dazu observation-only arbeitende Parent-Servicegrenze
+
+- LQ-597 observation-only supervisor parent service contract:
+  `docs/lq-597-observation-only-supervisor-parent-service-contract.md`
+  - Status:
+    - begrenzt den Parent auf Journalentscheidungen, Release-Token-Publikation sowie direkte Korrelation von Wrapper-, Engine-, Runtime- und Persistenzfakten
+    - verbietet Parent-Ready, Parent-Consumed und einen zweiten LQ-468-Capabilityaufruf im Docker-Productiongraph; LQ-468 bleibt isolierter Kompatibilitätsadapter
+    - nächster Slice LQ-598 schließt die Blockerentscheidung und sichere Implementierungsreihenfolge ab
+
+- LQ-598 supervisor capability ownership blocker decision:
+  `docs/lq-598-supervisor-capability-ownership-blocker-decision.md`
+  - Status:
+    - schließt LQ-595 bis LQ-598 mit dem Zielbild Kind publiziert Ready/Consumed/Terminal und Parent commitet, released und korreliert ohne zweite Capabilitywirkung
+    - bestätigt 76 fokussierte sowie 5163 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält Dockerclient, Engine- und Persistenzadapter nutzbar, aber Settings, Appfactory, Lifespan, Compose, Socketmount und Deployment weiterhin geschlossen
+    - nächster Strang LQ-599 definiert das kanonische wrappergebundene Jobdokument mit vollständiger Handle-, Profil-, Runtime-, Gate-, Claim-, Owner- und Scopebindung
+
+- LQ-599 wrapper-bound supervisor job document contract:
+  `docs/lq-599-wrapper-bound-supervisor-job-document-contract.md`
+  - Status:
+    - definiert ein unveränderliches kanonisches Jobdokument mit vollständiger Document-, Handle-, Directory-, Profil-, Runtime-, Image-, Gate-, Claim-, Owner-, Scope- und Manifestbindung
+    - trennt Writer- und Recoverytypen, schließt Authority- und freie Infrastrukturwerte aus und verlangt privaten No-replace-Handoff
+    - nächster Slice LQ-600 implementiert geschlossene Typen und Version-1-Codec
+
+- LQ-600 supervisor job document types and codec:
+  `docs/lq-600-supervisor-job-document-types-and-codec.md`
+  - Status:
+    - implementiert profilgebundene Domainwerte sowie exakten kanonischen JSON-Codec mit Duplicate-Key-, Schlüssel-, Version-, Domain- und Byte-Roundtripprüfung
+    - bindet Inhalt an SHA-256 und Byteanzahl, ohne die vier bestehenden Control-Artefaktrollen, Ports, Persistenz oder Migrationen zu verändern
+    - nächster Slice LQ-601 implementiert die atomare private No-replace-Übergabe
+
+- LQ-601 atomic private supervisor job document handoff:
+  `docs/lq-601-atomic-private-supervisor-job-document-handoff.md`
+  - Status:
+    - publiziert ausschließlich `job-binding.json` über private exklusive Pending-Datei, fsync und No-replace-Link im aktuell aufgelösten Control-Directory
+    - liefert bei identischem Retry stabil denselben Nachweis, bei Divergenz feldlosen Konflikt und bei belegter Abwesenheit neutral `None`; unsicherer Bestand bleibt technisch unverfügbar
+    - nächster Slice LQ-602 führt den Abschlussaudit gegen bestehende Gate-, Control- und Architekturgrenzen aus
+
+- LQ-602 supervisor job document completion audit:
+  `docs/lq-602-supervisor-job-document-completion-audit.md`
+  - Status:
+    - schließt LQ-599 bis LQ-602 als additive wrappergebundene Jobdokumentgrundlage ohne Änderung bestehender Domain-, Port-, Persistenz- oder Servicesignaturen ab
+    - bestätigt 59 fokussierte sowie 5176 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält Preparepublikation, Kindprozessloader, Ready-/Consumed-Ownership, Settings, Appfactory, Compose, Socketmount und Deployment weiterhin geschlossen
+    - nächster Strang LQ-603 implementiert den read-only Wrapper-Jobdokumentloader mit vollständiger Selbstbindung vor Ready
+
+- LQ-603 wrapper job document loader implementation blocker audit:
+  `docs/lq-603-wrapper-job-document-loader-implementation-blocker-audit.md`
+  - Status:
+    - weist die fehlende gemeinsame Lesbarkeitsentscheidung zwischen host-owner `0600` und Containeruser `65532:65532` sowie den zirkulären Runtime-ID-/Pre-create-Digestanchor nach
+    - bestätigt zusätzlich, dass der heutige gesamte read-write Control-Mount und Parent-Start vor Jobdokumentpublikation keine unveränderliche Vor-Ready-Selbstbindung erlauben
+    - nächster Slice LQ-604 definiert ein ausschließlich vor Create bestimmbares digestgebundenes Launchdokument
+
+- LQ-604 pre-create digest-bound wrapper launch document contract:
+  `docs/lq-604-precreate-digest-bound-wrapper-launch-document-contract.md`
+  - Status:
+    - trennt die erst nach Create bekannte Runtime-ID vom vor Create vollständigen Launchdokument mit Creation-, Handle-, Directory-, Profil-, Image-, Gate-, Claim-, Owner- und Scopebindung
+    - verlangt Document-ID und SHA-256 als exakte zusätzliche Create-Labels ohne Pfad-, Secret-, Authority- oder Inhaltsduplikation
+    - nächster Slice LQ-605 definiert die private lesbare, aber containerseitig unveränderliche Datei- und Mountgrenze
+
+- LQ-605 read-only wrapper launch document mount contract:
+  `docs/lq-605-read-only-wrapper-launch-document-mount-contract.md`
+  - Status:
+    - trennt eine einzelne read-only Launchdatei vom begrenzten read-write Mount für dynamische Ready-/Release-/Consumed-/Terminalartefakte
+    - bindet numerische Owner-/Reader-UID/GID, symlinkfreie Hostfakten und unabhängige Digestprüfung konstruktiv ohne chmod-, chown- oder Lesbarkeitsfallback
+    - nächster Slice LQ-606 schließt den Loaderblockerentscheid und die sichere Implementierungsreihenfolge ab
+
+- LQ-606 wrapper launch binding blocker decision:
+  `docs/lq-606-wrapper-launch-binding-blocker-decision.md`
+  - Status:
+    - schließt LQ-603 bis LQ-606 ohne unsichere Loaderimplementation und legt Pre-create-Launchdokument, Digestlabels, getrennte Runtimekorrelation sowie read-only/read-write Mounttrennung als Ziel fest
+    - bestätigt 46 fokussierte sowie 5184 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - bewahrt Codec, atomaren Adapter und geschlossenen Dockerclient als Grundlagen, hält aber Runtime, Settings, Appfactory, Compose, Socketmount und Deployment unverändert geschlossen
+    - nächster Strang LQ-607 implementiert zuerst den getrennten vor Create bestimmbaren Launchdocumenttyp und Codec
+
+- LQ-607 pre-create wrapper launch document contract:
+  `docs/lq-607-precreate-wrapper-launch-document-contract.md`
+  - Status:
+    - bindet alle vor Create verfügbaren Document-, Creation-, Handle-, Directory-, Profil-, Image-, Gate-, Claim-, Owner-, Scope- und Manifestwerte ohne Runtime-Container-ID
+    - hält Writer und Recovery typseitig getrennt und schließt Authority-, Credential-, Label-, Mount- und Runtimewirkung aus
+    - nächster Slice LQ-608 implementiert geschlossene Typen und kanonischen Codec
+
+- LQ-608 supervisor launch document types and codec:
+  `docs/lq-608-supervisor-launch-document-types-and-codec.md`
+  - Status:
+    - implementiert ein eigenständiges Version-1-Schema mit exakt 19 Feldern, profilgebundenem Domainmodell und strengem kanonischem JSON-Roundtrip
+    - bindet begrenzte Bytes an SHA-256 und Byteanzahl, ohne bestehende Jobdokument-, Engine-, Gate-, Runtime-, Port- oder Persistenzsignaturen zu verändern
+    - nächster Slice LQ-609 belegt Profil-, Manipulations- und Digestgrenzen
+
+- LQ-609 supervisor launch document integrity evidence:
+  `docs/lq-609-supervisor-launch-document-integrity-evidence.md`
+  - Status:
+    - belegt vollständigen Writer-/Recovery-Roundtrip, Cross-Profile-Sperre und nachweislich fehlende Runtime-Container-ID
+    - bestätigt Ablehnung unbekannter, nichtkanonischer, doppelter, relativer oder übergroßer Inhalte und eigenständige Digeständerung aller Anchor-Dimensionen
+    - nächster Slice LQ-610 führt Typ-, Codec-, Architektur- und Regressionsabschlussaudit aus
+
+- LQ-610 supervisor launch document completion audit:
+  `docs/lq-610-supervisor-launch-document-completion-audit.md`
+  - Status:
+    - schließt LQ-607 bis LQ-610 als isolierte Pre-create-Launchdokumentgrundlage ohne Migration oder bestehende Signaturänderung ab
+    - bestätigt 45 fokussierte sowie 5196 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält Launchfile, UID/GID, Create-Labels, Mounts, Loader, Settings, Appfactory, Compose und Deployment weiterhin geschlossen
+    - nächster Strang LQ-611 implementiert die atomare private Pre-create-Launchfile-Publikation getrennt vom dynamischen Control-Artefaktbestand
+
+- LQ-611 atomic private pre-create launch file contract:
+  `docs/lq-611-atomic-private-precreate-launch-file-contract.md`
+  - Status:
+    - definiert den festen privaten `launch-binding.json`-Handoff mit exklusiver Pending-Datei, vollständigem fsync und atomarem No-replace-Link
+    - verlangt identischen retry-stabilen Bestand, wirkungsfreien Konflikt sowie ownerkontrollierte `0700`-/`0600`-/Single-Link-/Größenfakten ohne Cleanupfähigkeit
+    - nächster Slice LQ-612 implementiert die atomare lokale Grenze
+
+- LQ-612 atomic private supervisor launch file:
+  `docs/lq-612-atomic-private-supervisor-launch-file.md`
+  - Status:
+    - implementiert Publish und Read über symlinkfreie Deskriptoren, festen Namen, kanonischen Codec, vollständigen Write und garantierten Descriptor-/Pending-Cleanup
+    - hält host-owner `0600`, Containerlesbarkeit, UID/GID, Labels, Mounts und Prepare-Reihenfolge bewusst getrennt
+    - nächster Slice LQ-613 belegt Retry-, Konflikt-, Race- und Dateisicherheitsgrenzen
+
+- LQ-613 supervisor launch file safety evidence:
+  `docs/lq-613-supervisor-launch-file-safety-evidence.md`
+  - Status:
+    - belegt reale lokale atomare Publikation, kanonisches Read, fehlende Pendingreste und inode-/mtime-stabilen identischen Retry
+    - bestätigt wirkungsfreien divergenten Konflikt, neutrale Abwesenheit sowie Modus-, Symlink-, Hardlink- und unbekannte Directorysperren
+    - nächster Slice LQ-614 führt Codec-, Architektur- und Regressionsabschlussaudit aus
+
+- LQ-614 supervisor launch file completion audit:
+  `docs/lq-614-supervisor-launch-file-completion-audit.md`
+  - Status:
+    - schließt LQ-611 bis LQ-614 als isolierte atomare Pre-create-Launchfilegrenze ohne bestehende Signatur- oder Migrationsänderung ab
+    - bestätigt 48 fokussierte sowie 5205 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält UID/GID, Dockerlabels, read-only Mount, Loader, Prepare, Settings, Appfactory, Compose und Deployment weiterhin geschlossen
+    - nächster Strang LQ-615 implementiert die geschlossene numerische Owner-/Reader-Identity-Policy für Launchfile und Wrappercontainer
+
+- LQ-615 supervisor launch owner/reader identity contract:
+  `docs/lq-615-supervisor-launch-owner-reader-identity-contract.md`
+  - Status:
+    - bindet positive nicht-root Host-Owner-UID, Reader-GID sowie getrennte Wrapper-UID/GID ohne Namens-, NSS-, Environment- oder Requestauflösung
+    - verlangt Readergruppe `0640` bereits auf der Pending-Datei vor atomarer Sichtbarkeit und bewahrt den owner-privaten `0600`-Kompatibilitätspfad
+    - nächster Slice LQ-616 implementiert den geschlossenen Policytyp
+
+- LQ-616 closed supervisor launch identity policy:
+  `docs/lq-616-closed-supervisor-launch-identity-policy.md`
+  - Status:
+    - implementiert repr-freie numerische Werte mit Root-, Boolean-, Bereichs-, Ownergleichheits- und Gruppendivergenzsperre
+    - materialisiert ausschließlich die validierte `wrapper_uid:wrapper_gid`-Dockerform ohne I/O oder Namensauflösung
+    - nächster Slice LQ-617 integriert dieselbe Policy atomar in Launchfile und Dockerclient
+
+- LQ-617 reader-bound launch file and wrapper user:
+  `docs/lq-617-reader-bound-launch-file-and-wrapper-user.md`
+  - Status:
+    - setzt Owner/Readergruppe und `0640` per `fchown`/`fchmod` vor Write/fsync/No-replace-Publikation und prüft dieselben Fakten beim Read
+    - bindet den Docker-Create-User exakt an dieselbe Policy, sperrt Mischkonfiguration vor I/O und bewahrt explizite `0600`-/Userstring-Kompatibilität
+    - nächster Slice LQ-618 führt Abschlussaudit und vollständige Regression aus
+
+- LQ-618 supervisor launch identity completion audit:
+  `docs/lq-618-supervisor-launch-identity-completion-audit.md`
+  - Status:
+    - schließt LQ-615 bis LQ-618 als gemeinsame numerische Host-/Reader-/Wrapper-Identity-Grundlage ohne Migration oder Productionaktivierung ab
+    - bestätigt 51 fokussierte sowie 5218 normale Tests mit einem erwarteten Skip unter strikter DeprecationWarning-Grenze; 107 PostgreSQL-Tests bleiben mangels Persistenzänderung bewusst abgewählt
+    - hält Digestlabels, getrennte Mounts, Loader, Prepare, Settings, Appfactory, Compose und Deployment weiterhin geschlossen
+    - nächster Strang LQ-619 erweitert die Engine-Create-Bindung versioniert um Launchdocument-ID und SHA-256
+
+- LQ-619 engine launch document anchor contract:
+  `docs/lq-619-engine-launch-document-anchor-contract.md`
+  - bindet Create, Acknowledgement und Observation an opaque Launchdocument-ID plus kanonischen SHA-256; Divergenz bleibt nicht-erzeugender Konflikt
+  - nächster Slice LQ-620 implementiert die geschlossene Engine- und Dockerbindung
+
+- LQ-620 engine launch document anchor binding:
+  `docs/lq-620-engine-launch-document-anchor-binding.md`
+  - führt die Bindung durch Prepare und exakt sechs adaptereigene Dockerlabels, ohne Mount-, Loader- oder Wiringentscheidung
+  - nächster Slice LQ-621 belegt Adoption und Divergenzsperre ausführbar
+
+- LQ-621 engine launch anchor reconciliation evidence:
+  `docs/lq-621-engine-launch-anchor-reconciliation-evidence.md`
+  - belegt exakte Retry-Adoption sowie wirkungsfreien Konflikt bei abweichender Dokument-ID oder Digest und validiert die SHA-256-Grenze
+  - nächster Slice LQ-622 führt Abschluss- und Regressionsaudit aus
+
+- LQ-622 engine launch anchor completion audit:
+  `docs/lq-622-engine-launch-anchor-completion-audit.md`
+  - schließt LQ-619 bis LQ-622 als isolierten Engine-Launchanker ohne Schema-, Migration-, Mount-, Loader- oder Productionänderung ab
+  - bestätigt 83 fokussierte sowie 5225 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang kann den publizierten Launchfile read-only in Wrapper und Loader binden
+
+- LQ-623 separated wrapper launch mount contract:
+  `docs/lq-623-separated-wrapper-launch-mount-contract.md`
+  - trennt dynamische Artefakte und unveränderliches Launchfile ohne zweiten read-write Alias und schließt Mountwerte für Request und Environment
+  - nächster Slice LQ-624 implementiert das exakte Zwei-Bind-Profil
+
+- LQ-624 separated wrapper launch mount binding:
+  `docs/lq-624-separated-wrapper-launch-mount-binding.md`
+  - bindet nur `control-artifacts` read-write und das einzelne Launchfile read-only; Create und Inspect prüfen dieselbe vollständige Mountmenge
+  - nächster Slice LQ-625 implementiert den extern verankerten Loader
+
+- LQ-625 anchored wrapper launch loader:
+  `docs/lq-625-anchored-wrapper-launch-loader.md`
+  - prüft Dateifakten, Bytegrenze, externen SHA-256, kanonischen Codec sowie ID-, Creation-, Handle-, Directory-, Image- und Profilbindung vor jeder Wirkung
+  - nächster Slice LQ-626 führt Abschluss- und Regressionsaudit aus
+
+- LQ-626 wrapper launch mount and loader completion audit:
+  `docs/lq-626-wrapper-launch-mount-loader-completion-audit.md`
+  - schließt den read-only Mount-/Loaderstrang ohne Ready-, Capability-, Schema-, Migration- oder Productionaktivierung ab
+  - bestätigt 82 fokussierte sowie 5231 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang kann den kindprozessbesessenen Load-Ready-Release-Execute-Ablauf definieren
+
+- LQ-627 child-owned supervisor sequence contract:
+  `docs/lq-627-child-owned-supervisor-sequence-contract.md`
+  - schließt Load, Ready, bounded Release-Wait, Consumed, Execute und Terminal als einzige zulässige Kindprozessreihenfolge
+  - nächster Slice LQ-628 implementiert den isolierten One-shot-Orchestrator
+
+- LQ-628 one-shot supervisor child process:
+  `docs/lq-628-one-shot-supervisor-child-process.md`
+  - implementiert getrennte Writer-/Recovery-Einstiege über bestehende Gate- und Capabilitytypen ohne neue Authority oder Parentpersistenz
+  - nächster Slice LQ-629 belegt Reihenfolge und wirkungsfreien Timeout
+
+- LQ-629 supervisor child sequence evidence:
+  `docs/lq-629-supervisor-child-sequence-evidence.md`
+  - belegt für beide Profile exakt Load → Ready → Release → Consumed → Execute → Terminal sowie Abbruch vor Wirkung bei Timeout oder Profildivergenz
+  - nächster Slice LQ-630 führt Abschluss- und Regressionsaudit aus
+
+- LQ-630 supervisor child process completion audit:
+  `docs/lq-630-supervisor-child-process-completion-audit.md`
+  - schließt den isolierten Kindprozessstrang ohne Entrypoint-, Settings-, Compose-, Persistence- oder Productionaktivierung ab
+  - bestätigt 43 fokussierte sowie 5235 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang muss einen einzigen Execution Owner wählen und Crash-/Restart-Reconciliation vor dem Cutover belegen
+
+- LQ-631 single supervisor execution owner contract:
+  `docs/lq-631-single-supervisor-execution-owner-contract.md`
+  - bestimmt den gebundenen Kindprozess als einzigen künftigen Capability-Owner und beschränkt den Parent auf Entscheidung, Token und Beobachtung
+  - nächster Slice LQ-632 implementiert eine strikt read-only Crashfensterklassifikation
+
+- LQ-632 read-only supervisor execution reconciliation:
+  `docs/lq-632-read-only-supervisor-execution-reconciliation.md`
+  - klassifiziert Journal-, Runtime-, Gate-, Engine- und direkte Artefaktfakten, wobei Start-, Release- und Execute-Rechte stets false bleiben
+  - nächster Slice LQ-633 belegt die geschlossene Crashfenstermatrix
+
+- LQ-633 supervisor execution crash-window evidence:
+  `docs/lq-633-supervisor-execution-crash-window-evidence.md`
+  - belegt Warten vor Konsum, In-flight nach Konsum, gesperrte Ambiguität ohne Terminal sowie Terminalbereitschaft erst nach direktem Engineende
+  - nächster Slice LQ-634 führt Ownership- und Reconciliation-Audit aus
+
+- LQ-634 supervisor execution owner and reconciliation audit:
+  `docs/lq-634-supervisor-execution-owner-reconciliation-audit.md`
+  - schließt den read-only Ownershipstrang ohne Parentcutover, Persistence-, Entrypoint- oder Productionaktivierung ab
+  - bestätigt 39 fokussierte sowie 5243 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang muss Prepare und Release observation-only auf direkte Wrapperartefakte umstellen und Unknown-Outcome persistent belegen
+
+- LQ-635 direct wrapper artifact observation contract:
+  `docs/lq-635-direct-wrapper-artifact-observation-contract.md`
+  - verlangt kanonisches direktes Lesen von Ready und Consumed; Abwesenheit bleibt neutral und erzeugt keinerlei Parentwirkung
+  - nächster Slice LQ-636 implementiert Beobachter und Exact-fact-Persistenzbrücke
+
+- LQ-636 direct wrapper artifact observer and recorder:
+  `docs/lq-636-direct-wrapper-artifact-observer-recorder.md`
+  - implementiert getrennte read-only Beobachtung und Persistenz ausschließlich der tatsächlich gelesenen, vollständig gebundenen Fakten
+  - nächster Slice LQ-637 belegt direkte Beobachtung, Abwesenheit und Divergenzsperre
+
+- LQ-637 direct wrapper artifact observation evidence:
+  `docs/lq-637-direct-wrapper-artifact-observation-evidence.md`
+  - belegt Ready-/Consumed-Codecbindung, null Writes bei Abwesenheit oder Divergenz und fehlende Publish-/Execute-Fähigkeit
+  - nächster Slice LQ-638 führt Abschluss- und Regressionsaudit aus
+
+- LQ-638 wrapper artifact observation completion audit:
+  `docs/lq-638-wrapper-artifact-observation-completion-audit.md`
+  - schließt die direkte Wrapperbeobachtungsbrücke ohne Änderung oder Verdrahtung der Kompatibilitätsservices ab
+  - bestätigt 42 fokussierte sowie 5248 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang kann parallele observation-only Prepare-/Release-Services auf dieser Brücke implementieren
+
+- LQ-639 observation-only parent transition contract:
+  `docs/lq-639-observation-only-parent-transition-contract.md`
+  - definiert Ready-gesteuerten Prepare-Abschluss und Release-token-only Parentwirkung mit direktem Consumed vor Running
+  - nächster Slice LQ-640 implementiert den observation-only Prepare-Abschluss
+
+- LQ-640 observation-only Prepare completion:
+  `docs/lq-640-observation-only-prepare-completion.md`
+  - verlangt vollständige Launch-/Runtimebindung und direktes Ready vor `prepared_gated`, ohne Create-, Start- oder Publish-Fähigkeit
+  - nächster Slice LQ-641 implementiert den observation-only Release-Service
+
+- LQ-641 observation-only Release service:
+  `docs/lq-641-observation-only-release-service.md`
+  - commitet und publiziert nur das Release-Token und verlangt direktes Consumed plus Engine-running vor Journal-running; kein Executor bleibt erreichbar
+  - nächster Slice LQ-642 führt Abschluss- und Regressionsaudit aus
+
+- LQ-642 observation-only parent services completion audit:
+  `docs/lq-642-observation-only-parent-services-completion-audit.md`
+  - schließt die parallelen unverdrahteten Parentservices ohne Änderung des Kompatibilitätspfads oder Productionaktivierung ab
+  - bestätigt 41 fokussierte sowie 5256 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang soll den Registration-/Launch-/Create-/Start-Präfix extrahieren und exklusiv mit dem neuen Pfad komponieren
+
+- LQ-643 parent launch prefix contract:
+  `docs/lq-643-parent-launch-prefix-contract.md`
+  - begrenzt Parentregistrierung, Launchcommit, Create/Bind/Start und direkte Runningbeobachtung strikt vor Ready
+  - nächster Slice LQ-644 implementiert den persistenten Präfix und sein geschlossenes Resultat
+
+- LQ-644 persistent parent launch prefix:
+  `docs/lq-644-persistent-parent-launch-prefix.md`
+  - extrahiert den restart-sicheren Writer-/Recovery-Präfix mit vollständiger Launchankerprüfung und ohne Ready-/Release-/Capabilitywirkung
+  - nächster Slice LQ-645 komponiert ihn ausschließlich mit dem direkten Ready-Abschluss
+
+- LQ-645 observation-only Prepare candidate graph:
+  `docs/lq-645-observation-only-prepare-candidate-graph.md`
+  - komponiert Präfix → direkte Ready-Beobachtung ohne Fallback auf den alten Preparepfad und bleibt vollständig unverdrahtet
+  - nächster Slice LQ-646 führt Abschluss- und Regressionsaudit aus
+
+- LQ-646 parent launch candidate completion audit:
+  `docs/lq-646-parent-launch-candidate-completion-audit.md`
+  - schließt den unselektierten observation-only Prepare-Kandidaten ohne Port-, Settings-, Appfactory-, Compose- oder Productionänderung ab
+  - bestätigt 31 fokussierte sowie 5264 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang soll den vollständigen unverdrahteten Kandidatengraphen zusammensetzen und Dependency-Exklusivität auditieren
+
+- LQ-647 exclusive supervisor candidate graph contract:
+  `docs/lq-647-exclusive-supervisor-candidate-graph-contract.md`
+  - fordert einen unselektierten Graphen ohne Kompatibilitätsfallback, wobei ausschließlich der Kindprozess den Capability-Executor erhält
+  - nächster Slice LQ-648 implementiert das inerte Kandidatenbundle
+
+- LQ-648 inert exclusive supervisor candidate composition:
+  `docs/lq-648-inert-exclusive-supervisor-candidate-composition.md`
+  - komponiert Launch/Ready, Release/Consumed, Child und Reconciliation ohne I/O und hält Terminal-/Productionvollständigkeit unveränderlich false
+  - nächster Slice LQ-649 belegt Dependency- und Execution-Owner-Exklusivität
+
+- LQ-649 supervisor candidate dependency exclusivity evidence:
+  `docs/lq-649-supervisor-candidate-dependency-exclusivity-evidence.md`
+  - belegt genau eine kindprozessgebundene Executor-Injektion, fehlende alte Serviceimporte, inerte Konstruktion und unveränderliche Readinesssperren
+  - nächster Slice LQ-650 führt Abschluss- und Blockeraudit aus
+
+- LQ-650 exclusive supervisor candidate completion audit:
+  `docs/lq-650-exclusive-supervisor-candidate-completion-audit.md`
+  - schließt den exklusiven unverdrahteten Kandidaten ohne Terminalvollständigkeit oder Productionaktivierung ab
+  - bestätigt 41 fokussierte sowie 5272 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang muss direkte Terminalbeobachtung, Exact-fact-Persistenz und observation-only Journalterminalisierung implementieren
+
+- LQ-651 direct terminal observation contract:
+  `docs/lq-651-direct-terminal-observation-contract.md`
+  - bindet Terminal ausschließlich an direkt gelesene kanonische Envelopebytes und verlangt zusätzlich direkte Engine-Terminalität vor Journalabschluss
+  - nächster Slice LQ-652 implementiert Beobachtung, Exact-fact-Persistenz und observation-only Terminalservice
+
+- LQ-652 observation-only Terminal service:
+  `docs/lq-652-observation-only-terminal-service.md`
+  - persistiert direktes Terminal samt Outcome und terminalisiert Writer/Recovery nur bei derselben Runtime in exited/dead; kein Parent-Publish oder Outcomeport
+  - nächster Slice LQ-653 belegt Reihenfolge, neutrale Abwesenheit und geschlossene Oberfläche
+
+- LQ-653 direct terminal observation evidence:
+  `docs/lq-653-direct-terminal-observation-evidence.md`
+  - belegt Outcome-/Digesttreue, Terminal → Engine → Journal-Reihenfolge sowie fehlende Publish-, Execute-, Wait- und Authorityfähigkeit
+  - nächster Slice LQ-654 führt Abschluss- und Kandidatenupdateaudit aus
+
+- LQ-654 observation-only Terminal completion audit:
+  `docs/lq-654-observation-only-terminal-completion-audit.md`
+  - ersetzt den terminal-unvollständigen LQ-650-Kandidaten additiv durch terminal_observation_complete=true bei weiterhin production_ready=false
+  - bestätigt 29 fokussierte sowie 5280 vollständige Tests; 108 umgebungsabhängige Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang soll den vollständigen Kandidaten End-to-End auditieren und Entrypoint-/All-or-nothing-Wiringgrenzen entscheiden
+
+- LQ-655 supervisor candidate End-to-End prerequisite audit:
+  `docs/lq-655-supervisor-candidate-end-to-end-prerequisite-audit.md`
+  - verfolgt den vollständigen Parent-/Container-/Child-/Terminalweg und hält Launchanker, Datenfähigkeiten, Entrypoint und Auswahl als offene Voraussetzungen fest
+- LQ-656 supervisor candidate blocker evidence:
+  `docs/lq-656-supervisor-candidate-blocker-evidence.md`
+  - belegt ausführbar fehlenden Kindankerkanal, ausschließlich zwei Controlmounts, fehlenden Process-Entrypoint und fehlende Productionauswahl
+- LQ-657 wrapper entrypoint and wiring decision:
+  `docs/lq-657-wrapper-entrypoint-and-wiring-decision.md`
+  - legt Kindanker → profilgetrennte Mounts → feste Entrypoints → Lebenszyklus → exklusive Auswahl als sichere Implementierungsfolge fest
+- LQ-658 supervisor candidate readiness blocker audit:
+  `docs/lq-658-supervisor-candidate-readiness-blocker-audit.md`
+  - schließt den Audit bei terminal_observation_complete=true und production_ready=false; 22 fokussierte sowie 5287 vollständige Tests bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang ist allein die konstruktive Kindankerbindung
+
+- LQ-659 immutable child launch anchor contract:
+  `docs/lq-659-immutable-child-launch-anchor-contract.md`
+  - bindet alle sieben externen Erwartungsfakten an eine feste geordnete Kindargumentfolge ohne Authority- oder Environmentfallback
+- LQ-660 canonical child launch anchor codec:
+  `docs/lq-660-canonical-child-launch-anchor-codec.md`
+  - implementiert den typisierten verlustfreien Vierzehn-Element-Roundtrip mit geschlossener Flag-, Längen- und Zeichengrenze
+- LQ-661 Docker child anchor binding evidence:
+  `docs/lq-661-docker-child-anchor-binding-evidence.md`
+  - materialisiert den Anker nach der process-eigenen Profilcommandfolge und verlangt bei Inspect exakt dieselbe Konstruktion
+- LQ-662 child launch anchor completion audit:
+  `docs/lq-662-child-launch-anchor-completion-audit.md`
+  - schließt die Parent-zu-Child-Ankerbindung ohne Productionöffnung; 55 fokussierte sowie 5293 vollständige Tests bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang sind profilgetrennte Source-/Target-Mountfähigkeiten
+
+- LQ-663 profile-scoped data mount capability contract:
+  `docs/lq-663-profile-scoped-data-mount-capability-contract.md`
+  - bindet Writer und Recovery asymmetrisch an die bereits journalgeprüfte Scopebindung ohne caller-gesteuerten Pfadkanal
+- LQ-664 profile-scoped data mount capabilities:
+  `docs/lq-664-profile-scoped-data-mount-capabilities.md`
+  - materialisiert Writer Source-ro/Target-rw und Recovery ausschließlich Target-ro und rekonstruiert dieselben Fakten bei Inspect
+- LQ-665 profile mount capability evidence:
+  `docs/lq-665-profile-mount-capability-evidence.md`
+  - belegt feste Reihenfolge und Modi sowie Reject-on-extra, Reject-on-wrong-mode und geschlossene Pfadvalidierung
+- LQ-666 profile mount capability completion audit:
+  `docs/lq-666-profile-mount-capability-completion-audit.md`
+  - schließt den Mountblocker ohne Productionöffnung; 60 fokussierte sowie 5298 vollständige Tests bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang sind feste Writer-/Recovery-Wrapper-Entrypoints
+
+- LQ-667 fixed wrapper entrypoint contract:
+  `docs/lq-667-fixed-wrapper-entrypoint-contract.md`
+  - definiert feste profilgebundene Commands, Containerpfade und den einmaligen Anker→Gate→Capability→Terminal-Ablauf
+- LQ-668 wrapper entrypoint composition prerequisite audit:
+  `docs/lq-668-wrapper-entrypoint-composition-prerequisite-audit.md`
+  - identifiziert fehlende package-lokale Writer-/Recoveryprimitiven, direkte Child-Control-Dateigrenze und feste Processcomposition
+- LQ-669 wrapper entrypoint blocker evidence:
+  `docs/lq-669-wrapper-entrypoint-blocker-evidence.md`
+  - belegt, dass tools nicht im Wheel liegen, keine Wrappercommands registriert sind und vorhandene Adapter keine konkrete Kindcomposition ergeben
+- LQ-670 wrapper entrypoint readiness blocker audit:
+  `docs/lq-670-wrapper-entrypoint-readiness-blocker-audit.md`
+  - hält production_ready=false ohne Dummy-Entrypoint; 29 fokussierte sowie 5304 vollständige Tests bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang extrahiert Writer, Renderer und Reconciler package-lokal
+
+- LQ-671 installable manifest capability extraction contract:
+  `docs/lq-671-installable-manifest-capability-extraction-contract.md`
+  - fordert einen installierbaren src-Namespace mit genau einer Implementierung und objektidentischen Toolkompatibilitätsmodulen
+- LQ-672 installable manifest capability primitives:
+  `docs/lq-672-installable-manifest-capability-primitives.md`
+  - verschiebt Renderer, atomaren Writer und read-only Reconciler nach liquent_platform.capabilities und entfernt Productionimporte aus tools
+- LQ-673 installable capability equivalence evidence:
+  `docs/lq-673-installable-capability-equivalence-evidence.md`
+  - belegt Paketpfade, Modulidentität, interne Abhängigkeitsrichtung und unveränderte ursprüngliche Capabilitytests
+- LQ-674 installable capability extraction completion audit:
+  `docs/lq-674-installable-capability-extraction-completion-audit.md`
+  - beseitigt Writer-/Recovery-Paketblocker ohne Productionöffnung; 55 fokussierte sowie 5311 vollständige Tests und ein realer Wheel-Inhaltscheck bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang ist der direkte Child-Control-Artifact-Adapter
+
+- LQ-675 direct child control artifact adapter contract:
+  `docs/lq-675-direct-child-control-artifact-adapter-contract.md`
+  - bindet genau eine direkt gemountete Child-Directory und Control-ID an die unveränderte kanonische No-replace-Artefaktlogik
+- LQ-676 direct atomic child control artifacts:
+  `docs/lq-676-direct-atomic-child-control-artifacts.md`
+  - implementiert direkte no-follow Directoryöffnung bei Wiederverwendung aller bestehenden Publish-/Read-/fsync-/Konfliktpfade
+- LQ-677 direct child control artifact evidence:
+  `docs/lq-677-direct-child-control-artifact-evidence.md`
+  - belegt Publish/Read, effect-free Retry, Divergenzkonflikt, ID-Bindung, private Directoryprüfung und geschlossene Oberfläche
+- LQ-678 direct child control adapter completion audit:
+  `docs/lq-678-direct-child-control-adapter-completion-audit.md`
+  - beseitigt den Child-Control-Adapterblocker ohne Productionöffnung; 28 fokussierte sowie 5317 vollständige Tests bestehen, 108 Fälle bleiben erwartungsgemäß übersprungen
+  - nächster Strang ist die feste Child-Processcomposition samt Commands
+
+- LQ-679 fixed child process composition contract:
+  `docs/lq-679-fixed-child-process-composition-contract.md`
+  - bindet exakte Ankerargumente, feste Containerpfade, profilgetrennte Primitiven, Identitypolicy, Waitgrenzen und detailfreie Exitcodes
+- LQ-680 fixed supervisor child process composition:
+  `docs/lq-680-fixed-supervisor-child-process-composition.md`
+  - implementiert lokalen Child-Capabilityexecutor, vollständige One-shot-Composition und genau zwei installierbare Profilcommands
+- LQ-681 fixed child entrypoint evidence:
+  `docs/lq-681-fixed-child-entrypoint-evidence.md`
+  - belegt Writer und Recovery dateibasiert bis Terminal sowie Cross-Profile-/Freeargument-Reject und Recovery ohne Writeraufruf
+- LQ-682 fixed child entrypoint completion audit:
+  `docs/lq-682-fixed-child-entrypoint-completion-audit.md`
+  - schließt den Wrapperblocker bei weiterhin production_ready=false; 71 fokussierte und 5.321 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - bestätigt beide installierbaren Wrappercommands im gebauten Wheel `liquent-0.0.1`; nächster Strang ist All-or-nothing Production-Wiring-Audit
+
+- LQ-683 all-or-nothing supervisor production wiring contract:
+  `docs/lq-683-all-or-nothing-supervisor-production-wiring-contract.md`
+  - bindet exklusive Graphauswahl, gemeinsame Prozesseigentümerschaft, konstruktive Hostfähigkeiten sowie gekoppelte Readiness- und Shutdownpflichten
+- LQ-684 supervisor production ownership, readiness and shutdown evidence:
+  `docs/lq-684-supervisor-production-ownership-readiness-shutdown-evidence.md`
+  - belegt fehlende Settings-, Entrypoint-, Appfactory- und Deploymentauswahl sowie den weiterhin getrennten Kompatibilitätsgraphen
+- LQ-685 exclusive supervisor production selection decision:
+  `docs/lq-685-exclusive-supervisor-production-selection-decision.md`
+  - legt die atomare Folge von Settings, Processcomposition, Appfactory, Lifecycle, Deployment und End-to-End-Evidenz fest
+- LQ-686 supervisor production wiring readiness audit:
+  `docs/lq-686-supervisor-production-wiring-readiness-audit.md`
+  - hält production_ready=false ohne Teilaktivierung; 30 fokussierte und 5.327 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der geschlossene Supervisor-Settingsvertrag
+
+- LQ-687 closed supervisor settings contract:
+  `docs/lq-687-closed-supervisor-settings-contract.md`
+  - bindet Modus, geschlossene Socket-/Controlpfade, numerische Identität und Persistenzvoraussetzung als atomare Gruppe
+- LQ-688 fail-fast supervisor process settings:
+  `docs/lq-688-fail-fast-supervisor-process-settings.md`
+  - implementiert vollständige oder vollständig abwesende Kandidatensettings mit wertfreier öffentlicher Zusammenfassung
+- LQ-689 supervisor settings validation evidence:
+  `docs/lq-689-supervisor-settings-validation-evidence.md`
+  - belegt jede fehlende Gruppenkomponente sowie ungültige Modi, Pfade, Identitäten und fehlende Datenbankbindung
+- LQ-690 supervisor settings completion audit:
+  `docs/lq-690-supervisor-settings-completion-audit.md`
+  - schließt den Settingsvertrag bei weiterhin production_ready=false; 59 fokussierte und 5.348 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die process-eigene Supervisor-Composition
+
+- LQ-691 process-owned supervisor composition contract:
+  `docs/lq-691-process-owned-supervisor-composition-contract.md`
+  - bindet vollständige Settings, externe Engine, einmalige Adapter, exklusiven Kandidaten und eindeutige Clienteigentümerschaft
+- LQ-692 exclusive supervisor candidate process composition:
+  `docs/lq-692-exclusive-supervisor-candidate-process-composition.md`
+  - implementiert die I/O-freie process-eigene Composition ohne Compatibilitygraph oder Parent-Capability-Executor
+- LQ-693 supervisor process composition evidence:
+  `docs/lq-693-supervisor-process-composition-evidence.md`
+  - belegt Inertheit, Exklusivität, idempotenten Close, Fehlercleanup und fortbestehende externe Engine
+- LQ-694 supervisor process composition completion audit:
+  `docs/lq-694-supervisor-process-composition-completion-audit.md`
+  - schließt die Processcomposition bei weiterhin production_ready=false; 65 fokussierte und 5.355 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die atomare Appfactory-/Health-/Close-Grenze
+
+- LQ-695 atomic supervisor appfactory lifecycle contract:
+  `docs/lq-695-atomic-supervisor-appfactory-lifecycle-contract.md`
+  - bindet Prozess, objektidentischen Readinessprobe, Ownership, aktive Settings und explizite Engine als unteilbare Factorygruppe
+- LQ-696 supervisor appfactory health and close composition:
+  `docs/lq-696-supervisor-appfactory-health-close-composition.md`
+  - implementiert fail-fast Übergabe, gemeinsamen Healthbeitrag und stopping-vor-Close-Lifecycle ohne Entrypointauswahl
+- LQ-697 supervisor appfactory lifecycle evidence:
+  `docs/lq-697-supervisor-appfactory-lifecycle-evidence.md`
+  - belegt not-ready, genau einen Close, fortbestehende externe Engine sowie abgewiesene Teilgruppen und Fremdprobes
+- LQ-698 supervisor appfactory lifecycle completion audit:
+  `docs/lq-698-supervisor-appfactory-lifecycle-completion-audit.md`
+  - schließt Appfactory, Health und Close bei weiterhin production_ready=false; 68 fokussierte und 5.364 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die kontrollierte Entrypointcomposition
+
+- LQ-699 controlled supervisor entrypoint composition contract:
+  `docs/lq-699-controlled-supervisor-entrypoint-composition-contract.md`
+  - bindet stabile Backendidentität, genau eine gemeinsame Engine, atomare Factoryübergabe und eindeutiges Fehlercleanup
+- LQ-700 supervisor control-plane entrypoint composition:
+  `docs/lq-700-supervisor-control-plane-entrypoint-composition.md`
+  - implementiert aktive Kandidatenauswahl mit gemeinsamer Engine und expliziter Process-/Engineownership bei unverändert geschlossenem Standardpfad
+- LQ-701 supervisor entrypoint composition evidence:
+  `docs/lq-701-supervisor-entrypoint-composition-evidence.md`
+  - belegt Objektidentität, Backendbindung, Ownership, Fehlercleanup und weiterhin fehlende Deploymentfähigkeiten
+- LQ-702 supervisor entrypoint composition completion audit:
+  `docs/lq-702-supervisor-entrypoint-composition-completion-audit.md`
+  - schließt die Entrypointcomposition bei weiterhin production_ready=false; 79 fokussierte und 5.372 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der minimale Deploymentfähigkeitsaudit
+
+- LQ-703 minimal supervisor deployment capability contract:
+  `docs/lq-703-minimal-supervisor-deployment-capability-contract.md`
+  - bindet eingeschränkte Engine-API, hostidentische Controlwurzel, feste Identität, Parent-Launchpublisher sowie Readiness und Shutdown
+- LQ-704 supervisor host capability and path identity evidence:
+  `docs/lq-704-supervisor-host-capability-and-path-identity-evidence.md`
+  - belegt fehlende Enginefähigkeit, Pfadidentität, Prozesscredentials und Launchpublisher bei weiterhin geschlossenem Compose
+- LQ-705 supervisor deployment preactivation decision:
+  `docs/lq-705-supervisor-deployment-preactivation-decision.md`
+  - verbietet den rohen Docker-Socket und legt Launchpublisher, eingeschränkte API, Hostpreflight und End-to-End-Evidenz als Vorbedingungen fest
+- LQ-706 supervisor deployment capability readiness audit:
+  `docs/lq-706-supervisor-deployment-capability-readiness-audit.md`
+  - hält production_ready=false ohne Teilmount; 63 fokussierte und 5.378 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang integriert ausschließlich den Parent-Launchdokument-Publisher
+
+- LQ-707 parent launch document publication contract:
+  `docs/lq-707-parent-launch-document-publication-contract.md`
+  - bindet kanonische Rekonstruktion, Soll-Digest, No-replace-Publikation und exakte Reihenfolge vor Container-Create
+- LQ-708 atomic parent launch publication composition:
+  `docs/lq-708-atomic-parent-launch-publication-composition.md`
+  - integriert genau einen Publisher aus gemeinsamer Controlwurzel, Resolver und Identitypolicy in Process- und Kandidatencomposition
+- LQ-709 parent launch publication evidence:
+  `docs/lq-709-parent-launch-publication-evidence.md`
+  - belegt exakten Inhalt, wirkungsfreie Digestdivergenz, Publikation vor Runtimeauflösung und geschlossene Parentoberfläche
+- LQ-710 parent launch publication completion audit:
+  `docs/lq-710-parent-launch-publication-completion-audit.md`
+  - schließt den Launchpublisher bei weiterhin production_ready=false; 62 fokussierte und 5.383 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der geschlossene lokale Engine-API-Proxyvertrag
+
+- LQ-711 closed local engine API proxy contract:
+  `docs/lq-711-closed-local-engine-api-proxy-contract.md`
+  - bindet sieben exakte API-Operationen, Request-/Responsegrenzen, zweistufiges Create und getrennte Hostownership
+- LQ-712 engine API proxy route policy:
+  `docs/lq-712-engine-api-proxy-route-policy.md`
+  - implementiert eine I/O-freie Method-/Pfad-/Query-/Bodygrößenklassifikation ohne Listener oder Forwarding
+- LQ-713 engine API client route compatibility evidence:
+  `docs/lq-713-engine-api-client-route-compatibility-evidence.md`
+  - belegt alle sieben Clientrouten sowie detailfreie Ablehnung jeder getesteten API-Erweiterung
+- LQ-714 engine API proxy route policy completion audit:
+  `docs/lq-714-engine-api-proxy-route-policy-completion-audit.md`
+  - schließt die Routenpolicy bei weiterhin production_ready=false; 59 fokussierte und 5.404 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der semantische Create-Request-Filter
+
+- LQ-715 semantic engine API create policy contract:
+  `docs/lq-715-semantic-engine-api-create-policy-contract.md`
+  - bindet kanonischen Body, Digestimage, sechs Labels, Anchor, numerischen User, Securityprofil und kontrollierte Mountwurzeln
+- LQ-716 closed engine API create request policy:
+  `docs/lq-716-closed-engine-api-create-request-policy.md`
+  - implementiert eine I/O-freie vollständige Writer-/Recovery-Createvalidierung ohne Forwardingoberfläche
+- LQ-717 engine API create policy evidence:
+  `docs/lq-717-engine-api-create-policy-evidence.md`
+  - belegt beide Profile sowie detailfreie Ablehnung von Identitäts-, Image-, Label-, Security-, Mount- und JSON-Erweiterungen
+- LQ-718 engine API create policy completion audit:
+  `docs/lq-718-engine-api-create-policy-completion-audit.md`
+  - schließt den semantischen Createfilter bei weiterhin production_ready=false; 63 fokussierte und 5.416 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der Hostpreflight
+
+- LQ-719 engine API host preflight contract:
+  `docs/lq-719-engine-api-host-preflight-contract.md`
+  - bindet exakte Socket-, Root-, UID-/GID-, Mode- und Raceprüfungen ohne Mutation oder Verbindung
+- LQ-720 read-only engine API host preflight:
+  `docs/lq-720-read-only-engine-api-host-preflight.md`
+  - implementiert einen detailfreien Readinessprobe mit lstat-, no-follow- und Descriptoridentitätsprüfung
+- LQ-721 engine API host preflight evidence:
+  `docs/lq-721-engine-api-host-preflight-evidence.md`
+  - belegt vollständige Hostfakten sowie Mode-, Dateityp-, Symlink- und Konfigurationsdrift
+- LQ-722 engine API host preflight completion audit:
+  `docs/lq-722-engine-api-host-preflight-completion-audit.md`
+  - schließt den Hostpreflight bei weiterhin production_ready=false; 56 fokussierte und 5.426 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die operationsspezifische Responsepolicy
+
+- LQ-723 engine API response policy contract:
+  `docs/lq-723-engine-api-response-policy-contract.md`
+  - bindet Erfolgsstatus, Medientyp, Bodygrenze, JSON-Wurzelform und neutrale Inspect-Abwesenheit an die sieben geschlossenen Operationen
+- LQ-724 closed engine API response policy:
+  `docs/lq-724-closed-engine-api-response-policy.md`
+  - implementiert eine reine normalisierende Responsepolicy ohne Netzwerk- oder Lebenszyklusoberfläche
+- LQ-725 engine API response policy evidence:
+  `docs/lq-725-engine-api-response-policy-evidence.md`
+  - belegt die positive Operationsmatrix und detailfreie Ablehnung von Daemonfehlern, Form-, Typ-, Medien- und Größenabweichungen
+- LQ-726 engine API response policy completion audit:
+  `docs/lq-726-engine-api-response-policy-completion-audit.md`
+  - schließt die Responsepolicy bei weiterhin production_ready=false; 102 fokussierte und 5.457 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist das geschlossene HTTP/1.1-Framing
+
+- LQ-727 engine API HTTP/1.1 framing contract:
+  `docs/lq-727-engine-api-http11-framing-contract.md`
+  - bindet exakt eine begrenzte HTTP/1.1-Nachricht an kanonische Header und eindeutige Content-Length-Rahmung
+- LQ-728 closed engine API HTTP/1.1 framing:
+  `docs/lq-728-closed-engine-api-http11-framing.md`
+  - implementiert reine Request-/Response-Dekoder ohne Stream-, Socket- oder Forwardingfähigkeit
+- LQ-729 engine API HTTP/1.1 framing evidence:
+  `docs/lq-729-engine-api-http11-framing-evidence.md`
+  - belegt Clientkompatibilität sowie fail-closed Abwehr von Smuggling, Chunking, Upgrade, Trailern und Übergröße
+- LQ-730 engine API HTTP/1.1 framing completion audit:
+  `docs/lq-730-engine-api-http11-framing-completion-audit.md`
+  - schließt die reine Single-Message-Rahmung bei weiterhin production_ready=false; 127 fokussierte und 5.482 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die I/O-freie Gate-Komposition
+
+- LQ-731 engine API gate composition contract:
+  `docs/lq-731-engine-api-gate-composition-contract.md`
+  - bindet Framing, Route, Create-Semantik und Responseprüfung in eine unüberspringbare I/O-freie Folge
+- LQ-732 closed engine API gate composition:
+  `docs/lq-732-closed-engine-api-gate-composition.md`
+  - implementiert instanzgebundene Requestnachweise und operationsgebundene Responses ohne Transportoberfläche
+- LQ-733 engine API gate composition evidence:
+  `docs/lq-733-engine-api-gate-composition-evidence.md`
+  - belegt gültige Inspect-/Createketten sowie Ablehnung von Semantik-, Routen-, Operations- und Nachweisüberschreitungen
+- LQ-734 engine API gate composition completion audit:
+  `docs/lq-734-engine-api-gate-composition-completion-audit.md`
+  - schließt die I/O-freie Gatefolge bei weiterhin production_ready=false; 138 fokussierte und 5.493 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist begrenztes Single-Message-Stream-I/O
+
+- LQ-735 engine API single-message stream I/O contract:
+  `docs/lq-735-engine-api-single-message-stream-io-contract.md`
+  - bindet begrenzte Reads und vollständige Partial Writes an extern besessene, bereits verbundene Streams
+- LQ-736 bounded engine API single-message stream I/O:
+  `docs/lq-736-bounded-engine-api-single-message-stream-io.md`
+  - implementiert Content-Length-genaues Lesen und Schreiben ohne Listener-, Connect-, Timeout- oder Close-Verantwortung
+- LQ-737 engine API single-message stream I/O evidence:
+  `docs/lq-737-engine-api-single-message-stream-io-evidence.md`
+  - belegt Fragmentierung, exakte Restlängen, kein Überlesen und fail-closed EOF-, Chunking-, Größen- und Fortschrittsfehler
+- LQ-738 engine API single-message stream I/O completion audit:
+  `docs/lq-738-engine-api-single-message-stream-io-completion-audit.md`
+  - schließt begrenztes Stream-I/O bei weiterhin production_ready=false; 155 fokussierte und 5.510 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Single-Exchange-Komposition
+
+- LQ-739 engine API single-exchange contract:
+  `docs/lq-739-engine-api-single-exchange-contract.md`
+  - bindet zwei extern besessene verbundene Streams an eine feste Read-Gate-Write-Read-Gate-Write-Folge
+- LQ-740 closed engine API single exchange:
+  `docs/lq-740-closed-engine-api-single-exchange.md`
+  - implementiert genau einen Austausch mit kanonischer lokaler Responseprojektion und ohne internen Retry
+- LQ-741 engine API single-exchange evidence:
+  `docs/lq-741-engine-api-single-exchange-evidence.md`
+  - belegt bytegenaue autorisierte Requests, normalisierte Responses und wirkungsfreie Request-/Responseablehnung
+- LQ-742 engine API single-exchange completion audit:
+  `docs/lq-742-engine-api-single-exchange-completion-audit.md`
+  - schließt den gegateten Einzelaustausch bei weiterhin production_ready=false; 163 fokussierte und 5.518 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Client-Peercredential- und Descriptorpolicy
+
+- LQ-743 engine API client peer descriptor contract:
+  `docs/lq-743-engine-api-client-peer-descriptor-contract.md`
+  - bindet einen bereits akzeptierten Linux-Unix-Stream an aktuelle Descriptor-, Endpoint-, Timeout- und Kernelcredentialfakten
+- LQ-744 Linux engine API client peer policy:
+  `docs/lq-744-linux-engine-api-client-peer-policy.md`
+  - implementiert SO_PEERCRED- und Inodeprüfung ohne Accept-, Mutation-, Connect- oder Close-Fähigkeit
+- LQ-745 engine API client peer policy evidence:
+  `docs/lq-745-engine-api-client-peer-policy-evidence.md`
+  - belegt exakte PID/UID/GID- und Descriptorbindung sowie fail-closed Drift-, Austausch- und Strukturfehler
+- LQ-746 engine API client peer policy completion audit:
+  `docs/lq-746-engine-api-client-peer-policy-completion-audit.md`
+  - schließt die Client-Peerprüfung bei weiterhin production_ready=false; 182 fokussierte und 5.537 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Daemon-Descriptor- und Endpointpolicy
+
+- LQ-747 engine API daemon peer descriptor contract:
+  `docs/lq-747-engine-api-daemon-peer-descriptor-contract.md`
+  - bindet einen verbundenen Linux-Unix-Stream an exakte Descriptor-, Endpoint-, Timeout- und Daemoncredentialfakten
+- LQ-748 Linux engine API daemon peer policy:
+  `docs/lq-748-linux-engine-api-daemon-peer-policy.md`
+  - implementiert ungebundenen lokalen Endpoint, exakten Daemonpeer und SO_PEERCRED ohne Connect- oder Close-Fähigkeit
+- LQ-749 engine API daemon peer policy evidence:
+  `docs/lq-749-engine-api-daemon-peer-policy-evidence.md`
+  - belegt Root- und Nicht-Root-Daemonbindung sowie fail-closed Endpoint-, Descriptor-, Inode- und Credentialdrift
+- LQ-750 engine API daemon peer policy completion audit:
+  `docs/lq-750-engine-api-daemon-peer-policy-completion-audit.md`
+  - schließt die Daemon-Peerprüfung bei weiterhin production_ready=false; 203 fokussierte und 5.558 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die nachweisgebundene Exchange-Komposition
+
+- LQ-751 engine API verified exchange contract:
+  `docs/lq-751-engine-api-verified-exchange-contract.md`
+  - verlangt aktuelle interne Client- und Daemon-Peerauflösung vor jedem Stream-I/O
+- LQ-752 verified engine API exchange composition:
+  `docs/lq-752-verified-engine-api-exchange-composition.md`
+  - bindet beide konkreten Peerpolicies und den geschlossenen Exchange ohne caller-gelieferte Nachweise
+- LQ-753 engine API verified exchange evidence:
+  `docs/lq-753-engine-api-verified-exchange-evidence.md`
+  - belegt Kernelprüfung vor I/O sowie fail-closed Credential-, Descriptor- und Bindungsabweichungen
+- LQ-754 engine API verified exchange completion audit:
+  `docs/lq-754-engine-api-verified-exchange-completion-audit.md`
+  - schließt die nachweisgebundene Exchange-Komposition bei weiterhin production_ready=false; 211 fokussierte und 5.566 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der kontrollierte Einmal-Daemonconnect
+
+- LQ-755 engine API daemon connect contract:
+  `docs/lq-755-engine-api-daemon-connect-contract.md`
+  - bindet genau einen AF_UNIX/SOCK_STREAM-Connect an Close-on-exec, festen Timeout und den festen Daemonpfad
+- LQ-756 controlled engine API daemon connector:
+  `docs/lq-756-controlled-engine-api-daemon-connector.md`
+  - implementiert Einmal-Connect, Descriptor-/Endpointnachprüfung und best-effort Fehlerclose
+- LQ-757 engine API daemon connector evidence:
+  `docs/lq-757-engine-api-daemon-connector-evidence.md`
+  - belegt Setupreihenfolge, offenen Ownershiptransfer und genaues Cleanup bei Factory-, Setup-, Connect- und Faktenfehlern
+- LQ-758 engine API daemon connector completion audit:
+  `docs/lq-758-engine-api-daemon-connector-completion-audit.md`
+  - schließt den noch unverdrahteten Daemonconnect bei weiterhin production_ready=false; 230 fokussierte und 5.585 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Connect-Verify-Exchange-Finally-Close
+
+- LQ-759 engine API connected exchange contract:
+  `docs/lq-759-engine-api-connected-exchange-contract.md`
+  - bindet genau einen Daemonconnect an Verify, Single Exchange und deterministisches Finally-Close
+- LQ-760 connected engine API exchange operation:
+  `docs/lq-760-connected-engine-api-exchange-operation.md`
+  - implementiert lokalen Daemonstreambesitz ohne Client-Close oder Retry
+- LQ-761 engine API connected exchange evidence:
+  `docs/lq-761-engine-api-connected-exchange-evidence.md`
+  - belegt Connect-/Exchange-/Close-Reihenfolge und sämtliche detailfreien Fehlerpfade
+- LQ-762 engine API connected exchange completion audit:
+  `docs/lq-762-engine-api-connected-exchange-completion-audit.md`
+  - schließt Connect-Verify-Exchange-Finally-Close bei weiterhin production_ready=false; 238 fokussierte und 5.593 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der private Listener-Lifecycle
+
+- LQ-763 private engine API listener lifecycle contract:
+  `docs/lq-763-private-engine-api-listener-lifecycle-contract.md`
+  - bindet sichere Socketpublikation an privates Elternverzeichnis, Zielabwesenheit, feste Ownership, Mode und Inodeidentität
+- LQ-764 controlled private engine API listener:
+  `docs/lq-764-controlled-private-engine-api-listener.md`
+  - implementiert Open/Verify/Retire ohne Übernahme oder Entfernung fremder Pfade
+- LQ-765 private engine API listener evidence:
+  `docs/lq-765-private-engine-api-listener-evidence.md`
+  - belegt Publikationsreihenfolge, Fremdpfadschutz, Fehlercleanup und expliziten Close-Retry
+- LQ-766 private engine API listener completion audit:
+  `docs/lq-766-private-engine-api-listener-completion-audit.md`
+  - schließt den unverdrahteten Listener-Lifecycle bei weiterhin production_ready=false; 248 fokussierte und 5.603 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Einmal-Accept-Operation
+
+- LQ-767 engine API single-accept contract:
+  `docs/lq-767-engine-api-single-accept-contract.md`
+  - bindet einen aktiven privaten Listener an genau ein Accept, Clientsetup, Connected Exchange und Finally-Close
+- LQ-768 controlled engine API single accept:
+  `docs/lq-768-controlled-engine-api-single-accept.md`
+  - implementiert Listenerprüfung und deterministisches Clientownership ohne Listener-Close oder Retry
+- LQ-769 engine API single-accept evidence:
+  `docs/lq-769-engine-api-single-accept-evidence.md`
+  - belegt Setupreihenfolge sowie wirkungsbegrenzte Listener-, Accept-, Client-, Exchange- und Closefehler
+- LQ-770 engine API single-accept completion audit:
+  `docs/lq-770-engine-api-single-accept-completion-audit.md`
+  - schließt die Einmal-Accept-Operation bei weiterhin production_ready=false; 261 fokussierte und 5.616 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der begrenzte synchrone Serve-Loop
+
+- LQ-771 bounded engine API serve loop contract:
+  `docs/lq-771-bounded-engine-api-serve-loop-contract.md`
+  - bindet sequenzielle Einzelaustausche an Stopprüfung vor jedem Accept und eine harte positive Maximalzahl
+- LQ-772 bounded synchronous engine API serve loop:
+  `docs/lq-772-bounded-synchronous-engine-api-serve-loop.md`
+  - implementiert neutrale Stop- und Limitbeendigung ohne Retry oder Listenerownership
+- LQ-773 bounded engine API serve loop evidence:
+  `docs/lq-773-bounded-engine-api-serve-loop-evidence.md`
+  - belegt exakte Stop-/Exchangefolge, harte Grenze und sofortigen detailfreien Fehlerabbruch
+- LQ-774 bounded engine API serve loop completion audit:
+  `docs/lq-774-bounded-engine-api-serve-loop-completion-audit.md`
+  - schließt den unverdrahteten endlichen Serve-Loop bei weiterhin production_ready=false; 273 fokussierte und 5.628 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Preflight-Open-Run-Finally-Retire
+
+- LQ-775 owned engine API process run contract:
+  `docs/lq-775-owned-engine-api-process-run-contract.md`
+  - bindet Dependency- und Vollpreflight an Listener-Open, begrenzten Run und identitätsgebundenen Retire
+- LQ-776 owned engine API process run:
+  `docs/lq-776-owned-engine-api-process-run.md`
+  - implementiert Preflight-Open-Preflight-Run-Finally-Retire und ergänzt den konfliktfreien Vorlistener-Preflight
+- LQ-777 owned engine API process run evidence:
+  `docs/lq-777-owned-engine-api-process-run-evidence.md`
+  - belegt exakte Reihenfolge, Proxy-Socket-Abwesenheit vor Open und sämtliche Retirefehlerpfade
+- LQ-778 owned engine API process run completion audit:
+  `docs/lq-778-owned-engine-api-process-run-completion-audit.md`
+  - schließt den noch nicht ausführbar verdrahteten Prozesslauf bei weiterhin production_ready=false; 281 fokussierte und 5.636 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die eigentümergeführte Signal-Stopquelle
+
+- LQ-779 engine API signal stop source contract:
+  `docs/lq-779-engine-api-signal-stop-source-contract.md`
+  - bindet SIGTERM/SIGINT explizit an Main-Thread-Installation, minimale lokale Wirkung und vollständiges Restore
+- LQ-780 owned engine API signal stop source:
+  `docs/lq-780-owned-engine-api-signal-stop-source.md`
+  - implementiert wirkungsfreie Konstruktion, partiellen Rollback und umgekehrte Wiederherstellung
+- LQ-781 engine API signal stop source evidence:
+  `docs/lq-781-engine-api-signal-stop-source-evidence.md`
+  - belegt lokale Signalwirkung, Main-Thread-Grenze und vollständige Install-/Restorefehlerpfade
+- LQ-782 engine API signal stop source completion audit:
+  `docs/lq-782-engine-api-signal-stop-source-completion-audit.md`
+  - schließt die noch unverdrahtete Stopquelle bei weiterhin production_ready=false; 292 fokussierte und 5.647 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Install-Run-Finally-Restore
+
+- LQ-783 engine API signal-owned run contract:
+  `docs/lq-783-engine-api-signal-owned-run-contract.md`
+  - bindet konkrete Stopquelle und Owned Process Run an Install-Run-Finally-Restore
+- LQ-784 signal-owned engine API run:
+  `docs/lq-784-signal-owned-engine-api-run.md`
+  - implementiert identische gebundene Stopübergabe und Erfolg erst nach bestätigtem Restore
+- LQ-785 engine API signal-owned run evidence:
+  `docs/lq-785-engine-api-signal-owned-run-evidence.md`
+  - belegt exakte Reihenfolge und sämtliche Install-, Run-, Ergebnis- und Restorefehlerpfade
+- LQ-786 engine API signal-owned run completion audit:
+  `docs/lq-786-engine-api-signal-owned-run-completion-audit.md`
+  - schließt den noch nicht ausführbar verdrahteten Signalprozesslauf bei weiterhin production_ready=false; 301 fokussierte und 5.656 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der vollständige Proxy-Settingsvertrag
+
+- LQ-787 engine API proxy settings contract:
+  `docs/lq-787-engine-api-proxy-settings-contract.md`
+  - bindet 21 vollständige Pflichtwerte ohne Defaults, Environmentread oder caller-gelieferte Freigabe
+- LQ-788 closed engine API proxy settings:
+  `docs/lq-788-closed-engine-api-proxy-settings.md`
+  - implementiert einen unveränderlichen atomaren Wert für Pfade, Commands, Identitäten, Timeouts und Grenzen
+- LQ-789 engine API proxy settings evidence:
+  `docs/lq-789-engine-api-proxy-settings-evidence.md`
+  - belegt jeden fehlenden Schlüssel sowie Pfad-, Typ-, Zahlen-, Bereichs- und Erweiterungsabweichungen
+- LQ-790 engine API proxy settings completion audit:
+  `docs/lq-790-engine-api-proxy-settings-completion-audit.md`
+  - schließt den noch nicht angebundenen Settingswert bei weiterhin production_ready=false; 344 fokussierte und 5.699 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die vollständige Proxydependency-Composition
+
+- LQ-791 engine API proxy dependency composition contract:
+  `docs/lq-791-engine-api-proxy-dependency-composition-contract.md`
+  - bindet den vollständigen Graph ohne Defaults oder zweite Konfigurationsquelle an genau einen geschlossenen Settingswert
+- LQ-792 complete engine API proxy dependency composition:
+  `docs/lq-792-complete-engine-api-proxy-dependency-composition.md`
+  - komponiert alle konkreten Policies und Ownershipgrenzen wirkungsfrei bis zum signalbesessenen Lauf
+- LQ-793 engine API proxy dependency composition evidence:
+  `docs/lq-793-engine-api-proxy-dependency-composition-evidence.md`
+  - belegt vollständigen Graph, identische Pfadbindungen, getrennte Identitäten und detailfreie Fehler
+- LQ-794 engine API proxy dependency composition completion audit:
+  `docs/lq-794-engine-api-proxy-dependency-composition-completion-audit.md`
+  - schließt die noch nicht gestartete Dependencycomposition bei weiterhin production_ready=false; 353 fokussierte und 5.708 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die owner-only Settingsquelle
+
+- LQ-795 owner-only engine API proxy settings source contract:
+  `docs/lq-795-owner-only-engine-api-proxy-settings-source-contract.md`
+  - bindet exakt 21 Werte an eine explizite owner-private, descriptorstabile und begrenzte Datei
+- LQ-796 closed owner-only engine API proxy settings source:
+  `docs/lq-796-closed-owner-only-engine-api-proxy-settings-source.md`
+  - implementiert No-follow-Read, private Dateiprüfung und geschlossene Environmentprojektion auf LQ-787
+- LQ-797 engine API proxy settings source evidence:
+  `docs/lq-797-engine-api-proxy-settings-source-evidence.md`
+  - belegt Datei-, Größen-, Codierungs-, Schlüssel- und Process-Environment-Grenzen
+- LQ-798 engine API proxy settings source completion audit:
+  `docs/lq-798-engine-api-proxy-settings-source-completion-audit.md`
+  - schließt die noch nicht startende Settingsquelle bei weiterhin production_ready=false; 369 fokussierte und 5.724 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der owner-controlled Prozesseinstieg
+
+- LQ-799 owner-controlled engine API proxy entrypoint contract:
+  `docs/lq-799-owner-controlled-engine-api-proxy-entrypoint-contract.md`
+  - bindet genau einen expliziten Settingspfad an Load, Composition und einmaligen Run
+- LQ-800 owner-controlled engine API proxy entrypoint:
+  `docs/lq-800-owner-controlled-engine-api-proxy-entrypoint.md`
+  - implementiert den separaten detailfreien Paketeinstieg ohne Environmentfallback oder Control-Plane-Kopplung
+- LQ-801 engine API proxy entrypoint evidence:
+  `docs/lq-801-engine-api-proxy-entrypoint-evidence.md`
+  - belegt feste Reihenfolge, objektidentische Übergaben, Ergebnisgrenzen und geschlossene CLI
+- LQ-802 engine API proxy entrypoint completion audit:
+  `docs/lq-802-engine-api-proxy-entrypoint-completion-audit.md`
+  - schließt den noch nicht deployten Prozesseinstieg bei weiterhin production_ready=false; 387 fokussierte und 5.737 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist das Prozessstatus- und Healthmodell
+
+- LQ-803 engine API proxy process status and health contract:
+  `docs/lq-803-engine-api-proxy-process-status-health-contract.md`
+  - bindet sechs monotone Phasen an threadsichere detailbegrenzte Snapshots und feste Gründe
+- LQ-804 detail-limited engine API process status:
+  `docs/lq-804-detail-limited-engine-api-process-status.md`
+  - implementiert Statusmaschine und fail-closed Projektion auf den bestehenden Readiness-Typ
+- LQ-805 engine API process status and health evidence:
+  `docs/lq-805-engine-api-process-status-health-evidence.md`
+  - belegt Normal-, Failure-, Terminal-, Snapshot-, Probe- und Concurrencypfade
+- LQ-806 engine API process status and health completion audit:
+  `docs/lq-806-engine-api-process-status-health-completion-audit.md`
+  - schließt das noch nicht instrumentierte Healthmodell bei weiterhin production_ready=false; 401 fokussierte und 5.751 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die reale Run-Instrumentierung
+
+- LQ-807 engine API real run status instrumentation contract:
+  `docs/lq-807-engine-api-real-run-status-instrumentation-contract.md`
+  - bindet starting, serving, stopping, stopped und failed an belastbare reale Run-Grenzen
+- LQ-808 instrumented engine API owned process run:
+  `docs/lq-808-instrumented-engine-api-owned-process-run.md`
+  - integriert genau eine Statusinstanz in Preflight-, Listener-, Loop- und Retirepfade
+- LQ-809 engine API real run status evidence:
+  `docs/lq-809-engine-api-real-run-status-evidence.md`
+  - belegt Erfolg, alle Hostfehlerpfade, Cleanup, Terminalität und Compositionbindung
+- LQ-810 engine API real run status completion audit:
+  `docs/lq-810-engine-api-real-run-status-completion-audit.md`
+  - schließt die innere Run-Instrumentierung bei weiterhin production_ready=false; 410 fokussierte und 5.760 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Signalgrenzen-Instrumentierung
+
+- LQ-811 engine API signal status boundary contract:
+  `docs/lq-811-engine-api-signal-status-boundary-contract.md`
+  - verschiebt stopped im vollständigen Graphen bis nach erfolgreichem Signal-Restore
+- LQ-812 signal-bound engine API process status:
+  `docs/lq-812-signal-bound-engine-api-process-status.md`
+  - implementiert geschlossene äußere Erfolgs-/Fehlerfinalisierung bei direkter Process-Run-Kompatibilität
+- LQ-813 engine API signal status evidence:
+  `docs/lq-813-engine-api-signal-status-evidence.md`
+  - belegt Install-, Restore-, inneren Failure-, Doppelabschluss- und Kompatibilitätspfade
+- LQ-814 engine API signal status completion audit:
+  `docs/lq-814-engine-api-signal-status-completion-audit.md`
+  - schließt die Signalgrenzen-Instrumentierung bei weiterhin production_ready=false; 416 fokussierte und 5.766 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist das inerte Process-Bundle
+
+- LQ-815 engine API process bundle contract:
+  `docs/lq-815-engine-api-process-bundle-contract.md`
+  - bindet Run, Status und Readinessprobe objektidentisch in ein inertes unveränderliches Ergebnis
+- LQ-816 inert engine API process bundle:
+  `docs/lq-816-inert-engine-api-process-bundle.md`
+  - implementiert den geschlossenen Bundlecomposer und erhält die bestehende Runprojektion
+- LQ-817 engine API process bundle evidence:
+  `docs/lq-817-engine-api-process-bundle-evidence.md`
+  - belegt Identität, Inertheit, Mischungsabwehr, Detailfreiheit und Kompatibilität
+- LQ-818 engine API process bundle completion audit:
+  `docs/lq-818-engine-api-process-bundle-completion-audit.md`
+  - schließt das noch nicht publizierte Bundle bei weiterhin production_ready=false; 425 fokussierte und 5.775 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Entrypoint-Bundle und Run-/Health-Ownership
+
+- LQ-819 engine API entrypoint bundle and run/health ownership contract:
+  `docs/lq-819-engine-api-entrypoint-bundle-run-health-ownership-contract.md`
+  - bindet genau ein Entrypoint-Bundle an einmaligen Runclaim und parallele read-only Healthsicht
+- LQ-820 engine API bundle process owner:
+  `docs/lq-820-engine-api-bundle-process-owner.md`
+  - implementiert Bundle-Entrypoint und inerten Owner ohne Lock während Run oder eigenen Thread
+- LQ-821 engine API bundle process owner evidence:
+  `docs/lq-821-engine-api-bundle-process-owner-evidence.md`
+  - belegt Entrypointidentität, konkurrierenden Claim, Fehlerverbrauch und Healthreads während Run
+- LQ-822 engine API entrypoint bundle owner completion audit:
+  `docs/lq-822-engine-api-entrypoint-bundle-owner-completion-audit.md`
+  - schließt Bundle-Entrypoint und Ownershipprimitive bei weiterhin production_ready=false; 430 fokussierte und 5.780 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der lokale Healthtransportvertrag
+
+- LQ-823 local engine API health transport contract:
+  `docs/lq-823-local-engine-api-health-transport-contract.md`
+  - schließt zwei kanonische bounded Read-only-Requests und detailbegrenzte Antworten
+- LQ-824 closed engine API health protocol:
+  `docs/lq-824-closed-engine-api-health-protocol.md`
+  - implementiert die I/O-freie Live-/Ready-Projektion ausschließlich aus dem Process Owner
+- LQ-825 engine API health protocol evidence:
+  `docs/lq-825-engine-api-health-protocol-evidence.md`
+  - belegt Zustände, Framing, Bounds, Abweichungsabwehr, Fehlerreduktion und fehlende I/O-Oberfläche
+- LQ-826 engine API health protocol completion audit:
+  `docs/lq-826-engine-api-health-protocol-completion-audit.md`
+  - schließt das noch nicht transportierte Healthprotokoll bei weiterhin production_ready=false; 443 fokussierte und 5.793 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Socket- und Peer-Authority
+
+- LQ-827 private engine API health socket and peer authority contract:
+  `docs/lq-827-private-engine-api-health-socket-peer-authority-contract.md`
+  - bindet Socket-, Eltern- und Kernel-Peerfakten explizit ohne Caller- oder Rollenautorität
+- LQ-828 closed engine API health socket authority:
+  `docs/lq-828-closed-engine-api-health-socket-authority.md`
+  - implementiert das unveränderliche Authorityobjekt und wirkungsfreie SO_PEERCRED-Policycomposition
+- LQ-829 engine API health socket authority evidence:
+  `docs/lq-829-engine-api-health-socket-authority-evidence.md`
+  - belegt Pfad-, Identitäts-, Timeout-, Backlog-, Trennungs- und Detailgrenzen
+- LQ-830 engine API health socket authority completion audit:
+  `docs/lq-830-engine-api-health-socket-authority-completion-audit.md`
+  - schließt die noch unverdrahtete Authority bei weiterhin production_ready=false; 465 fokussierte und 5.815 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die Health-Settingsgruppe
+
+- LQ-831 engine API health settings source contract:
+  `docs/lq-831-engine-api-health-settings-source-contract.md`
+  - bindet neun Pflichtwerte atomar an eine separate owner-private descriptorstabile Datei
+- LQ-832 closed engine API health settings source:
+  `docs/lq-832-closed-engine-api-health-settings-source.md`
+  - implementiert geschlossenen Mappingparser und bounded No-follow-Dateiprojektion
+- LQ-833 engine API health settings source evidence:
+  `docs/lq-833-engine-api-health-settings-source-evidence.md`
+  - belegt Schlüssel-, Zahlen-, Pfad-, Datei-, Projektions- und Environment-Isolierung
+- LQ-834 engine API health settings source completion audit:
+  `docs/lq-834-engine-api-health-settings-source-completion-audit.md`
+  - schließt die noch unverdrahtete Healthquelle bei weiterhin production_ready=false; 493 fokussierte und 5.843 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die inerte Healthdependency-Composition
+
+- LQ-835 engine API health dependency composition contract:
+  `docs/lq-835-engine-api-health-dependency-composition-contract.md`
+  - bindet Process Bundle und Healthauthority objektidentisch an Owner, Peerpolicy und Protokoll
+- LQ-836 inert engine API health dependency composition:
+  `docs/lq-836-inert-engine-api-health-dependency-composition.md`
+  - implementiert das unveränderliche fünfteilige Healthbundle ohne Aufbauwirkung
+- LQ-837 engine API health dependency composition evidence:
+  `docs/lq-837-engine-api-health-dependency-composition-evidence.md`
+  - belegt Identität, Peerbindungen, Mischungsabwehr, Inertheit und Detailfreiheit
+- LQ-838 engine API health dependency composition completion audit:
+  `docs/lq-838-engine-api-health-dependency-composition-completion-audit.md`
+  - schließt den noch nicht transportierten Healthgraph bei weiterhin production_ready=false; 502 fokussierte und 5.852 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist bounded Health-Stream-I/O
+
+- LQ-839 engine API health stream I/O contract:
+  `docs/lq-839-engine-api-health-stream-io-contract.md`
+  - bindet genau einen bounded Requestread und vollständigen Responsewrite an extern besessene Streams
+- LQ-840 bounded engine API health stream I/O:
+  `docs/lq-840-bounded-engine-api-health-stream-io.md`
+  - implementiert maximal 128/512 Bytes und validierte positive Partial-Sends ohne Socketownership
+- LQ-841 engine API health stream I/O evidence:
+  `docs/lq-841-engine-api-health-stream-io-evidence.md`
+  - belegt Fragmentierung, Abschluss, EOF, Zusatzbytes, Bounds, Sendabweichungen und fehlende I/O-Oberflächen
+- LQ-842 engine API health stream I/O completion audit:
+  `docs/lq-842-engine-api-health-stream-io-completion-audit.md`
+  - schließt das noch nicht erworbene Health-Stream-I/O bei weiterhin production_ready=false; 520 fokussierte und 5.870 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der verifizierte Einzelaustausch
+
+- LQ-843 peer-verified engine API health exchange contract:
+  `docs/lq-843-peer-verified-engine-api-health-exchange-contract.md`
+  - bindet Kernel-Peerprüfung, Read, Protocol und Write in feste Reihenfolge auf demselben Stream
+- LQ-844 verified engine API health exchange:
+  `docs/lq-844-verified-engine-api-health-exchange.md`
+  - implementiert Nachweis- und Deskriptorbindung vor Read sowie erneute Prüfung vor Write
+- LQ-845 engine API health exchange evidence:
+  `docs/lq-845-engine-api-health-exchange-evidence.md`
+  - belegt Reihenfolge, Identität, alle Stufenfehler, Descriptorwechsel und fehlende Streamownership
+- LQ-846 engine API health exchange completion audit:
+  `docs/lq-846-engine-api-health-exchange-completion-audit.md`
+  - schließt den noch nicht akzeptierten Einzelaustausch bei weiterhin production_ready=false; 531 fokussierte und 5.881 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist der kontrollierte Health-Accept
+
+- LQ-847 controlled engine API health accept contract:
+  `docs/lq-847-controlled-engine-api-health-accept-contract.md`
+- LQ-848 controlled engine API health accept:
+  `docs/lq-848-controlled-engine-api-health-accept.md`
+- LQ-849 engine API health accept evidence:
+  `docs/lq-849-engine-api-health-accept-evidence.md`
+- LQ-850 engine API health accept completion audit:
+  `docs/lq-850-engine-api-health-accept-completion-audit.md`
+  - schließt Timeout, Exchange und garantiertes Client-Close ohne Listenerownership
+
+- LQ-851 engine API health listener contract:
+  `docs/lq-851-engine-api-health-listener-contract.md`
+- LQ-852 controlled engine API health listener:
+  `docs/lq-852-controlled-engine-api-health-listener.md`
+- LQ-853 engine API health listener evidence:
+  `docs/lq-853-engine-api-health-listener-evidence.md`
+- LQ-854 engine API health listener completion audit:
+  `docs/lq-854-engine-api-health-listener-completion-audit.md`
+  - schließt Veröffentlichung und sichere Rücknahme des privaten Health-Sockets
+
+- LQ-855 bounded engine API health serve loop contract:
+  `docs/lq-855-bounded-engine-api-health-serve-loop-contract.md`
+- LQ-856 bounded engine API health serve loop:
+  `docs/lq-856-bounded-engine-api-health-serve-loop.md`
+- LQ-857 engine API health serve loop evidence:
+  `docs/lq-857-engine-api-health-serve-loop-evidence.md`
+- LQ-858 engine API health transport completion audit:
+  `docs/lq-858-engine-api-health-transport-completion-audit.md`
+  - schließt drei getrennte Health-Transportgrenzen bei weiterhin production_ready=false; 156 fokussierte und 5.887 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist die kontrollierte Health-Transportkomposition
+
+- LQ-859 engine API health transport composition contract:
+  `docs/lq-859-engine-api-health-transport-composition-contract.md`
+- LQ-860 inert engine API health transport composition:
+  `docs/lq-860-inert-engine-api-health-transport-composition.md`
+- LQ-861 engine API health transport composition evidence:
+  `docs/lq-861-engine-api-health-transport-composition-evidence.md`
+- LQ-862 engine API health transport composition audit:
+  `docs/lq-862-engine-api-health-transport-composition-audit.md`
+  - bindet genau einen vollständigen Transportgraphen ohne Hostwirkung
+
+- LQ-863 owned engine API health process run contract:
+  `docs/lq-863-owned-engine-api-health-process-run-contract.md`
+- LQ-864 owned engine API health process run:
+  `docs/lq-864-owned-engine-api-health-process-run.md`
+- LQ-865 engine API health process run evidence:
+  `docs/lq-865-engine-api-health-process-run-evidence.md`
+- LQ-866 engine API health process run audit:
+  `docs/lq-866-engine-api-health-process-run-audit.md`
+  - schließt Open/Run/Close-Ownership ohne automatischen Start
+
+- LQ-867 engine API health process status contract:
+  `docs/lq-867-engine-api-health-process-status-contract.md`
+- LQ-868 engine API health process status:
+  `docs/lq-868-engine-api-health-process-status.md`
+- LQ-869 engine API health process status evidence:
+  `docs/lq-869-engine-api-health-process-status-evidence.md`
+- LQ-870 engine API health process completion audit:
+  `docs/lq-870-engine-api-health-process-completion-audit.md`
+  - schließt Komposition, Prozessownership und Status bei weiterhin production_ready=false; 38 fokussierte und 5.894 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist explizites Signal- und Entrypoint-Wiring
+
+- LQ-871 engine API health signal ownership contract:
+  `docs/lq-871-engine-api-health-signal-ownership-contract.md`
+- LQ-872 signal-owned engine API health run:
+  `docs/lq-872-signal-owned-engine-api-health-run.md`
+- LQ-873 engine API health signal run evidence:
+  `docs/lq-873-engine-api-health-signal-run-evidence.md`
+- LQ-874 engine API health signal run audit:
+  `docs/lq-874-engine-api-health-signal-run-audit.md`
+  - schließt Install/Run/Restore ohne automatischen Start
+
+- LQ-875 engine API health entrypoint bundle contract:
+  `docs/lq-875-engine-api-health-entrypoint-bundle-contract.md`
+- LQ-876 inert engine API health entrypoint bundle:
+  `docs/lq-876-inert-engine-api-health-entrypoint-bundle.md`
+- LQ-877 engine API health entrypoint bundle evidence:
+  `docs/lq-877-engine-api-health-entrypoint-bundle-evidence.md`
+- LQ-878 engine API health entrypoint bundle audit:
+  `docs/lq-878-engine-api-health-entrypoint-bundle-audit.md`
+  - bindet Transport, Signalquelle und Run ohne Aufbauwirkung
+
+- LQ-879 engine API health entrypoint owner contract:
+  `docs/lq-879-engine-api-health-entrypoint-owner-contract.md`
+- LQ-880 one-shot engine API health entrypoint owner:
+  `docs/lq-880-one-shot-engine-api-health-entrypoint-owner.md`
+- LQ-881 engine API health entrypoint owner evidence:
+  `docs/lq-881-engine-api-health-entrypoint-owner-evidence.md`
+- LQ-882 engine API health entrypoint completion audit:
+  `docs/lq-882-engine-api-health-entrypoint-completion-audit.md`
+  - schließt Signalrun, Entrypoint-Bundle und One-shot-Owner bei weiterhin production_ready=false; 40 fokussierte und 5.902 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist explizites Settings- und CLI-Wiring
+
+- LQ-883 engine API health run settings contract:
+  `docs/lq-883-engine-api-health-run-settings-contract.md`
+- LQ-884 closed engine API health run settings:
+  `docs/lq-884-closed-engine-api-health-run-settings.md`
+- LQ-885 engine API health run settings evidence:
+  `docs/lq-885-engine-api-health-run-settings-evidence.md`
+- LQ-886 engine API health run settings audit:
+  `docs/lq-886-engine-api-health-run-settings-audit.md`
+  - schließt die positive harte Austauschgrenze ohne Aktivierungswirkung
+
+- LQ-887 engine API health run settings source contract:
+  `docs/lq-887-engine-api-health-run-settings-source-contract.md`
+- LQ-888 owner-private engine API health run settings source:
+  `docs/lq-888-owner-private-engine-api-health-run-settings-source.md`
+- LQ-889 engine API health run settings source evidence:
+  `docs/lq-889-engine-api-health-run-settings-source-evidence.md`
+- LQ-890 engine API health run settings source audit:
+  `docs/lq-890-engine-api-health-run-settings-source-audit.md`
+  - schließt owner-private Quelle ohne Environment-Override
+
+- LQ-891 observed-process health runtime contract:
+  `docs/lq-891-observed-process-health-runtime-contract.md`
+- LQ-892 observed-process health runtime composition:
+  `docs/lq-892-observed-process-health-runtime-composition.md`
+- LQ-893 observed-process health runtime evidence:
+  `docs/lq-893-observed-process-health-runtime-evidence.md`
+- LQ-894 standalone health CLI blocker audit:
+  `docs/lq-894-standalone-health-cli-blocker-audit.md`
+  - bindet den Health-Owner an den bereits existierenden Hauptprozess; 51 fokussierte und 5.912 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - Standalone-CLI bleibt wegen fremdem Statusbild gesperrt; production_ready=false
+
+- LQ-895 engine API health accept polling contract:
+  `docs/lq-895-engine-api-health-accept-polling-contract.md`
+- LQ-896 bounded engine API health poll accept:
+  `docs/lq-896-bounded-engine-api-health-poll-accept.md`
+- LQ-897 engine API health poll accept evidence:
+  `docs/lq-897-engine-api-health-poll-accept-evidence.md`
+- LQ-898 engine API health poll accept audit:
+  `docs/lq-898-engine-api-health-poll-accept-audit.md`
+  - trennt neutralen Polltimeout von Client- und technischen Fehlern
+
+- LQ-899 engine API health poll listener contract:
+  `docs/lq-899-engine-api-health-poll-listener-contract.md`
+- LQ-900 bounded engine API health poll listener:
+  `docs/lq-900-bounded-engine-api-health-poll-listener.md`
+- LQ-901 engine API health poll listener evidence:
+  `docs/lq-901-engine-api-health-poll-listener-evidence.md`
+- LQ-902 engine API health poll listener audit:
+  `docs/lq-902-engine-api-health-poll-listener-audit.md`
+  - bindet begrenztes Accept-Polling an den gehärteten Listener-Lifecycle
+
+- LQ-903 stop-aware engine API health poll loop contract:
+  `docs/lq-903-stop-aware-engine-api-health-poll-loop-contract.md`
+- LQ-904 stop-aware engine API health poll loop:
+  `docs/lq-904-stop-aware-engine-api-health-poll-loop.md`
+- LQ-905 engine API health poll loop evidence:
+  `docs/lq-905-engine-api-health-poll-loop-evidence.md`
+- LQ-906 engine API health polling completion audit:
+  `docs/lq-906-engine-api-health-polling-completion-audit.md`
+  - schließt stopfähiges Polling bei weiterhin production_ready=false; 27 fokussierte und 5.918 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist gemeinsames Haupt-/Health-Process-Wiring
+
+- LQ-907 owned engine API health poll process contract:
+  `docs/lq-907-owned-engine-api-health-poll-process-contract.md`
+- LQ-908 owned engine API health poll process:
+  `docs/lq-908-owned-engine-api-health-poll-process.md`
+- LQ-909 engine API health poll process evidence:
+  `docs/lq-909-engine-api-health-poll-process-evidence.md`
+- LQ-910 engine API health poll process audit:
+  `docs/lq-910-engine-api-health-poll-process-audit.md`
+  - schließt Poll-Listener/Loop/Close-Ownership mit terminalem Status
+
+- LQ-911 engine API health poll runtime contract:
+  `docs/lq-911-engine-api-health-poll-runtime-contract.md`
+- LQ-912 observed-process health poll runtime:
+  `docs/lq-912-observed-process-health-poll-runtime.md`
+- LQ-913 engine API health poll runtime evidence:
+  `docs/lq-913-engine-api-health-poll-runtime-evidence.md`
+- LQ-914 engine API health poll runtime audit:
+  `docs/lq-914-engine-api-health-poll-runtime-audit.md`
+  - bindet vollständige Poll-Runtime inert an denselben Hauptprozess
+
+- LQ-915 joint engine API process shutdown contract:
+  `docs/lq-915-joint-engine-api-process-shutdown-contract.md`
+- LQ-916 joint engine API process shutdown feasibility:
+  `docs/lq-916-joint-engine-api-process-shutdown-feasibility.md`
+- LQ-917 joint engine API process blocker evidence:
+  `docs/lq-917-joint-engine-api-process-blocker-evidence.md`
+- LQ-918 joint engine API process wiring blocker audit:
+  `docs/lq-918-joint-engine-api-process-wiring-blocker-audit.md`
+  - gemeinsames Wiring bleibt wegen unbegrenztem Haupt-Accept gesperrt; 27 fokussierte und 5.927 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist stopfähiges Haupt-Proxy-Accept-Polling; production_ready=false
+
+- LQ-919 engine API proxy accept polling contract:
+  `docs/lq-919-engine-api-proxy-accept-polling-contract.md`
+- LQ-920 bounded engine API proxy poll accept:
+  `docs/lq-920-bounded-engine-api-proxy-poll-accept.md`
+- LQ-921 engine API proxy poll accept evidence:
+  `docs/lq-921-engine-api-proxy-poll-accept-evidence.md`
+- LQ-922 engine API proxy poll accept audit:
+  `docs/lq-922-engine-api-proxy-poll-accept-audit.md`
+  - ergänzt neutralen Opt-in-Pollmodus ohne Änderung von serve_one
+
+- LQ-923 engine API proxy poll listener contract:
+  `docs/lq-923-engine-api-proxy-poll-listener-contract.md`
+- LQ-924 bounded engine API proxy poll listener:
+  `docs/lq-924-bounded-engine-api-proxy-poll-listener.md`
+- LQ-925 engine API proxy poll listener evidence:
+  `docs/lq-925-engine-api-proxy-poll-listener-evidence.md`
+- LQ-926 engine API proxy poll listener audit:
+  `docs/lq-926-engine-api-proxy-poll-listener-audit.md`
+  - bindet begrenztes Accept-Polling an den Haupt-Listener
+
+- LQ-927 stop-aware engine API proxy poll loop contract:
+  `docs/lq-927-stop-aware-engine-api-proxy-poll-loop-contract.md`
+- LQ-928 stop-aware engine API proxy poll loop:
+  `docs/lq-928-stop-aware-engine-api-proxy-poll-loop.md`
+- LQ-929 engine API proxy poll loop evidence:
+  `docs/lq-929-engine-api-proxy-poll-loop-evidence.md`
+- LQ-930 engine API proxy polling completion audit:
+  `docs/lq-930-engine-api-proxy-polling-completion-audit.md`
+  - schließt optionales Haupt-Proxy-Polling bei weiterhin production_ready=false; 46 fokussierte und 5.933 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Poll-Processcomposition und gemeinsamer Owner
+
+- LQ-931 owned engine API proxy poll process contract:
+  `docs/lq-931-owned-engine-api-proxy-poll-process-contract.md`
+- LQ-932 owned engine API proxy poll process:
+  `docs/lq-932-owned-engine-api-proxy-poll-process.md`
+- LQ-933 engine API proxy poll process evidence:
+  `docs/lq-933-engine-api-proxy-poll-process-evidence.md`
+- LQ-934 engine API proxy poll process audit:
+  `docs/lq-934-engine-api-proxy-poll-process-audit.md`
+  - schließt Preflight/Poll/Close-Ownership des Hauptprozesses
+
+- LQ-935 engine API proxy poll runtime contract:
+  `docs/lq-935-engine-api-proxy-poll-runtime-contract.md`
+- LQ-936 inert engine API proxy poll runtime:
+  `docs/lq-936-inert-engine-api-proxy-poll-runtime.md`
+- LQ-937 engine API proxy poll runtime evidence:
+  `docs/lq-937-engine-api-proxy-poll-runtime-evidence.md`
+- LQ-938 engine API proxy poll runtime audit:
+  `docs/lq-938-engine-api-proxy-poll-runtime-audit.md`
+  - erhält dieselbe Status- und Prozessidentität ohne Aufbauwirkung
+
+- LQ-939 joint engine API process owner contract:
+  `docs/lq-939-joint-engine-api-process-owner-contract.md`
+- LQ-940 joint engine API process owner:
+  `docs/lq-940-joint-engine-api-process-owner.md`
+- LQ-941 joint engine API process owner evidence:
+  `docs/lq-941-joint-engine-api-process-owner-evidence.md`
+- LQ-942 joint engine API runtime completion audit:
+  `docs/lq-942-joint-engine-api-runtime-completion-audit.md`
+  - schließt gemeinsamen One-shot-Owner mit einer Signalquelle und begrenztem Join; 26 fokussierte und 5.939 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist Settings-/Entrypoint-Komposition; production_ready=false
+
+- LQ-943 joint engine API settings contract:
+  `docs/lq-943-joint-engine-api-settings-contract.md`
+- LQ-944 closed joint engine API settings:
+  `docs/lq-944-closed-joint-engine-api-settings.md`
+- LQ-945 joint engine API settings evidence:
+  `docs/lq-945-joint-engine-api-settings-evidence.md`
+- LQ-946 joint engine API settings audit:
+  `docs/lq-946-joint-engine-api-settings-audit.md`
+  - schließt drei private Quellen sowie Poll- und Join-Grenzen
+
+- LQ-947 joint engine API settings source contract:
+  `docs/lq-947-joint-engine-api-settings-source-contract.md`
+- LQ-948 owner-private joint engine API settings source:
+  `docs/lq-948-owner-private-joint-engine-api-settings-source.md`
+- LQ-949 joint engine API settings source evidence:
+  `docs/lq-949-joint-engine-api-settings-source-evidence.md`
+- LQ-950 joint engine API settings source audit:
+  `docs/lq-950-joint-engine-api-settings-source-audit.md`
+  - schließt owner-private gemeinsame Dateiprojektion
+
+- LQ-951 joint engine API entrypoint contract:
+  `docs/lq-951-joint-engine-api-entrypoint-contract.md`
+- LQ-952 explicit joint engine API entrypoint:
+  `docs/lq-952-explicit-joint-engine-api-entrypoint.md`
+- LQ-953 joint engine API entrypoint evidence:
+  `docs/lq-953-joint-engine-api-entrypoint-evidence.md`
+- LQ-954 joint engine API entrypoint completion audit:
+  `docs/lq-954-joint-engine-api-entrypoint-completion-audit.md`
+  - schließt expliziten Moduleinstieg ohne Packaging- oder Deployment-Aktivierung; 28 fokussierte, 75 Inventar- und 5.947 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist kontrolliertes Compose-/Deployment-Wiring; production_ready=false
+
+- LQ-955 joint engine API packaging inventory contract:
+  `docs/lq-955-joint-engine-api-packaging-inventory-contract.md`
+- LQ-956 joint engine API packaging inventory decision:
+  `docs/lq-956-joint-engine-api-packaging-inventory-decision.md`
+- LQ-957 joint engine API packaging evidence:
+  `docs/lq-957-joint-engine-api-packaging-evidence.md`
+- LQ-958 joint engine API packaging audit:
+  `docs/lq-958-joint-engine-api-packaging-audit.md`
+  - hält 71 Console-Skripte stabil und nutzt expliziten Moduleinstieg
+
+- LQ-959 joint engine API deployment configuration contract:
+  `docs/lq-959-joint-engine-api-deployment-configuration-contract.md`
+- LQ-960 joint engine API deployment templates:
+  `docs/lq-960-joint-engine-api-deployment-templates.md`
+- LQ-961 joint engine API deployment template evidence:
+  `docs/lq-961-joint-engine-api-deployment-template-evidence.md`
+- LQ-962 joint engine API deployment template audit:
+  `docs/lq-962-joint-engine-api-deployment-template-audit.md`
+  - liefert vier wertvollständige nicht geheime Dateivorlagen
+
+- LQ-963 joint engine API deployment preflight contract:
+  `docs/lq-963-joint-engine-api-deployment-preflight-contract.md`
+- LQ-964 read-only joint engine API deployment preflight:
+  `docs/lq-964-read-only-joint-engine-api-deployment-preflight.md`
+- LQ-965 joint engine API deployment preflight evidence:
+  `docs/lq-965-joint-engine-api-deployment-preflight-evidence.md`
+- LQ-966 joint engine API deployment readiness audit:
+  `docs/lq-966-joint-engine-api-deployment-readiness-audit.md`
+  - schließt read-only Vier-Dateien-Preflight; 23 fokussierte und 5.952 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - Capability-, Mount- und Compose-Wiring bleiben offen; production_ready=false
+
+- LQ-967 joint engine API container capability contract:
+  `docs/lq-967-joint-engine-api-container-capability-contract.md`
+- LQ-968 minimal joint engine API container identity:
+  `docs/lq-968-minimal-joint-engine-api-container-identity.md`
+- LQ-969 joint engine API capability evidence:
+  `docs/lq-969-joint-engine-api-capability-evidence.md`
+- LQ-970 joint engine API capability audit:
+  `docs/lq-970-joint-engine-api-capability-audit.md`
+  - schließt feste UID/GID, Zusatzgruppe und vollständiges Capability-Drop
+
+- LQ-971 joint engine API mount contract:
+  `docs/lq-971-joint-engine-api-mount-contract.md`
+- LQ-972 controlled joint engine API mount wiring:
+  `docs/lq-972-controlled-joint-engine-api-mount-wiring.md`
+- LQ-973 joint engine API mount evidence:
+  `docs/lq-973-joint-engine-api-mount-evidence.md`
+- LQ-974 joint engine API mount audit:
+  `docs/lq-974-joint-engine-api-mount-audit.md`
+  - schließt acht zwingende Bindungen und privaten Runtimepfad
+
+- LQ-975 joint engine API compose service contract:
+  `docs/lq-975-joint-engine-api-compose-service-contract.md`
+- LQ-976 opt-in joint engine API compose service:
+  `docs/lq-976-opt-in-joint-engine-api-compose-service.md`
+- LQ-977 joint engine API compose evidence:
+  `docs/lq-977-joint-engine-api-compose-evidence.md`
+- LQ-978 joint engine API compose completion audit:
+  `docs/lq-978-joint-engine-api-compose-completion-audit.md`
+  - schließt separat anzugebendes opt-in Compose-Overlay bei geschlossenem Standard-Stack; 31 fokussierte und 5.959 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - nächster Strang ist effektiver Container-/Docker-Stagingnachweis
+
+- LQ-979 joint engine API compose render contract:
+  `docs/lq-979-joint-engine-api-compose-render-contract.md`
+- LQ-980 read-only joint engine API compose render preflight:
+  `docs/lq-980-read-only-joint-engine-api-compose-render-preflight.md`
+- LQ-981 joint engine API compose render evidence:
+  `docs/lq-981-joint-engine-api-compose-render-evidence.md`
+- LQ-982 joint engine API compose render audit:
+  `docs/lq-982-joint-engine-api-compose-render-audit.md`
+  - schließt shell-freies zeitbegrenztes config-only Rendering
+
+- LQ-983 joint engine API staging runbook contract:
+  `docs/lq-983-joint-engine-api-staging-runbook-contract.md`
+- LQ-984 joint engine API staging runbook:
+  `docs/lq-984-joint-engine-api-staging-runbook.md`
+- LQ-985 joint engine API staging runbook evidence:
+  `docs/lq-985-joint-engine-api-staging-runbook-evidence.md`
+- LQ-986 joint engine API staging runbook audit:
+  `docs/lq-986-joint-engine-api-staging-runbook-audit.md`
+  - liefert zwölf geordnete Staging- und Shutdown-Gates
+
+- LQ-987 joint engine API staging environment contract:
+  `docs/lq-987-joint-engine-api-staging-environment-contract.md`
+- LQ-988 joint engine API staging environment inspection:
+  `docs/lq-988-joint-engine-api-staging-environment-inspection.md`
+- LQ-989 joint engine API staging environment evidence:
+  `docs/lq-989-joint-engine-api-staging-environment-evidence.md`
+- LQ-990 joint engine API staging blocker audit:
+  `docs/lq-990-joint-engine-api-staging-blocker-audit.md`
+  - schließt statische Vorbereitung; 29 fokussierte, 24 Inventar- und 5.966 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - effektiver Nachweis bleibt ohne Docker CLI/Compose und Docker-Socket blockiert; production_ready=false
+
+- LQ-991 joint engine API staging evidence contract:
+  `docs/lq-991-joint-engine-api-staging-evidence-contract.md`
+- LQ-992 closed joint engine API staging evidence:
+  `docs/lq-992-closed-joint-engine-api-staging-evidence.md`
+- LQ-993 joint engine API staging evidence evidence:
+  `docs/lq-993-joint-engine-api-staging-evidence-evidence.md`
+- LQ-994 joint engine API staging evidence audit:
+  `docs/lq-994-joint-engine-api-staging-evidence-audit.md`
+  - schließt neutrales Digest-basiertes Evidenzmodell ohne Ready-/Allow-Bool
+
+- LQ-995 canonical joint engine API evidence codec contract:
+  `docs/lq-995-canonical-joint-engine-api-evidence-codec-contract.md`
+- LQ-996 canonical joint engine API evidence codec:
+  `docs/lq-996-canonical-joint-engine-api-evidence-codec.md`
+- LQ-997 joint engine API evidence codec evidence:
+  `docs/lq-997-joint-engine-api-evidence-codec-evidence.md`
+- LQ-998 joint engine API evidence storage audit:
+  `docs/lq-998-joint-engine-api-evidence-storage-audit.md`
+  - schließt kanonische Kodierung und owner-private O_EXCL-Ablage
+
+- LQ-999 joint engine API evidence verifier contract:
+  `docs/lq-999-joint-engine-api-evidence-verifier-contract.md`
+- LQ-1000 read-only joint engine API evidence verifier:
+  `docs/lq-1000-read-only-joint-engine-api-evidence-verifier.md`
+- LQ-1001 joint engine API evidence verifier evidence:
+  `docs/lq-1001-joint-engine-api-evidence-verifier-evidence.md`
+- LQ-1002 joint engine API offline evidence completion audit:
+  `docs/lq-1002-joint-engine-api-offline-evidence-completion-audit.md`
+  - schließt Offline-Evidenzkette; 21 fokussierte und 5.975 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - reale Docker-Stagingevidenz fehlt weiterhin; production_ready=false
+
+- LQ-1003 joint engine API evidence bundle contract:
+  `docs/lq-1003-joint-engine-api-evidence-bundle-contract.md`
+- LQ-1004 read-only joint engine API evidence bundle verifier:
+  `docs/lq-1004-read-only-joint-engine-api-evidence-bundle-verifier.md`
+- LQ-1005 joint engine API evidence bundle evidence:
+  `docs/lq-1005-joint-engine-api-evidence-bundle-evidence.md`
+- LQ-1006 joint engine API evidence bundle audit:
+  `docs/lq-1006-joint-engine-api-evidence-bundle-audit.md`
+  - bindet fünf gespeicherte Digests an fünf aktuelle private Dateien
+
+- LQ-1007 joint engine API evidence freshness contract:
+  `docs/lq-1007-joint-engine-api-evidence-freshness-contract.md`
+- LQ-1008 bounded joint engine API evidence freshness:
+  `docs/lq-1008-bounded-joint-engine-api-evidence-freshness.md`
+- LQ-1009 joint engine API evidence freshness evidence:
+  `docs/lq-1009-joint-engine-api-evidence-freshness-evidence.md`
+- LQ-1010 joint engine API evidence freshness audit:
+  `docs/lq-1010-joint-engine-api-evidence-freshness-audit.md`
+  - bindet exakte Umgebung, UTC und maximales Alter bis sieben Tage
+
+- LQ-1011 joint engine API evidence provenance contract:
+  `docs/lq-1011-joint-engine-api-evidence-provenance-contract.md`
+- LQ-1012 joint engine API evidence provenance assessment:
+  `docs/lq-1012-joint-engine-api-evidence-provenance-assessment.md`
+- LQ-1013 joint engine API evidence provenance evidence:
+  `docs/lq-1013-joint-engine-api-evidence-provenance-evidence.md`
+- LQ-1014 joint engine API evidence bundle completion audit:
+  `docs/lq-1014-joint-engine-api-evidence-bundle-completion-audit.md`
+  - schließt Digest-, Umgebungs- und Frischebindung; 22 fokussierte und 5.983 vollständige Tests bestehen, 108 werden erwartungsgemäß übersprungen
+  - autoritative Docker-Provenienz fehlt; production_ready=false
+
+- LQ-1015 joint engine API staging trust contract:
+  `docs/lq-1015-joint-engine-api-staging-trust-contract.md`
+- LQ-1016 owner-private joint engine API staging trust source:
+  `docs/lq-1016-owner-private-joint-engine-api-staging-trust-source.md`
+- LQ-1017 joint engine API staging trust evidence:
+  `docs/lq-1017-joint-engine-api-staging-trust-evidence.md`
+- LQ-1018 joint engine API staging trust audit:
+  `docs/lq-1018-joint-engine-api-staging-trust-audit.md`
+  - schließt feste Umgebungs-, Key-ID- und Ed25519-Trustfakten
+
+- LQ-1019 joint engine API detached signature contract:
+  `docs/lq-1019-joint-engine-api-detached-signature-contract.md`
+- LQ-1020 joint engine API detached signature verifier:
+  `docs/lq-1020-joint-engine-api-detached-signature-verifier.md`
+- LQ-1021 joint engine API detached signature evidence:
+  `docs/lq-1021-joint-engine-api-detached-signature-evidence.md`
+- LQ-1022 joint engine API detached signature audit:
+  `docs/lq-1022-joint-engine-api-detached-signature-audit.md`
+  - bindet kanonische Evidenzbytes kryptografisch an festen Trust
+
+- LQ-1023 joint engine API provenance verification contract:
+  `docs/lq-1023-joint-engine-api-provenance-verification-contract.md`
+- LQ-1024 combined joint engine API provenance verifier:
+  `docs/lq-1024-combined-joint-engine-api-provenance-verifier.md`
+- LQ-1025 joint engine API provenance verification evidence:
+  `docs/lq-1025-joint-engine-api-provenance-verification-evidence.md`
+- LQ-1026 joint engine API cryptographic provenance audit:
+  `docs/lq-1026-joint-engine-api-cryptographic-provenance-audit.md`
+  - schließt kombinierte Signatur-, Bundle- und Frischeprüfung; 20 fokussierte Tests sowie die vollständige lokale Suite mit 5990 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1027 external joint engine API signature intake contract:
+  `docs/lq-1027-external-joint-engine-api-signature-intake-contract.md`
+- LQ-1028 canonical external joint engine API signature decoder:
+  `docs/lq-1028-canonical-external-joint-engine-api-signature-decoder.md`
+- LQ-1029 external joint engine API signature intake evidence:
+  `docs/lq-1029-external-joint-engine-api-signature-intake-evidence.md`
+- LQ-1030 external joint engine API signature intake audit:
+  `docs/lq-1030-external-joint-engine-api-signature-intake-audit.md`
+  - schließt kanonische secret-freie Annahme extern erzeugter Signaturen
+
+- LQ-1031 verified joint engine API signature materialization contract:
+  `docs/lq-1031-verified-joint-engine-api-signature-materialization-contract.md`
+- LQ-1032 verified joint engine API signature materializer:
+  `docs/lq-1032-verified-joint-engine-api-signature-materializer.md`
+- LQ-1033 verified joint engine API signature materialization evidence:
+  `docs/lq-1033-verified-joint-engine-api-signature-materialization-evidence.md`
+- LQ-1034 verified joint engine API signature materialization audit:
+  `docs/lq-1034-verified-joint-engine-api-signature-materialization-audit.md`
+  - schreibt nur vorab kryptografisch verifizierte Signaturen einmalig owner-private
+
+- LQ-1035 joint engine API provenance receipt contract:
+  `docs/lq-1035-joint-engine-api-provenance-receipt-contract.md`
+- LQ-1036 canonical joint engine API provenance receipt:
+  `docs/lq-1036-canonical-joint-engine-api-provenance-receipt.md`
+- LQ-1037 joint engine API provenance receipt evidence:
+  `docs/lq-1037-joint-engine-api-provenance-receipt-evidence.md`
+- LQ-1038 joint engine API signature intake completion audit:
+  `docs/lq-1038-joint-engine-api-signature-intake-completion-audit.md`
+  - schließt externe Signaturannahme, verifizierte Materialisierung und kanonischen Provenienzbeleg; 19 fokussierte Tests sowie die vollständige lokale Suite mit 5997 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1039 joint engine API provenance receipt decoding contract:
+  `docs/lq-1039-joint-engine-api-provenance-receipt-decoding-contract.md`
+- LQ-1040 strict joint engine API provenance receipt decoder:
+  `docs/lq-1040-strict-joint-engine-api-provenance-receipt-decoder.md`
+- LQ-1041 joint engine API provenance receipt decoding evidence:
+  `docs/lq-1041-joint-engine-api-provenance-receipt-decoding-evidence.md`
+- LQ-1042 joint engine API provenance receipt decoding audit:
+  `docs/lq-1042-joint-engine-api-provenance-receipt-decoding-audit.md`
+  - schließt strikt kanonische read-only Belegrekonstruktion
+
+- LQ-1043 joint engine API provenance receipt storage contract:
+  `docs/lq-1043-joint-engine-api-provenance-receipt-storage-contract.md`
+- LQ-1044 owner-private joint engine API provenance receipt writer:
+  `docs/lq-1044-owner-private-joint-engine-api-provenance-receipt-writer.md`
+- LQ-1045 joint engine API provenance receipt storage evidence:
+  `docs/lq-1045-joint-engine-api-provenance-receipt-storage-evidence.md`
+- LQ-1046 joint engine API provenance receipt storage audit:
+  `docs/lq-1046-joint-engine-api-provenance-receipt-storage-audit.md`
+  - schließt einmalige owner-private Belegmaterialisierung
+
+- LQ-1047 joint engine API end-to-end provenance contract:
+  `docs/lq-1047-joint-engine-api-end-to-end-provenance-contract.md`
+- LQ-1048 combined joint engine API receipt verifier:
+  `docs/lq-1048-combined-joint-engine-api-receipt-verifier.md`
+- LQ-1049 joint engine API end-to-end provenance evidence:
+  `docs/lq-1049-joint-engine-api-end-to-end-provenance-evidence.md`
+- LQ-1050 joint engine API end-to-end provenance audit:
+  `docs/lq-1050-joint-engine-api-end-to-end-provenance-audit.md`
+  - schließt Belegdekodierung, owner-private Ablage und kombinierte Endprüfung; 30 fokussierte Tests sowie die vollständige lokale Suite mit 6008 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1051 joint engine API single-read snapshot contract:
+  `docs/lq-1051-joint-engine-api-single-read-snapshot-contract.md`
+- LQ-1052 joint engine API private provenance snapshot:
+  `docs/lq-1052-joint-engine-api-private-provenance-snapshot.md`
+- LQ-1053 joint engine API single-read snapshot evidence:
+  `docs/lq-1053-joint-engine-api-single-read-snapshot-evidence.md`
+- LQ-1054 joint engine API single-read snapshot audit:
+  `docs/lq-1054-joint-engine-api-single-read-snapshot-audit.md`
+  - schließt neun eindeutige owner-private Single-reads in einen unveränderlichen Snapshot
+
+- LQ-1055 joint engine API pure snapshot verification contract:
+  `docs/lq-1055-joint-engine-api-pure-snapshot-verification-contract.md`
+- LQ-1056 pure joint engine API provenance snapshot verifier:
+  `docs/lq-1056-pure-joint-engine-api-provenance-snapshot-verifier.md`
+- LQ-1057 joint engine API pure snapshot verification evidence:
+  `docs/lq-1057-joint-engine-api-pure-snapshot-verification-evidence.md`
+- LQ-1058 joint engine API pure snapshot verification audit:
+  `docs/lq-1058-joint-engine-api-pure-snapshot-verification-audit.md`
+  - schließt vollständige I/O-freie Entscheidung über exakte Snapshotbytes
+
+- LQ-1059 joint engine API provenance TOCTOU contract:
+  `docs/lq-1059-joint-engine-api-provenance-toctou-contract.md`
+- LQ-1060 single-snapshot joint engine API end verifier:
+  `docs/lq-1060-single-snapshot-joint-engine-api-end-verifier.md`
+- LQ-1061 joint engine API provenance TOCTOU evidence:
+  `docs/lq-1061-joint-engine-api-provenance-toctou-evidence.md`
+- LQ-1062 joint engine API single-snapshot completion audit:
+  `docs/lq-1062-joint-engine-api-single-snapshot-completion-audit.md`
+  - schließt Snapshotaufnahme, reine Prüfung und TOCTOU-Härtung; 46 fokussierte Tests sowie die vollständige lokale Suite mit 6024 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1063 joint engine API staging verification policy contract:
+  `docs/lq-1063-joint-engine-api-staging-verification-policy-contract.md`
+- LQ-1064 canonical joint engine API staging verification policy:
+  `docs/lq-1064-canonical-joint-engine-api-staging-verification-policy.md`
+- LQ-1065 joint engine API staging verification policy evidence:
+  `docs/lq-1065-joint-engine-api-staging-verification-policy-evidence.md`
+- LQ-1066 joint engine API staging verification policy audit:
+  `docs/lq-1066-joint-engine-api-staging-verification-policy-audit.md`
+  - schließt feste owner-private Umgebungs-, Key- und Fristenpolicy
+
+- LQ-1067 joint engine API policy-bound snapshot contract:
+  `docs/lq-1067-joint-engine-api-policy-bound-snapshot-contract.md`
+- LQ-1068 joint engine API policy-bound provenance snapshot:
+  `docs/lq-1068-joint-engine-api-policy-bound-provenance-snapshot.md`
+- LQ-1069 joint engine API policy-bound snapshot evidence:
+  `docs/lq-1069-joint-engine-api-policy-bound-snapshot-evidence.md`
+- LQ-1070 joint engine API policy-bound snapshot audit:
+  `docs/lq-1070-joint-engine-api-policy-bound-snapshot-audit.md`
+  - schließt zehn eindeutige private Single-reads in einen Policy-Provenienz-Snapshot
+
+- LQ-1071 joint engine API policy-driven verification contract:
+  `docs/lq-1071-joint-engine-api-policy-driven-verification-contract.md`
+- LQ-1072 policy-driven joint engine API provenance verifier:
+  `docs/lq-1072-policy-driven-joint-engine-api-provenance-verifier.md`
+- LQ-1073 joint engine API policy-driven verification evidence:
+  `docs/lq-1073-joint-engine-api-policy-driven-verification-evidence.md`
+- LQ-1074 joint engine API policy-driven completion audit:
+  `docs/lq-1074-joint-engine-api-policy-driven-completion-audit.md`
+  - schließt feste Policy, policy-gebundenen Snapshot und caller-unabhängige Fristen; 53 fokussierte Tests sowie die vollständige lokale Suite mit 6045 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1075 joint engine API current UTC contract:
+  `docs/lq-1075-joint-engine-api-current-utc-contract.md`
+- LQ-1076 joint engine API current UTC source:
+  `docs/lq-1076-joint-engine-api-current-utc-source.md`
+- LQ-1077 joint engine API current UTC evidence:
+  `docs/lq-1077-joint-engine-api-current-utc-evidence.md`
+- LQ-1078 joint engine API current UTC audit:
+  `docs/lq-1078-joint-engine-api-current-utc-audit.md`
+  - schließt genau eine intern besessene aktuelle UTC-Zeitaufnahme
+
+- LQ-1079 joint engine API current policy verification contract:
+  `docs/lq-1079-joint-engine-api-current-policy-verification-contract.md`
+- LQ-1080 current-policy joint engine API provenance verifier:
+  `docs/lq-1080-current-policy-joint-engine-api-provenance-verifier.md`
+- LQ-1081 joint engine API current policy verification evidence:
+  `docs/lq-1081-joint-engine-api-current-policy-verification-evidence.md`
+- LQ-1082 joint engine API current policy verification audit:
+  `docs/lq-1082-joint-engine-api-current-policy-verification-audit.md`
+  - schließt caller-unabhängige aktuelle Policy-Provenienzentscheidung
+
+- LQ-1083 joint engine API provenance CLI contract:
+  `docs/lq-1083-joint-engine-api-provenance-cli-contract.md`
+- LQ-1084 joint engine API policy provenance CLI:
+  `docs/lq-1084-joint-engine-api-policy-provenance-cli.md`
+- LQ-1085 joint engine API provenance CLI evidence:
+  `docs/lq-1085-joint-engine-api-provenance-cli-evidence.md`
+- LQ-1086 joint engine API current policy CLI audit:
+  `docs/lq-1086-joint-engine-api-current-policy-cli-audit.md`
+  - schließt interne UTC-Zeit, aktuelle Policyprüfung und detailfreie CLI; 50 fokussierte Tests sowie die vollständige lokale Suite mit 6053 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1087 joint engine API fixed source layout contract:
+  `docs/lq-1087-joint-engine-api-fixed-source-layout-contract.md`
+- LQ-1088 joint engine API fixed source layout:
+  `docs/lq-1088-joint-engine-api-fixed-source-layout.md`
+- LQ-1089 joint engine API fixed source layout evidence:
+  `docs/lq-1089-joint-engine-api-fixed-source-layout-evidence.md`
+- LQ-1090 joint engine API fixed source layout audit:
+  `docs/lq-1090-joint-engine-api-fixed-source-layout-audit.md`
+  - schließt eindeutige Zuordnung von zehn festen Quellennamen
+
+- LQ-1091 joint engine API private source root contract:
+  `docs/lq-1091-joint-engine-api-private-source-root-contract.md`
+- LQ-1092 descriptor-relative joint engine API source loader:
+  `docs/lq-1092-descriptor-relative-joint-engine-api-source-loader.md`
+- LQ-1093 joint engine API private source root evidence:
+  `docs/lq-1093-joint-engine-api-private-source-root-evidence.md`
+- LQ-1094 joint engine API private source root audit:
+  `docs/lq-1094-joint-engine-api-private-source-root-audit.md`
+  - schließt einmaliges Wurzel-Open und zehn descriptor-relative private Reads
+
+- LQ-1095 joint engine API fixed-root verification contract:
+  `docs/lq-1095-joint-engine-api-fixed-root-verification-contract.md`
+- LQ-1096 joint engine API fixed-root verifier CLI:
+  `docs/lq-1096-joint-engine-api-fixed-root-verifier-cli.md`
+- LQ-1097 joint engine API fixed-root verification evidence:
+  `docs/lq-1097-joint-engine-api-fixed-root-verification-evidence.md`
+- LQ-1098 joint engine API fixed-root completion audit:
+  `docs/lq-1098-joint-engine-api-fixed-root-completion-audit.md`
+  - schließt festes Layout, descriptor-relative private Reads und Root-only CLI; 46 fokussierte Tests sowie die vollständige lokale Suite mit 6065 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1099 joint engine API image authority contract:
+  `docs/lq-1099-joint-engine-api-image-authority-contract.md`
+- LQ-1100 canonical joint engine API image authority:
+  `docs/lq-1100-canonical-joint-engine-api-image-authority.md`
+- LQ-1101 joint engine API image authority evidence:
+  `docs/lq-1101-joint-engine-api-image-authority-evidence.md`
+- LQ-1102 joint engine API image authority audit:
+  `docs/lq-1102-joint-engine-api-image-authority-audit.md`
+  - schließt feste owner-private Soll-Image-Authority
+
+- LQ-1103 joint engine API image-bound source set contract:
+  `docs/lq-1103-joint-engine-api-image-bound-source-set-contract.md`
+- LQ-1104 joint engine API image-bound source loader:
+  `docs/lq-1104-joint-engine-api-image-bound-source-loader.md`
+- LQ-1105 joint engine API image-bound source evidence:
+  `docs/lq-1105-joint-engine-api-image-bound-source-evidence.md`
+- LQ-1106 joint engine API image-bound source audit:
+  `docs/lq-1106-joint-engine-api-image-bound-source-audit.md`
+  - schließt versionierte elfteilige private Quellenwurzel
+
+- LQ-1107 joint engine API image-bound verification contract:
+  `docs/lq-1107-joint-engine-api-image-bound-verification-contract.md`
+- LQ-1108 joint engine API image-bound root verifier:
+  `docs/lq-1108-joint-engine-api-image-bound-root-verifier.md`
+- LQ-1109 joint engine API image-bound verification evidence:
+  `docs/lq-1109-joint-engine-api-image-bound-verification-evidence.md`
+- LQ-1110 joint engine API image authority completion audit:
+  `docs/lq-1110-joint-engine-api-image-authority-completion-audit.md`
+  - schließt Image-Authority, elfteilige Quellenwurzel und image-gebundene Endprüfung; 35 fokussierte Tests sowie die vollständige lokale Suite mit 6075 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1111 joint engine API staging run authority contract:
+  `docs/lq-1111-joint-engine-api-staging-run-authority-contract.md`
+- LQ-1112 canonical joint engine API staging run authority:
+  `docs/lq-1112-canonical-joint-engine-api-staging-run-authority.md`
+- LQ-1113 joint engine API staging run authority evidence:
+  `docs/lq-1113-joint-engine-api-staging-run-authority-evidence.md`
+- LQ-1114 joint engine API staging run authority audit:
+  `docs/lq-1114-joint-engine-api-staging-run-authority-audit.md`
+  - schließt feste kanonische UUIDv4-Run-Authority
+
+- LQ-1115 joint engine API run signature envelope contract:
+  `docs/lq-1115-joint-engine-api-run-signature-envelope-contract.md`
+- LQ-1116 canonical joint engine API run signature envelope:
+  `docs/lq-1116-canonical-joint-engine-api-run-signature-envelope.md`
+- LQ-1117 joint engine API run signature envelope evidence:
+  `docs/lq-1117-joint-engine-api-run-signature-envelope-evidence.md`
+- LQ-1118 joint engine API run signature envelope audit:
+  `docs/lq-1118-joint-engine-api-run-signature-envelope-audit.md`
+  - schließt additive v2-Signaturnachricht mit Run-, Evidenz- und Image-Bindung
+
+- LQ-1119 joint engine API run signature verification contract:
+  `docs/lq-1119-joint-engine-api-run-signature-verification-contract.md`
+- LQ-1120 joint engine API run signature verifier:
+  `docs/lq-1120-joint-engine-api-run-signature-verifier.md`
+- LQ-1121 joint engine API run signature verification evidence:
+  `docs/lq-1121-joint-engine-api-run-signature-verification-evidence.md`
+- LQ-1122 joint engine API run signature foundation audit:
+  `docs/lq-1122-joint-engine-api-run-signature-foundation-audit.md`
+  - schließt Run-Authority, kanonischen Umschlag und kryptografische v2-Prüfung; 28 fokussierte Tests sowie die vollständige lokale Suite mit 6088 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - Root-Integration und reale extern signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1123 joint engine API dual-signature source contract:
+  `docs/lq-1123-joint-engine-api-dual-signature-source-contract.md`
+- LQ-1124 joint engine API fourteen-source layout:
+  `docs/lq-1124-joint-engine-api-fourteen-source-layout.md`
+- LQ-1125 joint engine API dual-signature source evidence:
+  `docs/lq-1125-joint-engine-api-dual-signature-source-evidence.md`
+- LQ-1126 joint engine API dual-signature source audit:
+  `docs/lq-1126-joint-engine-api-dual-signature-source-audit.md`
+  - schließt feste vierzehnteilige Dual-Signatur-Quellenwurzel
+
+- LQ-1127 joint engine API run-bound snapshot contract:
+  `docs/lq-1127-joint-engine-api-run-bound-snapshot-contract.md`
+- LQ-1128 joint engine API run-bound provenance snapshot:
+  `docs/lq-1128-joint-engine-api-run-bound-provenance-snapshot.md`
+- LQ-1129 joint engine API run-bound snapshot evidence:
+  `docs/lq-1129-joint-engine-api-run-bound-snapshot-evidence.md`
+- LQ-1130 joint engine API run-bound snapshot audit:
+  `docs/lq-1130-joint-engine-api-run-bound-snapshot-audit.md`
+  - schließt unveränderliche Komposition von v1- und v2-Provenienzbytes
+
+- LQ-1131 joint engine API run-bound root verification contract:
+  `docs/lq-1131-joint-engine-api-run-bound-root-verification-contract.md`
+- LQ-1132 joint engine API run-bound root verifier:
+  `docs/lq-1132-joint-engine-api-run-bound-root-verifier.md`
+- LQ-1133 joint engine API run-bound root evidence:
+  `docs/lq-1133-joint-engine-api-run-bound-root-evidence.md`
+- LQ-1134 joint engine API run-bound root completion audit:
+  `docs/lq-1134-joint-engine-api-run-bound-root-completion-audit.md`
+  - schließt Dual-Signatur-Layout, Run-Snapshot und Root-Endprüfung; 37 fokussierte Tests sowie die vollständige lokale Suite mit 6097 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1135 joint engine API run acceptance contract:
+  `docs/lq-1135-joint-engine-api-run-acceptance-contract.md`
+- LQ-1136 canonical joint engine API run acceptance:
+  `docs/lq-1136-canonical-joint-engine-api-run-acceptance.md`
+- LQ-1137 joint engine API run acceptance evidence:
+  `docs/lq-1137-joint-engine-api-run-acceptance-evidence.md`
+- LQ-1138 joint engine API run acceptance audit:
+  `docs/lq-1138-joint-engine-api-run-acceptance-audit.md`
+  - schließt terminalen Acceptance-Fakt aus Run-ID und Umschlaghash
+
+- LQ-1139 joint engine API atomic acceptance registry contract:
+  `docs/lq-1139-joint-engine-api-atomic-acceptance-registry-contract.md`
+- LQ-1140 durable joint engine API run acceptance registry:
+  `docs/lq-1140-durable-joint-engine-api-run-acceptance-registry.md`
+- LQ-1141 joint engine API atomic acceptance evidence:
+  `docs/lq-1141-joint-engine-api-atomic-acceptance-evidence.md`
+- LQ-1142 joint engine API atomic acceptance audit:
+  `docs/lq-1142-joint-engine-api-atomic-acceptance-audit.md`
+  - schließt owner-private O_EXCL-Registry mit genau einem parallelen Erfolg
+
+- LQ-1143 joint engine API verify-then-accept contract:
+  `docs/lq-1143-joint-engine-api-verify-then-accept-contract.md`
+- LQ-1144 joint engine API one-shot verifier:
+  `docs/lq-1144-joint-engine-api-one-shot-verifier.md`
+- LQ-1145 joint engine API one-shot verification evidence:
+  `docs/lq-1145-joint-engine-api-one-shot-verification-evidence.md`
+- LQ-1146 joint engine API one-shot acceptance audit:
+  `docs/lq-1146-joint-engine-api-one-shot-acceptance-audit.md`
+  - schließt Acceptance-Modell, atomare Registry und Verify-then-Accept-Komposition; 22 fokussierte Tests sowie die vollständige lokale Suite mit 6105 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1147 joint engine API acceptance codec contract:
+  `docs/lq-1147-joint-engine-api-acceptance-codec-contract.md`
+- LQ-1148 strict joint engine API acceptance decoder:
+  `docs/lq-1148-strict-joint-engine-api-acceptance-decoder.md`
+- LQ-1149 joint engine API acceptance codec evidence:
+  `docs/lq-1149-joint-engine-api-acceptance-codec-evidence.md`
+- LQ-1150 joint engine API acceptance codec audit:
+  `docs/lq-1150-joint-engine-api-acceptance-codec-audit.md`
+  - schließt kanonische read-only Markerrekonstruktion
+
+- LQ-1151 joint engine API acceptance lookup contract:
+  `docs/lq-1151-joint-engine-api-acceptance-lookup-contract.md`
+- LQ-1152 owner-private joint engine API acceptance lookup:
+  `docs/lq-1152-owner-private-joint-engine-api-acceptance-lookup.md`
+- LQ-1153 joint engine API acceptance lookup evidence:
+  `docs/lq-1153-joint-engine-api-acceptance-lookup-evidence.md`
+- LQ-1154 joint engine API acceptance lookup audit:
+  `docs/lq-1154-joint-engine-api-acceptance-lookup-audit.md`
+  - schließt neutral absent versus detailfrei technisch unavailable
+
+- LQ-1155 joint engine API acceptance precheck contract:
+  `docs/lq-1155-joint-engine-api-acceptance-precheck-contract.md`
+- LQ-1156 joint engine API one-shot acceptance precheck:
+  `docs/lq-1156-joint-engine-api-one-shot-acceptance-precheck.md`
+- LQ-1157 joint engine API acceptance precheck evidence:
+  `docs/lq-1157-joint-engine-api-acceptance-precheck-evidence.md`
+- LQ-1158 joint engine API acceptance lookup completion audit:
+  `docs/lq-1158-joint-engine-api-acceptance-lookup-completion-audit.md`
+  - schließt Codec, read-only Lookup und One-shot-Precheck; 25 fokussierte Tests sowie die vollständige lokale Suite mit 6117 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1159 joint engine API acceptance inventory contract:
+  `docs/lq-1159-joint-engine-api-acceptance-inventory-contract.md`
+- LQ-1160 joint engine API acceptance registry inspector:
+  `docs/lq-1160-joint-engine-api-acceptance-registry-inspector.md`
+- LQ-1161 joint engine API acceptance inventory evidence:
+  `docs/lq-1161-joint-engine-api-acceptance-inventory-evidence.md`
+- LQ-1162 joint engine API acceptance inventory audit:
+  `docs/lq-1162-joint-engine-api-acceptance-inventory-audit.md`
+  - schließt bounded fail-closed Gesamtinventar bis 4096 Marker
+
+- LQ-1163 joint engine API accepted-source reconciliation contract:
+  `docs/lq-1163-joint-engine-api-accepted-source-reconciliation-contract.md`
+- LQ-1164 read-only joint engine API accepted-source reconciliation:
+  `docs/lq-1164-read-only-joint-engine-api-accepted-source-reconciliation.md`
+- LQ-1165 joint engine API accepted-source reconciliation evidence:
+  `docs/lq-1165-joint-engine-api-accepted-source-reconciliation-evidence.md`
+- LQ-1166 joint engine API accepted-source reconciliation audit:
+  `docs/lq-1166-joint-engine-api-accepted-source-reconciliation-audit.md`
+  - schließt aktuelle Marker- und vollständige Provenienzbindung ohne Write
+
+- LQ-1167 joint engine API acceptance audit CLI contract:
+  `docs/lq-1167-joint-engine-api-acceptance-audit-cli-contract.md`
+- LQ-1168 joint engine API acceptance audit CLI:
+  `docs/lq-1168-joint-engine-api-acceptance-audit-cli.md`
+- LQ-1169 joint engine API acceptance audit CLI evidence:
+  `docs/lq-1169-joint-engine-api-acceptance-audit-cli-evidence.md`
+- LQ-1170 joint engine API acceptance audit completion:
+  `docs/lq-1170-joint-engine-api-acceptance-audit-completion.md`
+  - schließt Inventar, accepted-source Reconciliation und read-only Audit-CLI; 28 fokussierte Tests sowie die vollständige lokale Suite mit 6128 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1171 joint engine API single-open registry contract:
+  `docs/lq-1171-joint-engine-api-single-open-registry-contract.md`
+- LQ-1172 descriptor-relative joint engine API acceptance inventory:
+  `docs/lq-1172-descriptor-relative-joint-engine-api-acceptance-inventory.md`
+- LQ-1173 joint engine API single-open registry evidence:
+  `docs/lq-1173-joint-engine-api-single-open-registry-evidence.md`
+- LQ-1174 joint engine API single-open registry audit:
+  `docs/lq-1174-joint-engine-api-single-open-registry-audit.md`
+  - schließt genau ein Root-Open und ausschließlich descriptor-relative Markerreads
+
+- LQ-1175 joint engine API stable marker read contract:
+  `docs/lq-1175-joint-engine-api-stable-marker-read-contract.md`
+- LQ-1176 bounded joint engine API marker reader:
+  `docs/lq-1176-bounded-joint-engine-api-marker-reader.md`
+- LQ-1177 joint engine API stable marker read evidence:
+  `docs/lq-1177-joint-engine-api-stable-marker-read-evidence.md`
+- LQ-1178 joint engine API stable marker read audit:
+  `docs/lq-1178-joint-engine-api-stable-marker-read-audit.md`
+  - schließt vollständige bounded Reads mit Metadatenstabilität
+
+- LQ-1179 joint engine API stable inventory contract:
+  `docs/lq-1179-joint-engine-api-stable-inventory-contract.md`
+- LQ-1180 joint engine API stable registry snapshot:
+  `docs/lq-1180-joint-engine-api-stable-registry-snapshot.md`
+- LQ-1181 joint engine API stable inventory evidence:
+  `docs/lq-1181-joint-engine-api-stable-inventory-evidence.md`
+- LQ-1182 joint engine API registry snapshot completion audit:
+  `docs/lq-1182-joint-engine-api-registry-snapshot-completion-audit.md`
+  - schließt Single-open, stabile Markerreads und stabiles Gesamtinventar; 33 fokussierte Tests sowie die vollständige lokale Suite mit 6133 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1183 joint engine API pre-durable failure contract:
+  `docs/lq-1183-joint-engine-api-pre-durable-failure-contract.md`
+- LQ-1184 joint engine API pre-durable marker cleanup:
+  `docs/lq-1184-joint-engine-api-pre-durable-marker-cleanup.md`
+- LQ-1185 joint engine API pre-durable cleanup evidence:
+  `docs/lq-1185-joint-engine-api-pre-durable-cleanup-evidence.md`
+- LQ-1186 joint engine API pre-durable cleanup audit:
+  `docs/lq-1186-joint-engine-api-pre-durable-cleanup-audit.md`
+  - schließt begrenzte Rücknahme neu angelegter nichtdurabler Marker
+
+- LQ-1187 joint engine API post-fsync unknown outcome contract:
+  `docs/lq-1187-joint-engine-api-post-fsync-unknown-outcome-contract.md`
+- LQ-1188 joint engine API durable marker preservation:
+  `docs/lq-1188-joint-engine-api-durable-marker-preservation.md`
+- LQ-1189 joint engine API unknown outcome evidence:
+  `docs/lq-1189-joint-engine-api-unknown-outcome-evidence.md`
+- LQ-1190 joint engine API unknown outcome audit:
+  `docs/lq-1190-joint-engine-api-unknown-outcome-audit.md`
+  - schließt Preservation nach Datei-fsync bei unbekanntem Directory-fsync-Ausgang
+
+- LQ-1191 joint engine API acceptance retry contract:
+  `docs/lq-1191-joint-engine-api-acceptance-retry-contract.md`
+- LQ-1192 joint engine API acceptance retry reconciliation:
+  `docs/lq-1192-joint-engine-api-acceptance-retry-reconciliation.md`
+- LQ-1193 joint engine API acceptance retry evidence:
+  `docs/lq-1193-joint-engine-api-acceptance-retry-evidence.md`
+- LQ-1194 joint engine API acceptance failure-window audit:
+  `docs/lq-1194-joint-engine-api-acceptance-failure-window-audit.md`
+  - schließt prä-durables Cleanup, post-fsync Preservation und sichere Retry-Reconciliation; 27 fokussierte Tests sowie die vollständige lokale Suite mit 6139 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1195 joint engine API operation root contract:
+  `docs/lq-1195-joint-engine-api-operation-root-contract.md`
+- LQ-1196 joint engine API fixed operation layout:
+  `docs/lq-1196-joint-engine-api-fixed-operation-layout.md`
+- LQ-1197 joint engine API operation root evidence:
+  `docs/lq-1197-joint-engine-api-operation-root-evidence.md`
+- LQ-1198 joint engine API operation root audit:
+  `docs/lq-1198-joint-engine-api-operation-root-audit.md`
+  - schließt feste gemeinsame Zuordnung von source-set und accepted-runs
+
+- LQ-1199 joint engine API private operation boundary contract:
+  `docs/lq-1199-joint-engine-api-private-operation-boundary-contract.md`
+- LQ-1200 descriptor-validated joint engine API operation root:
+  `docs/lq-1200-descriptor-validated-joint-engine-api-operation-root.md`
+- LQ-1201 joint engine API private operation boundary evidence:
+  `docs/lq-1201-joint-engine-api-private-operation-boundary-evidence.md`
+- LQ-1202 joint engine API private operation boundary audit:
+  `docs/lq-1202-joint-engine-api-private-operation-boundary-audit.md`
+  - schließt owner-private Modus-0700-Boundary für Wurzel und beide Kinder
+
+- LQ-1203 joint engine API operation root composition contract:
+  `docs/lq-1203-joint-engine-api-operation-root-composition-contract.md`
+- LQ-1204 joint engine API operation root CLI:
+  `docs/lq-1204-joint-engine-api-operation-root-cli.md`
+- LQ-1205 joint engine API operation root composition evidence:
+  `docs/lq-1205-joint-engine-api-operation-root-composition-evidence.md`
+- LQ-1206 joint engine API operation root completion audit:
+  `docs/lq-1206-joint-engine-api-operation-root-completion-audit.md`
+  - schließt festes Layout, private Boundary und gebundene Betriebscomposition; 21 fokussierte Tests sowie die vollständige lokale Suite mit 6149 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1207 joint engine API operation identity contract:
+  `docs/lq-1207-joint-engine-api-operation-identity-contract.md`
+- LQ-1208 joint engine API operation identity snapshot:
+  `docs/lq-1208-joint-engine-api-operation-identity-snapshot.md`
+- LQ-1209 joint engine API operation identity evidence:
+  `docs/lq-1209-joint-engine-api-operation-identity-evidence.md`
+- LQ-1210 joint engine API operation identity audit:
+  `docs/lq-1210-joint-engine-api-operation-identity-audit.md`
+  - schließt Geräte-/Inode-Bindung von Root, Source und Acceptance
+
+- LQ-1211 joint engine API operation revalidation contract:
+  `docs/lq-1211-joint-engine-api-operation-revalidation-contract.md`
+- LQ-1212 joint engine API operation root revalidator:
+  `docs/lq-1212-joint-engine-api-operation-root-revalidator.md`
+- LQ-1213 joint engine API operation revalidation evidence:
+  `docs/lq-1213-joint-engine-api-operation-revalidation-evidence.md`
+- LQ-1214 joint engine API operation revalidation audit:
+  `docs/lq-1214-joint-engine-api-operation-revalidation-audit.md`
+  - schließt fail-closed Ablehnung jedes Verzeichnisaustauschs
+
+- LQ-1215 joint engine API revalidated composition contract:
+  `docs/lq-1215-joint-engine-api-revalidated-composition-contract.md`
+- LQ-1216 joint engine API revalidated operation composition:
+  `docs/lq-1216-joint-engine-api-revalidated-operation-composition.md`
+- LQ-1217 joint engine API revalidated composition evidence:
+  `docs/lq-1217-joint-engine-api-revalidated-composition-evidence.md`
+- LQ-1218 joint engine API operation identity completion audit:
+  `docs/lq-1218-joint-engine-api-operation-identity-completion-audit.md`
+  - schließt Identitätssnapshot, Revalidation und post-operation Gate; 22 fokussierte Tests sowie die vollständige lokale Suite mit 6156 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1219 joint engine API post-accept source contract:
+  `docs/lq-1219-joint-engine-api-post-accept-source-contract.md`
+- LQ-1220 joint engine API post-accept source revalidation:
+  `docs/lq-1220-joint-engine-api-post-accept-source-revalidation.md`
+- LQ-1221 joint engine API post-accept source evidence:
+  `docs/lq-1221-joint-engine-api-post-accept-source-evidence.md`
+- LQ-1222 joint engine API post-accept source audit:
+  `docs/lq-1222-joint-engine-api-post-accept-source-audit.md`
+  - schließt bytegleiche Source-Revalidation nach Acceptance-Write
+
+- LQ-1223 joint engine API post-audit source contract:
+  `docs/lq-1223-joint-engine-api-post-audit-source-contract.md`
+- LQ-1224 joint engine API post-audit source revalidation:
+  `docs/lq-1224-joint-engine-api-post-audit-source-revalidation.md`
+- LQ-1225 joint engine API post-audit source evidence:
+  `docs/lq-1225-joint-engine-api-post-audit-source-evidence.md`
+- LQ-1226 joint engine API post-audit source audit:
+  `docs/lq-1226-joint-engine-api-post-audit-source-audit.md`
+  - schließt bytegleiche Source-Revalidation nach read-only Kryptografie
+
+- LQ-1227 joint engine API source generation contract:
+  `docs/lq-1227-joint-engine-api-source-generation-contract.md`
+- LQ-1228 joint engine API source generation gate:
+  `docs/lq-1228-joint-engine-api-source-generation-gate.md`
+- LQ-1229 joint engine API source generation evidence:
+  `docs/lq-1229-joint-engine-api-source-generation-evidence.md`
+- LQ-1230 joint engine API source revalidation completion audit:
+  `docs/lq-1230-joint-engine-api-source-revalidation-completion-audit.md`
+  - schließt post-accept, post-audit und Source-Generation-Gates; 21 fokussierte Tests sowie die vollständige lokale Suite mit 6165 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1231 joint engine API post-accept marker contract:
+  `docs/lq-1231-joint-engine-api-post-accept-marker-contract.md`
+- LQ-1232 joint engine API post-accept marker revalidation:
+  `docs/lq-1232-joint-engine-api-post-accept-marker-revalidation.md`
+- LQ-1233 joint engine API post-accept marker evidence:
+  `docs/lq-1233-joint-engine-api-post-accept-marker-evidence.md`
+- LQ-1234 joint engine API post-accept marker audit:
+  `docs/lq-1234-joint-engine-api-post-accept-marker-audit.md`
+  - schließt exakte Marker-Revalidation nach Acceptance-Write
+
+- LQ-1235 joint engine API post-audit marker contract:
+  `docs/lq-1235-joint-engine-api-post-audit-marker-contract.md`
+- LQ-1236 joint engine API post-audit marker revalidation:
+  `docs/lq-1236-joint-engine-api-post-audit-marker-revalidation.md`
+- LQ-1237 joint engine API post-audit marker evidence:
+  `docs/lq-1237-joint-engine-api-post-audit-marker-evidence.md`
+- LQ-1238 joint engine API post-audit marker audit:
+  `docs/lq-1238-joint-engine-api-post-audit-marker-audit.md`
+  - schließt exakte Marker-Revalidation nach read-only Kryptografie
+
+- LQ-1239 joint engine API decision generation contract:
+  `docs/lq-1239-joint-engine-api-decision-generation-contract.md`
+- LQ-1240 joint engine API complete generation gate:
+  `docs/lq-1240-joint-engine-api-complete-generation-gate.md`
+- LQ-1241 joint engine API complete generation evidence:
+  `docs/lq-1241-joint-engine-api-complete-generation-evidence.md`
+- LQ-1242 joint engine API marker revalidation completion audit:
+  `docs/lq-1242-joint-engine-api-marker-revalidation-completion-audit.md`
+  - schließt post-accept, post-audit und vollständiges Generation-Gate; 23 fokussierte Tests sowie die vollständige lokale Suite mit 6174 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1243 joint engine API decision time contract:
+  `docs/lq-1243-joint-engine-api-decision-time-contract.md`
+- LQ-1244 joint engine API dual UTC decision clock:
+  `docs/lq-1244-joint-engine-api-dual-utc-decision-clock.md`
+- LQ-1245 joint engine API decision time evidence:
+  `docs/lq-1245-joint-engine-api-decision-time-evidence.md`
+- LQ-1246 joint engine API decision time audit:
+  `docs/lq-1246-joint-engine-api-decision-time-audit.md`
+  - schließt getrennte interne Start- und Abschlusszeit
+
+- LQ-1247 joint engine API final freshness contract:
+  `docs/lq-1247-joint-engine-api-final-freshness-contract.md`
+- LQ-1248 joint engine API final snapshot verification:
+  `docs/lq-1248-joint-engine-api-final-snapshot-verification.md`
+- LQ-1249 joint engine API final freshness evidence:
+  `docs/lq-1249-joint-engine-api-final-freshness-evidence.md`
+- LQ-1250 joint engine API final freshness audit:
+  `docs/lq-1250-joint-engine-api-final-freshness-audit.md`
+  - schließt erneute vollständige Provenienzprüfung mit Abschlusszeit
+
+- LQ-1251 joint engine API clock rollback contract:
+  `docs/lq-1251-joint-engine-api-clock-rollback-contract.md`
+- LQ-1252 joint engine API clock rollback gate:
+  `docs/lq-1252-joint-engine-api-clock-rollback-gate.md`
+- LQ-1253 joint engine API clock rollback evidence:
+  `docs/lq-1253-joint-engine-api-clock-rollback-evidence.md`
+- LQ-1254 joint engine API decision time completion audit:
+  `docs/lq-1254-joint-engine-api-decision-time-completion-audit.md`
+  - schließt Dual-UTC, finale Frische und Rollback-Gate; 32 fokussierte Tests sowie die vollständige lokale Suite mit 6183 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1255 joint engine API monotonic clock contract:
+  `docs/lq-1255-joint-engine-api-monotonic-clock-contract.md`
+- LQ-1256 joint engine API monotonic clock source:
+  `docs/lq-1256-joint-engine-api-monotonic-clock-source.md`
+- LQ-1257 joint engine API monotonic clock evidence:
+  `docs/lq-1257-joint-engine-api-monotonic-clock-evidence.md`
+- LQ-1258 joint engine API monotonic clock audit:
+  `docs/lq-1258-joint-engine-api-monotonic-clock-audit.md`
+  - schließt intern besessene endliche nichtnegative Monotonic-Clock
+
+- LQ-1259 joint engine API decision duration contract:
+  `docs/lq-1259-joint-engine-api-decision-duration-contract.md`
+- LQ-1260 joint engine API decision duration gate:
+  `docs/lq-1260-joint-engine-api-decision-duration-gate.md`
+- LQ-1261 joint engine API decision duration evidence:
+  `docs/lq-1261-joint-engine-api-decision-duration-evidence.md`
+- LQ-1262 joint engine API decision duration audit:
+  `docs/lq-1262-joint-engine-api-decision-duration-audit.md`
+  - schließt feste maximale Entscheidungsdauer von 30 monotone Sekunden
+
+- LQ-1263 joint engine API monotonic rollback contract:
+  `docs/lq-1263-joint-engine-api-monotonic-rollback-contract.md`
+- LQ-1264 joint engine API dual-clock composition:
+  `docs/lq-1264-joint-engine-api-dual-clock-composition.md`
+- LQ-1265 joint engine API dual-clock evidence:
+  `docs/lq-1265-joint-engine-api-dual-clock-evidence.md`
+- LQ-1266 joint engine API decision duration completion audit:
+  `docs/lq-1266-joint-engine-api-decision-duration-completion-audit.md`
+  - schließt monotone Quelle, 30-Sekunden-Gate und Dual-Clock-Komposition; 22 fokussierte Tests sowie die vollständige lokale Suite mit 6191 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1267 joint engine API stable source read contract:
+  `docs/lq-1267-joint-engine-api-stable-source-read-contract.md`
+- LQ-1268 bounded joint engine API source reader:
+  `docs/lq-1268-bounded-joint-engine-api-source-reader.md`
+- LQ-1269 joint engine API stable source read evidence:
+  `docs/lq-1269-joint-engine-api-stable-source-read-evidence.md`
+- LQ-1270 joint engine API stable source read audit:
+  `docs/lq-1270-joint-engine-api-stable-source-read-audit.md`
+  - schließt vollständige per-Datei Metadatenstabilität
+
+- LQ-1271 joint engine API stable source directory contract:
+  `docs/lq-1271-joint-engine-api-stable-source-directory-contract.md`
+- LQ-1272 joint engine API stable source directory gate:
+  `docs/lq-1272-joint-engine-api-stable-source-directory-gate.md`
+- LQ-1273 joint engine API stable source directory evidence:
+  `docs/lq-1273-joint-engine-api-stable-source-directory-evidence.md`
+- LQ-1274 joint engine API stable source directory audit:
+  `docs/lq-1274-joint-engine-api-stable-source-directory-audit.md`
+  - schließt stabile Rootmetadaten und identischen Namenssatz
+
+- LQ-1275 joint engine API source layout generation contract:
+  `docs/lq-1275-joint-engine-api-source-layout-generation-contract.md`
+- LQ-1276 joint engine API source layout stability:
+  `docs/lq-1276-joint-engine-api-source-layout-stability.md`
+- LQ-1277 joint engine API source layout stability evidence:
+  `docs/lq-1277-joint-engine-api-source-layout-stability-evidence.md`
+- LQ-1278 joint engine API source snapshot stability audit:
+  `docs/lq-1278-joint-engine-api-source-snapshot-stability-audit.md`
+  - schließt stabile Dateien, stabile Root und layoutübergreifende Härtung; 21 fokussierte Tests sowie die vollständige lokale Suite mit 6199 passed und 108 skipped bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1279 joint engine API source budget contract:
+  `docs/lq-1279-joint-engine-api-source-budget-contract.md`
+- LQ-1280 cumulative joint engine API source budget:
+  `docs/lq-1280-cumulative-joint-engine-api-source-budget.md`
+- LQ-1281 joint engine API source budget evidence:
+  `docs/lq-1281-joint-engine-api-source-budget-evidence.md`
+- LQ-1282 joint engine API source budget audit:
+  `docs/lq-1282-joint-engine-api-source-budget-audit.md`
+  - schließt eine feste kumulative 64-MiB-Grenze ohne caller-gesteuerte Konfiguration
+
+- LQ-1283 joint engine API source budget cutoff contract:
+  `docs/lq-1283-joint-engine-api-source-budget-cutoff-contract.md`
+- LQ-1284 early cutoff joint engine API source loader:
+  `docs/lq-1284-early-cutoff-joint-engine-api-source-loader.md`
+- LQ-1285 joint engine API source budget cutoff evidence:
+  `docs/lq-1285-joint-engine-api-source-budget-cutoff-evidence.md`
+- LQ-1286 joint engine API source budget cutoff audit:
+  `docs/lq-1286-joint-engine-api-source-budget-cutoff-audit.md`
+  - schließt deterministischen Abbruch ohne Reads verbleibender Quellen
+
+- LQ-1287 joint engine API layout budget contract:
+  `docs/lq-1287-joint-engine-api-layout-budget-contract.md`
+- LQ-1288 joint engine API layout budget composition:
+  `docs/lq-1288-joint-engine-api-layout-budget-composition.md`
+- LQ-1289 joint engine API layout budget evidence:
+  `docs/lq-1289-joint-engine-api-layout-budget-evidence.md`
+- LQ-1290 joint engine API source budget completion audit:
+  `docs/lq-1290-joint-engine-api-source-budget-completion-audit.md`
+  - schließt die gemeinsame Ressourcengrenze für 10-, 11- und 14-Quelllayouts; 25 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6211 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1291 joint engine API remaining source budget contract:
+  `docs/lq-1291-joint-engine-api-remaining-source-budget-contract.md`
+- LQ-1292 remaining-budget joint engine API source reader:
+  `docs/lq-1292-remaining-budget-joint-engine-api-source-reader.md`
+- LQ-1293 joint engine API remaining source budget evidence:
+  `docs/lq-1293-joint-engine-api-remaining-source-budget-evidence.md`
+- LQ-1294 joint engine API remaining source budget audit:
+  `docs/lq-1294-joint-engine-api-remaining-source-budget-audit.md`
+  - schließt die Begrenzung jedes Reads auf das verbleibende Gesamtbudget
+
+- LQ-1295 joint engine API exhausted source budget contract:
+  `docs/lq-1295-joint-engine-api-exhausted-source-budget-contract.md`
+- LQ-1296 pre-open joint engine API budget exhaustion gate:
+  `docs/lq-1296-pre-open-joint-engine-api-budget-exhaustion-gate.md`
+- LQ-1297 joint engine API budget exhaustion evidence:
+  `docs/lq-1297-joint-engine-api-budget-exhaustion-evidence.md`
+- LQ-1298 joint engine API budget exhaustion audit:
+  `docs/lq-1298-joint-engine-api-budget-exhaustion-audit.md`
+  - schließt weitere Dateiöffnungen bei vollständig erschöpftem Budget aus
+
+- LQ-1299 joint engine API bounded layout composition contract:
+  `docs/lq-1299-joint-engine-api-bounded-layout-composition-contract.md`
+- LQ-1300 joint engine API bounded layout composition:
+  `docs/lq-1300-joint-engine-api-bounded-layout-composition.md`
+- LQ-1301 joint engine API bounded layout evidence:
+  `docs/lq-1301-joint-engine-api-bounded-layout-evidence.md`
+- LQ-1302 joint engine API source allocation completion audit:
+  `docs/lq-1302-joint-engine-api-source-allocation-completion-audit.md`
+  - schließt pre-read Ressourcenbegrenzung für alle Layoutgenerationen; 35 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6221 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1303 joint engine API source root path binding contract:
+  `docs/lq-1303-joint-engine-api-source-root-path-binding-contract.md`
+- LQ-1304 visible joint engine API source root revalidation:
+  `docs/lq-1304-visible-joint-engine-api-source-root-revalidation.md`
+- LQ-1305 joint engine API source root path binding evidence:
+  `docs/lq-1305-joint-engine-api-source-root-path-binding-evidence.md`
+- LQ-1306 joint engine API source root path binding audit:
+  `docs/lq-1306-joint-engine-api-source-root-path-binding-audit.md`
+  - schließt die finale Bindung des offenen Descriptors an den sichtbaren Root-Pfad
+
+- LQ-1307 joint engine API source root replacement contract:
+  `docs/lq-1307-joint-engine-api-source-root-replacement-contract.md`
+- LQ-1308 joint engine API source root replacement gate:
+  `docs/lq-1308-joint-engine-api-source-root-replacement-gate.md`
+- LQ-1309 joint engine API source root replacement evidence:
+  `docs/lq-1309-joint-engine-api-source-root-replacement-evidence.md`
+- LQ-1310 joint engine API source root replacement audit:
+  `docs/lq-1310-joint-engine-api-source-root-replacement-audit.md`
+  - schließt Verzeichnisersatz mit identischem Inhalt und Symlink-Rebinding aus
+
+- LQ-1311 joint engine API layout path binding contract:
+  `docs/lq-1311-joint-engine-api-layout-path-binding-contract.md`
+- LQ-1312 joint engine API layout path binding composition:
+  `docs/lq-1312-joint-engine-api-layout-path-binding-composition.md`
+- LQ-1313 joint engine API layout path binding evidence:
+  `docs/lq-1313-joint-engine-api-layout-path-binding-evidence.md`
+- LQ-1314 joint engine API source root path completion audit:
+  `docs/lq-1314-joint-engine-api-source-root-path-completion-audit.md`
+  - schließt Pfadidentität für 10-, 11- und 14-Quelllayouts; 48 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6234 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1315 joint engine API source root component contract:
+  `docs/lq-1315-joint-engine-api-source-root-component-contract.md`
+- LQ-1316 descriptor-relative joint engine API root component walk:
+  `docs/lq-1316-descriptor-relative-joint-engine-api-root-component-walk.md`
+- LQ-1317 joint engine API root component evidence:
+  `docs/lq-1317-joint-engine-api-root-component-evidence.md`
+- LQ-1318 joint engine API root component audit:
+  `docs/lq-1318-joint-engine-api-root-component-audit.md`
+  - schließt no-follow Traversierung aller absoluten Root-Komponenten
+
+- LQ-1319 joint engine API ancestor symlink rejection contract:
+  `docs/lq-1319-joint-engine-api-ancestor-symlink-rejection-contract.md`
+- LQ-1320 pre-source joint engine API ancestor symlink gate:
+  `docs/lq-1320-pre-source-joint-engine-api-ancestor-symlink-gate.md`
+- LQ-1321 joint engine API ancestor symlink evidence:
+  `docs/lq-1321-joint-engine-api-ancestor-symlink-evidence.md`
+- LQ-1322 joint engine API ancestor symlink audit:
+  `docs/lq-1322-joint-engine-api-ancestor-symlink-audit.md`
+  - schließt statische Parent-Aliase und Leaf-Symlinks vor Quellzugriff aus
+
+- LQ-1323 joint engine API layout component walk contract:
+  `docs/lq-1323-joint-engine-api-layout-component-walk-contract.md`
+- LQ-1324 joint engine API layout component walk composition:
+  `docs/lq-1324-joint-engine-api-layout-component-walk-composition.md`
+- LQ-1325 joint engine API layout component walk evidence:
+  `docs/lq-1325-joint-engine-api-layout-component-walk-evidence.md`
+- LQ-1326 joint engine API component walk completion audit:
+  `docs/lq-1326-joint-engine-api-component-walk-completion-audit.md`
+  - schließt komponentenweise Root-Härtung für alle Layoutgenerationen; 59 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6245 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1327 joint engine API final component chain contract:
+  `docs/lq-1327-joint-engine-api-final-component-chain-contract.md`
+- LQ-1328 final joint engine API component chain revalidation:
+  `docs/lq-1328-final-joint-engine-api-component-chain-revalidation.md`
+- LQ-1329 joint engine API final component chain evidence:
+  `docs/lq-1329-joint-engine-api-final-component-chain-evidence.md`
+- LQ-1330 joint engine API final component chain audit:
+  `docs/lq-1330-joint-engine-api-final-component-chain-audit.md`
+  - schließt eine zweite vollständige no-follow Komponentenprüfung nach dem Capture
+
+- LQ-1331 joint engine API parent rebinding contract:
+  `docs/lq-1331-joint-engine-api-parent-rebinding-contract.md`
+- LQ-1332 final joint engine API parent rebinding gate:
+  `docs/lq-1332-final-joint-engine-api-parent-rebinding-gate.md`
+- LQ-1333 joint engine API parent rebinding evidence:
+  `docs/lq-1333-joint-engine-api-parent-rebinding-evidence.md`
+- LQ-1334 joint engine API parent rebinding audit:
+  `docs/lq-1334-joint-engine-api-parent-rebinding-audit.md`
+  - schließt verschwundene, symlink-ersetzte und inhaltsgleich neu erstellte Elternpfade aus
+
+- LQ-1335 joint engine API layout chain revalidation contract:
+  `docs/lq-1335-joint-engine-api-layout-chain-revalidation-contract.md`
+- LQ-1336 joint engine API layout chain revalidation composition:
+  `docs/lq-1336-joint-engine-api-layout-chain-revalidation-composition.md`
+- LQ-1337 joint engine API layout chain revalidation evidence:
+  `docs/lq-1337-joint-engine-api-layout-chain-revalidation-evidence.md`
+- LQ-1338 joint engine API component revalidation completion audit:
+  `docs/lq-1338-joint-engine-api-component-revalidation-completion-audit.md`
+  - schließt finale Komponentenidentität für alle Layoutgenerationen; 72 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6258 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1339 joint engine API operation root path contract:
+  `docs/lq-1339-joint-engine-api-operation-root-path-contract.md`
+- LQ-1340 descriptor-relative joint engine API operation root:
+  `docs/lq-1340-descriptor-relative-joint-engine-api-operation-root.md`
+- LQ-1341 joint engine API operation root path evidence:
+  `docs/lq-1341-joint-engine-api-operation-root-path-evidence.md`
+- LQ-1342 joint engine API operation root path audit:
+  `docs/lq-1342-joint-engine-api-operation-root-path-audit.md`
+  - schließt vollständige no-follow Root-Traversierung und finale sichtbare Pfadidentität
+
+- LQ-1343 joint engine API operation child identity contract:
+  `docs/lq-1343-joint-engine-api-operation-child-identity-contract.md`
+- LQ-1344 final joint engine API operation child revalidation:
+  `docs/lq-1344-final-joint-engine-api-operation-child-revalidation.md`
+- LQ-1345 joint engine API operation child identity evidence:
+  `docs/lq-1345-joint-engine-api-operation-child-identity-evidence.md`
+- LQ-1346 joint engine API operation child identity audit:
+  `docs/lq-1346-joint-engine-api-operation-child-identity-audit.md`
+  - schließt Identitätswechsel von source-set und accepted-runs während der Auflösung aus
+
+- LQ-1347 joint engine API operation boundary contract:
+  `docs/lq-1347-joint-engine-api-operation-boundary-contract.md`
+- LQ-1348 joint engine API operation boundary composition:
+  `docs/lq-1348-joint-engine-api-operation-boundary-composition.md`
+- LQ-1349 joint engine API operation boundary evidence:
+  `docs/lq-1349-joint-engine-api-operation-boundary-evidence.md`
+- LQ-1350 joint engine API operation root stability completion audit:
+  `docs/lq-1350-joint-engine-api-operation-root-stability-completion-audit.md`
+  - schließt stabile Root-, Source- und Acceptance-Identitäten; 31 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6267 passed und 108 skipped bestanden; reale extern run-signierte Docker-Stagingevidenz fehlt; production_ready=false
+
+- LQ-1351 joint engine API operation child metadata contract:
+  `docs/lq-1351-joint-engine-api-operation-child-metadata-contract.md`
+- LQ-1352 stable joint engine API operation child observation:
+  `docs/lq-1352-stable-joint-engine-api-operation-child-observation.md`
+- LQ-1353 joint engine API operation child metadata evidence:
+  `docs/lq-1353-joint-engine-api-operation-child-metadata-evidence.md`
+- LQ-1354 joint engine API operation child metadata audit:
+  `docs/lq-1354-joint-engine-api-operation-child-metadata-audit.md`
+  - schließt vollständige stabile Metadaten für source-set und accepted-runs
+
+- LQ-1355 joint engine API operation child mutation contract:
+  `docs/lq-1355-joint-engine-api-operation-child-mutation-contract.md`
+- LQ-1356 final joint engine API operation child metadata gate:
+  `docs/lq-1356-final-joint-engine-api-operation-child-metadata-gate.md`
+- LQ-1357 joint engine API operation child mutation evidence:
+  `docs/lq-1357-joint-engine-api-operation-child-mutation-evidence.md`
+- LQ-1358 joint engine API operation child mutation audit:
+  `docs/lq-1358-joint-engine-api-operation-child-mutation-audit.md`
+  - schließt transiente Modus- und Timestamp-Änderungen beider fester Children aus
+
+- LQ-1359 joint engine API complete operation state contract:
+  `docs/lq-1359-joint-engine-api-complete-operation-state-contract.md`
+- LQ-1360 joint engine API complete operation state composition:
+  `docs/lq-1360-joint-engine-api-complete-operation-state-composition.md`
+- LQ-1361 joint engine API complete operation state evidence:
+  `docs/lq-1361-joint-engine-api-complete-operation-state-evidence.md`
+- LQ-1362 joint engine API operation state completion audit:
+  `docs/lq-1362-joint-engine-api-operation-state-completion-audit.md`
+  - schließt vollständige Root- und Child-State-Kontinuität; 40 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6277 passed und 108 skipped bestanden; die abgelaufene Python-3.13.14-Ausnahme wurde entfernt und das offizielle stabile Python-3.13.15-Image per Manifest-Digest gepinnt
+  - realer Image-Build mit Grype sowie extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1363 joint engine API operation failure revalidation contract:
+  `docs/lq-1363-joint-engine-api-operation-failure-revalidation-contract.md`
+- LQ-1364 finally-bound joint engine API operation wrapper:
+  `docs/lq-1364-finally-bound-joint-engine-api-operation-wrapper.md`
+- LQ-1365 joint engine API operation failure revalidation evidence:
+  `docs/lq-1365-joint-engine-api-operation-failure-revalidation-evidence.md`
+- LQ-1366 joint engine API operation failure revalidation audit:
+  `docs/lq-1366-joint-engine-api-operation-failure-revalidation-audit.md`
+  - schließt finale Boundary-Prüfung auch nach inneren Operationsfehlern
+
+- LQ-1367 joint engine API single operation wrapper contract:
+  `docs/lq-1367-joint-engine-api-single-operation-wrapper-contract.md`
+- LQ-1368 shared joint engine API operation boundary wrapper:
+  `docs/lq-1368-shared-joint-engine-api-operation-boundary-wrapper.md`
+- LQ-1369 joint engine API single operation wrapper evidence:
+  `docs/lq-1369-joint-engine-api-single-operation-wrapper-evidence.md`
+- LQ-1370 joint engine API single operation wrapper audit:
+  `docs/lq-1370-joint-engine-api-single-operation-wrapper-audit.md`
+  - schließt gemeinsame finally-basierte Finalisierung für Accept und Audit
+
+- LQ-1371 joint engine API operation mode finalization contract:
+  `docs/lq-1371-joint-engine-api-operation-mode-finalization-contract.md`
+- LQ-1372 joint engine API operation mode finalization:
+  `docs/lq-1372-joint-engine-api-operation-mode-finalization.md`
+- LQ-1373 joint engine API operation mode finalization evidence:
+  `docs/lq-1373-joint-engine-api-operation-mode-finalization-evidence.md`
+- LQ-1374 joint engine API operation finalization completion audit:
+  `docs/lq-1374-joint-engine-api-operation-finalization-completion-audit.md`
+  - schließt verpflichtende Finalisierung aller drei Operationsmodi; 49 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6286 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1375 joint engine API acceptance root component contract:
+  `docs/lq-1375-joint-engine-api-acceptance-root-component-contract.md`
+- LQ-1376 descriptor-relative joint engine API acceptance root:
+  `docs/lq-1376-descriptor-relative-joint-engine-api-acceptance-root.md`
+- LQ-1377 joint engine API acceptance root component evidence:
+  `docs/lq-1377-joint-engine-api-acceptance-root-component-evidence.md`
+- LQ-1378 joint engine API acceptance root component audit:
+  `docs/lq-1378-joint-engine-api-acceptance-root-component-audit.md`
+  - schließt no-follow Traversierung aller Acceptance-Root-Komponenten
+
+- LQ-1379 joint engine API acceptance root revalidation contract:
+  `docs/lq-1379-joint-engine-api-acceptance-root-revalidation-contract.md`
+- LQ-1380 final joint engine API acceptance root gate:
+  `docs/lq-1380-final-joint-engine-api-acceptance-root-gate.md`
+- LQ-1381 joint engine API acceptance root revalidation evidence:
+  `docs/lq-1381-joint-engine-api-acceptance-root-revalidation-evidence.md`
+- LQ-1382 joint engine API acceptance root revalidation audit:
+  `docs/lq-1382-joint-engine-api-acceptance-root-revalidation-audit.md`
+  - schließt sichtbares Root-Rebinding nach Read, Inspect und durablem Write aus
+
+- LQ-1383 joint engine API acceptance operation binding contract:
+  `docs/lq-1383-joint-engine-api-acceptance-operation-binding-contract.md`
+- LQ-1384 joint engine API acceptance operation binding:
+  `docs/lq-1384-joint-engine-api-acceptance-operation-binding.md`
+- LQ-1385 joint engine API acceptance operation binding evidence:
+  `docs/lq-1385-joint-engine-api-acceptance-operation-binding-evidence.md`
+- LQ-1386 joint engine API acceptance root binding completion audit:
+  `docs/lq-1386-joint-engine-api-acceptance-root-binding-completion-audit.md`
+  - schließt gemeinsame Root-Bindung für Load, Inspect und Record; 55 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6294 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1387 joint engine API acceptance read root state contract:
+  `docs/lq-1387-joint-engine-api-acceptance-read-root-state-contract.md`
+- LQ-1388 complete joint engine API acceptance read root validation:
+  `docs/lq-1388-complete-joint-engine-api-acceptance-read-root-validation.md`
+- LQ-1389 joint engine API acceptance read root state evidence:
+  `docs/lq-1389-joint-engine-api-acceptance-read-root-state-evidence.md`
+- LQ-1390 joint engine API acceptance read root state audit:
+  `docs/lq-1390-joint-engine-api-acceptance-read-root-state-audit.md`
+  - schließt vollständige Root-Metadatenkontinuität für read-only Registry-Operationen
+
+- LQ-1391 joint engine API acceptance root mutation contract:
+  `docs/lq-1391-joint-engine-api-acceptance-root-mutation-contract.md`
+- LQ-1392 final joint engine API acceptance root state gate:
+  `docs/lq-1392-final-joint-engine-api-acceptance-root-state-gate.md`
+- LQ-1393 joint engine API acceptance root mutation evidence:
+  `docs/lq-1393-joint-engine-api-acceptance-root-mutation-evidence.md`
+- LQ-1394 joint engine API acceptance root mutation audit:
+  `docs/lq-1394-joint-engine-api-acceptance-root-mutation-audit.md`
+  - schließt transiente Modus- und Timestamp-Änderungen bei Load und Inspect aus
+
+- LQ-1395 joint engine API acceptance read composition contract:
+  `docs/lq-1395-joint-engine-api-acceptance-read-composition-contract.md`
+- LQ-1396 joint engine API acceptance read composition:
+  `docs/lq-1396-joint-engine-api-acceptance-read-composition.md`
+- LQ-1397 joint engine API acceptance read composition evidence:
+  `docs/lq-1397-joint-engine-api-acceptance-read-composition-evidence.md`
+- LQ-1398 joint engine API acceptance read state completion audit:
+  `docs/lq-1398-joint-engine-api-acceptance-read-state-completion-audit.md`
+  - schließt vollständige Read-Root-State-Bindung; 63 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6302 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1399 joint engine API acceptance post-write contract:
+  `docs/lq-1399-joint-engine-api-acceptance-post-write-contract.md`
+- LQ-1400 descriptor-bound joint engine API acceptance readback:
+  `docs/lq-1400-descriptor-bound-joint-engine-api-acceptance-readback.md`
+- LQ-1401 joint engine API acceptance post-write evidence:
+  `docs/lq-1401-joint-engine-api-acceptance-post-write-evidence.md`
+- LQ-1402 joint engine API acceptance post-write audit:
+  `docs/lq-1402-joint-engine-api-acceptance-post-write-audit.md`
+  - schließt bytegenaue descriptor-gebundene Marker-Readback-Verifikation
+
+- LQ-1403 joint engine API untrusted marker cleanup contract:
+  `docs/lq-1403-joint-engine-api-untrusted-marker-cleanup-contract.md`
+- LQ-1404 fail-closed joint engine API marker readback:
+  `docs/lq-1404-fail-closed-joint-engine-api-marker-readback.md`
+- LQ-1405 joint engine API untrusted marker cleanup evidence:
+  `docs/lq-1405-joint-engine-api-untrusted-marker-cleanup-evidence.md`
+- LQ-1406 joint engine API untrusted marker cleanup audit:
+  `docs/lq-1406-joint-engine-api-untrusted-marker-cleanup-audit.md`
+  - schließt enge Entfernung noch nicht vertrauenswürdiger Marker nach Verifikationsfehlern
+
+- LQ-1407 joint engine API durable marker composition contract:
+  `docs/lq-1407-joint-engine-api-durable-marker-composition-contract.md`
+- LQ-1408 joint engine API durable marker composition:
+  `docs/lq-1408-joint-engine-api-durable-marker-composition.md`
+- LQ-1409 joint engine API durable marker composition evidence:
+  `docs/lq-1409-joint-engine-api-durable-marker-composition-evidence.md`
+- LQ-1410 joint engine API acceptance write completion audit:
+  `docs/lq-1410-joint-engine-api-acceptance-write-completion-audit.md`
+  - schließt den vollständigen durable Marker-Write-Pfad; 70 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6309 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1411 joint engine API acceptance pre-create root contract:
+  `docs/lq-1411-joint-engine-api-acceptance-pre-create-root-contract.md`
+- LQ-1412 pre-create joint engine API acceptance root gate:
+  `docs/lq-1412-pre-create-joint-engine-api-acceptance-root-gate.md`
+- LQ-1413 joint engine API acceptance pre-create root evidence:
+  `docs/lq-1413-joint-engine-api-acceptance-pre-create-root-evidence.md`
+- LQ-1414 joint engine API acceptance pre-create root audit:
+  `docs/lq-1414-joint-engine-api-acceptance-pre-create-root-audit.md`
+  - schließt sichtbare Root-Revalidierung unmittelbar vor Markeranlage
+
+- LQ-1415 joint engine API pre-create rebinding contract:
+  `docs/lq-1415-joint-engine-api-pre-create-rebinding-contract.md`
+- LQ-1416 zero-side-effect joint engine API pre-create rejection:
+  `docs/lq-1416-zero-side-effect-joint-engine-api-pre-create-rejection.md`
+- LQ-1417 joint engine API pre-create rebinding evidence:
+  `docs/lq-1417-joint-engine-api-pre-create-rebinding-evidence.md`
+- LQ-1418 joint engine API pre-create rebinding audit:
+  `docs/lq-1418-joint-engine-api-pre-create-rebinding-audit.md`
+  - schließt Marker-Side-Effects bei Rebinding vor Create vollständig aus
+
+- LQ-1419 joint engine API two-phase root binding contract:
+  `docs/lq-1419-joint-engine-api-two-phase-root-binding-contract.md`
+- LQ-1420 joint engine API two-phase root binding:
+  `docs/lq-1420-joint-engine-api-two-phase-root-binding.md`
+- LQ-1421 joint engine API two-phase root binding evidence:
+  `docs/lq-1421-joint-engine-api-two-phase-root-binding-evidence.md`
+- LQ-1422 joint engine API pre-create root completion audit:
+  `docs/lq-1422-joint-engine-api-pre-create-root-completion-audit.md`
+  - schließt zweiphasige Root-Bindung des Record-Pfads; 77 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6316 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1423 joint engine API expected acceptance identity contract:
+  `docs/lq-1423-joint-engine-api-expected-acceptance-identity-contract.md`
+- LQ-1424 bound joint engine API acceptance record:
+  `docs/lq-1424-bound-joint-engine-api-acceptance-record.md`
+- LQ-1425 joint engine API expected acceptance identity evidence:
+  `docs/lq-1425-joint-engine-api-expected-acceptance-identity-evidence.md`
+- LQ-1426 joint engine API expected acceptance identity audit:
+  `docs/lq-1426-joint-engine-api-expected-acceptance-identity-audit.md`
+  - schließt den Vergleich erwarteter und tatsächlich geöffneter Registry-Identität vor Create
+
+- LQ-1427 joint engine API one-shot identity binding contract:
+  `docs/lq-1427-joint-engine-api-one-shot-identity-binding-contract.md`
+- LQ-1428 joint engine API one-shot bound write:
+  `docs/lq-1428-joint-engine-api-one-shot-bound-write.md`
+- LQ-1429 joint engine API one-shot identity binding evidence:
+  `docs/lq-1429-joint-engine-api-one-shot-identity-binding-evidence.md`
+- LQ-1430 joint engine API one-shot identity binding audit:
+  `docs/lq-1430-joint-engine-api-one-shot-identity-binding-audit.md`
+  - schließt unveränderte Weitergabe der Acceptance-Identität bis zum durable Record
+
+- LQ-1431 joint engine API operation bound write contract:
+  `docs/lq-1431-joint-engine-api-operation-bound-write-contract.md`
+- LQ-1432 joint engine API operation bound write:
+  `docs/lq-1432-joint-engine-api-operation-bound-write.md`
+- LQ-1433 joint engine API operation bound write evidence:
+  `docs/lq-1433-joint-engine-api-operation-bound-write-evidence.md`
+- LQ-1434 joint engine API bound acceptance write completion audit:
+  `docs/lq-1434-joint-engine-api-bound-acceptance-write-completion-audit.md`
+  - schließt Outer-to-Inner Write-Identitätsbindung; 85 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6327 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1435 joint engine API expected source identity contract:
+  `docs/lq-1435-joint-engine-api-expected-source-identity-contract.md`
+- LQ-1436 bound joint engine API run source loader:
+  `docs/lq-1436-bound-joint-engine-api-run-source-loader.md`
+- LQ-1437 joint engine API expected source identity evidence:
+  `docs/lq-1437-joint-engine-api-expected-source-identity-evidence.md`
+- LQ-1438 joint engine API expected source identity audit:
+  `docs/lq-1438-joint-engine-api-expected-source-identity-audit.md`
+  - schließt den Vergleich erwarteter und tatsächlich geöffneter Source-Root-Identität
+
+- LQ-1439 joint engine API one-shot source identity contract:
+  `docs/lq-1439-joint-engine-api-one-shot-source-identity-contract.md`
+- LQ-1440 joint engine API one-shot bound source verification:
+  `docs/lq-1440-joint-engine-api-one-shot-bound-source-verification.md`
+- LQ-1441 joint engine API one-shot source identity evidence:
+  `docs/lq-1441-joint-engine-api-one-shot-source-identity-evidence.md`
+- LQ-1442 joint engine API one-shot source identity audit:
+  `docs/lq-1442-joint-engine-api-one-shot-source-identity-audit.md`
+  - schließt unveränderte Source-Identitätsweitergabe an beide One-shot-Ladevorgänge
+
+- LQ-1443 joint engine API operation bound source contract:
+  `docs/lq-1443-joint-engine-api-operation-bound-source-contract.md`
+- LQ-1444 joint engine API operation bound source:
+  `docs/lq-1444-joint-engine-api-operation-bound-source.md`
+- LQ-1445 joint engine API operation bound source evidence:
+  `docs/lq-1445-joint-engine-api-operation-bound-source-evidence.md`
+- LQ-1446 joint engine API bound source completion audit:
+  `docs/lq-1446-joint-engine-api-bound-source-completion-audit.md`
+  - schließt Outer-to-Inner Source-Identitätsbindung; 61 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6338 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1447 joint engine API expected acceptance read identity contract:
+  `docs/lq-1447-joint-engine-api-expected-acceptance-read-identity-contract.md`
+- LQ-1448 bound joint engine API acceptance reads:
+  `docs/lq-1448-bound-joint-engine-api-acceptance-reads.md`
+- LQ-1449 joint engine API acceptance read identity evidence:
+  `docs/lq-1449-joint-engine-api-acceptance-read-identity-evidence.md`
+- LQ-1450 joint engine API acceptance read identity audit:
+  `docs/lq-1450-joint-engine-api-acceptance-read-identity-audit.md`
+  - schließt die Descriptor-Identitätsbindung für Marker-Load und Registry-Inspection
+
+- LQ-1451 joint engine API dual-bound accepted-source audit contract:
+  `docs/lq-1451-joint-engine-api-dual-bound-accepted-source-audit-contract.md`
+- LQ-1452 dual-bound joint engine API accepted-source audit:
+  `docs/lq-1452-dual-bound-joint-engine-api-accepted-source-audit.md`
+- LQ-1453 joint engine API dual-bound audit evidence:
+  `docs/lq-1453-joint-engine-api-dual-bound-audit-evidence.md`
+- LQ-1454 joint engine API dual-bound audit completion:
+  `docs/lq-1454-joint-engine-api-dual-bound-audit-completion.md`
+  - schließt die unveränderte Source- und Acceptance-Identitätsweitergabe an alle Audit-Lesevorgänge
+
+- LQ-1455 joint engine API operation bound audit contract:
+  `docs/lq-1455-joint-engine-api-operation-bound-audit-contract.md`
+- LQ-1456 joint engine API operation bound audit:
+  `docs/lq-1456-joint-engine-api-operation-bound-audit.md`
+- LQ-1457 joint engine API operation bound audit evidence:
+  `docs/lq-1457-joint-engine-api-operation-bound-audit-evidence.md`
+- LQ-1458 joint engine API bound audit completion audit:
+  `docs/lq-1458-joint-engine-api-bound-audit-completion-audit.md`
+  - schließt Outer-to-Inner Audit-Identitätsbindung; 93 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6359 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1459 joint engine API one-shot acceptance read contract:
+  `docs/lq-1459-joint-engine-api-one-shot-acceptance-read-contract.md`
+- LQ-1460 dual-bound joint engine API one-shot reads:
+  `docs/lq-1460-dual-bound-joint-engine-api-one-shot-reads.md`
+- LQ-1461 joint engine API one-shot acceptance read evidence:
+  `docs/lq-1461-joint-engine-api-one-shot-acceptance-read-evidence.md`
+- LQ-1462 joint engine API one-shot acceptance read audit:
+  `docs/lq-1462-joint-engine-api-one-shot-acceptance-read-audit.md`
+  - schließt die Acceptance-Identitätsbindung beider One-shot-Marker-Ladevorgänge
+
+- LQ-1463 joint engine API duplicate precheck binding contract:
+  `docs/lq-1463-joint-engine-api-duplicate-precheck-binding-contract.md`
+- LQ-1464 bound joint engine API duplicate precheck:
+  `docs/lq-1464-bound-joint-engine-api-duplicate-precheck.md`
+- LQ-1465 joint engine API duplicate precheck evidence:
+  `docs/lq-1465-joint-engine-api-duplicate-precheck-evidence.md`
+- LQ-1466 joint engine API duplicate precheck audit:
+  `docs/lq-1466-joint-engine-api-duplicate-precheck-audit.md`
+  - schließt Registry-Identitätsbindung vor neutraler Marker-Abwesenheitsentscheidung
+
+- LQ-1467 joint engine API bound readback contract:
+  `docs/lq-1467-joint-engine-api-bound-readback-contract.md`
+- LQ-1468 bound joint engine API acceptance readback:
+  `docs/lq-1468-bound-joint-engine-api-acceptance-readback.md`
+- LQ-1469 joint engine API bound readback evidence:
+  `docs/lq-1469-joint-engine-api-bound-readback-evidence.md`
+- LQ-1470 joint engine API bound acceptance reads completion audit:
+  `docs/lq-1470-joint-engine-api-bound-acceptance-reads-completion-audit.md`
+  - schließt Identitätsbindung aller One-shot-Registry-Zugriffe; 84 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6364 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1471 joint engine API marker observation contract:
+  `docs/lq-1471-joint-engine-api-marker-observation-contract.md`
+- LQ-1472 joint engine API marker observation value:
+  `docs/lq-1472-joint-engine-api-marker-observation-value.md`
+- LQ-1473 descriptor-bound joint engine API marker observation:
+  `docs/lq-1473-descriptor-bound-joint-engine-api-marker-observation.md`
+- LQ-1474 joint engine API marker observation evidence:
+  `docs/lq-1474-joint-engine-api-marker-observation-evidence.md`
+  - ergänzt eine additive read-only Beobachtung aus Acceptance-Wert und Descriptor-Dateiidentität
+
+- LQ-1475 joint engine API marker generation stability contract:
+  `docs/lq-1475-joint-engine-api-marker-generation-stability-contract.md`
+- LQ-1476 dual-observation joint engine API marker audit:
+  `docs/lq-1476-dual-observation-joint-engine-api-marker-audit.md`
+- LQ-1477 joint engine API marker generation evidence:
+  `docs/lq-1477-joint-engine-api-marker-generation-evidence.md`
+- LQ-1478 joint engine API marker generation audit:
+  `docs/lq-1478-joint-engine-api-marker-generation-audit.md`
+  - schließt inhaltsgleichen Marker-Austausch zwischen beiden Accepted-Source-Beobachtungen
+
+- LQ-1479 joint engine API operation marker stability contract:
+  `docs/lq-1479-joint-engine-api-operation-marker-stability-contract.md`
+- LQ-1480 joint engine API operation marker stability:
+  `docs/lq-1480-joint-engine-api-operation-marker-stability.md`
+- LQ-1481 joint engine API operation marker stability evidence:
+  `docs/lq-1481-joint-engine-api-operation-marker-stability-evidence.md`
+- LQ-1482 joint engine API marker identity completion audit:
+  `docs/lq-1482-joint-engine-api-marker-identity-completion-audit.md`
+  - schließt Marker-Generationsbindung im operation-bound Accepted-Source-Audit; 72 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6375 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1483 joint engine API recorded marker observation contract:
+  `docs/lq-1483-joint-engine-api-recorded-marker-observation-contract.md`
+- LQ-1484 descriptor-bound recorded marker observation:
+  `docs/lq-1484-descriptor-bound-recorded-marker-observation.md`
+- LQ-1485 joint engine API recorded marker observation evidence:
+  `docs/lq-1485-joint-engine-api-recorded-marker-observation-evidence.md`
+- LQ-1486 joint engine API recorded marker observation audit:
+  `docs/lq-1486-joint-engine-api-recorded-marker-observation-audit.md`
+  - ergänzt Descriptor-identifizierte Marker-Generation als Ergebnis des durable Record
+
+- LQ-1487 joint engine API post-record generation contract:
+  `docs/lq-1487-joint-engine-api-post-record-generation-contract.md`
+- LQ-1488 generation-bound joint engine API one-shot acceptance:
+  `docs/lq-1488-generation-bound-joint-engine-api-one-shot-acceptance.md`
+- LQ-1489 joint engine API post-record generation evidence:
+  `docs/lq-1489-joint-engine-api-post-record-generation-evidence.md`
+- LQ-1490 joint engine API post-record generation audit:
+  `docs/lq-1490-joint-engine-api-post-record-generation-audit.md`
+  - schließt inhaltsgleichen Marker-Austausch zwischen durable Record und finaler Beobachtung
+
+- LQ-1491 joint engine API operation recorded generation contract:
+  `docs/lq-1491-joint-engine-api-operation-recorded-generation-contract.md`
+- LQ-1492 joint engine API operation recorded generation:
+  `docs/lq-1492-joint-engine-api-operation-recorded-generation.md`
+- LQ-1493 joint engine API operation recorded generation evidence:
+  `docs/lq-1493-joint-engine-api-operation-recorded-generation-evidence.md`
+- LQ-1494 joint engine API recorded generation completion audit:
+  `docs/lq-1494-joint-engine-api-recorded-generation-completion-audit.md`
+  - schließt operation-bound Recorded-Marker-Generationsbindung; 68 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6380 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1495 joint engine API stable marker state contract:
+  `docs/lq-1495-joint-engine-api-stable-marker-state-contract.md`
+- LQ-1496 joint engine API marker state value:
+  `docs/lq-1496-joint-engine-api-marker-state-value.md`
+- LQ-1497 descriptor-derived joint engine API marker state:
+  `docs/lq-1497-descriptor-derived-joint-engine-api-marker-state.md`
+- LQ-1498 joint engine API marker state evidence:
+  `docs/lq-1498-joint-engine-api-marker-state-evidence.md`
+  - ergänzt vollständigen stabilen Descriptor-Zustand zur Markerbeobachtung
+
+- LQ-1499 joint engine API marker state continuity contract:
+  `docs/lq-1499-joint-engine-api-marker-state-continuity-contract.md`
+- LQ-1500 state-bound joint engine API marker audit:
+  `docs/lq-1500-state-bound-joint-engine-api-marker-audit.md`
+- LQ-1501 joint engine API marker state continuity evidence:
+  `docs/lq-1501-joint-engine-api-marker-state-continuity-evidence.md`
+- LQ-1502 joint engine API marker state continuity audit:
+  `docs/lq-1502-joint-engine-api-marker-state-continuity-audit.md`
+  - schließt Same-Inode-Rewrite mit restaurierten Bytes im Accepted-Source-Audit
+
+- LQ-1503 joint engine API recorded marker state contract:
+  `docs/lq-1503-joint-engine-api-recorded-marker-state-contract.md`
+- LQ-1504 state-bound joint engine API one-shot acceptance:
+  `docs/lq-1504-state-bound-joint-engine-api-one-shot-acceptance.md`
+- LQ-1505 joint engine API recorded marker state evidence:
+  `docs/lq-1505-joint-engine-api-recorded-marker-state-evidence.md`
+- LQ-1506 joint engine API marker state completion audit:
+  `docs/lq-1506-joint-engine-api-marker-state-completion-audit.md`
+  - schließt Marker-Zustandsbindung für Audit und One-shot-Accept; 52 fokussierte Tests bestehen unter als Fehler behandelten Deprecation-Warnungen
+  - vollständige lokale Suite mit 6390 passed und 108 skipped bestanden; realer Image-Build mit Grype und extern run-signierte Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1507 joint engine API source observation contract:
+  `docs/lq-1507-joint-engine-api-source-observation-contract.md`
+- LQ-1508 descriptor-bound joint engine API source observation:
+  `docs/lq-1508-descriptor-bound-joint-engine-api-source-observation.md`
+- LQ-1509 joint engine API source observation evidence:
+  `docs/lq-1509-joint-engine-api-source-observation-evidence.md`
+- LQ-1510 joint engine API source observation audit:
+  `docs/lq-1510-joint-engine-api-source-observation-audit.md`
+  - ergänzt Root- und 14 Kindzustände zum Run-bound Source-Snapshot
+
+- LQ-1511 joint engine API source state continuity contract:
+  `docs/lq-1511-joint-engine-api-source-state-continuity-contract.md`
+- LQ-1512 state-bound joint engine API one-shot source:
+  `docs/lq-1512-state-bound-joint-engine-api-one-shot-source.md`
+- LQ-1513 joint engine API one-shot source state evidence:
+  `docs/lq-1513-joint-engine-api-one-shot-source-state-evidence.md`
+- LQ-1514 joint engine API one-shot source state audit:
+  `docs/lq-1514-joint-engine-api-one-shot-source-state-audit.md`
+  - schließt Same-Inode-Source-Rewrite mit restaurierten Bytes im Accept-Pfad
+
+- LQ-1515 joint engine API audit source state contract:
+  `docs/lq-1515-joint-engine-api-audit-source-state-contract.md`
+- LQ-1516 state-bound joint engine API accepted-source audit:
+  `docs/lq-1516-state-bound-joint-engine-api-accepted-source-audit.md`
+- LQ-1517 joint engine API audit source state evidence:
+  `docs/lq-1517-joint-engine-api-audit-source-state-evidence.md`
+- LQ-1518 joint engine API source state completion audit:
+  `docs/lq-1518-joint-engine-api-source-state-completion-audit.md`
+  - schließt Source-Zustandsbindung für Accept und Audit; 60 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6394 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1519 joint engine API source convergence contract:
+  `docs/lq-1519-joint-engine-api-source-convergence-contract.md`
+- LQ-1520 two-pass joint engine API source capture:
+  `docs/lq-1520-two-pass-joint-engine-api-source-capture.md`
+- LQ-1521 joint engine API source convergence evidence:
+  `docs/lq-1521-joint-engine-api-source-convergence-evidence.md`
+- LQ-1522 joint engine API source convergence audit:
+  `docs/lq-1522-joint-engine-api-source-convergence-audit.md`
+  - bindet Snapshot-Inhalt und Descriptor-Zustand durch zwei konvergente Kindlesepässe
+
+- LQ-1523 joint engine API pre-accept source convergence contract:
+  `docs/lq-1523-joint-engine-api-pre-accept-source-convergence-contract.md`
+- LQ-1524 converged joint engine API pre-accept source:
+  `docs/lq-1524-converged-joint-engine-api-pre-accept-source.md`
+- LQ-1525 joint engine API pre-accept convergence evidence:
+  `docs/lq-1525-joint-engine-api-pre-accept-convergence-evidence.md`
+- LQ-1526 joint engine API pre-accept convergence audit:
+  `docs/lq-1526-joint-engine-api-pre-accept-convergence-audit.md`
+  - sperrt Marker-Erzeugung nach instabiler initialer Source-Beobachtung
+
+- LQ-1527 joint engine API audit source convergence contract:
+  `docs/lq-1527-joint-engine-api-audit-source-convergence-contract.md`
+- LQ-1528 converged joint engine API accepted-source audit:
+  `docs/lq-1528-converged-joint-engine-api-accepted-source-audit.md`
+- LQ-1529 joint engine API audit source convergence evidence:
+  `docs/lq-1529-joint-engine-api-audit-source-convergence-evidence.md`
+- LQ-1530 joint engine API source convergence completion audit:
+  `docs/lq-1530-joint-engine-api-source-convergence-completion-audit.md`
+  - schließt Source-Konvergenz für Accept und Audit; 57 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6399 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1531 joint engine API source state semantics contract:
+  `docs/lq-1531-joint-engine-api-source-state-semantics-contract.md`
+- LQ-1532 closed joint engine API source observation value:
+  `docs/lq-1532-closed-joint-engine-api-source-observation-value.md`
+- LQ-1533 joint engine API source root state invariants:
+  `docs/lq-1533-joint-engine-api-source-root-state-invariants.md`
+- LQ-1534 joint engine API source root invariant evidence:
+  `docs/lq-1534-joint-engine-api-source-root-invariant-evidence.md`
+  - schließt Typ-, Owner- und Modusinvarianten des Source-Root-Zustands
+
+- LQ-1535 joint engine API source child state contract:
+  `docs/lq-1535-joint-engine-api-source-child-state-contract.md`
+- LQ-1536 closed joint engine API source child states:
+  `docs/lq-1536-closed-joint-engine-api-source-child-states.md`
+- LQ-1537 joint engine API source child invariant evidence:
+  `docs/lq-1537-joint-engine-api-source-child-invariant-evidence.md`
+- LQ-1538 joint engine API source child invariant audit:
+  `docs/lq-1538-joint-engine-api-source-child-invariant-audit.md`
+  - schließt Typ-, Owner-, Modus-, Link- und Größeninvarianten aller 14 Kindzustände
+
+- LQ-1539 joint engine API closed source decision contract:
+  `docs/lq-1539-joint-engine-api-closed-source-decision-contract.md`
+- LQ-1540 closed source observations in accept and audit:
+  `docs/lq-1540-closed-source-observations-in-accept-and-audit.md`
+- LQ-1541 joint engine API closed source decision evidence:
+  `docs/lq-1541-joint-engine-api-closed-source-decision-evidence.md`
+- LQ-1542 joint engine API source invariant completion audit:
+  `docs/lq-1542-joint-engine-api-source-invariant-completion-audit.md`
+  - schließt semantisch geschlossene Source-Beobachtungen; 36 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6409 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1543 joint engine API marker state semantics contract:
+  `docs/lq-1543-joint-engine-api-marker-state-semantics-contract.md`
+- LQ-1544 closed joint engine API marker observation value:
+  `docs/lq-1544-closed-joint-engine-api-marker-observation-value.md`
+- LQ-1545 joint engine API marker type and owner invariants:
+  `docs/lq-1545-joint-engine-api-marker-type-and-owner-invariants.md`
+- LQ-1546 joint engine API marker type owner evidence:
+  `docs/lq-1546-joint-engine-api-marker-type-owner-evidence.md`
+  - schließt Dateityp-, Owner- und Modusinvarianten der Markerbeobachtung
+
+- LQ-1547 joint engine API marker link and size contract:
+  `docs/lq-1547-joint-engine-api-marker-link-size-contract.md`
+- LQ-1548 closed joint engine API marker link and size:
+  `docs/lq-1548-closed-joint-engine-api-marker-link-size.md`
+- LQ-1549 joint engine API marker link size evidence:
+  `docs/lq-1549-joint-engine-api-marker-link-size-evidence.md`
+- LQ-1550 joint engine API marker invariant audit:
+  `docs/lq-1550-joint-engine-api-marker-invariant-audit.md`
+  - schließt Linkzahl und exakte kanonische Größenbindung
+
+- LQ-1551 joint engine API closed marker decision contract:
+  `docs/lq-1551-joint-engine-api-closed-marker-decision-contract.md`
+- LQ-1552 closed marker observations in accept and audit:
+  `docs/lq-1552-closed-marker-observations-in-accept-and-audit.md`
+- LQ-1553 joint engine API closed marker decision evidence:
+  `docs/lq-1553-joint-engine-api-closed-marker-decision-evidence.md`
+- LQ-1554 joint engine API marker invariant completion audit:
+  `docs/lq-1554-joint-engine-api-marker-invariant-completion-audit.md`
+  - schließt semantisch geschlossene Markerbeobachtungen; 39 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6417 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1555 joint engine API operation root value contract:
+  `docs/lq-1555-joint-engine-api-operation-root-value-contract.md`
+- LQ-1556 closed joint engine API operation roots:
+  `docs/lq-1556-closed-joint-engine-api-operation-roots.md`
+- LQ-1557 joint engine API operation child path contract:
+  `docs/lq-1557-joint-engine-api-operation-child-path-contract.md`
+- LQ-1558 joint engine API operation child path evidence:
+  `docs/lq-1558-joint-engine-api-operation-child-path-evidence.md`
+  - schließt sichere exakte Geschwisterpfade der Operation-Topologie
+
+- LQ-1559 joint engine API operation identity distinctness contract:
+  `docs/lq-1559-joint-engine-api-operation-identity-distinctness-contract.md`
+- LQ-1560 closed joint engine API operation identities:
+  `docs/lq-1560-closed-joint-engine-api-operation-identities.md`
+- LQ-1561 joint engine API operation identity evidence:
+  `docs/lq-1561-joint-engine-api-operation-identity-evidence.md`
+- LQ-1562 joint engine API operation identity audit:
+  `docs/lq-1562-joint-engine-api-operation-identity-audit.md`
+  - schließt paarweise Distinktheit von Root-, Source- und Acceptance-Identität
+
+- LQ-1563 joint engine API closed operation decision contract:
+  `docs/lq-1563-joint-engine-api-closed-operation-decision-contract.md`
+- LQ-1564 closed operation roots in accept and audit:
+  `docs/lq-1564-closed-operation-roots-in-accept-and-audit.md`
+- LQ-1565 joint engine API closed operation evidence:
+  `docs/lq-1565-joint-engine-api-closed-operation-evidence.md`
+- LQ-1566 joint engine API operation root invariant completion audit:
+  `docs/lq-1566-joint-engine-api-operation-root-invariant-completion-audit.md`
+  - schließt semantisch geschlossene Operation-Root-Werte; 51 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6428 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1567 joint engine API operation state contract:
+  `docs/lq-1567-joint-engine-api-operation-state-contract.md`
+- LQ-1568 descriptor-bound joint engine API operation states:
+  `docs/lq-1568-descriptor-bound-joint-engine-api-operation-states.md`
+- LQ-1569 joint engine API operation state invariants:
+  `docs/lq-1569-joint-engine-api-operation-state-invariants.md`
+- LQ-1570 joint engine API operation state evidence:
+  `docs/lq-1570-joint-engine-api-operation-state-evidence.md`
+  - ergänzt vollständige Descriptor-Zustände für Operation-Root und beide Kinder
+
+- LQ-1571 joint engine API operation state continuity contract:
+  `docs/lq-1571-joint-engine-api-operation-state-continuity-contract.md`
+- LQ-1572 state-bound joint engine API operation validation:
+  `docs/lq-1572-state-bound-joint-engine-api-operation-validation.md`
+- LQ-1573 joint engine API operation state continuity evidence:
+  `docs/lq-1573-joint-engine-api-operation-state-continuity-evidence.md`
+- LQ-1574 joint engine API operation state continuity audit:
+  `docs/lq-1574-joint-engine-api-operation-state-continuity-audit.md`
+  - schließt Same-Inode-Verzeichnismetadatenänderung über eine Operation
+
+- LQ-1575 joint engine API intended acceptance state change contract:
+  `docs/lq-1575-joint-engine-api-intended-acceptance-state-change-contract.md`
+- LQ-1576 bounded joint engine API acceptance state change:
+  `docs/lq-1576-bounded-joint-engine-api-acceptance-state-change.md`
+- LQ-1577 joint engine API bounded state change evidence:
+  `docs/lq-1577-joint-engine-api-bounded-state-change-evidence.md`
+- LQ-1578 joint engine API operation state completion audit:
+  `docs/lq-1578-joint-engine-api-operation-state-completion-audit.md`
+  - begrenzt beabsichtigte Acceptance-Zustandsänderung ausschließlich auf Accept; 51 fokussierte Tests bestehen
+  - vollständige lokale Suite mit 6438 passed und 108 skipped bestanden; realer Image-Build mit Grype und externe Docker-Stagingevidenz fehlen; production_ready=false
+
+- LQ-1579 joint engine API acceptance delta contract:
+  `docs/lq-1579-joint-engine-api-acceptance-delta-contract.md`
+- LQ-1580 dual-inventory joint engine API acceptance:
+  `docs/lq-1580-dual-inventory-joint-engine-api-acceptance.md`
+- LQ-1581 joint engine API pre-accept inventory contract:
+  `docs/lq-1581-joint-engine-api-pre-accept-inventory-contract.md`
+- LQ-1582 bound joint engine API pre-accept inventory:
+  `docs/lq-1582-bound-joint-engine-api-pre-accept-inventory.md`
+  - bindet den vollständigen kanonischen Registry-Ausgangsbestand
+
+- LQ-1583 joint engine API post-accept inventory contract:
+  `docs/lq-1583-joint-engine-api-post-accept-inventory-contract.md`
+- LQ-1584 bound joint engine API post-accept inventory:
+  `docs/lq-1584-bound-joint-engine-api-post-accept-inventory.md`
+- LQ-1585 joint engine API acceptance delta evidence:
+  `docs/lq-1585-joint-engine-api-acceptance-delta-evidence.md`
+- LQ-1586 joint engine API acceptance delta audit:
+  `docs/lq-1586-joint-engine-api-acceptance-delta-audit.md`
+  - erlaubt exakt einen zusätzlichen kanonischen Marker bei erhaltenem Altbestand
+
+- LQ-1587 joint engine API delta-bound operation contract:
+  `docs/lq-1587-joint-engine-api-delta-bound-operation-contract.md`
+- LQ-1588 delta-bound joint engine API operation accept:
+  `docs/lq-1588-delta-bound-joint-engine-api-operation-accept.md`
+- LQ-1589 joint engine API delta-bound operation evidence:
+  `docs/lq-1589-joint-engine-api-delta-bound-operation-evidence.md`
+- LQ-1590 joint engine API acceptance delta completion audit:
+  `docs/lq-1590-joint-engine-api-acceptance-delta-completion-audit.md`
+  - schließt Acceptance-Directory-Delta-Bindung; 57 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6442 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1591 joint engine API expected delta contract:
+  `docs/lq-1591-joint-engine-api-expected-delta-contract.md`
+- LQ-1592 source-derived joint engine API expected acceptance:
+  `docs/lq-1592-source-derived-joint-engine-api-expected-acceptance.md`
+- LQ-1593 joint engine API expected run delta contract:
+  `docs/lq-1593-joint-engine-api-expected-run-delta-contract.md`
+- LQ-1594 bound joint engine API run delta:
+  `docs/lq-1594-bound-joint-engine-api-run-delta.md`
+  - bindet den einzelnen Neuzugang an die Source-Run-ID
+
+- LQ-1595 joint engine API envelope delta contract:
+  `docs/lq-1595-joint-engine-api-envelope-delta-contract.md`
+- LQ-1596 bound joint engine API envelope delta:
+  `docs/lq-1596-bound-joint-engine-api-envelope-delta.md`
+- LQ-1597 joint engine API expected delta evidence:
+  `docs/lq-1597-joint-engine-api-expected-delta-evidence.md`
+- LQ-1598 joint engine API expected delta audit:
+  `docs/lq-1598-joint-engine-api-expected-delta-audit.md`
+  - bindet den Neuzugang zusätzlich an den exakten Envelope-Digest
+
+- LQ-1599 joint engine API source delta operation contract:
+  `docs/lq-1599-joint-engine-api-source-delta-operation-contract.md`
+- LQ-1600 source-delta-bound joint engine API operation:
+  `docs/lq-1600-source-delta-bound-joint-engine-api-operation.md`
+- LQ-1601 joint engine API source delta operation evidence:
+  `docs/lq-1601-joint-engine-api-source-delta-operation-evidence.md`
+- LQ-1602 joint engine API expected delta completion audit:
+  `docs/lq-1602-joint-engine-api-expected-delta-completion-audit.md`
+  - schließt Source-zu-Acceptance-Delta-Bindung; 45 fokussierte Tests bestehen unter strikten Warnungen
+  - vollständige lokale Suite mit 6446 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1603 joint engine API registry observation contract:
+  `docs/lq-1603-joint-engine-api-registry-observation-contract.md`
+- LQ-1604 descriptor-bound joint engine API registry observation:
+  `docs/lq-1604-descriptor-bound-joint-engine-api-registry-observation.md`
+- LQ-1605 joint engine API registry observation evidence:
+  `docs/lq-1605-joint-engine-api-registry-observation-evidence.md`
+- LQ-1606 joint engine API registry observation audit:
+  `docs/lq-1606-joint-engine-api-registry-observation-audit.md`
+  - ergänzt vollständige Markerbeobachtungen zur Registry-Inventur
+
+- LQ-1607 joint engine API existing marker preservation contract:
+  `docs/lq-1607-joint-engine-api-existing-marker-preservation-contract.md`
+- LQ-1608 generation-preserving joint engine API registry delta:
+  `docs/lq-1608-generation-preserving-joint-engine-api-registry-delta.md`
+- LQ-1609 joint engine API marker preservation evidence:
+  `docs/lq-1609-joint-engine-api-marker-preservation-evidence.md`
+- LQ-1610 joint engine API marker preservation audit:
+  `docs/lq-1610-joint-engine-api-marker-preservation-audit.md`
+  - schließt unveränderte Generationserhaltung aller bestehenden Marker
+
+- LQ-1611 joint engine API generation delta operation contract:
+  `docs/lq-1611-joint-engine-api-generation-delta-operation-contract.md`
+- LQ-1612 generation-delta-bound joint engine API operation:
+  `docs/lq-1612-generation-delta-bound-joint-engine-api-operation.md`
+- LQ-1613 joint engine API generation delta evidence:
+  `docs/lq-1613-joint-engine-api-generation-delta-evidence.md`
+- LQ-1614 joint engine API generation delta completion audit:
+  `docs/lq-1614-joint-engine-api-generation-delta-completion-audit.md`
+  - schließt generationsbewusste Registry-Delta-Bindung; 27 fokussierte Tests bestehen
+  - vollständige lokale Suite mit 6449 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1615 joint engine API created marker handoff contract:
+  `docs/lq-1615-joint-engine-api-created-marker-handoff-contract.md`
+- LQ-1616 final-observation joint engine API one-shot result:
+  `docs/lq-1616-final-observation-joint-engine-api-one-shot-result.md`
+- LQ-1617 joint engine API created marker result evidence:
+  `docs/lq-1617-joint-engine-api-created-marker-result-evidence.md`
+- LQ-1618 joint engine API created marker result audit:
+  `docs/lq-1618-joint-engine-api-created-marker-result-audit.md`
+  - gibt die final bestätigte Markerbeobachtung als One-shot-Ergebnis weiter
+
+- LQ-1619 joint engine API created generation delta contract:
+  `docs/lq-1619-joint-engine-api-created-generation-delta-contract.md`
+- LQ-1620 created generation bound joint engine API delta:
+  `docs/lq-1620-created-generation-bound-joint-engine-api-delta.md`
+- LQ-1621 joint engine API post-one-shot replacement contract:
+  `docs/lq-1621-joint-engine-api-post-one-shot-replacement-contract.md`
+- LQ-1622 joint engine API post-one-shot replacement evidence:
+  `docs/lq-1622-joint-engine-api-post-one-shot-replacement-evidence.md`
+  - schließt inhaltsgleichen Marker-Austausch nach One-shot-Erfolg
+
+- LQ-1623 joint engine API marker handoff operation contract:
+  `docs/lq-1623-joint-engine-api-marker-handoff-operation-contract.md`
+- LQ-1624 marker handoff bound joint engine API operation:
+  `docs/lq-1624-marker-handoff-bound-joint-engine-api-operation.md`
+- LQ-1625 joint engine API marker handoff evidence:
+  `docs/lq-1625-joint-engine-api-marker-handoff-evidence.md`
+- LQ-1626 joint engine API marker handoff completion audit:
+  `docs/lq-1626-joint-engine-api-marker-handoff-completion-audit.md`
+  - schließt One-shot-zu-Operation Marker-Generationshandoff; 25 fokussierte Tests bestehen
+  - vollständige lokale Suite mit 6453 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1627 joint engine API success state handoff contract:
+  `docs/lq-1627-joint-engine-api-success-state-handoff-contract.md`
+- LQ-1628 final joint engine API acceptance state capture:
+  `docs/lq-1628-final-joint-engine-api-acceptance-state-capture.md`
+- LQ-1629 joint engine API success state capture evidence:
+  `docs/lq-1629-joint-engine-api-success-state-capture-evidence.md`
+- LQ-1630 joint engine API success state capture audit:
+  `docs/lq-1630-joint-engine-api-success-state-capture-audit.md`
+  - bindet den nach innerem Erfolg beobachteten Acceptance-Zustand vor der Abschlussprüfung
+
+- LQ-1631 joint engine API final state stability contract:
+  `docs/lq-1631-joint-engine-api-final-state-stability-contract.md`
+- LQ-1632 captured-state-bound joint engine API validation:
+  `docs/lq-1632-captured-state-bound-joint-engine-api-validation.md`
+- LQ-1633 joint engine API success-tail replacement evidence:
+  `docs/lq-1633-joint-engine-api-success-tail-replacement-evidence.md`
+- LQ-1634 joint engine API final state stability audit:
+  `docs/lq-1634-joint-engine-api-final-state-stability-audit.md`
+  - verwirft inhaltsgleichen Marker-Austausch zwischen Zustandserfassung und Abschlussprüfung
+
+- LQ-1635 joint engine API failure revalidation continuity contract:
+  `docs/lq-1635-joint-engine-api-failure-revalidation-continuity-contract.md`
+- LQ-1636 branch-aware joint engine API operation finalization:
+  `docs/lq-1636-branch-aware-joint-engine-api-operation-finalization.md`
+- LQ-1637 joint engine API finalization compatibility evidence:
+  `docs/lq-1637-joint-engine-api-finalization-compatibility-evidence.md`
+- LQ-1638 joint engine API success finalization completion audit:
+  `docs/lq-1638-joint-engine-api-success-finalization-completion-audit.md`
+  - schließt erfolgsgebundene Zustandsfinalisierung; 29 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6457 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1639 joint engine API inventory-state bridge contract:
+  `docs/lq-1639-joint-engine-api-inventory-state-bridge-contract.md`
+- LQ-1640 final joint engine API inventory result:
+  `docs/lq-1640-final-joint-engine-api-inventory-result.md`
+- LQ-1641 post-state-capture joint engine API inventory check:
+  `docs/lq-1641-post-state-capture-joint-engine-api-inventory-check.md`
+- LQ-1642 joint engine API inventory-state bridge audit:
+  `docs/lq-1642-joint-engine-api-inventory-state-bridge-audit.md`
+  - reicht das exakt bestätigte innere Marker-Inventar in die Erfolgsfinalisierung weiter
+
+- LQ-1643 joint engine API inventory capture window contract:
+  `docs/lq-1643-joint-engine-api-inventory-capture-window-contract.md`
+- LQ-1644 exact inventory bound joint engine API success check:
+  `docs/lq-1644-exact-inventory-bound-joint-engine-api-success-check.md`
+- LQ-1645 joint engine API inventory capture window evidence:
+  `docs/lq-1645-joint-engine-api-inventory-capture-window-evidence.md`
+- LQ-1646 joint engine API inventory capture window audit:
+  `docs/lq-1646-joint-engine-api-inventory-capture-window-audit.md`
+  - verwirft inhaltsgleichen Marker-Austausch zwischen Inventarprüfung und Zustandsaufnahme
+
+- LQ-1647 joint engine API success check hook contract:
+  `docs/lq-1647-joint-engine-api-success-check-hook-contract.md`
+- LQ-1648 branch preserving joint engine API success check:
+  `docs/lq-1648-branch-preserving-joint-engine-api-success-check.md`
+- LQ-1649 joint engine API success check compatibility evidence:
+  `docs/lq-1649-joint-engine-api-success-check-compatibility-evidence.md`
+- LQ-1650 joint engine API inventory-state bridge completion audit:
+  `docs/lq-1650-joint-engine-api-inventory-state-bridge-completion-audit.md`
+  - schließt Marker-Inventar-zu-Zustandsübergabe; 23 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6461 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1651 joint engine API source success finalization contract:
+  `docs/lq-1651-joint-engine-api-source-success-finalization-contract.md`
+- LQ-1652 combined joint engine API success result:
+  `docs/lq-1652-combined-joint-engine-api-success-result.md`
+- LQ-1653 post-capture joint engine API source reobservation:
+  `docs/lq-1653-post-capture-joint-engine-api-source-reobservation.md`
+- LQ-1654 joint engine API source finalization audit:
+  `docs/lq-1654-joint-engine-api-source-finalization-audit.md`
+  - reicht den acceptance-begründenden vollständigen Source-Snapshot in die Erfolgsfinalisierung weiter
+
+- LQ-1655 joint engine API source capture window contract:
+  `docs/lq-1655-joint-engine-api-source-capture-window-contract.md`
+- LQ-1656 observation bound joint engine API source success check:
+  `docs/lq-1656-observation-bound-joint-engine-api-source-success-check.md`
+- LQ-1657 joint engine API source capture window evidence:
+  `docs/lq-1657-joint-engine-api-source-capture-window-evidence.md`
+- LQ-1658 joint engine API source capture window audit:
+  `docs/lq-1658-joint-engine-api-source-capture-window-audit.md`
+  - verwirft In-place-Quelländerung zwischen innerem Inventarabschluss und Zustandsaufnahme
+
+- LQ-1659 joint engine API source identity reuse contract:
+  `docs/lq-1659-joint-engine-api-source-identity-reuse-contract.md`
+- LQ-1660 ordered joint engine API success finalization:
+  `docs/lq-1660-ordered-joint-engine-api-success-finalization.md`
+- LQ-1661 joint engine API source finalization compatibility evidence:
+  `docs/lq-1661-joint-engine-api-source-finalization-compatibility-evidence.md`
+- LQ-1662 joint engine API source finalization completion audit:
+  `docs/lq-1662-joint-engine-api-source-finalization-completion-audit.md`
+  - schließt Source-Snapshot-Erfolgsfinalisierung; 32 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6465 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1663 joint engine API operation decision time contract:
+  `docs/lq-1663-joint-engine-api-operation-decision-time-contract.md`
+- LQ-1664 outer joint engine API monotonic window:
+  `docs/lq-1664-outer-joint-engine-api-monotonic-window.md`
+- LQ-1665 joint engine API operation duration evidence:
+  `docs/lq-1665-joint-engine-api-operation-duration-evidence.md`
+- LQ-1666 joint engine API operation time audit:
+  `docs/lq-1666-joint-engine-api-operation-time-audit.md`
+  - begrenzt die gesamte Accept-once-Entscheidung einschließlich Erfolgsrevalidierung auf 30 monotone Sekunden
+
+- LQ-1667 joint engine API final freshness contract:
+  `docs/lq-1667-joint-engine-api-final-freshness-contract.md`
+- LQ-1668 retained source joint engine API final verification:
+  `docs/lq-1668-retained-source-joint-engine-api-final-verification.md`
+- LQ-1669 joint engine API final freshness evidence:
+  `docs/lq-1669-joint-engine-api-final-freshness-evidence.md`
+- LQ-1670 joint engine API final freshness audit:
+  `docs/lq-1670-joint-engine-api-final-freshness-audit.md`
+  - prüft denselben acceptance-begründenden Source-Snapshot am finalen UTC-Entscheidungszeitpunkt erneut
+
+- LQ-1671 ordered joint engine API time finalization contract:
+  `docs/lq-1671-ordered-joint-engine-api-time-finalization-contract.md`
+- LQ-1672 composed joint engine API operation time check:
+  `docs/lq-1672-composed-joint-engine-api-operation-time-check.md`
+- LQ-1673 joint engine API time finalization compatibility evidence:
+  `docs/lq-1673-joint-engine-api-time-finalization-compatibility-evidence.md`
+- LQ-1674 joint engine API time finalization completion audit:
+  `docs/lq-1674-joint-engine-api-time-finalization-completion-audit.md`
+  - schließt äußere Zeit- und Freshness-Finalisierung; 34 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6470 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1675 joint engine API post-verification source contract:
+  `docs/lq-1675-joint-engine-api-post-verification-source-contract.md`
+- LQ-1676 three-point joint engine API source convergence:
+  `docs/lq-1676-three-point-joint-engine-api-source-convergence.md`
+- LQ-1677 joint engine API verification-window mutation evidence:
+  `docs/lq-1677-joint-engine-api-verification-window-mutation-evidence.md`
+- LQ-1678 joint engine API post-verification source audit:
+  `docs/lq-1678-joint-engine-api-post-verification-source-audit.md`
+  - verlangt drei identische vollständige Source-Beobachtungen über die finale retained-Snapshot-Prüfung hinweg
+
+- LQ-1679 joint engine API completion time contract:
+  `docs/lq-1679-joint-engine-api-completion-time-contract.md`
+- LQ-1680 completion bound joint engine API freshness:
+  `docs/lq-1680-completion-bound-joint-engine-api-freshness.md`
+- LQ-1681 joint engine API completion time evidence:
+  `docs/lq-1681-joint-engine-api-completion-time-evidence.md`
+- LQ-1682 joint engine API completion time audit:
+  `docs/lq-1682-joint-engine-api-completion-time-audit.md`
+  - bindet Dauer und Freshness an den Zeitpunkt nach vollständiger Source-Konvergenz
+
+- LQ-1683 ordered joint engine API convergence finalization contract:
+  `docs/lq-1683-ordered-joint-engine-api-convergence-finalization-contract.md`
+- LQ-1684 joint engine API dual time source verification:
+  `docs/lq-1684-joint-engine-api-dual-time-source-verification.md`
+- LQ-1685 joint engine API convergence finalization evidence:
+  `docs/lq-1685-joint-engine-api-convergence-finalization-evidence.md`
+- LQ-1686 joint engine API convergence finalization completion audit:
+  `docs/lq-1686-joint-engine-api-convergence-finalization-completion-audit.md`
+  - schließt Post-Verification-Konvergenz und Abschlusszeitbindung; 17 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6474 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1687 joint engine API terminal source contract:
+  `docs/lq-1687-joint-engine-api-terminal-source-contract.md`
+- LQ-1688 four-point joint engine API source convergence:
+  `docs/lq-1688-four-point-joint-engine-api-source-convergence.md`
+- LQ-1689 joint engine API completion verification mutation evidence:
+  `docs/lq-1689-joint-engine-api-completion-verification-mutation-evidence.md`
+- LQ-1690 joint engine API terminal source audit:
+  `docs/lq-1690-joint-engine-api-terminal-source-audit.md`
+  - verlangt eine vierte vollständige Source-Beobachtung nach der Completion-Freshness-Prüfung
+
+- LQ-1691 joint engine API terminal duration contract:
+  `docs/lq-1691-joint-engine-api-terminal-duration-contract.md`
+- LQ-1692 terminal monotonic joint engine API gate:
+  `docs/lq-1692-terminal-monotonic-joint-engine-api-gate.md`
+- LQ-1693 joint engine API terminal duration evidence:
+  `docs/lq-1693-joint-engine-api-terminal-duration-evidence.md`
+- LQ-1694 joint engine API terminal duration audit:
+  `docs/lq-1694-joint-engine-api-terminal-duration-audit.md`
+  - bindet auch die terminale Source-Konvergenz an das 30-Sekunden-Gesamtfenster
+
+- LQ-1695 ordered joint engine API terminal finalization contract:
+  `docs/lq-1695-ordered-joint-engine-api-terminal-finalization-contract.md`
+- LQ-1696 composed joint engine API terminal gate:
+  `docs/lq-1696-composed-joint-engine-api-terminal-gate.md`
+- LQ-1697 joint engine API terminal finalization evidence:
+  `docs/lq-1697-joint-engine-api-terminal-finalization-evidence.md`
+- LQ-1698 joint engine API terminal finalization completion audit:
+  `docs/lq-1698-joint-engine-api-terminal-finalization-completion-audit.md`
+  - schließt terminale Source-Konvergenz und Dauerbindung; 21 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6478 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1699 joint engine API audit result handoff contract:
+  `docs/lq-1699-joint-engine-api-audit-result-handoff-contract.md`
+- LQ-1700 accepted source joint engine API audit result:
+  `docs/lq-1700-accepted-source-joint-engine-api-audit-result.md`
+- LQ-1701 registry joint engine API audit result:
+  `docs/lq-1701-registry-joint-engine-api-audit-result.md`
+- LQ-1702 joint engine API audit handoff audit:
+  `docs/lq-1702-joint-engine-api-audit-handoff-audit.md`
+  - reicht innere Registry- beziehungsweise Accepted-source-Evidenz in die äußere Audit-Finalisierung weiter
+
+- LQ-1703 joint engine API read-only root sandwich contract:
+  `docs/lq-1703-joint-engine-api-read-only-root-sandwich-contract.md`
+- LQ-1704 root bound joint engine API audit success check:
+  `docs/lq-1704-root-bound-joint-engine-api-audit-success-check.md`
+- LQ-1705 joint engine API audit post-success replacement evidence:
+  `docs/lq-1705-joint-engine-api-audit-post-success-replacement-evidence.md`
+- LQ-1706 joint engine API read-only root sandwich audit:
+  `docs/lq-1706-joint-engine-api-read-only-root-sandwich-audit.md`
+  - verwirft Marker-Generationsaustausch nach erfolgreicher innerer Accepted-source-Prüfung
+
+- LQ-1707 joint engine API registry audit recheck contract:
+  `docs/lq-1707-joint-engine-api-registry-audit-recheck-contract.md`
+- LQ-1708 joint engine API accepted audit recheck contract:
+  `docs/lq-1708-joint-engine-api-accepted-audit-recheck-contract.md`
+- LQ-1709 joint engine API audit recheck evidence:
+  `docs/lq-1709-joint-engine-api-audit-recheck-evidence.md`
+- LQ-1710 joint engine API audit result handoff completion audit:
+  `docs/lq-1710-joint-engine-api-audit-result-handoff-completion-audit.md`
+  - schließt read-only Audit-Ergebnisübergabe und Root-Sandwich; 70 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6482 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1711 joint engine API outer audit duration contract:
+  `docs/lq-1711-joint-engine-api-outer-audit-duration-contract.md`
+- LQ-1712 bounded joint engine API registry audit:
+  `docs/lq-1712-bounded-joint-engine-api-registry-audit.md`
+- LQ-1713 joint engine API registry audit duration evidence:
+  `docs/lq-1713-joint-engine-api-registry-audit-duration-evidence.md`
+- LQ-1714 joint engine API outer audit duration audit:
+  `docs/lq-1714-joint-engine-api-outer-audit-duration-audit.md`
+  - begrenzt beide read-only Operation-Audits einschließlich Root-Sandwich und Evidenz-Rechecks auf 30 monotone Sekunden
+
+- LQ-1715 joint engine API outer accepted freshness contract:
+  `docs/lq-1715-joint-engine-api-outer-accepted-freshness-contract.md`
+- LQ-1716 retained source joint engine API outer audit verification:
+  `docs/lq-1716-retained-source-joint-engine-api-outer-audit-verification.md`
+- LQ-1717 joint engine API outer accepted freshness evidence:
+  `docs/lq-1717-joint-engine-api-outer-accepted-freshness-evidence.md`
+- LQ-1718 joint engine API outer accepted freshness audit:
+  `docs/lq-1718-joint-engine-api-outer-accepted-freshness-audit.md`
+  - prüft den retained Accepted-source-Snapshot am äußeren finalen UTC-Zeitpunkt erneut
+
+- LQ-1719 ordered joint engine API outer audit contract:
+  `docs/lq-1719-ordered-joint-engine-api-outer-audit-contract.md`
+- LQ-1720 composed joint engine API outer audit time:
+  `docs/lq-1720-composed-joint-engine-api-outer-audit-time.md`
+- LQ-1721 joint engine API outer audit time evidence:
+  `docs/lq-1721-joint-engine-api-outer-audit-time-evidence.md`
+- LQ-1722 joint engine API outer audit time completion audit:
+  `docs/lq-1722-joint-engine-api-outer-audit-time-completion-audit.md`
+  - schließt äußere Audit-Dauer und Accepted-source-Freshness; 25 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6486 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1723 joint engine API terminal accepted audit contract:
+  `docs/lq-1723-joint-engine-api-terminal-accepted-audit-contract.md`
+- LQ-1724 post verification joint engine API accepted convergence:
+  `docs/lq-1724-post-verification-joint-engine-api-accepted-convergence.md`
+- LQ-1725 joint engine API outer verification mutation evidence:
+  `docs/lq-1725-joint-engine-api-outer-verification-mutation-evidence.md`
+- LQ-1726 joint engine API terminal accepted audit:
+  `docs/lq-1726-joint-engine-api-terminal-accepted-audit.md`
+  - reobserviert Source und Marker nach der äußeren retained-Snapshot-Prüfung
+
+- LQ-1727 joint engine API terminal accepted duration contract:
+  `docs/lq-1727-joint-engine-api-terminal-accepted-duration-contract.md`
+- LQ-1728 terminal monotonic joint engine API accepted gate:
+  `docs/lq-1728-terminal-monotonic-joint-engine-api-accepted-gate.md`
+- LQ-1729 joint engine API terminal accepted duration evidence:
+  `docs/lq-1729-joint-engine-api-terminal-accepted-duration-evidence.md`
+- LQ-1730 joint engine API terminal accepted duration audit:
+  `docs/lq-1730-joint-engine-api-terminal-accepted-duration-audit.md`
+  - bindet die terminalen Source- und Marker-Rereads an das äußere 30-Sekunden-Fenster
+
+- LQ-1731 ordered joint engine API terminal accepted contract:
+  `docs/lq-1731-ordered-joint-engine-api-terminal-accepted-contract.md`
+- LQ-1732 composed joint engine API terminal accepted audit:
+  `docs/lq-1732-composed-joint-engine-api-terminal-accepted-audit.md`
+- LQ-1733 joint engine API terminal accepted evidence:
+  `docs/lq-1733-joint-engine-api-terminal-accepted-evidence.md`
+- LQ-1734 joint engine API terminal accepted completion audit:
+  `docs/lq-1734-joint-engine-api-terminal-accepted-completion-audit.md`
+  - schließt terminale Accepted-source-Konvergenz und Dauerbindung; 12 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6490 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1735 closed joint engine API audit result contract:
+  `docs/lq-1735-closed-joint-engine-api-audit-result-contract.md`
+- LQ-1736 joint engine API registry audit result type:
+  `docs/lq-1736-joint-engine-api-registry-audit-result-type.md`
+- LQ-1737 joint engine API accepted audit result type:
+  `docs/lq-1737-joint-engine-api-accepted-audit-result-type.md`
+- LQ-1738 joint engine API closed audit result audit:
+  `docs/lq-1738-joint-engine-api-closed-audit-result-audit.md`
+  - ersetzt rohe Audit-Modus-Tags durch geschlossene immutable und redigiert dargestellte Ergebnistypen
+
+- LQ-1739 joint engine API registry result correlation contract:
+  `docs/lq-1739-joint-engine-api-registry-result-correlation-contract.md`
+- LQ-1740 correlated joint engine API registry result:
+  `docs/lq-1740-correlated-joint-engine-api-registry-result.md`
+- LQ-1741 joint engine API registry result correlation evidence:
+  `docs/lq-1741-joint-engine-api-registry-result-correlation-evidence.md`
+- LQ-1742 joint engine API registry result correlation audit:
+  `docs/lq-1742-joint-engine-api-registry-result-correlation-audit.md`
+  - verlangt exakte kanonische Korrelation zwischen Registry-Werten und Markerbeobachtungen
+
+- LQ-1743 joint engine API accepted result correlation contract:
+  `docs/lq-1743-joint-engine-api-accepted-result-correlation-contract.md`
+- LQ-1744 correlated joint engine API accepted result:
+  `docs/lq-1744-correlated-joint-engine-api-accepted-result.md`
+- LQ-1745 joint engine API accepted result correlation evidence:
+  `docs/lq-1745-joint-engine-api-accepted-result-correlation-evidence.md`
+- LQ-1746 joint engine API closed audit result completion audit:
+  `docs/lq-1746-joint-engine-api-closed-audit-result-completion-audit.md`
+  - schließt Audit-Ergebnisformen und Source-/Marker-Korrelation; 37 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6494 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1747 closed joint engine API accept result contract:
+  `docs/lq-1747-closed-joint-engine-api-accept-result-contract.md`
+- LQ-1748 joint engine API accept result type:
+  `docs/lq-1748-joint-engine-api-accept-result-type.md`
+- LQ-1749 joint engine API accept result shape evidence:
+  `docs/lq-1749-joint-engine-api-accept-result-shape-evidence.md`
+- LQ-1750 joint engine API closed accept result audit:
+  `docs/lq-1750-joint-engine-api-closed-accept-result-audit.md`
+  - ersetzt das rohe Source-/Registry-Tupel durch einen geschlossenen immutable Accept-Ergebnistyp
+
+- LQ-1751 joint engine API accept result correlation contract:
+  `docs/lq-1751-joint-engine-api-accept-result-correlation-contract.md`
+- LQ-1752 source derived joint engine API accept result:
+  `docs/lq-1752-source-derived-joint-engine-api-accept-result.md`
+- LQ-1753 joint engine API accept result correlation evidence:
+  `docs/lq-1753-joint-engine-api-accept-result-correlation-evidence.md`
+- LQ-1754 joint engine API accept result correlation audit:
+  `docs/lq-1754-joint-engine-api-accept-result-correlation-audit.md`
+  - verlangt genau eine aus retained Source-Authority und Envelope abgeleitete Acceptance im finalen Registry-Inventar
+
+- LQ-1755 joint engine API accept result finalization contract:
+  `docs/lq-1755-joint-engine-api-accept-result-finalization-contract.md`
+- LQ-1756 composed joint engine API accept result handoff:
+  `docs/lq-1756-composed-joint-engine-api-accept-result-handoff.md`
+- LQ-1757 joint engine API accept result finalization evidence:
+  `docs/lq-1757-joint-engine-api-accept-result-finalization-evidence.md`
+- LQ-1758 joint engine API closed accept result completion audit:
+  `docs/lq-1758-joint-engine-api-closed-accept-result-completion-audit.md`
+  - schließt Accept-Ergebnisform, Korrelation und Finalisierungsübergabe; 25 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6498 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1759 joint engine API result inventory contract:
+  `docs/lq-1759-joint-engine-api-result-inventory-contract.md`
+- LQ-1760 canonical joint engine API result inventory ordering:
+  `docs/lq-1760-canonical-joint-engine-api-result-inventory-ordering.md`
+- LQ-1761 joint engine API result inventory uniqueness:
+  `docs/lq-1761-joint-engine-api-result-inventory-uniqueness.md`
+- LQ-1762 joint engine API result inventory foundation audit:
+  `docs/lq-1762-joint-engine-api-result-inventory-foundation-audit.md`
+  - schließt kanonische Run-ID-Reihenfolge sowie eindeutige Run-, Marker- und Zustandsidentitäten als gemeinsame Ergebnisinvarianten
+- LQ-1763 joint engine API registry result inventory invariants:
+  `docs/lq-1763-joint-engine-api-registry-result-inventory-invariants.md`
+- LQ-1764 invariant-bound joint engine API registry result:
+  `docs/lq-1764-invariant-bound-joint-engine-api-registry-result.md`
+- LQ-1765 joint engine API registry inventory invariant evidence:
+  `docs/lq-1765-joint-engine-api-registry-inventory-invariant-evidence.md`
+- LQ-1766 joint engine API registry inventory invariant audit:
+  `docs/lq-1766-joint-engine-api-registry-inventory-invariant-audit.md`
+  - bindet Registry-Werte exakt an das validierte kanonische Beobachtungsinventar
+
+- LQ-1767 joint engine API accept result preserved inventory contract:
+  `docs/lq-1767-joint-engine-api-accept-result-preserved-inventory-contract.md`
+- LQ-1768 source acceptance unique joint engine API inventory:
+  `docs/lq-1768-source-acceptance-unique-joint-engine-api-inventory.md`
+- LQ-1769 joint engine API result inventory compatibility evidence:
+  `docs/lq-1769-joint-engine-api-result-inventory-compatibility-evidence.md`
+- LQ-1770 joint engine API result inventory completion audit:
+  `docs/lq-1770-joint-engine-api-result-inventory-completion-audit.md`
+  - schließt das erhaltene Accept-Inventar mit genau einer Source-abgeleiteten Acceptance; 12 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6502 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1771 joint engine API created acceptance handoff contract:
+  `docs/lq-1771-joint-engine-api-created-acceptance-handoff-contract.md`
+- LQ-1772 source-derived joint engine API created acceptance:
+  `docs/lq-1772-source-derived-joint-engine-api-created-acceptance.md`
+- LQ-1773 immutable joint engine API created marker result:
+  `docs/lq-1773-immutable-joint-engine-api-created-marker-result.md`
+- LQ-1774 joint engine API created acceptance foundation audit:
+  `docs/lq-1774-joint-engine-api-created-acceptance-foundation-audit.md`
+  - leitet den unveränderlichen created Marker ausschließlich aus retained Source und finalem Inventar ab
+- LQ-1775 joint engine API created delta binding contract:
+  `docs/lq-1775-joint-engine-api-created-delta-binding-contract.md`
+- LQ-1776 delta-bound joint engine API accept result:
+  `docs/lq-1776-delta-bound-joint-engine-api-accept-result.md`
+- LQ-1777 joint engine API created delta evidence:
+  `docs/lq-1777-joint-engine-api-created-delta-evidence.md`
+- LQ-1778 joint engine API created delta audit:
+  `docs/lq-1778-joint-engine-api-created-delta-audit.md`
+  - bindet das beobachtete Mutationsdelta exakt an den Source-abgeleiteten Ergebnis-Marker
+
+- LQ-1779 joint engine API terminal created marker contract:
+  `docs/lq-1779-joint-engine-api-terminal-created-marker-contract.md`
+- LQ-1780 terminal joint engine API created marker revalidation:
+  `docs/lq-1780-terminal-joint-engine-api-created-marker-revalidation.md`
+- LQ-1781 joint engine API created marker compatibility evidence:
+  `docs/lq-1781-joint-engine-api-created-marker-compatibility-evidence.md`
+- LQ-1782 joint engine API created acceptance completion audit:
+  `docs/lq-1782-joint-engine-api-created-acceptance-completion-audit.md`
+  - schließt Source-, Delta-, Inventar- und terminale Marker-Korrelation; 12 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6506 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1783 joint engine API terminal registry inventory contract:
+  `docs/lq-1783-joint-engine-api-terminal-registry-inventory-contract.md`
+- LQ-1784 bound terminal joint engine API registry read:
+  `docs/lq-1784-bound-terminal-joint-engine-api-registry-read.md`
+- LQ-1785 joint engine API terminal inventory equality:
+  `docs/lq-1785-joint-engine-api-terminal-inventory-equality.md`
+- LQ-1786 joint engine API terminal inventory foundation audit:
+  `docs/lq-1786-joint-engine-api-terminal-inventory-foundation-audit.md`
+  - fordert nach Source- und Created-Marker-Prüfung nochmals exakte Gleichheit des vollständigen Registry-Inventars
+- LQ-1787 joint engine API terminal inventory sequencing contract:
+  `docs/lq-1787-joint-engine-api-terminal-inventory-sequencing-contract.md`
+- LQ-1788 composed terminal joint engine API inventory gate:
+  `docs/lq-1788-composed-terminal-joint-engine-api-inventory-gate.md`
+- LQ-1789 joint engine API terminal inventory evidence:
+  `docs/lq-1789-joint-engine-api-terminal-inventory-evidence.md`
+- LQ-1790 joint engine API terminal inventory audit:
+  `docs/lq-1790-joint-engine-api-terminal-inventory-audit.md`
+  - schützt auch fremde retained Marker gegen unbemerkte Addition, Entfernung, Ersetzung oder Zustandsdrift
+
+- LQ-1791 joint engine API inventory duration contract:
+  `docs/lq-1791-joint-engine-api-inventory-duration-contract.md`
+- LQ-1792 bounded terminal joint engine API inventory composition:
+  `docs/lq-1792-bounded-terminal-joint-engine-api-inventory-composition.md`
+- LQ-1793 joint engine API terminal inventory compatibility evidence:
+  `docs/lq-1793-joint-engine-api-terminal-inventory-compatibility-evidence.md`
+- LQ-1794 joint engine API terminal inventory completion audit:
+  `docs/lq-1794-joint-engine-api-terminal-inventory-completion-audit.md`
+  - schließt terminale Gesamtinventar-Konvergenz innerhalb des bestehenden Zeitbudgets; 23 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6510 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1795 joint engine API terminal registry audit contract:
+  `docs/lq-1795-joint-engine-api-terminal-registry-audit-contract.md`
+- LQ-1796 terminal joint engine API registry value recheck:
+  `docs/lq-1796-terminal-joint-engine-api-registry-value-recheck.md`
+- LQ-1797 terminal joint engine API registry observation recheck:
+  `docs/lq-1797-terminal-joint-engine-api-registry-observation-recheck.md`
+- LQ-1798 joint engine API terminal registry audit foundation:
+  `docs/lq-1798-joint-engine-api-terminal-registry-audit-foundation.md`
+  - ergänzt eine terminale, fixed-root gebundene Gleichheitsprüfung für Werte und vollständige Marker-Beobachtungen
+- LQ-1799 joint engine API registry audit sequencing contract:
+  `docs/lq-1799-joint-engine-api-registry-audit-sequencing-contract.md`
+- LQ-1800 composed terminal joint engine API registry audit:
+  `docs/lq-1800-composed-terminal-joint-engine-api-registry-audit.md`
+- LQ-1801 joint engine API terminal registry audit evidence:
+  `docs/lq-1801-joint-engine-api-terminal-registry-audit-evidence.md`
+- LQ-1802 joint engine API terminal registry audit:
+  `docs/lq-1802-joint-engine-api-terminal-registry-audit.md`
+  - lässt Ergebnisbildung, Success-Recheck und terminalen Recheck über drei identische Read-Paare konvergieren
+
+- LQ-1803 joint engine API terminal audit duration contract:
+  `docs/lq-1803-joint-engine-api-terminal-audit-duration-contract.md`
+- LQ-1804 bounded terminal joint engine API registry audit:
+  `docs/lq-1804-bounded-terminal-joint-engine-api-registry-audit.md`
+- LQ-1805 joint engine API terminal registry audit compatibility:
+  `docs/lq-1805-joint-engine-api-terminal-registry-audit-compatibility.md`
+- LQ-1806 joint engine API terminal registry audit completion:
+  `docs/lq-1806-joint-engine-api-terminal-registry-audit-completion.md`
+  - schließt Werte-, Beobachtungs-, Identity- und Zeitkonvergenz; 38 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6515 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1807 joint engine API accepted audit evidence shape contract:
+  `docs/lq-1807-joint-engine-api-accepted-audit-evidence-shape-contract.md`
+- LQ-1808 exact joint engine API accepted evidence tuple:
+  `docs/lq-1808-exact-joint-engine-api-accepted-evidence-tuple.md`
+- LQ-1809 joint engine API accepted evidence type binding:
+  `docs/lq-1809-joint-engine-api-accepted-evidence-type-binding.md`
+- LQ-1810 joint engine API accepted evidence foundation audit:
+  `docs/lq-1810-joint-engine-api-accepted-evidence-foundation-audit.md`
+  - verlangt exakt ein zweistelliges Source-/Marker-Tupel; null, fremde Container und falsche Kardinalität scheitern geschlossen
+- LQ-1811 joint engine API pre-finalization evidence gate contract:
+  `docs/lq-1811-joint-engine-api-pre-finalization-evidence-gate-contract.md`
+- LQ-1812 closed joint engine API accepted evidence handoff:
+  `docs/lq-1812-closed-joint-engine-api-accepted-evidence-handoff.md`
+- LQ-1813 joint engine API accepted evidence shape evidence:
+  `docs/lq-1813-joint-engine-api-accepted-evidence-shape-evidence.md`
+- LQ-1814 joint engine API accepted evidence shape audit:
+  `docs/lq-1814-joint-engine-api-accepted-evidence-shape-audit.md`
+  - lässt ausschließlich vollständig typ- und Source-korreliertes Evidence bis zur geschlossenen Ergebnisbildung gelangen
+
+- LQ-1815 joint engine API accepted evidence failure contract:
+  `docs/lq-1815-joint-engine-api-accepted-evidence-failure-contract.md`
+- LQ-1816 detail-free joint engine API evidence shape rejection:
+  `docs/lq-1816-detail-free-joint-engine-api-evidence-shape-rejection.md`
+- LQ-1817 joint engine API accepted evidence compatibility:
+  `docs/lq-1817-joint-engine-api-accepted-evidence-compatibility.md`
+- LQ-1818 joint engine API accepted evidence completion audit:
+  `docs/lq-1818-joint-engine-api-accepted-evidence-completion-audit.md`
+  - schließt Shape-, Kardinalitäts-, Typ- und Korrelationsgrenzen; 41 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6523 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1819 joint engine API accepted audit registry context contract:
+  `docs/lq-1819-joint-engine-api-accepted-audit-registry-context-contract.md`
+- LQ-1820 canonical joint engine API accepted registry context:
+  `docs/lq-1820-canonical-joint-engine-api-accepted-registry-context.md`
+- LQ-1821 source marker registry context correlation:
+  `docs/lq-1821-source-marker-registry-context-correlation.md`
+- LQ-1822 joint engine API accepted registry context foundation:
+  `docs/lq-1822-joint-engine-api-accepted-registry-context-foundation.md`
+  - erweitert das geschlossene Accepted-Ergebnis um das kanonische vollständige Registry-Inventar
+- LQ-1823 joint engine API accepted registry capture contract:
+  `docs/lq-1823-joint-engine-api-accepted-registry-capture-contract.md`
+- LQ-1824 composed joint engine API accepted registry result:
+  `docs/lq-1824-composed-joint-engine-api-accepted-registry-result.md`
+- LQ-1825 joint engine API accepted registry context evidence:
+  `docs/lq-1825-joint-engine-api-accepted-registry-context-evidence.md`
+- LQ-1826 joint engine API accepted registry context audit:
+  `docs/lq-1826-joint-engine-api-accepted-registry-context-audit.md`
+  - verlangt den Source-korrelierten vollständigen Marker genau einmal im retained Registry-Kontext
+
+- LQ-1827 joint engine API accepted registry recheck contract:
+  `docs/lq-1827-joint-engine-api-accepted-registry-recheck-contract.md`
+- LQ-1828 terminal joint engine API accepted registry convergence:
+  `docs/lq-1828-terminal-joint-engine-api-accepted-registry-convergence.md`
+- LQ-1829 joint engine API accepted registry compatibility:
+  `docs/lq-1829-joint-engine-api-accepted-registry-compatibility.md`
+- LQ-1830 joint engine API accepted registry completion audit:
+  `docs/lq-1830-joint-engine-api-accepted-registry-completion-audit.md`
+  - schließt Source-, Marker-, Gesamtinventar-, Identity- und Zeitkonvergenz; 29 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6528 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1831 joint engine API audit mode contract:
+  `docs/lq-1831-joint-engine-api-audit-mode-contract.md`
+- LQ-1832 exact boolean joint engine API audit mode:
+  `docs/lq-1832-exact-boolean-joint-engine-api-audit-mode.md`
+- LQ-1833 joint engine API audit mode entry gate:
+  `docs/lq-1833-joint-engine-api-audit-mode-entry-gate.md`
+- LQ-1834 joint engine API audit mode foundation:
+  `docs/lq-1834-joint-engine-api-audit-mode-foundation.md`
+  - akzeptiert ausschließlich exakte Booleans und weist truthy Nicht-Bools vor Clock-, Root- oder Evidence-Arbeit zurück
+- LQ-1835 joint engine API mode result binding contract:
+  `docs/lq-1835-joint-engine-api-mode-result-binding-contract.md`
+- LQ-1836 exact joint engine API mode result gate:
+  `docs/lq-1836-exact-joint-engine-api-mode-result-gate.md`
+- LQ-1837 joint engine API mode result binding evidence:
+  `docs/lq-1837-joint-engine-api-mode-result-binding-evidence.md`
+- LQ-1838 joint engine API mode result binding audit:
+  `docs/lq-1838-joint-engine-api-mode-result-binding-audit.md`
+  - bindet Registry- und Accepted-Ergebnisklassen exakt an den ursprünglich angeforderten Audit-Modus
+
+- LQ-1839 joint engine API mode-bound finalization contract:
+  `docs/lq-1839-joint-engine-api-mode-bound-finalization-contract.md`
+- LQ-1840 composed joint engine API mode-bound audit:
+  `docs/lq-1840-composed-joint-engine-api-mode-bound-audit.md`
+- LQ-1841 joint engine API mode binding compatibility:
+  `docs/lq-1841-joint-engine-api-mode-binding-compatibility.md`
+- LQ-1842 joint engine API mode binding completion audit:
+  `docs/lq-1842-joint-engine-api-mode-binding-completion-audit.md`
+  - schließt Input-Modus und Ergebnis-Finalisierung gegen Coercion und Cross-Mode-Substitution; 61 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6537 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1843 joint engine API accept handoff type contract:
+  `docs/lq-1843-joint-engine-api-accept-handoff-type-contract.md`
+- LQ-1844 exact joint engine API acceptance observation handoff:
+  `docs/lq-1844-exact-joint-engine-api-acceptance-observation-handoff.md`
+- LQ-1845 joint engine API pre-inventory handoff gate:
+  `docs/lq-1845-joint-engine-api-pre-inventory-handoff-gate.md`
+- LQ-1846 joint engine API accept handoff foundation audit:
+  `docs/lq-1846-joint-engine-api-accept-handoff-foundation-audit.md`
+  - akzeptiert aus verify-and-accept ausschließlich die exakte vollständige Acceptance-Beobachtung
+- LQ-1847 joint engine API typed delta binding contract:
+  `docs/lq-1847-joint-engine-api-typed-delta-binding-contract.md`
+- LQ-1848 composed joint engine API typed accept result:
+  `docs/lq-1848-composed-joint-engine-api-typed-accept-result.md`
+- LQ-1849 joint engine API accept handoff type evidence:
+  `docs/lq-1849-joint-engine-api-accept-handoff-type-evidence.md`
+- LQ-1850 joint engine API accept handoff type audit:
+  `docs/lq-1850-joint-engine-api-accept-handoff-type-audit.md`
+  - verwirft nullartige, fremde und bare Acceptance-Rückgaben vor Post-Inventory-Read und Delta-Korrelation
+
+- LQ-1851 joint engine API accept handoff failure contract:
+  `docs/lq-1851-joint-engine-api-accept-handoff-failure-contract.md`
+- LQ-1852 detail-free joint engine API accept handoff rejection:
+  `docs/lq-1852-detail-free-joint-engine-api-accept-handoff-rejection.md`
+- LQ-1853 joint engine API accept handoff compatibility:
+  `docs/lq-1853-joint-engine-api-accept-handoff-compatibility.md`
+- LQ-1854 joint engine API accept handoff completion audit:
+  `docs/lq-1854-joint-engine-api-accept-handoff-completion-audit.md`
+  - schließt exakten Observation-Typ, Mutationsdelta und Ergebnisbindung; 46 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6543 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1855 joint engine API registry value handoff contract:
+  `docs/lq-1855-joint-engine-api-registry-value-handoff-contract.md`
+- LQ-1856 exact joint engine API registry value tuple:
+  `docs/lq-1856-exact-joint-engine-api-registry-value-tuple.md`
+- LQ-1857 joint engine API pre-observation value gate:
+  `docs/lq-1857-joint-engine-api-pre-observation-value-gate.md`
+- LQ-1858 joint engine API registry value foundation audit:
+  `docs/lq-1858-joint-engine-api-registry-value-foundation-audit.md`
+  - akzeptiert aus inspect-registry ausschließlich ein exaktes Tupel exakter Acceptance-Werte
+- LQ-1859 joint engine API shared registry value gate contract:
+  `docs/lq-1859-joint-engine-api-shared-registry-value-gate-contract.md`
+- LQ-1860 composed joint engine API registry value result:
+  `docs/lq-1860-composed-joint-engine-api-registry-value-result.md`
+- LQ-1861 joint engine API registry value handoff evidence:
+  `docs/lq-1861-joint-engine-api-registry-value-handoff-evidence.md`
+- LQ-1862 joint engine API registry value handoff audit:
+  `docs/lq-1862-joint-engine-api-registry-value-handoff-audit.md`
+  - verwirft nullartige, fremde und falsch typisierte Projektionen vor dem Observation-Inventory-Read
+
+- LQ-1863 joint engine API registry value failure contract:
+  `docs/lq-1863-joint-engine-api-registry-value-failure-contract.md`
+- LQ-1864 detail-free joint engine API registry value rejection:
+  `docs/lq-1864-detail-free-joint-engine-api-registry-value-rejection.md`
+- LQ-1865 joint engine API registry value compatibility:
+  `docs/lq-1865-joint-engine-api-registry-value-compatibility.md`
+- LQ-1866 joint engine API registry value completion audit:
+  `docs/lq-1866-joint-engine-api-registry-value-completion-audit.md`
+  - schließt exakten Value-Handoff, Observation-Inventar und Korrelation; 56 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6552 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1867 joint engine API accept inventory handoff contract:
+  `docs/lq-1867-joint-engine-api-accept-inventory-handoff-contract.md`
+- LQ-1868 pre-mutation joint engine API inventory gate:
+  `docs/lq-1868-pre-mutation-joint-engine-api-inventory-gate.md`
+- LQ-1869 post-mutation joint engine API inventory gate:
+  `docs/lq-1869-post-mutation-joint-engine-api-inventory-gate.md`
+- LQ-1870 joint engine API accept inventory foundation audit:
+  `docs/lq-1870-joint-engine-api-accept-inventory-foundation-audit.md`
+  - validiert Vorher- und Nachher-Inventar explizit mit denselben kanonischen Ergebnisinvarianten
+- LQ-1871 joint engine API validated inventory delta contract:
+  `docs/lq-1871-joint-engine-api-validated-inventory-delta-contract.md`
+- LQ-1872 composed joint engine API validated inventory accept:
+  `docs/lq-1872-composed-joint-engine-api-validated-inventory-accept.md`
+- LQ-1873 joint engine API accept inventory handoff evidence:
+  `docs/lq-1873-joint-engine-api-accept-inventory-handoff-evidence.md`
+- LQ-1874 joint engine API accept inventory handoff audit:
+  `docs/lq-1874-joint-engine-api-accept-inventory-handoff-audit.md`
+  - verhindert bei fehlerhaftem Baseline-Inventar jede Mutation und schützt dauerhafte Marker bei fehlerhaftem Outcome-Inventar
+
+- LQ-1875 joint engine API accept inventory failure contract:
+  `docs/lq-1875-joint-engine-api-accept-inventory-failure-contract.md`
+- LQ-1876 detail-free joint engine API accept inventory rejection:
+  `docs/lq-1876-detail-free-joint-engine-api-accept-inventory-rejection.md`
+- LQ-1877 joint engine API accept inventory compatibility:
+  `docs/lq-1877-joint-engine-api-accept-inventory-compatibility.md`
+- LQ-1878 joint engine API accept inventory completion audit:
+  `docs/lq-1878-joint-engine-api-accept-inventory-completion-audit.md`
+  - schließt Before-, After-, Delta-, Ergebnis- und Terminal-Inventargrenzen; 36 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6563 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1879 joint engine API validated registry read contract:
+  `docs/lq-1879-joint-engine-api-validated-registry-read-contract.md`
+- LQ-1880 shared joint engine API registry observation reader:
+  `docs/lq-1880-shared-joint-engine-api-registry-observation-reader.md`
+- LQ-1881 joint engine API registry read identity binding:
+  `docs/lq-1881-joint-engine-api-registry-read-identity-binding.md`
+- LQ-1882 joint engine API validated registry read foundation:
+  `docs/lq-1882-joint-engine-api-validated-registry-read-foundation.md`
+  - verbindet jeden operation-level Registry-Read unmittelbar mit kanonischer Observation-Inventarvalidierung
+- LQ-1883 joint engine API validated accept registry reads:
+  `docs/lq-1883-joint-engine-api-validated-accept-registry-reads.md`
+- LQ-1884 joint engine API validated audit registry reads:
+  `docs/lq-1884-joint-engine-api-validated-audit-registry-reads.md`
+- LQ-1885 joint engine API validated registry read evidence:
+  `docs/lq-1885-joint-engine-api-validated-registry-read-evidence.md`
+- LQ-1886 joint engine API validated registry read audit:
+  `docs/lq-1886-joint-engine-api-validated-registry-read-audit.md`
+  - ersetzt alle rohen Registry-Reads in Accept, Registry-Audit und Accepted-Audit durch dieselbe identity-gebundene Grenze
+
+- LQ-1887 joint engine API registry read failure contract:
+  `docs/lq-1887-joint-engine-api-registry-read-failure-contract.md`
+- LQ-1888 detail-free joint engine API registry read rejection:
+  `docs/lq-1888-detail-free-joint-engine-api-registry-read-rejection.md`
+- LQ-1889 joint engine API validated registry read compatibility:
+  `docs/lq-1889-joint-engine-api-validated-registry-read-compatibility.md`
+- LQ-1890 joint engine API validated registry read completion:
+  `docs/lq-1890-joint-engine-api-validated-registry-read-completion.md`
+  - schließt Observer-, Inventar-, Identity-, Ergebnis- und Zeitkomposition; 40 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6570 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1891 joint engine API validated registry inspection contract:
+  `docs/lq-1891-joint-engine-api-validated-registry-inspection-contract.md`
+- LQ-1892 shared joint engine API registry value reader:
+  `docs/lq-1892-shared-joint-engine-api-registry-value-reader.md`
+- LQ-1893 joint engine API registry inspection identity binding:
+  `docs/lq-1893-joint-engine-api-registry-inspection-identity-binding.md`
+- LQ-1894 joint engine API validated inspection foundation:
+  `docs/lq-1894-joint-engine-api-validated-inspection-foundation.md`
+  - verbindet jeden Registry-Audit-Inspection-Read unmittelbar mit exakter Acceptance-Tupelvalidierung
+- LQ-1895 joint engine API three-stage registry inspection:
+  `docs/lq-1895-joint-engine-api-three-stage-registry-inspection.md`
+- LQ-1896 mode-scoped joint engine API registry inspection:
+  `docs/lq-1896-mode-scoped-joint-engine-api-registry-inspection.md`
+- LQ-1897 joint engine API validated inspection evidence:
+  `docs/lq-1897-joint-engine-api-validated-inspection-evidence.md`
+- LQ-1898 joint engine API validated inspection audit:
+  `docs/lq-1898-joint-engine-api-validated-inspection-audit.md`
+  - ersetzt Initial-, Success- und Terminal-Inspection durch dieselbe identity-gebundene Werte-Grenze
+
+- LQ-1899 joint engine API registry inspection failure contract:
+  `docs/lq-1899-joint-engine-api-registry-inspection-failure-contract.md`
+- LQ-1900 detail-free joint engine API inspection rejection:
+  `docs/lq-1900-detail-free-joint-engine-api-inspection-rejection.md`
+- LQ-1901 joint engine API validated inspection compatibility:
+  `docs/lq-1901-joint-engine-api-validated-inspection-compatibility.md`
+- LQ-1902 joint engine API validated inspection completion:
+  `docs/lq-1902-joint-engine-api-validated-inspection-completion.md`
+  - schließt Inspector-, Value-, Identity-, Observation- und Zeitkomposition; 61 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6576 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1903 joint engine API validated source read contract:
+  `docs/lq-1903-joint-engine-api-validated-source-read-contract.md`
+- LQ-1904 shared joint engine API source observation reader:
+  `docs/lq-1904-shared-joint-engine-api-source-observation-reader.md`
+- LQ-1905 joint engine API source read identity binding:
+  `docs/lq-1905-joint-engine-api-source-read-identity-binding.md`
+- LQ-1906 joint engine API validated source foundation:
+  `docs/lq-1906-joint-engine-api-validated-source-foundation.md`
+  - verbindet jeden operation-level Source-Read unmittelbar mit exakter Source-Observation-Typvalidierung
+- LQ-1907 joint engine API validated accept source reads:
+  `docs/lq-1907-joint-engine-api-validated-accept-source-reads.md`
+- LQ-1908 joint engine API validated audit source reads:
+  `docs/lq-1908-joint-engine-api-validated-audit-source-reads.md`
+- LQ-1909 joint engine API validated source read evidence:
+  `docs/lq-1909-joint-engine-api-validated-source-read-evidence.md`
+- LQ-1910 joint engine API validated source read audit:
+  `docs/lq-1910-joint-engine-api-validated-source-read-audit.md`
+  - ersetzt alle rohen Source-Reads in Accept und Accepted-Audit durch dieselbe identity-gebundene Grenze
+
+- LQ-1911 joint engine API source read failure contract:
+  `docs/lq-1911-joint-engine-api-source-read-failure-contract.md`
+- LQ-1912 detail-free joint engine API source read rejection:
+  `docs/lq-1912-detail-free-joint-engine-api-source-read-rejection.md`
+- LQ-1913 joint engine API validated source compatibility:
+  `docs/lq-1913-joint-engine-api-validated-source-compatibility.md`
+- LQ-1914 joint engine API validated source completion:
+  `docs/lq-1914-joint-engine-api-validated-source-completion.md`
+  - schließt Observer-, Source-Typ-, Identity-, Ergebnis- und Zeitkomposition; 55 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6584 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1915 joint engine API validated acceptance read contract:
+  `docs/lq-1915-joint-engine-api-validated-acceptance-read-contract.md`
+- LQ-1916 shared joint engine API acceptance observation reader:
+  `docs/lq-1916-shared-joint-engine-api-acceptance-observation-reader.md`
+- LQ-1917 joint engine API acceptance read identity binding:
+  `docs/lq-1917-joint-engine-api-acceptance-read-identity-binding.md`
+- LQ-1918 joint engine API validated acceptance foundation:
+  `docs/lq-1918-joint-engine-api-validated-acceptance-foundation.md`
+  - verbindet jeden äußeren Target-Marker-Read unmittelbar mit exakter Acceptance-Observation-Typvalidierung
+- LQ-1919 joint engine API validated accept terminal marker:
+  `docs/lq-1919-joint-engine-api-validated-accept-terminal-marker.md`
+- LQ-1920 joint engine API validated audit marker reads:
+  `docs/lq-1920-joint-engine-api-validated-audit-marker-reads.md`
+- LQ-1921 joint engine API validated acceptance read evidence:
+  `docs/lq-1921-joint-engine-api-validated-acceptance-read-evidence.md`
+- LQ-1922 joint engine API validated acceptance read audit:
+  `docs/lq-1922-joint-engine-api-validated-acceptance-read-audit.md`
+  - ersetzt alle äußeren Target-Marker-Reads in Accept und Accepted-Audit durch dieselbe run- und identity-gebundene Grenze
+
+- LQ-1923 joint engine API acceptance read failure contract:
+  `docs/lq-1923-joint-engine-api-acceptance-read-failure-contract.md`
+- LQ-1924 detail-free joint engine API acceptance read rejection:
+  `docs/lq-1924-detail-free-joint-engine-api-acceptance-read-rejection.md`
+- LQ-1925 joint engine API validated acceptance compatibility:
+  `docs/lq-1925-joint-engine-api-validated-acceptance-compatibility.md`
+- LQ-1926 joint engine API validated acceptance completion:
+  `docs/lq-1926-joint-engine-api-validated-acceptance-completion.md`
+  - schließt Observer-, Marker-Typ-, Run-, Root-, Ergebnis- und Zeitkomposition; 53 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6591 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1927 joint engine API validated operation root contract:
+  `docs/lq-1927-joint-engine-api-validated-operation-root-contract.md`
+- LQ-1928 shared joint engine API operation root resolver:
+  `docs/lq-1928-shared-joint-engine-api-operation-root-resolver.md`
+- LQ-1929 joint engine API initial root result gate:
+  `docs/lq-1929-joint-engine-api-initial-root-result-gate.md`
+- LQ-1930 joint engine API validated root foundation:
+  `docs/lq-1930-joint-engine-api-validated-root-foundation.md`
+  - verbindet jede äußere Operation-Root-Auflösung unmittelbar mit exakter Root-Ergebnistypvalidierung
+- LQ-1931 joint engine API post-operation root contract:
+  `docs/lq-1931-joint-engine-api-post-operation-root-contract.md`
+- LQ-1932 composed joint engine API root result sandwich:
+  `docs/lq-1932-composed-joint-engine-api-root-result-sandwich.md`
+- LQ-1933 joint engine API validated root result evidence:
+  `docs/lq-1933-joint-engine-api-validated-root-result-evidence.md`
+- LQ-1934 joint engine API validated root result audit:
+  `docs/lq-1934-joint-engine-api-validated-root-result-audit.md`
+  - schließt Initial- und Post-Operation-Resolverwerte vor Attributzugriff, replace und Success-Callback
+
+- LQ-1935 joint engine API root result failure contract:
+  `docs/lq-1935-joint-engine-api-root-result-failure-contract.md`
+- LQ-1936 detail-free joint engine API root result rejection:
+  `docs/lq-1936-detail-free-joint-engine-api-root-result-rejection.md`
+- LQ-1937 joint engine API validated root compatibility:
+  `docs/lq-1937-joint-engine-api-validated-root-compatibility.md`
+- LQ-1938 joint engine API validated root completion:
+  `docs/lq-1938-joint-engine-api-validated-root-completion.md`
+  - schließt Resolver-, Root-Typ-, Identity-, State- und Sandwich-Komposition; 56 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6599 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1939 joint engine API root validation completion contract:
+  `docs/lq-1939-joint-engine-api-root-validation-completion-contract.md`
+- LQ-1940 shared joint engine API root validation completion:
+  `docs/lq-1940-shared-joint-engine-api-root-validation-completion.md`
+- LQ-1941 read-only joint engine API root completion:
+  `docs/lq-1941-read-only-joint-engine-api-root-completion.md`
+- LQ-1942 joint engine API root completion foundation:
+  `docs/lq-1942-joint-engine-api-root-completion-foundation.md`
+  - akzeptiert aus finaler Root-Validierung ausschließlich normale None-Completion
+- LQ-1943 mutation-aware joint engine API root completion:
+  `docs/lq-1943-mutation-aware-joint-engine-api-root-completion.md`
+- LQ-1944 composed joint engine API root completion sandwich:
+  `docs/lq-1944-composed-joint-engine-api-root-completion-sandwich.md`
+- LQ-1945 joint engine API root completion evidence:
+  `docs/lq-1945-joint-engine-api-root-completion-evidence.md`
+- LQ-1946 joint engine API root completion audit:
+  `docs/lq-1946-joint-engine-api-root-completion-audit.md`
+  - erhält den bisherigen Zwei-Argument-Aufruf und leitet Mutation-Allowance nur im tatsächlichen Fehlerpfad weiter
+
+- LQ-1947 joint engine API root completion failure contract:
+  `docs/lq-1947-joint-engine-api-root-completion-failure-contract.md`
+- LQ-1948 detail-free joint engine API root completion rejection:
+  `docs/lq-1948-detail-free-joint-engine-api-root-completion-rejection.md`
+- LQ-1949 joint engine API root completion compatibility:
+  `docs/lq-1949-joint-engine-api-root-completion-compatibility.md`
+- LQ-1950 joint engine API root completion audit:
+  `docs/lq-1950-joint-engine-api-root-completion-audit.md`
+  - schließt Resolver-, Validator-, Allowance-, Completion- und Sandwich-Komposition; 55 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6605 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1951 joint engine API snapshot verification completion contract:
+  `docs/lq-1951-joint-engine-api-snapshot-verification-completion-contract.md`
+- LQ-1952 shared joint engine API snapshot verification completion:
+  `docs/lq-1952-shared-joint-engine-api-snapshot-verification-completion.md`
+- LQ-1953 joint engine API snapshot time binding:
+  `docs/lq-1953-joint-engine-api-snapshot-time-binding.md`
+- LQ-1954 joint engine API snapshot completion foundation:
+  `docs/lq-1954-joint-engine-api-snapshot-completion-foundation.md`
+  - akzeptiert aus jeder äußeren retained Snapshot-Verifikation ausschließlich normale None-Completion
+- LQ-1955 joint engine API accept snapshot completion:
+  `docs/lq-1955-joint-engine-api-accept-snapshot-completion.md`
+- LQ-1956 joint engine API audit snapshot completion:
+  `docs/lq-1956-joint-engine-api-audit-snapshot-completion.md`
+- LQ-1957 joint engine API snapshot completion evidence:
+  `docs/lq-1957-joint-engine-api-snapshot-completion-evidence.md`
+- LQ-1958 joint engine API snapshot completion audit:
+  `docs/lq-1958-joint-engine-api-snapshot-completion-audit.md`
+  - bindet retained Snapshot und explizite UTC-Zeit an einen eindeutigen Completion-Vertrag
+
+- LQ-1959 joint engine API snapshot completion failure contract:
+  `docs/lq-1959-joint-engine-api-snapshot-completion-failure-contract.md`
+- LQ-1960 detail-free joint engine API snapshot completion rejection:
+  `docs/lq-1960-detail-free-joint-engine-api-snapshot-completion-rejection.md`
+- LQ-1961 joint engine API snapshot completion compatibility:
+  `docs/lq-1961-joint-engine-api-snapshot-completion-compatibility.md`
+- LQ-1962 joint engine API snapshot completion audit:
+  `docs/lq-1962-joint-engine-api-snapshot-completion-audit.md`
+  - schließt Snapshot-, Verifier-, Zeit-, Completion- und Konvergenzkomposition; 41 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6612 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1963 joint engine API source acceptance derivation contract:
+  `docs/lq-1963-joint-engine-api-source-acceptance-derivation-contract.md`
+- LQ-1964 shared joint engine API source acceptance derivation:
+  `docs/lq-1964-shared-joint-engine-api-source-acceptance-derivation.md`
+- LQ-1965 joint engine API source authority type gate:
+  `docs/lq-1965-joint-engine-api-source-authority-type-gate.md`
+- LQ-1966 joint engine API source acceptance foundation:
+  `docs/lq-1966-joint-engine-api-source-acceptance-foundation.md`
+  - verbindet retained Source, exakte Authority-Decodierung und exakten Acceptance-Build zu einer gemeinsamen Ableitungsgrenze
+- LQ-1967 joint engine API acceptance builder type gate:
+  `docs/lq-1967-joint-engine-api-acceptance-builder-type-gate.md`
+- LQ-1968 composed joint engine API source-derived acceptance:
+  `docs/lq-1968-composed-joint-engine-api-source-derived-acceptance.md`
+- LQ-1969 joint engine API source acceptance derivation evidence:
+  `docs/lq-1969-joint-engine-api-source-acceptance-derivation-evidence.md`
+- LQ-1970 joint engine API source acceptance derivation audit:
+  `docs/lq-1970-joint-engine-api-source-acceptance-derivation-audit.md`
+  - ersetzt alle äußeren Decoder-/Builder-Duplikate in Result-, Accept- und Marker-Lookup-Pfaden
+
+- LQ-1971 joint engine API source derivation failure contract:
+  `docs/lq-1971-joint-engine-api-source-derivation-failure-contract.md`
+- LQ-1972 detail-free joint engine API source derivation rejection:
+  `docs/lq-1972-detail-free-joint-engine-api-source-derivation-rejection.md`
+- LQ-1973 joint engine API source derivation compatibility:
+  `docs/lq-1973-joint-engine-api-source-derivation-compatibility.md`
+- LQ-1974 joint engine API source derivation completion:
+  `docs/lq-1974-joint-engine-api-source-derivation-completion.md`
+  - schließt Source-, Authority-, Envelope-, Acceptance- und Consumer-Komposition; 43 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6620 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1975 joint engine API validated UTC contract:
+  `docs/lq-1975-joint-engine-api-validated-utc-contract.md`
+- LQ-1976 shared joint engine API UTC validator:
+  `docs/lq-1976-shared-joint-engine-api-utc-validator.md`
+- LQ-1977 joint engine API accept UTC reader:
+  `docs/lq-1977-joint-engine-api-accept-utc-reader.md`
+- LQ-1978 joint engine API validated UTC foundation:
+  `docs/lq-1978-joint-engine-api-validated-utc-foundation.md`
+  - validiert jeden äußeren Clock-Read auf exakten timezone-aware UTC-Datetime mit Offset null
+- LQ-1979 joint engine API three-stage accept UTC:
+  `docs/lq-1979-joint-engine-api-three-stage-accept-utc.md`
+- LQ-1980 joint engine API two-stage audit UTC:
+  `docs/lq-1980-joint-engine-api-two-stage-audit-utc.md`
+- LQ-1981 joint engine API validated UTC evidence:
+  `docs/lq-1981-joint-engine-api-validated-utc-evidence.md`
+- LQ-1982 joint engine API validated UTC audit:
+  `docs/lq-1982-joint-engine-api-validated-utc-audit.md`
+  - schließt drei Accept- und zwei Accepted-Audit-UTC-Reads; Registry-Audit bleibt wall-clock-frei
+
+- LQ-1983 joint engine API UTC failure contract:
+  `docs/lq-1983-joint-engine-api-utc-failure-contract.md`
+- LQ-1984 detail-free joint engine API UTC rejection:
+  `docs/lq-1984-detail-free-joint-engine-api-utc-rejection.md`
+- LQ-1985 joint engine API validated UTC compatibility:
+  `docs/lq-1985-joint-engine-api-validated-utc-compatibility.md`
+- LQ-1986 joint engine API validated UTC completion:
+  `docs/lq-1986-joint-engine-api-validated-utc-completion.md`
+  - schließt Clock-, Datetime-, Timezone-, Decision- und Snapshot-Komposition; 39 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6631 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1987 joint engine API validated monotonic contract:
+  `docs/lq-1987-joint-engine-api-validated-monotonic-contract.md`
+- LQ-1988 shared joint engine API monotonic validator:
+  `docs/lq-1988-shared-joint-engine-api-monotonic-validator.md`
+- LQ-1989 joint engine API outer monotonic reader:
+  `docs/lq-1989-joint-engine-api-outer-monotonic-reader.md`
+- LQ-1990 joint engine API validated monotonic foundation:
+  `docs/lq-1990-joint-engine-api-validated-monotonic-foundation.md`
+  - validiert jeden äußeren Monotonic-Read auf exakten, endlichen und nichtnegativen Float
+- LQ-1991 joint engine API three-stage accept monotonic:
+  `docs/lq-1991-joint-engine-api-three-stage-accept-monotonic.md`
+- LQ-1992 joint engine API three-stage audit monotonic:
+  `docs/lq-1992-joint-engine-api-three-stage-audit-monotonic.md`
+- LQ-1993 joint engine API validated monotonic evidence:
+  `docs/lq-1993-joint-engine-api-validated-monotonic-evidence.md`
+- LQ-1994 joint engine API validated monotonic audit:
+  `docs/lq-1994-joint-engine-api-validated-monotonic-audit.md`
+  - schließt drei Accept-Reads und je drei Reads beider Audit-Modi ohne rohe Clock-Werte in Vergleichen
+
+- LQ-1995 joint engine API monotonic failure contract:
+  `docs/lq-1995-joint-engine-api-monotonic-failure-contract.md`
+- LQ-1996 detail-free joint engine API monotonic rejection:
+  `docs/lq-1996-detail-free-joint-engine-api-monotonic-rejection.md`
+- LQ-1997 joint engine API validated monotonic compatibility:
+  `docs/lq-1997-joint-engine-api-validated-monotonic-compatibility.md`
+- LQ-1998 joint engine API validated monotonic completion:
+  `docs/lq-1998-joint-engine-api-validated-monotonic-completion.md`
+  - schließt Clock-, Duration-, Convergence- und Closure-Komposition; 48 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6650 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-1999 joint engine API clock failure normalization contract:
+  `docs/lq-1999-joint-engine-api-clock-failure-normalization-contract.md`
+- LQ-2000 shared joint engine API clock reader:
+  `docs/lq-2000-shared-joint-engine-api-clock-reader.md`
+- LQ-2001 joint engine API UTC provider failure gate:
+  `docs/lq-2001-joint-engine-api-utc-provider-failure-gate.md`
+- LQ-2002 joint engine API monotonic provider failure gate:
+  `docs/lq-2002-joint-engine-api-monotonic-provider-failure-gate.md`
+  - normalisiert gewöhnliche technische Fehler aller äußeren UTC- und Monotonic-Provider detailfrei
+- LQ-2003 joint engine API clock failure foundation:
+  `docs/lq-2003-joint-engine-api-clock-failure-foundation.md`
+- LQ-2004 composed joint engine API clock failure policy:
+  `docs/lq-2004-composed-joint-engine-api-clock-failure-policy.md`
+- LQ-2005 joint engine API clock failure evidence:
+  `docs/lq-2005-joint-engine-api-clock-failure-evidence.md`
+- LQ-2006 joint engine API clock failure audit:
+  `docs/lq-2006-joint-engine-api-clock-failure-audit.md`
+  - bewahrt bestehende Unavailable-Instanzen und lässt Interrupt sowie Process-Exit außerhalb der Normalisierung
+
+- LQ-2007 joint engine API technical clock failure contract:
+  `docs/lq-2007-joint-engine-api-technical-clock-failure-contract.md`
+- LQ-2008 detail-free joint engine API clock failure:
+  `docs/lq-2008-detail-free-joint-engine-api-clock-failure.md`
+- LQ-2009 joint engine API clock failure compatibility:
+  `docs/lq-2009-joint-engine-api-clock-failure-compatibility.md`
+- LQ-2010 joint engine API clock failure completion:
+  `docs/lq-2010-joint-engine-api-clock-failure-completion.md`
+  - schließt Provider-, Validator-, Timing- und Closure-Komposition; 48 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6659 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2011 joint engine API direct failure boundary contract:
+  `docs/lq-2011-joint-engine-api-direct-failure-boundary-contract.md`
+- LQ-2012 shared joint engine API detail-free runner:
+  `docs/lq-2012-shared-joint-engine-api-detail-free-runner.md`
+- LQ-2013 joint engine API clock runner composition:
+  `docs/lq-2013-joint-engine-api-clock-runner-composition.md`
+- LQ-2014 joint engine API accept direct boundary:
+  `docs/lq-2014-joint-engine-api-accept-direct-boundary.md`
+  - schließt Accept und validierte Clocks über einen gemeinsamen detailfreien Runner
+- LQ-2015 joint engine API audit direct boundary:
+  `docs/lq-2015-joint-engine-api-audit-direct-boundary.md`
+- LQ-2016 composed joint engine API direct failure policy:
+  `docs/lq-2016-composed-joint-engine-api-direct-failure-policy.md`
+- LQ-2017 joint engine API direct failure evidence:
+  `docs/lq-2017-joint-engine-api-direct-failure-evidence.md`
+- LQ-2018 joint engine API direct failure audit:
+  `docs/lq-2018-joint-engine-api-direct-failure-audit.md`
+  - normalisiert gewöhnliche Fehler beider Audit-Modi nach Root-Finalisierung und bewahrt Systemabbrüche
+
+- LQ-2019 joint engine API ordinary failure contract:
+  `docs/lq-2019-joint-engine-api-ordinary-failure-contract.md`
+- LQ-2020 detail-free joint engine API direct rejection:
+  `docs/lq-2020-detail-free-joint-engine-api-direct-rejection.md`
+- LQ-2021 joint engine API direct failure compatibility:
+  `docs/lq-2021-joint-engine-api-direct-failure-compatibility.md`
+- LQ-2022 joint engine API direct failure completion:
+  `docs/lq-2022-joint-engine-api-direct-failure-completion.md`
+  - schließt Dependency-, Clock-, Validation- und Closure-Komposition; 62 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6668 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2023 joint engine API direct completion contract:
+  `docs/lq-2023-joint-engine-api-direct-completion-contract.md`
+- LQ-2024 shared joint engine API completion runner:
+  `docs/lq-2024-shared-joint-engine-api-completion-runner.md`
+- LQ-2025 joint engine API exact None gate:
+  `docs/lq-2025-joint-engine-api-exact-none-gate.md`
+- LQ-2026 joint engine API accept completion boundary:
+  `docs/lq-2026-joint-engine-api-accept-completion-boundary.md`
+  - akzeptiert ausschließlich das None-Singleton als erfolgreichen äußeren Accept-Abschluss
+- LQ-2027 joint engine API audit completion boundary:
+  `docs/lq-2027-joint-engine-api-audit-completion-boundary.md`
+- LQ-2028 composed joint engine API completion policy:
+  `docs/lq-2028-composed-joint-engine-api-completion-policy.md`
+- LQ-2029 joint engine API completion evidence:
+  `docs/lq-2029-joint-engine-api-completion-evidence.md`
+- LQ-2030 joint engine API completion audit:
+  `docs/lq-2030-joint-engine-api-completion-audit.md`
+  - schließt denselben exakten None-Gate für Registry- und Accepted-Source-Audit
+
+- LQ-2031 joint engine API invalid completion contract:
+  `docs/lq-2031-joint-engine-api-invalid-completion-contract.md`
+- LQ-2032 detail-free joint engine API completion rejection:
+  `docs/lq-2032-detail-free-joint-engine-api-completion-rejection.md`
+- LQ-2033 joint engine API completion compatibility:
+  `docs/lq-2033-joint-engine-api-completion-compatibility.md`
+- LQ-2034 joint engine API completion gate completion:
+  `docs/lq-2034-joint-engine-api-completion-gate-completion.md`
+  - schließt Execution-, Result-, Failure- und Closure-Komposition; 68 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6688 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2035 joint engine API direct request preflight contract:
+  `docs/lq-2035-joint-engine-api-direct-request-preflight-contract.md`
+- LQ-2036 shared joint engine API root argument validator:
+  `docs/lq-2036-shared-joint-engine-api-root-argument-validator.md`
+- LQ-2037 joint engine API canonical root shape:
+  `docs/lq-2037-joint-engine-api-canonical-root-shape.md`
+- LQ-2038 joint engine API accept request preflight:
+  `docs/lq-2038-joint-engine-api-accept-request-preflight.md`
+  - validiert Root-Shape vor jedem Clock-Read, Descriptorzugriff und Mutationspfad
+- LQ-2039 joint engine API audit mode preflight:
+  `docs/lq-2039-joint-engine-api-audit-mode-preflight.md`
+- LQ-2040 joint engine API audit root preflight:
+  `docs/lq-2040-joint-engine-api-audit-root-preflight.md`
+- LQ-2041 joint engine API request preflight evidence:
+  `docs/lq-2041-joint-engine-api-request-preflight-evidence.md`
+- LQ-2042 joint engine API request preflight audit:
+  `docs/lq-2042-joint-engine-api-request-preflight-audit.md`
+  - prüft exakten Audit-Boolean vor Root-Shape und hält persistierte Root-Authority getrennt
+
+- LQ-2043 joint engine API invalid request contract:
+  `docs/lq-2043-joint-engine-api-invalid-request-contract.md`
+- LQ-2044 detail-free joint engine API request rejection:
+  `docs/lq-2044-detail-free-joint-engine-api-request-rejection.md`
+- LQ-2045 joint engine API request preflight compatibility:
+  `docs/lq-2045-joint-engine-api-request-preflight-compatibility.md`
+- LQ-2046 joint engine API request preflight completion:
+  `docs/lq-2046-joint-engine-api-request-preflight-completion.md`
+  - schließt Input-, Clock-, Authority- und Completion-Komposition; 61 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6703 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2047 joint engine API detail-free CLI parser contract:
+  `docs/lq-2047-joint-engine-api-detail-free-cli-parser-contract.md`
+- LQ-2048 joint engine API silent argument parser:
+  `docs/lq-2048-joint-engine-api-silent-argument-parser.md`
+- LQ-2049 joint engine API missing argument rejection:
+  `docs/lq-2049-joint-engine-api-missing-argument-rejection.md`
+- LQ-2050 joint engine API unknown argument rejection:
+  `docs/lq-2050-joint-engine-api-unknown-argument-rejection.md`
+  - ersetzt Standardparser-Diagnostik für fehlende, unbekannte und ungültige Argumente durch stillen Status zwei
+- LQ-2051 joint engine API CLI parser foundation:
+  `docs/lq-2051-joint-engine-api-cli-parser-foundation.md`
+- LQ-2052 composed joint engine API CLI parser policy:
+  `docs/lq-2052-composed-joint-engine-api-cli-parser-policy.md`
+- LQ-2053 joint engine API CLI parser evidence:
+  `docs/lq-2053-joint-engine-api-cli-parser-evidence.md`
+- LQ-2054 joint engine API CLI parser audit:
+  `docs/lq-2054-joint-engine-api-cli-parser-audit.md`
+  - belegt leere stdout-/stderr-Kanäle für Parser-, Operations- und alle drei gültigen Moduspfade
+
+- LQ-2055 joint engine API CLI parse failure contract:
+  `docs/lq-2055-joint-engine-api-cli-parse-failure-contract.md`
+- LQ-2056 detail-free joint engine API CLI rejection:
+  `docs/lq-2056-detail-free-joint-engine-api-cli-rejection.md`
+- LQ-2057 joint engine API CLI parser compatibility:
+  `docs/lq-2057-joint-engine-api-cli-parser-compatibility.md`
+- LQ-2058 joint engine API CLI parser completion:
+  `docs/lq-2058-joint-engine-api-cli-parser-completion.md`
+  - schließt Argument-, Preflight-, Operation- und Status-Komposition; 65 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6714 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2059 joint engine API closed CLI dispatch contract:
+  `docs/lq-2059-joint-engine-api-closed-cli-dispatch-contract.md`
+- LQ-2060 joint engine API private CLI dispatcher:
+  `docs/lq-2060-joint-engine-api-private-cli-dispatcher.md`
+- LQ-2061 joint engine API accept mode binding:
+  `docs/lq-2061-joint-engine-api-accept-mode-binding.md`
+- LQ-2062 joint engine API registry audit mode binding:
+  `docs/lq-2062-joint-engine-api-registry-audit-mode-binding.md`
+  - bindet Accept und Registry-Audit an genau einen festen Operationsaufruf und exakten Audit-Boolean
+- LQ-2063 joint engine API accepted audit mode binding:
+  `docs/lq-2063-joint-engine-api-accepted-audit-mode-binding.md`
+- LQ-2064 joint engine API CLI completion gate:
+  `docs/lq-2064-joint-engine-api-cli-completion-gate.md`
+- LQ-2065 joint engine API CLI dispatch evidence:
+  `docs/lq-2065-joint-engine-api-cli-dispatch-evidence.md`
+- LQ-2066 joint engine API CLI dispatch audit:
+  `docs/lq-2066-joint-engine-api-cli-dispatch-audit.md`
+  - weist fremde Erfolgswerte aller drei Modi still mit Status zwei zurück
+
+- LQ-2067 joint engine API invalid dispatch contract:
+  `docs/lq-2067-joint-engine-api-invalid-dispatch-contract.md`
+- LQ-2068 detail-free joint engine API CLI dispatch rejection:
+  `docs/lq-2068-detail-free-joint-engine-api-cli-dispatch-rejection.md`
+- LQ-2069 joint engine API CLI dispatch compatibility:
+  `docs/lq-2069-joint-engine-api-cli-dispatch-compatibility.md`
+- LQ-2070 joint engine API CLI dispatch completion:
+  `docs/lq-2070-joint-engine-api-cli-dispatch-completion.md`
+  - schließt Parsing-, Routing-, Completion- und Status-Komposition; 81 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6739 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2071 joint engine API CLI namespace handoff contract:
+  `docs/lq-2071-joint-engine-api-cli-namespace-handoff-contract.md`
+- LQ-2072 joint engine API CLI namespace validator:
+  `docs/lq-2072-joint-engine-api-cli-namespace-validator.md`
+- LQ-2073 joint engine API exact CLI fields:
+  `docs/lq-2073-joint-engine-api-exact-cli-fields.md`
+- LQ-2074 joint engine API CLI field type gates:
+  `docs/lq-2074-joint-engine-api-cli-field-type-gates.md`
+  - akzeptiert ausschließlich exaktes Namespace mit genau Root- und Mode-Feld samt geschlossenen Typen
+- LQ-2075 joint engine API parse dispatch boundary:
+  `docs/lq-2075-joint-engine-api-parse-dispatch-boundary.md`
+- LQ-2076 joint engine API main completion gate:
+  `docs/lq-2076-joint-engine-api-main-completion-gate.md`
+- LQ-2077 joint engine API CLI handoff evidence:
+  `docs/lq-2077-joint-engine-api-cli-handoff-evidence.md`
+- LQ-2078 joint engine API CLI handoff audit:
+  `docs/lq-2078-joint-engine-api-cli-handoff-audit.md`
+  - weist Zusatzfelder, fremde Feldtypen und fremde Dispatchergebnisse vor Status null zurück
+
+- LQ-2079 joint engine API invalid CLI handoff contract:
+  `docs/lq-2079-joint-engine-api-invalid-cli-handoff-contract.md`
+- LQ-2080 detail-free joint engine API CLI handoff rejection:
+  `docs/lq-2080-detail-free-joint-engine-api-cli-handoff-rejection.md`
+- LQ-2081 joint engine API CLI handoff compatibility:
+  `docs/lq-2081-joint-engine-api-cli-handoff-compatibility.md`
+- LQ-2082 joint engine API CLI handoff completion:
+  `docs/lq-2082-joint-engine-api-cli-handoff-completion.md`
+  - schließt Namespace-, Dispatch-, Completion- und Status-Komposition; 81 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6759 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2083 joint engine API single anchor root contract:
+  `docs/lq-2083-joint-engine-api-single-anchor-root-contract.md`
+- LQ-2084 joint engine API root anchor validator:
+  `docs/lq-2084-joint-engine-api-root-anchor-validator.md`
+- LQ-2085 joint engine API double slash root rejection:
+  `docs/lq-2085-joint-engine-api-double-slash-root-rejection.md`
+- LQ-2086 joint engine API accept single anchor preflight:
+  `docs/lq-2086-joint-engine-api-accept-single-anchor-preflight.md`
+  - verlangt exakten POSIX-Slash-Anker und weist Doppel-Slash-Aliase vor Clock und Root-Auflösung zurück
+- LQ-2087 joint engine API audit single anchor preflight:
+  `docs/lq-2087-joint-engine-api-audit-single-anchor-preflight.md`
+- LQ-2088 composed joint engine API root anchor policy:
+  `docs/lq-2088-composed-joint-engine-api-root-anchor-policy.md`
+- LQ-2089 joint engine API root anchor evidence:
+  `docs/lq-2089-joint-engine-api-root-anchor-evidence.md`
+- LQ-2090 joint engine API root anchor audit:
+  `docs/lq-2090-joint-engine-api-root-anchor-audit.md`
+  - bindet Accept und beide Audit-Modi an kanonische Root-Schreibweise ohne Normalisierungsfallback
+
+- LQ-2091 joint engine API invalid root anchor contract:
+  `docs/lq-2091-joint-engine-api-invalid-root-anchor-contract.md`
+- LQ-2092 detail-free joint engine API root anchor rejection:
+  `docs/lq-2092-detail-free-joint-engine-api-root-anchor-rejection.md`
+- LQ-2093 joint engine API root anchor compatibility:
+  `docs/lq-2093-joint-engine-api-root-anchor-compatibility.md`
+- LQ-2094 joint engine API root anchor completion:
+  `docs/lq-2094-joint-engine-api-root-anchor-completion.md`
+  - schließt Path-, Preflight-, Authority- und Timing-Komposition; 76 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6767 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2095 joint engine API exact native Path contract:
+  `docs/lq-2095-joint-engine-api-exact-native-path-contract.md`
+- LQ-2096 joint engine API native Path type fact:
+  `docs/lq-2096-joint-engine-api-native-path-type-fact.md`
+- LQ-2097 joint engine API Path subclass rejection:
+  `docs/lq-2097-joint-engine-api-path-subclass-rejection.md`
+- LQ-2098 joint engine API direct native Path preflight:
+  `docs/lq-2098-joint-engine-api-direct-native-path-preflight.md`
+  - bindet direkte Roots vor jeder Property-, Clock- oder Descriptorarbeit an den exakten nativen Path-Typ
+- LQ-2099 joint engine API CLI native Path handoff:
+  `docs/lq-2099-joint-engine-api-cli-native-path-handoff.md`
+- LQ-2100 composed joint engine API native Path policy:
+  `docs/lq-2100-composed-joint-engine-api-native-path-policy.md`
+- LQ-2101 joint engine API native Path evidence:
+  `docs/lq-2101-joint-engine-api-native-path-evidence.md`
+- LQ-2102 joint engine API native Path audit:
+  `docs/lq-2102-joint-engine-api-native-path-audit.md`
+  - schließt denselben exakten Typ-Gate im Parser-Namespace-Handoff vor Dispatch
+
+- LQ-2103 joint engine API invalid Path type contract:
+  `docs/lq-2103-joint-engine-api-invalid-path-type-contract.md`
+- LQ-2104 detail-free joint engine API Path type rejection:
+  `docs/lq-2104-detail-free-joint-engine-api-path-type-rejection.md`
+- LQ-2105 joint engine API native Path compatibility:
+  `docs/lq-2105-joint-engine-api-native-path-compatibility.md`
+- LQ-2106 joint engine API native Path completion:
+  `docs/lq-2106-joint-engine-api-native-path-completion.md`
+  - schließt Type-, Lexical-, Authority- und Timing-Komposition; 58 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6774 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2107 joint engine API exact CLI occurrence contract:
+  `docs/lq-2107-joint-engine-api-exact-cli-occurrence-contract.md`
+- LQ-2108 joint engine API single value parser action:
+  `docs/lq-2108-joint-engine-api-single-value-parser-action.md`
+- LQ-2109 joint engine API operation root occurrence:
+  `docs/lq-2109-joint-engine-api-operation-root-occurrence.md`
+- LQ-2110 joint engine API mode occurrence:
+  `docs/lq-2110-joint-engine-api-mode-occurrence.md`
+  - verlangt Root- und Mode-Option jeweils exakt einmal und verwirft identische wie verschiedene Duplikate
+- LQ-2111 joint engine API no option abbreviation:
+  `docs/lq-2111-joint-engine-api-no-option-abbreviation.md`
+- LQ-2112 composed joint engine API CLI occurrence policy:
+  `docs/lq-2112-composed-joint-engine-api-cli-occurrence-policy.md`
+- LQ-2113 joint engine API CLI occurrence evidence:
+  `docs/lq-2113-joint-engine-api-cli-occurrence-evidence.md`
+- LQ-2114 joint engine API CLI occurrence audit:
+  `docs/lq-2114-joint-engine-api-cli-occurrence-audit.md`
+  - deaktiviert eindeutige Optionsabkürzungen und jedes Last-value-wins-Verhalten vor Namespace-Handoff
+
+- LQ-2115 joint engine API invalid CLI occurrence contract:
+  `docs/lq-2115-joint-engine-api-invalid-cli-occurrence-contract.md`
+- LQ-2116 detail-free joint engine API CLI occurrence rejection:
+  `docs/lq-2116-detail-free-joint-engine-api-cli-occurrence-rejection.md`
+- LQ-2117 joint engine API CLI occurrence compatibility:
+  `docs/lq-2117-joint-engine-api-cli-occurrence-compatibility.md`
+- LQ-2118 joint engine API CLI occurrence completion:
+  `docs/lq-2118-joint-engine-api-cli-occurrence-completion.md`
+  - schließt Token-, Namespace-, Dispatch- und Status-Komposition; 73 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6784 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2119 joint engine API raw CLI root contract:
+  `docs/lq-2119-joint-engine-api-raw-cli-root-contract.md`
+- LQ-2120 joint engine API raw root parser:
+  `docs/lq-2120-joint-engine-api-raw-root-parser.md`
+- LQ-2121 joint engine API CLI root component policy:
+  `docs/lq-2121-joint-engine-api-cli-root-component-policy.md`
+- LQ-2122 joint engine API CLI root boundary policy:
+  `docs/lq-2122-joint-engine-api-cli-root-boundary-policy.md`
+  - validiert rohe Root-Schreibweise vor Path-Konversion ohne leere, Punkt-, Parent- oder NUL-Komponenten
+- LQ-2123 joint engine API raw to native root handoff:
+  `docs/lq-2123-joint-engine-api-raw-to-native-root-handoff.md`
+- LQ-2124 composed joint engine API CLI root policy:
+  `docs/lq-2124-composed-joint-engine-api-cli-root-policy.md`
+- LQ-2125 joint engine API raw root evidence:
+  `docs/lq-2125-joint-engine-api-raw-root-evidence.md`
+- LQ-2126 joint engine API raw root audit:
+  `docs/lq-2126-joint-engine-api-raw-root-audit.md`
+  - verhindert stille Normalisierung von Doppel-Slash, wiederholten oder abschließenden Trennern und Dot-Komponenten
+
+- LQ-2127 joint engine API invalid raw root contract:
+  `docs/lq-2127-joint-engine-api-invalid-raw-root-contract.md`
+- LQ-2128 detail-free joint engine API raw root rejection:
+  `docs/lq-2128-detail-free-joint-engine-api-raw-root-rejection.md`
+- LQ-2129 joint engine API raw root compatibility:
+  `docs/lq-2129-joint-engine-api-raw-root-compatibility.md`
+- LQ-2130 joint engine API raw root completion:
+  `docs/lq-2130-joint-engine-api-raw-root-completion.md`
+  - schließt Token-, Text-, Native-Path- und Authority-Komposition; 56 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6804 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2131 joint engine API bounded CLI root contract:
+  `docs/lq-2131-joint-engine-api-bounded-cli-root-contract.md`
+- LQ-2132 joint engine API CLI root byte policy:
+  `docs/lq-2132-joint-engine-api-cli-root-byte-policy.md`
+- LQ-2133 joint engine API CLI root UTF-8 gate:
+  `docs/lq-2133-joint-engine-api-cli-root-utf8-gate.md`
+- LQ-2134 joint engine API CLI root control character gate:
+  `docs/lq-2134-joint-engine-api-cli-root-control-character-gate.md`
+  - verlangt UTF-8 und weist C0-/DEL-Steuerzeichen vor Path-Konstruktion zurück
+- LQ-2135 joint engine API CLI root component bound:
+  `docs/lq-2135-joint-engine-api-cli-root-component-bound.md`
+- LQ-2136 composed joint engine API CLI root bounds:
+  `docs/lq-2136-composed-joint-engine-api-cli-root-bounds.md`
+- LQ-2137 joint engine API CLI root bound evidence:
+  `docs/lq-2137-joint-engine-api-cli-root-bound-evidence.md`
+- LQ-2138 joint engine API CLI root bound audit:
+  `docs/lq-2138-joint-engine-api-cli-root-bound-audit.md`
+  - begrenzt Gesamtpfad auf 4095 und jede Komponente auf 255 UTF-8-Bytes ohne Truncation
+
+- LQ-2139 joint engine API invalid root bound contract:
+  `docs/lq-2139-joint-engine-api-invalid-root-bound-contract.md`
+- LQ-2140 detail-free joint engine API root bound rejection:
+  `docs/lq-2140-detail-free-joint-engine-api-root-bound-rejection.md`
+- LQ-2141 joint engine API CLI root bound compatibility:
+  `docs/lq-2141-joint-engine-api-cli-root-bound-compatibility.md`
+- LQ-2142 joint engine API CLI root bound completion:
+  `docs/lq-2142-joint-engine-api-cli-root-bound-completion.md`
+  - schließt Encoding-, Control-, Component- und Authority-Komposition; 62 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6818 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2143 joint engine API canonical Unicode root contract:
+  `docs/lq-2143-joint-engine-api-canonical-unicode-root-contract.md`
+- LQ-2144 joint engine API root NFC gate:
+  `docs/lq-2144-joint-engine-api-root-nfc-gate.md`
+- LQ-2145 joint engine API Unicode control gate:
+  `docs/lq-2145-joint-engine-api-unicode-control-gate.md`
+- LQ-2146 joint engine API Unicode format gate:
+  `docs/lq-2146-joint-engine-api-unicode-format-gate.md`
+  - verlangt bereits kanonische NFC-Schreibweise und weist Unicode-Control-/Formatzeichen zurück
+- LQ-2147 joint engine API Unicode surrogate gate:
+  `docs/lq-2147-joint-engine-api-unicode-surrogate-gate.md`
+- LQ-2148 composed joint engine API Unicode root policy:
+  `docs/lq-2148-composed-joint-engine-api-unicode-root-policy.md`
+- LQ-2149 joint engine API Unicode root evidence:
+  `docs/lq-2149-joint-engine-api-unicode-root-evidence.md`
+- LQ-2150 joint engine API Unicode root audit:
+  `docs/lq-2150-joint-engine-api-unicode-root-audit.md`
+  - verhindert dekomponierte, zero-width-, bidirektionale und BOM-Aliase vor Path-Konstruktion
+
+- LQ-2151 joint engine API invalid Unicode root contract:
+  `docs/lq-2151-joint-engine-api-invalid-unicode-root-contract.md`
+- LQ-2152 detail-free joint engine API Unicode root rejection:
+  `docs/lq-2152-detail-free-joint-engine-api-unicode-root-rejection.md`
+- LQ-2153 joint engine API Unicode root compatibility:
+  `docs/lq-2153-joint-engine-api-unicode-root-compatibility.md`
+- LQ-2154 joint engine API Unicode root completion:
+  `docs/lq-2154-joint-engine-api-unicode-root-completion.md`
+  - schließt Encoding-, NFC-, Category- und Authority-Komposition; 67 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6830 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2155 joint engine API shared root text contract:
+  `docs/lq-2155-joint-engine-api-shared-root-text-contract.md`
+- LQ-2156 shared joint engine API root text validator:
+  `docs/lq-2156-shared-joint-engine-api-root-text-validator.md`
+- LQ-2157 joint engine API CLI root text composition:
+  `docs/lq-2157-joint-engine-api-cli-root-text-composition.md`
+- LQ-2158 joint engine API direct root text composition:
+  `docs/lq-2158-joint-engine-api-direct-root-text-composition.md`
+  - extrahiert kanonische Textpolitik und wendet sie nach exakter Typprüfung auch auf direkte Path-Roots an
+- LQ-2159 joint engine API direct Unicode root gate:
+  `docs/lq-2159-joint-engine-api-direct-unicode-root-gate.md`
+- LQ-2160 joint engine API direct root bound gate:
+  `docs/lq-2160-joint-engine-api-direct-root-bound-gate.md`
+- LQ-2161 joint engine API shared root text evidence:
+  `docs/lq-2161-joint-engine-api-shared-root-text-evidence.md`
+- LQ-2162 joint engine API shared root text audit:
+  `docs/lq-2162-joint-engine-api-shared-root-text-audit.md`
+  - schließt direkte Unicode-, Control-, Format- und Byte-Bounds vor Clock und Root-Auflösung
+
+- LQ-2163 joint engine API invalid shared root text contract:
+  `docs/lq-2163-joint-engine-api-invalid-shared-root-text-contract.md`
+- LQ-2164 detail-free joint engine API shared root text rejection:
+  `docs/lq-2164-detail-free-joint-engine-api-shared-root-text-rejection.md`
+- LQ-2165 joint engine API shared root text compatibility:
+  `docs/lq-2165-joint-engine-api-shared-root-text-compatibility.md`
+- LQ-2166 joint engine API shared root text completion:
+  `docs/lq-2166-joint-engine-api-shared-root-text-completion.md`
+  - schließt CLI-, Direct-Path-, Text- und Authority-Komposition; 76 fokussierte Tests bestehen unter strikter Warnungsbehandlung
+  - vollständige lokale Suite mit 6845 passed und 108 skipped bestanden; Docker, Grype und externe run-signierte Evidenz fehlen; production_ready=false
+
+- LQ-2167 reproducible sdist contract:
+  `docs/lq-2167-reproducible-sdist-contract.md`
+- LQ-2168 reproducible sdist normalizer:
+  `docs/lq-2168-reproducible-sdist-normalizer.md`
+  - normalisiert Zeit, Eigentümer, Reihenfolge und Gzip-Metadaten ohne Payload-Änderung
+- LQ-2169 sdist normalization composition:
+  `docs/lq-2169-sdist-normalization-composition.md`
+- LQ-2170 reproducible sdist evidence:
+  `docs/lq-2170-reproducible-sdist-evidence.md`
+  - zwei zeitlich verschiedene Builds ergeben nach Normalisierung byteidentische Quellarchive
+  - Veröffentlichung, Signierung, Container und externe Release-Evidenz bleiben getrennt offen; production_ready=false
+
+- LQ-2171 sdist member topology contract:
+  `docs/lq-2171-sdist-member-topology-contract.md`
+- LQ-2172 sdist member name gate:
+  `docs/lq-2172-sdist-member-name-gate.md`
+  - weist absolute, traversierende, normalisierte, doppelte und mehrwurzelige Archivnamen detailarm zurück
+- LQ-2173 atomic sdist normalization failure:
+  `docs/lq-2173-atomic-sdist-normalization-failure.md`
+- LQ-2174 safe reproducible sdist evidence:
+  `docs/lq-2174-safe-reproducible-sdist-evidence.md`
+  - erhält das Ursprungsarchiv bei Ablehnung bytegleich und entfernt temporäre Normalisierungsreste
+  - Signierung, Upload, Container und externe Release-Evidenz bleiben getrennt offen; production_ready=false
+
+- LQ-2175 bounded sdist normalization contract:
+  `docs/lq-2175-bounded-sdist-normalization-contract.md`
+- LQ-2176 sdist resource bound gate:
+  `docs/lq-2176-sdist-resource-bound-gate.md`
+  - begrenzt komprimierte Bytes, Mitglieder, UTF-8-Namen, Einzeldateien und Gesamtnutzdaten
+- LQ-2177 bounded sdist read composition:
+  `docs/lq-2177-bounded-sdist-read-composition.md`
+- LQ-2178 bounded sdist evidence:
+  `docs/lq-2178-bounded-sdist-evidence.md`
+  - stoppt übergroße Archive vor Ersetzung und folgt keinem symlink-basierten Eingabeartefakt
+  - Netzwerk, Signierung, Upload, Container und externe Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2179 canonical sdist metadata contract:
+  `docs/lq-2179-canonical-sdist-metadata-contract.md`
+- LQ-2180 sdist Unicode and mode gate:
+  `docs/lq-2180-sdist-unicode-and-mode-gate.md`
+  - verlangt NFC-Namen ohne Unicode-Control-Kategorien sowie exakt 0644 für Dateien und 0755 für Verzeichnisse
+- LQ-2181 sdist PAX metadata gate:
+  `docs/lq-2181-sdist-pax-metadata-gate.md`
+- LQ-2182 canonical sdist metadata evidence:
+  `docs/lq-2182-canonical-sdist-metadata-evidence.md`
+  - akzeptiert exakt gebundene PAX-Langpfade und begrenzte Quellzeit; alle PAX-Werte werden vor Ausgabe verworfen
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2183 sdist artifact root binding contract:
+  `docs/lq-2183-sdist-artifact-root-binding-contract.md`
+- LQ-2184 sdist filename root gate:
+  `docs/lq-2184-sdist-filename-root-gate.md`
+  - leitet die einzige Paketwurzel intern aus einem validierten liquent-<version>.tar.gz-Basename ab
+- LQ-2185 sdist root directory composition:
+  `docs/lq-2185-sdist-root-directory-composition.md`
+- LQ-2186 sdist root binding evidence:
+  `docs/lq-2186-sdist-root-binding-evidence.md`
+  - verlangt genau ein explizites, zum Artefaktnamen passendes Wurzelverzeichnis vor Normalisierung
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2187 normalized sdist output contract:
+  `docs/lq-2187-normalized-sdist-output-contract.md`
+- LQ-2188 normalized sdist manifest verifier:
+  `docs/lq-2188-normalized-sdist-manifest-verifier.md`
+  - vergleicht Namen, Typen, Modi, Größen und Payload-Hashes vor atomarer Ersetzung mit dem Eingabemanifest
+- LQ-2189 normalized sdist header verifier:
+  `docs/lq-2189-normalized-sdist-header-verifier.md`
+- LQ-2190 normalized sdist self-verification evidence:
+  `docs/lq-2190-normalized-sdist-self-verification-evidence.md`
+  - prüft kanonische Reihenfolge, Gzip-Kopf, feste Zeit und neutrale Eigentümer am temporären Ergebnis
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2191 cross-phase sdist binding contract:
+  `docs/lq-2191-cross-phase-sdist-binding-contract.md`
+- LQ-2192 sdist run-context binding:
+  `docs/lq-2192-sdist-run-context-binding.md`
+  - bindet verifiziertes Manifest und intern abgeleitete Wurzel als private Fakten an denselben Preflight-Lauf
+- LQ-2193 sdist late reverification gate:
+  `docs/lq-2193-sdist-late-reverification-gate.md`
+- LQ-2194 cross-phase sdist binding evidence:
+  `docs/lq-2194-cross-phase-sdist-binding-evidence.md`
+  - weist auch eine kanonisch neu erzeugte Payload-Ersetzung zwischen Distribution- und sdist-Phase zurück
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2195 sdist wheel roundtrip contract:
+  `docs/lq-2195-sdist-wheel-roundtrip-contract.md`
+- LQ-2196 private sdist wheel rebuild:
+  `docs/lq-2196-private-sdist-wheel-rebuild.md`
+  - baut im privaten Preflight-Bereich ohne Isolation genau ein Wheel ausschließlich aus dem gebundenen sdist
+- LQ-2197 sdist wheel identity gate:
+  `docs/lq-2197-sdist-wheel-identity-gate.md`
+- LQ-2198 sdist wheel roundtrip evidence:
+  `docs/lq-2198-sdist-wheel-roundtrip-evidence.md`
+  - verlangt Bytegleichheit und unabhängige Wheel-Verifikation zwischen Direkt- und sdist-Roundtrip-Build
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2199 bounded wheel verification contract:
+  `docs/lq-2199-bounded-wheel-verification-contract.md`
+- LQ-2200 wheel member topology gate:
+  `docs/lq-2200-wheel-member-topology-gate.md`
+  - verlangt eindeutige kanonische POSIX-Namen, Deflate ohne Flags und sichere exakte Dateimodi
+- LQ-2201 wheel resource bound gate:
+  `docs/lq-2201-wheel-resource-bound-gate.md`
+- LQ-2202 bounded wheel verification evidence:
+  `docs/lq-2202-bounded-wheel-verification-evidence.md`
+  - begrenzt Archiv, Mitglieder, Namen, Einzeldateien und Gesamtnutzdaten für Direkt- und Roundtrip-Wheel
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2203 wheel identity binding contract:
+  `docs/lq-2203-wheel-identity-binding-contract.md`
+- LQ-2204 wheel filename and dist-info gate:
+  `docs/lq-2204-wheel-filename-dist-info-gate.md`
+  - bindet genau eine liquent-<version>.dist-info-Wurzel an den universellen Wheel-Dateinamen
+- LQ-2205 wheel embedded identity gate:
+  `docs/lq-2205-wheel-embedded-identity-gate.md`
+- LQ-2206 wheel identity binding evidence:
+  `docs/lq-2206-wheel-identity-binding-evidence.md`
+  - verlangt Übereinstimmung von Projekt, Version, Wheel-Version, Purelib-Fakt und py3-none-any-Tag
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2207 wheel RECORD integrity contract:
+  `docs/lq-2207-wheel-record-integrity-contract.md`
+- LQ-2208 wheel RECORD parser gate:
+  `docs/lq-2208-wheel-record-parser-gate.md`
+  - verlangt vollständiges striktes UTF-8-CSV in exakter ZIP-Reihenfolge mit kanonischen SHA-256- und Größenfeldern
+- LQ-2209 wheel RECORD content binding:
+  `docs/lq-2209-wheel-record-content-binding.md`
+- LQ-2210 wheel RECORD integrity evidence:
+  `docs/lq-2210-wheel-record-integrity-evidence.md`
+  - verifiziert jede RECORD-Zeile gegen die tatsächlich gelesenen Bytes von Direkt- und Roundtrip-Wheel
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2211 canonical wheel ZIP metadata contract:
+  `docs/lq-2211-canonical-wheel-zip-metadata-contract.md`
+- LQ-2212 wheel ZIP header gate:
+  `docs/lq-2212-wheel-zip-header-gate.md`
+  - verlangt Unix/ZIP-2.0-Metadaten ohne Kommentare, Extra-Felder oder interne und reservierte Attribute
+- LQ-2213 wheel timestamp uniformity gate:
+  `docs/lq-2213-wheel-timestamp-uniformity-gate.md`
+- LQ-2214 canonical wheel ZIP metadata evidence:
+  `docs/lq-2214-canonical-wheel-zip-metadata-evidence.md`
+  - bindet alle Mitglieder an einen einheitlichen ZIP-repräsentierbaren Zeitstempel ohne Rundungsalias
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2215 wheel source epoch binding contract:
+  `docs/lq-2215-wheel-source-epoch-binding-contract.md`
+- LQ-2216 wheel epoch conversion gate:
+  `docs/lq-2216-wheel-epoch-conversion-gate.md`
+  - leitet den Wheel-Zeitstempel in UTC mit ausschließlich ZIP-bedingter Zwei-Sekunden-Auflösung ab
+- LQ-2217 wheel preflight epoch composition:
+  `docs/lq-2217-wheel-preflight-epoch-composition.md`
+- LQ-2218 wheel source epoch binding evidence:
+  `docs/lq-2218-wheel-source-epoch-binding-evidence.md`
+  - bindet Direkt- und Roundtrip-Wheel an denselben SOURCE_DATE_EPOCH wie das normalisierte sdist
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2219 wheel build-backend identity contract:
+  `docs/lq-2219-wheel-build-backend-identity-contract.md`
+- LQ-2220 wheel metadata parser gate:
+  `docs/lq-2220-wheel-metadata-parser-gate.md`
+  - verlangt defektfreie LF-Metadaten mit genau einer Core-Metadata-, Name- und Versionsaussage
+- LQ-2221 wheel generator header gate:
+  `docs/lq-2221-wheel-generator-header-gate.md`
+- LQ-2222 wheel backend identity evidence:
+  `docs/lq-2222-wheel-backend-identity-evidence.md`
+  - bindet Wheel-Version, Setuptools-Generator, Purelib-Fakt und Tag an den gelockten Buildpfad
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2223 wheel dependency identity contract:
+  `docs/lq-2223-wheel-dependency-identity-contract.md`
+- LQ-2224 wheel Requires-Dist gate:
+  `docs/lq-2224-wheel-requires-dist-gate.md`
+  - bindet Runtime-, Dev- und Visual-Abhängigkeiten samt Markern, Reihenfolge und Extras exakt
+- LQ-2225 wheel platform metadata gate:
+  `docs/lq-2225-wheel-platform-metadata-gate.md`
+- LQ-2226 wheel dependency identity evidence:
+  `docs/lq-2226-wheel-dependency-identity-evidence.md`
+  - verlangt exakte Python- und Lizenzfakten und weist externe oder dynamische Anforderungen zurück
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2227 wheel entry-point identity contract:
+  `docs/lq-2227-wheel-entry-point-identity-contract.md`
+- LQ-2228 wheel entry-point parser gate:
+  `docs/lq-2228-wheel-entry-point-parser-gate.md`
+  - verlangt genau 71 eindeutige Liquent-Kommandos in einer strikten console_scripts-Sektion
+- LQ-2229 wheel entry-point set binding:
+  `docs/lq-2229-wheel-entry-point-set-binding.md`
+- LQ-2230 wheel entry-point identity evidence:
+  `docs/lq-2230-wheel-entry-point-identity-evidence.md`
+  - bindet vollständige sortierte Namens-/Zielmenge und kanonische Dateidarstellung über separate SHA-256-Fakten
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2231 wheel member-set contract:
+  `docs/lq-2231-wheel-member-set-contract.md`
+- LQ-2232 wheel top-level root gate:
+  `docs/lq-2232-wheel-top-level-root-gate.md`
+  - erlaubt ausschließlich liquent, liquent_platform und die versionsgebundene dist-info-Wurzel
+- LQ-2233 wheel member-set digest gate:
+  `docs/lq-2233-wheel-member-set-digest-gate.md`
+- LQ-2234 wheel member-set evidence:
+  `docs/lq-2234-wheel-member-set-evidence.md`
+  - bindet im Preflight exakt 422 eindeutige Namen an den SHA-256 der sortierten kanonischen Namensfolge
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2235 wheel source-payload binding contract:
+  `docs/lq-2235-wheel-source-payload-binding-contract.md`
+- LQ-2236 wheel source-tree enumerator:
+  `docs/lq-2236-wheel-source-tree-enumerator.md`
+  - enumeriert ausschließlich reguläre .py- und .mako-Dateien unter beiden geprüften src-Paketwurzeln
+- LQ-2237 wheel source byte-comparison gate:
+  `docs/lq-2237-wheel-source-byte-comparison-gate.md`
+- LQ-2238 wheel source-payload binding evidence:
+  `docs/lq-2238-wheel-source-payload-binding-evidence.md`
+  - verlangt Namensmengengleichheit und Bytegleichheit für alle 417 installierbaren Quellpayloads
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2239 sdist source-payload contract:
+  `docs/lq-2239-sdist-source-payload-contract.md`
+- LQ-2240 sdist source-tree enumerator:
+  `docs/lq-2240-sdist-source-tree-enumerator.md`
+  - bindet README, pyproject, beide src-Paketwurzeln und paketierte test_*.py-Dateien dynamisch an den geprüften Checkout
+- LQ-2241 sdist source byte-comparison gate:
+  `docs/lq-2241-sdist-source-byte-comparison-gate.md`
+- LQ-2242 sdist source-payload evidence:
+  `docs/lq-2242-sdist-source-payload-evidence.md`
+  - verlangt Namens- und Bytegleichheit für 1117 Repository-Dateien neben acht festen Build-Metadateien
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2243 sdist generated-metadata contract:
+  `docs/lq-2243-sdist-generated-metadata-contract.md`
+- LQ-2244 sdist SOURCES manifest gate:
+  `docs/lq-2244-sdist-sources-manifest-gate.md`
+  - bindet eindeutige, LF-getrennte SOURCES-Zeilen ohne Endtrenner an alle Archivdateien außer root-PKG-INFO und setup.cfg
+- LQ-2245 sdist-wheel metadata parity gate:
+  `docs/lq-2245-sdist-wheel-metadata-parity-gate.md`
+- LQ-2246 sdist generated-metadata evidence:
+  `docs/lq-2246-sdist-generated-metadata-evidence.md`
+  - verlangt Bytegleichheit redundanter PKG-INFO-, Entry-Point- und Top-Level-Fakten mit dem Wheel
+  - externe Signierung, Container- und Release-Evidenz bleiben offen; production_ready=false
+
+- LQ-2247 canonical sdist gzip envelope contract:
+  `docs/lq-2247-canonical-sdist-gzip-envelope-contract.md`
+- LQ-2248 sdist gzip header gate:
+  `docs/lq-2248-sdist-gzip-header-gate.md`
+  - bindet alle zehn Headerbytes an Deflate, Null-Flags, SOURCE_DATE_EPOCH, XFL 2 und neutrale OS-Kennung 255
+- LQ-2249 sdist gzip trailer and size gate:
+  `docs/lq-2249-sdist-gzip-trailer-and-size-gate.md`
+  - begrenzt den entpackten TAR-Strom auf 40 MiB und prüft CRC32 sowie ISIZE vor TAR-Akzeptanz
+- LQ-2250 sdist gzip envelope evidence:
+  `docs/lq-2250-sdist-gzip-envelope-evidence.md`
+  - belegt kanonischen Header sowie fail-closed Ablehnung von Header-, Trailer- und Größendrift; production_ready=false
+
+- LQ-2251 single-member sdist gzip contract:
+  `docs/lq-2251-single-member-sdist-gzip-contract.md`
+- LQ-2252 canonical sdist TAR record contract:
+  `docs/lq-2252-canonical-sdist-tar-record-contract.md`
+  - bindet zwei Endblöcke und die minimale Nullauffüllung an exakt einen 10-KiB-TAR-Recordabschluss
+- LQ-2253 sdist TAR envelope gate:
+  `docs/lq-2253-sdist-tar-envelope-gate.md`
+  - leitet das logische Ende aus Memberoffsets ab und verwirft Zusatzrecords oder nichtleere Restbytes
+- LQ-2254 sdist container-envelope evidence:
+  `docs/lq-2254-sdist-container-envelope-evidence.md`
+  - belegt die Ablehnung verketteter Gzip-Mitglieder sowie zusätzlicher oder veränderter TAR-Auffüllung; production_ready=false
+
+- LQ-2255 canonical sdist TAR byte contract:
+  `docs/lq-2255-canonical-sdist-tar-byte-contract.md`
+- LQ-2256 shared canonical sdist TAR renderer:
+  `docs/lq-2256-shared-canonical-sdist-tar-renderer.md`
+  - verwendet für Normalisierung und Gegenprüfung denselben sortierten PAX-Renderer mit festen Identitäts- und Zeitfeldern
+- LQ-2257 sdist TAR byte-reconstruction gate:
+  `docs/lq-2257-sdist-tar-byte-reconstruction-gate.md`
+  - verlangt vollständige Bytegleichheit zwischen expandiertem Kandidaten und deterministischer Rekonstruktion
+- LQ-2258 sdist TAR byte-identity evidence:
+  `docs/lq-2258-sdist-tar-byte-identity-evidence.md`
+  - belegt die Ablehnung einer semantisch gültigen alternativen TAR-Prüfsummencodierung; production_ready=false
+
+- LQ-2259 canonical sdist deflate byte contract:
+  `docs/lq-2259-canonical-sdist-deflate-byte-contract.md`
+- LQ-2260 shared canonical sdist gzip renderer:
+  `docs/lq-2260-shared-canonical-sdist-gzip-renderer.md`
+  - verwendet für Normalisierung und Gegenprüfung dieselbe epochgebundene Gzip-Maximalkomprimierung
+- LQ-2261 sdist compressed-byte reconstruction gate:
+  `docs/lq-2261-sdist-compressed-byte-reconstruction-gate.md`
+  - verlangt vollständige Bytegleichheit zwischen Kandidat und deterministischer erneuter Komprimierung
+- LQ-2262 sdist compressed-byte identity evidence:
+  `docs/lq-2262-sdist-compressed-byte-identity-evidence.md`
+  - belegt die Ablehnung eines gültigen alternativen Deflate-Datenstroms mit identischem TAR-Inhalt; production_ready=false
+
+- LQ-2263 canonical wheel compressed-byte contract:
+  `docs/lq-2263-canonical-wheel-compressed-byte-contract.md`
+- LQ-2264 canonical wheel byte renderer:
+  `docs/lq-2264-canonical-wheel-byte-renderer.md`
+  - rekonstruiert die validierte Memberreihenfolge samt ZIP-Metadaten und Payloads vollständig im Speicher
+- LQ-2265 wheel compressed-byte reconstruction gate:
+  `docs/lq-2265-wheel-compressed-byte-reconstruction-gate.md`
+  - verlangt Bytegleichheit des gesamten Wheels einschließlich Deflate-Daten, lokaler Header und Zentralverzeichnis
+- LQ-2266 wheel compressed-byte identity evidence:
+  `docs/lq-2266-wheel-compressed-byte-identity-evidence.md`
+  - belegt die Ablehnung eines lesbaren niedrig komprimierten Wheels mit identischen Memberpayloads; production_ready=false
+
+- LQ-2267 compression-runtime identity contract:
+  `docs/lq-2267-compression-runtime-identity-contract.md`
+- LQ-2268 compression-runtime measurement gate:
+  `docs/lq-2268-compression-runtime-measurement-gate.md`
+  - bindet Python 3.12.14 sowie zlib-Build- und Laufzeitversion 1.2.12 vor jeder Artefakterzeugung
+- LQ-2269 compression-runtime preflight evidence:
+  `docs/lq-2269-compression-runtime-preflight-evidence.md`
+  - nimmt die drei gemessenen Kompressionsumgebungsfakten in den kanonisch gehashten Runtime-Phasenbefund auf
+- LQ-2270 compression-runtime drift evidence:
+  `docs/lq-2270-compression-runtime-drift-evidence.md`
+  - belegt fail-closed Ablehnung getrennter Build- und Laufzeit-zlib-Abweichungen; production_ready=false
+
+- LQ-2271 distribution artifact-pair identity contract:
+  `docs/lq-2271-distribution-artifact-pair-identity-contract.md`
+- LQ-2272 distribution-pair capture gate:
+  `docs/lq-2272-distribution-pair-capture-gate.md`
+  - erfasst Wheel- und normalisierten sdist-Digest erst nach erfolgreicher Source- und Metadatenparität als ein Paar
+- LQ-2273 cross-phase distribution-pair gate:
+  `docs/lq-2273-cross-phase-distribution-pair-gate.md`
+  - hasht beide Artefakte in Wheel-, sdist- und Bundlephase neu und verwirft den Austausch eines einzelnen Partners
+- LQ-2274 distribution-pair binding evidence:
+  `docs/lq-2274-distribution-pair-binding-evidence.md`
+  - belegt fail-closed Ablehnung unabhängiger Wheel- und sdist-Ersetzung nach der Buildphase; production_ready=false
+
+- LQ-2275 distribution-pair name/version contract:
+  `docs/lq-2275-distribution-pair-name-version-contract.md`
+- LQ-2276 canonical distribution-pair digest:
+  `docs/lq-2276-canonical-distribution-pair-digest.md`
+  - bindet beide Dateinamen, beide Artefaktdigests und die gemeinsame Paketversion in einen kanonischen SHA-256-Wert
+- LQ-2277 cross-phase distribution-identity gate:
+  `docs/lq-2277-cross-phase-distribution-identity-gate.md`
+  - leitet Paarfakten in jeder späteren Artefaktphase neu ab und verlangt vollständige Gleichheit mit der Buildphase
+- LQ-2278 distribution-pair identity evidence:
+  `docs/lq-2278-distribution-pair-identity-evidence.md`
+  - belegt fail-closed Ablehnung fremder Wheelnamen und auseinanderlaufender Wheel-/sdist-Versionen; production_ready=false
+
+- LQ-2279 single-source-commit preflight contract:
+  `docs/lq-2279-single-source-commit-preflight-contract.md`
+- LQ-2280 source-commit epoch binding contract:
+  `docs/lq-2280-source-commit-epoch-binding-contract.md`
+  - leitet SOURCE_DATE_EPOCH explizit aus dem einmal gebundenen Commit ab und hält den Wert danach unveränderlich
+- LQ-2281 cross-phase source-identity gate:
+  `docs/lq-2281-cross-phase-source-identity-gate.md`
+  - prüft vor jeder Phasenmessung erneut denselben sauberen Commit und denselben gebundenen Epochwert
+- LQ-2282 source-run binding evidence:
+  `docs/lq-2282-source-run-binding-evidence.md`
+  - belegt fail-closed Ablehnung eines sauberen Commitwechsels sowie nachträglicher Epochmutation; production_ready=false
+
+- LQ-2283 source-bound distribution-pair contract:
+  `docs/lq-2283-source-bound-distribution-pair-contract.md`
+- LQ-2284 source-bound pair-digest extension:
+  `docs/lq-2284-source-bound-pair-digest-extension.md`
+  - erweitert die kanonischen Paarfakten um den gebundenen Source-Commit und dessen ganzzahligen Epochwert
+- LQ-2285 cross-phase source-bound pair gate:
+  `docs/lq-2285-cross-phase-source-bound-pair-gate.md`
+  - rekonstruiert Paaridentität aus aktuellen Dateien und unveränderlichem Laufursprung in jeder späteren Artefaktphase
+- LQ-2286 source-bound pair-identity evidence:
+  `docs/lq-2286-source-bound-pair-identity-evidence.md`
+  - belegt neue Paar-Digests bei isolierter Commit- oder Epochabweichung trotz gleicher Artefaktbytes; production_ready=false
+
+- LQ-2287 build-runtime digest contract:
+  `docs/lq-2287-build-runtime-digest-contract.md`
+- LQ-2288 runtime-phase digest capture gate:
+  `docs/lq-2288-runtime-phase-digest-capture-gate.md`
+  - hasht exakte Python-, zlib- und gelockte Build-Werkzeugfakten kanonisch in der Runtimephase
+- LQ-2289 runtime-bound distribution-pair gate:
+  `docs/lq-2289-runtime-bound-distribution-pair-gate.md`
+  - nimmt den unveränderlichen Build-Runtime-Digest in Aufnahme und Gegenprüfung der Artefaktpaar-Identität auf
+- LQ-2290 runtime-bound pair-identity evidence:
+  `docs/lq-2290-runtime-bound-pair-identity-evidence.md`
+  - belegt einen neuen Paar-Digest bei isolierter Runtimeabweichung trotz gleicher Source- und Artefaktfakten; production_ready=false
+
+- LQ-2291 quality-evidence identity contract:
+  `docs/lq-2291-quality-evidence-identity-contract.md`
+- LQ-2292 quality-evidence digest capture gate:
+  `docs/lq-2292-quality-evidence-digest-capture-gate.md`
+  - hasht Befehle, Erfolgs- und Warnungszahlen beider Testsuiten sowie die PostgreSQL-Version kanonisch
+- LQ-2293 quality-bound distribution-pair gate:
+  `docs/lq-2293-quality-bound-distribution-pair-gate.md`
+  - nimmt den unveränderlichen Qualitäts-Digest in Aufnahme und Gegenprüfung der Artefaktpaar-Identität auf
+- LQ-2294 quality-bound pair-identity evidence:
+  `docs/lq-2294-quality-bound-pair-identity-evidence.md`
+  - belegt einen neuen Paar-Digest bei isolierter Qualitätsabweichung trotz gleicher Source-, Runtime- und Artefaktfakten; production_ready=false
+
+- LQ-2295 canonical verification-evidence byte contract:
+  `docs/lq-2295-canonical-verification-evidence-byte-contract.md`
+- LQ-2296 verification-evidence render-and-capture gate:
+  `docs/lq-2296-verification-evidence-render-and-capture-gate.md`
+  - rendert verification.json kanonisch und bindet ihre vollständigen Bytes vor dem Bundlebau per SHA-256
+- LQ-2297 cross-bundle verification-evidence gate:
+  `docs/lq-2297-cross-bundle-verification-evidence-gate.md`
+  - prüft den Quelldigest nach Bundlebau erneut neben der eingebetteten Manifest-, Größen- und Schemaprüfung
+- LQ-2298 verification-evidence binding evidence:
+  `docs/lq-2298-verification-evidence-binding-evidence.md`
+  - belegt deterministische Berichtbytes und fail-closed Ablehnung nachträglich veränderter Qualitätsfakten; production_ready=false
+
+- LQ-2299 local release-candidate identity contract:
+  `docs/lq-2299-local-release-candidate-identity-contract.md`
+- LQ-2300 canonical release-candidate digest:
+  `docs/lq-2300-canonical-release-candidate-digest.md`
+  - bindet Bundle, herkunftsgebundenes Distributionspaar, Verifikationsbericht, Commit und Paketversion kanonisch
+- LQ-2301 terminal candidate-identity gate:
+  `docs/lq-2301-terminal-candidate-identity-gate.md`
+  - leitet den Candidate-Digest erst nach Bundle-Verifikation ab und exponiert ihn bei weiterhin promotable=false
+- LQ-2302 release-candidate identity evidence:
+  `docs/lq-2302-release-candidate-identity-evidence.md`
+  - belegt neue Candidate-Digests bei isolierter Bundle-, Paar- oder Berichtsabweichung; production_ready=false
+
+- LQ-2303 local release-candidate descriptor contract:
+  `docs/lq-2303-local-release-candidate-descriptor-contract.md`
+- LQ-2304 atomic candidate-descriptor write gate:
+  `docs/lq-2304-atomic-candidate-descriptor-write-gate.md`
+  - erzeugt release-candidate.json vollständig, synchronisiert und per exklusivem Hardlink atomar ohne Überschreiben
+- LQ-2305 candidate-descriptor verification gate:
+  `docs/lq-2305-candidate-descriptor-verification-gate.md`
+  - liest den Descriptor erneut und verlangt kanonische Bytes sowie Gleichheit seines Digests mit der Candidate-Identität
+- LQ-2306 candidate-descriptor evidence:
+  `docs/lq-2306-candidate-descriptor-evidence.md`
+  - belegt vollständige Byte-/Digestgleichheit und fail-closed Ablehnung eines zweiten Schreibversuchs; production_ready=false
+
+- LQ-2307 candidate-descriptor file-metadata contract:
+  `docs/lq-2307-candidate-descriptor-file-metadata-contract.md`
+- LQ-2308 durable candidate-descriptor publication gate:
+  `docs/lq-2308-durable-candidate-descriptor-publication-gate.md`
+  - erzwingt Modus 0600, Datei- und Verzeichnis-fsync sowie Rollback ausschließlich des neu verlinkten Ziels
+- LQ-2309 candidate-descriptor metadata verification gate:
+  `docs/lq-2309-candidate-descriptor-metadata-verification-gate.md`
+  - verlangt reguläre Einzel-Link-Datei, festen Modus, Größenlimit und unveränderte kanonische Bytes
+- LQ-2310 candidate-descriptor durability evidence:
+  `docs/lq-2310-candidate-descriptor-durability-evidence.md`
+  - belegt Größen- und Modusabwehr sowie rückstandsfreien Rollback bei simulierter Verzeichnis-Sync-Störung; production_ready=false
+
+- LQ-2311 private candidate-output directory contract:
+  `docs/lq-2311-private-candidate-output-directory-contract.md`
+- LQ-2312 directory-relative candidate-publication gate:
+  `docs/lq-2312-directory-relative-candidate-publication-gate.md`
+  - bindet exklusive Linkerzeugung, Verzeichnis-fsync und Rollback an denselben geöffneten 0700-Verzeichnisdeskriptor
+- LQ-2313 candidate-output directory verification gate:
+  `docs/lq-2313-candidate-output-directory-verification-gate.md`
+  - verlangt vor Descriptorprüfung erneut reales, eigentümerkontrolliertes und unverändert privates Elternverzeichnis
+- LQ-2314 candidate-directory binding evidence:
+  `docs/lq-2314-candidate-directory-binding-evidence.md`
+  - belegt fail-closed Ablehnung von Verzeichnissymlink und Modusdrift ohne Kandidatenerzeugung; production_ready=false
+
+- LQ-2315 local release-bundle file contract:
+  `docs/lq-2315-local-release-bundle-file-contract.md`
+- LQ-2316 local bundle-sealing gate:
+  `docs/lq-2316-local-bundle-sealing-gate.md`
+  - prüft das Bundle ohne Symlinkfolge, versiegelt Modus 0600, synchronisiert und hasht über denselben Dateideskriptor
+- LQ-2317 cross-candidate bundle-identity gate:
+  `docs/lq-2317-cross-candidate-bundle-identity-gate.md`
+  - verlangt denselben Bundle-Digest vor und nach Inhaltsprüfung sowie in der terminalen Candidate-Identität
+- LQ-2318 local bundle-file evidence:
+  `docs/lq-2318-local-bundle-file-evidence.md`
+  - belegt Modus und Einzel-Link sowie fail-closed Ablehnung von Symlink, Mehrfachlink und Größenüberschreitung; production_ready=false
+
+- LQ-2319 private verification-evidence file contract:
+  `docs/lq-2319-private-verification-evidence-file-contract.md`
+- LQ-2320 atomic verification-evidence publication gate:
+  `docs/lq-2320-atomic-verification-evidence-publication-gate.md`
+  - erzeugt verification.json atomar mit 0600 direkt im privaten Kandidaten-Ausgabeverzeichnis
+- LQ-2321 cross-bundle verification-file gate:
+  `docs/lq-2321-cross-bundle-verification-file-gate.md`
+  - prüft Typ, Eigentümer, Modus, Linkzahl, Größe, Bytes und Digest vor und nach dem Bundlebau
+- LQ-2322 verification-evidence file evidence:
+  `docs/lq-2322-verification-evidence-file-evidence.md`
+  - belegt fail-closed Ablehnung von Modus-, Payload- und Mehrfachlinkdrift des lokalen Prüfberichts; production_ready=false
+
+- LQ-2323 candidate-output inventory contract:
+  `docs/lq-2323-candidate-output-inventory-contract.md`
+- LQ-2324 canonical candidate-output inventory digest:
+  `docs/lq-2324-canonical-candidate-output-inventory-digest.md`
+  - bindet exakt drei sortierte Dateifakten aus Name, aktuellem SHA-256-Digest und Bytegröße
+- LQ-2325 terminal candidate-output inventory gate:
+  `docs/lq-2325-terminal-candidate-output-inventory-gate.md`
+  - prüft nach Erzeugung aller Kandidatendateien privates Verzeichnis, exakte Namensmenge, regulären Typ und Digest
+- LQ-2326 candidate-output inventory evidence:
+  `docs/lq-2326-candidate-output-inventory-evidence.md`
+  - belegt deterministische Identität sowie fail-closed Ablehnung zusätzlicher, fehlender und verlinkter Einträge; production_ready=false
+
+- LQ-2327 directory-bound candidate inventory contract:
+  `docs/lq-2327-directory-bound-candidate-inventory-contract.md`
+- LQ-2328 descriptor-bound candidate file contract:
+  `docs/lq-2328-descriptor-bound-candidate-file-contract.md`
+  - öffnet alle drei Dateien ohne Symlinkfolge relativ zu genau einem gebundenen privaten Verzeichnisdeskriptor
+- LQ-2329 cross-read candidate stability gate:
+  `docs/lq-2329-cross-read-candidate-stability-gate.md`
+  - bindet Typ, Eigentümer, Modus, Linkzahl, Identität, Größe, Bytemenge und Digest über denselben offenen Dateideskriptor
+- LQ-2330 descriptor-bound inventory evidence:
+  `docs/lq-2330-descriptor-bound-inventory-evidence.md`
+  - belegt fail-closed Modus- und Hardlink-Ablehnung sowie ausschließlich verzeichnisrelative No-Follow-Lesewege; production_ready=false
+
+- LQ-2331 candidate-inventory size contract:
+  `docs/lq-2331-candidate-inventory-size-contract.md`
+- LQ-2332 pre-read candidate-size gate:
+  `docs/lq-2332-pre-read-candidate-size-gate.md`
+  - verlangt für genau drei Digestnamen positive begrenzte Sollgrößen und vergleicht sie vor dem ersten Inhaltslesen
+- LQ-2333 cross-read size-consistency gate:
+  `docs/lq-2333-cross-read-size-consistency-gate.md`
+  - bindet Sollgröße, Deskriptorgröße vor und nach dem Lesen sowie tatsächlich gelesene Bytemenge und Digest
+- LQ-2334 candidate size-binding evidence:
+  `docs/lq-2334-candidate-size-binding-evidence.md`
+  - belegt fail-closed Größenabweichung und die Prüfung vor der Hash-Schleife; production_ready=false
+
+- LQ-2335 versioned release-candidate descriptor contract:
+  `docs/lq-2335-versioned-release-candidate-descriptor-contract.md`
+- LQ-2336 candidate artifact-name binding contract:
+  `docs/lq-2336-candidate-artifact-name-binding-contract.md`
+  - bindet Schema-Version sowie exakte Bundle- und Prüfberichtnamen in die kanonische Kandidatenidentität
+- LQ-2337 candidate artifact-size binding gate:
+  `docs/lq-2337-candidate-artifact-size-binding-gate.md`
+  - bindet die gemessenen Bytegrößen von versiegeltem Bundle und kanonischem Prüfbericht in den Descriptor-Digest
+- LQ-2338 complete candidate-descriptor evidence:
+  `docs/lq-2338-complete-candidate-descriptor-evidence.md`
+  - belegt Version, Artefaktnamen und Größen neben bestehenden Digest- und Driftprüfungen; production_ready=false
+
+- LQ-2339 directory-bound candidate-descriptor contract:
+  `docs/lq-2339-directory-bound-candidate-descriptor-contract.md`
+- LQ-2340 no-follow candidate-descriptor read gate:
+  `docs/lq-2340-no-follow-candidate-descriptor-read-gate.md`
+  - öffnet release-candidate.json ohne Symlinkfolge relativ zu genau einem gebundenen privaten Verzeichnisdeskriptor
+- LQ-2341 cross-read candidate-descriptor stability gate:
+  `docs/lq-2341-cross-read-candidate-descriptor-stability-gate.md`
+  - bindet Identität, Eigentümer, Modus, Linkzahl, Größe, Bytes und Digest über denselben offenen Descriptor
+- LQ-2342 bound candidate-descriptor evidence:
+  `docs/lq-2342-bound-candidate-descriptor-evidence.md`
+  - belegt fail-closed Symlink- und Hardlink-Ablehnung sowie Ausschluss pfadbasierter Descriptor-Lesewege; production_ready=false
+
+- LQ-2343 directory-bound verification-evidence contract:
+  `docs/lq-2343-directory-bound-verification-evidence-contract.md`
+- LQ-2344 no-follow verification-evidence read gate:
+  `docs/lq-2344-no-follow-verification-evidence-read-gate.md`
+  - öffnet verification.json ohne Symlinkfolge relativ zum gebundenen privaten Verzeichnisdeskriptor
+- LQ-2345 cross-read verification-evidence stability gate:
+  `docs/lq-2345-cross-read-verification-evidence-stability-gate.md`
+  - bindet Identität, Eigentümer, Modus, Linkzahl, Größe, Bytes und Digest über denselben offenen Evidence-Descriptor
+- LQ-2346 bound verification evidence:
+  `docs/lq-2346-bound-verification-evidence.md`
+  - belegt fail-closed Symlink-, Hardlink-, Modus- und Bytedrift sowie Ausschluss pfadbasierter Lesewege; production_ready=false
+
+- LQ-2347 bound candidate-identity input contract:
+  `docs/lq-2347-bound-candidate-identity-input-contract.md`
+- LQ-2348 no-follow candidate-identity input gate:
+  `docs/lq-2348-no-follow-candidate-identity-input-gate.md`
+  - öffnet Bundle und Prüfbericht privat, einfach verlinkt und ohne Symlinkfolge relativ zu ihrem gemeinsamen gebundenen Verzeichnis
+- LQ-2349 cross-read candidate-identity input stability:
+  `docs/lq-2349-cross-read-candidate-identity-input-stability.md`
+  - bindet Identität, Größe, Bytemenge und Digest jedes Inputs über denselben offenen Descriptor
+- LQ-2350 bound candidate-identity input evidence:
+  `docs/lq-2350-bound-candidate-identity-input-evidence.md`
+  - belegt fail-closed Symlink- und Hardlink-Ablehnung für beide Inputs sowie Ausschluss pfadbasierter Reads; production_ready=false
+
+- LQ-2351 directory-bound bundle-sealing contract:
+  `docs/lq-2351-directory-bound-bundle-sealing-contract.md`
+- LQ-2352 relative no-follow bundle-sealing gate:
+  `docs/lq-2352-relative-no-follow-bundle-sealing-gate.md`
+  - öffnet das Bundle ohne Symlinkfolge relativ zum gebundenen privaten Verzeichnis und nutzt denselben Descriptor zum Versiegeln und Hashen
+- LQ-2353 cross-seal bundle-stability gate:
+  `docs/lq-2353-cross-seal-bundle-stability-gate.md`
+  - bindet Bundle- und Elternidentität sowie Größe und Änderungszeit über Modussetzung, Synchronisierung und Hashing
+- LQ-2354 directory-bound bundle-sealing evidence:
+  `docs/lq-2354-directory-bound-bundle-sealing-evidence.md`
+  - belegt ausschließlich verzeichnisrelative No-Follow-Öffnung neben bestehenden Link- und Größenablehnungen; production_ready=false
+
+- LQ-2355 directory-bound atomic candidate-write contract:
+  `docs/lq-2355-directory-bound-atomic-candidate-write-contract.md`
+- LQ-2356 private relative temporary-file gate:
+  `docs/lq-2356-private-relative-temporary-file-gate.md`
+  - erzeugt, schreibt, synchronisiert und prüft die private Temporärdatei ausschließlich relativ zum gebundenen Verzeichnis
+- LQ-2357 relative atomic publication and rollback gate:
+  `docs/lq-2357-relative-atomic-publication-and-rollback-gate.md`
+  - veröffentlicht exklusiv und führt Fehler-Rollback mit demselben Verzeichnisdeskriptor aus, ohne bestehende Ziele zu ersetzen
+- LQ-2358 bound atomic candidate-write evidence:
+  `docs/lq-2358-bound-atomic-candidate-write-evidence.md`
+  - belegt relative Quell-, Ziel-, Prüf- und Bereinigungsoperationen neben bestehenden Größen- und Sync-Fehlertests; production_ready=false
+
+- LQ-2359 no-follow private output-directory contract:
+  `docs/lq-2359-no-follow-private-output-directory-contract.md`
+- LQ-2360 descriptor-measured private-directory gate:
+  `docs/lq-2360-descriptor-measured-private-directory-gate.md`
+  - gewinnt Typ, Modus, Eigentümer, Gerät und Inode direkt aus dem geöffneten No-Follow-Verzeichnisdeskriptor
+- LQ-2361 shared private-directory identity foundation:
+  `docs/lq-2361-shared-private-directory-identity-foundation.md`
+  - macht dieselbe deskriptorgemessene Identität zur gemeinsamen Grenze aller lokalen Kandidatenoperationen
+- LQ-2362 private directory-identity evidence:
+  `docs/lq-2362-private-directory-identity-evidence.md`
+  - belegt fail-closed Modus- und Symlink-Ablehnung sowie Ausschluss des früheren lstat-Pfadsnapshots; production_ready=false
+
+- LQ-2363 private preflight-workspace contract:
+  `docs/lq-2363-private-preflight-workspace-contract.md`
+- LQ-2364 relative private candidate-directory creation gate:
+  `docs/lq-2364-relative-private-candidate-directory-creation-gate.md`
+  - erzeugt das feste private bundle-Verzeichnis exklusiv relativ zum gebundenen No-Follow-Workspace-Descriptor
+- LQ-2365 cross-create candidate-directory stability gate:
+  `docs/lq-2365-cross-create-candidate-directory-stability-gate.md`
+  - bindet Workspace- und Kindidentität über Erzeugung und Synchronisierung und entfernt unsichere leere Teilergebnisse relativ
+- LQ-2366 bound candidate-directory creation evidence:
+  `docs/lq-2366-bound-candidate-directory-creation-evidence.md`
+  - belegt relative Erstellung und Rollback sowie Ablehnung vorhandener Ziele und verlinkter Workspaces; production_ready=false
+
+- LQ-2367 private controlled-preflight evidence contract:
+  `docs/lq-2367-private-controlled-preflight-evidence-contract.md`
+- LQ-2368 exclusive relative controlled-evidence write gate:
+  `docs/lq-2368-exclusive-relative-controlled-evidence-write-gate.md`
+  - erzeugt controlled-preflight.json exklusiv mit 0600 und ohne Symlinkfolge relativ zum privaten Workspace-Descriptor
+- LQ-2369 controlled-evidence durability and rollback gate:
+  `docs/lq-2369-controlled-evidence-durability-and-rollback-gate.md`
+  - synchronisiert Datei und Verzeichnis, prüft Metadaten und Workspace-Identität und entfernt unsichere Teilergebnisse relativ
+- LQ-2370 private controlled-evidence write evidence:
+  `docs/lq-2370-private-controlled-evidence-write-evidence.md`
+  - belegt private Einzelverlinkung, Nichtüberschreiben vorhandener Evidenz und Ausschluss pfadbasierter Byte-Schreibwege; production_ready=false
+
+- LQ-2371 bounded controlled-preflight evidence contract:
+  `docs/lq-2371-bounded-controlled-preflight-evidence-contract.md`
+- LQ-2372 terminal controlled-evidence readback gate:
+  `docs/lq-2372-terminal-controlled-evidence-readback-gate.md`
+  - liest die private Evidence unmittelbar vor der Commit-Grenze begrenzt und ohne Symlinkfolge über gebundene Deskriptoren zurück
+- LQ-2373 cross-read controlled-evidence stability gate:
+  `docs/lq-2373-cross-read-controlled-evidence-stability-gate.md`
+  - bindet Workspace- und Evidence-Identität, Metadaten, Größe und Bytes über die terminale Rückleseprüfung
+- LQ-2374 terminal controlled-evidence readback evidence:
+  `docs/lq-2374-terminal-controlled-evidence-readback-evidence.md`
+  - belegt Größenbegrenzung sowie fail-closed Byte-, Modus-, Hardlink- und Symlinkdrift vor Commit; production_ready=false
+
+- LQ-2375 bounded gate-receipt contract:
+  `docs/lq-2375-bounded-gate-receipt-contract.md`
+- LQ-2376 preparse gate-receipt resource gate:
+  `docs/lq-2376-preparse-gate-receipt-resource-gate.md`
+  - begrenzt jedes nichtleere Bytes-Receipt auf 1024 Byte, bevor JSON-Decodierung oder Strukturinterpretation beginnt
+- LQ-2377 fixed-phase gate-receipt binding:
+  `docs/lq-2377-fixed-phase-gate-receipt-binding.md`
+  - akzeptiert Parser-Erwartungsphasen ausschließlich aus dem festen Preflight-Inventar bei unveränderter kanonischer Fünf-Fakten-Struktur
+- LQ-2378 bounded gate-receipt evidence:
+  `docs/lq-2378-bounded-gate-receipt-evidence.md`
+  - belegt Größenablehnung vor Parsing und fail-closed Ablehnung nicht konfigurierter Phasen; production_ready=false
+
+- LQ-2379 controlled workspace-identity contract:
+  `docs/lq-2379-controlled-workspace-identity-contract.md`
+- LQ-2380 pre-gate workspace-identity gate:
+  `docs/lq-2380-pre-gate-workspace-identity-gate.md`
+  - prüft private No-Follow-Workspace-Identität unmittelbar vor jeder der zehn festen Phasen
+- LQ-2381 post-gate workspace-identity gate:
+  `docs/lq-2381-post-gate-workspace-identity-gate.md`
+  - prüft dieselbe Identität nach jeder Phase vor Receipt-Parsing und erneut vor finaler Evidence-Erzeugung
+- LQ-2382 cross-phase workspace-identity evidence:
+  `docs/lq-2382-cross-phase-workspace-identity-evidence.md`
+  - belegt fail-closed Modus- und Inode-Austausch ohne nachfolgende Phase oder sichtbare Erfolgsevidenz; production_ready=false
+
+- LQ-2383 private output-parent contract:
+  `docs/lq-2383-private-output-parent-contract.md`
+- LQ-2384 bound output-target precommit gate:
+  `docs/lq-2384-bound-output-target-precommit-gate.md`
+  - bindet das private 0700-Zielelternverzeichnis und prüft Zielabwesenheit sowie Workspace-Identität unmittelbar vor Commit
+- LQ-2385 relative workspace commit boundary:
+  `docs/lq-2385-relative-workspace-commit-boundary.md`
+  - benennt Workspace und Ziel relativ zu einem gemeinsamen No-Follow-Elterndeskriptor als letzte potenziell fehlschlagende Operation um
+- LQ-2386 bound workspace-publication evidence:
+  `docs/lq-2386-bound-workspace-publication-evidence.md`
+  - belegt private Elternpflicht, relative Umbenennung und unveränderte Signal-Semantik ohne Path.replace; production_ready=false
+
+- LQ-2387 controlled workspace-root inventory contract:
+  `docs/lq-2387-controlled-workspace-root-inventory-contract.md`
+- LQ-2388 private workspace-root entry gate:
+  `docs/lq-2388-private-workspace-root-entry-gate.md`
+  - verlangt exakt vier private 0700-Verzeichnisse und die private 0600-Evidence-Datei ohne Symlinkfolge
+- LQ-2389 terminal workspace-root inventory gate:
+  `docs/lq-2389-terminal-workspace-root-inventory-gate.md`
+  - prüft gebundene Workspace-Identität und exakte Eintragsmenge zweimal unmittelbar vor der Commit-Grenze
+- LQ-2390 terminal workspace-root inventory evidence:
+  `docs/lq-2390-terminal-workspace-root-inventory-evidence.md`
+  - belegt fail-closed zusätzliche, fehlende und symbolisch verlinkte Wurzeleinträge; production_ready=false
+
+- LQ-2391 fixed private workspace-directory contract:
+  `docs/lq-2391-fixed-private-workspace-directory-contract.md`
+- LQ-2392 shared relative workspace-directory creation gate:
+  `docs/lq-2392-shared-relative-workspace-directory-creation-gate.md`
+  - erzeugt alle vier festen privaten Workspace-Kinder exklusiv über dieselbe relative No-Follow-Grenze
+- LQ-2393 private phase-output directory gate:
+  `docs/lq-2393-private-phase-output-directory-gate.md`
+  - übergibt Distribution-, Installation-, Roundtrip- und Bundle-Phase vorab gebundene 0700-Zielverzeichnisse
+- LQ-2394 shared private-directory creation evidence:
+  `docs/lq-2394-shared-private-directory-creation-evidence.md`
+  - belegt alle vier festen Namen und fail-closed Ablehnung caller-bestimmter zusätzlicher Namen; production_ready=false
+
+- LQ-2395 distribution-artifact inventory contract:
+  `docs/lq-2395-distribution-artifact-inventory-contract.md`
+- LQ-2396 private distribution-artifact sealing gate:
+  `docs/lq-2396-private-distribution-artifact-sealing-gate.md`
+  - versiegelt Wheel und sdist nach Normalisierung privat und prüft Typ, Eigentümer, Modus, Linkzahl und Größe deskriptorgebunden
+- LQ-2397 terminal distribution-artifact inventory gate:
+  `docs/lq-2397-terminal-distribution-artifact-inventory-gate.md`
+  - bindet exakte Zwei-Dateien-Menge, stabile Metadaten, Bytegrößen und bestehende Digests in einen kanonischen terminalen Inventardigest
+- LQ-2398 distribution-artifact inventory evidence:
+  `docs/lq-2398-distribution-artifact-inventory-evidence.md`
+  - belegt deterministische Paaridentität sowie fail-closed Extra-, Missing-, Symlink-, Hardlink- und Modusdrift; production_ready=false
+
+- LQ-2399 roundtrip-wheel inventory contract:
+  `docs/lq-2399-roundtrip-wheel-inventory-contract.md`
+- LQ-2400 private roundtrip-wheel sealing gate:
+  `docs/lq-2400-private-roundtrip-wheel-sealing-gate.md`
+  - versiegelt das aus dem sdist reproduzierte Wheel privat und prüft es deskriptorgebunden ohne Symlinkfolge
+- LQ-2401 terminal roundtrip-artifact inventory gate:
+  `docs/lq-2401-terminal-roundtrip-artifact-inventory-gate.md`
+  - verlangt exakt ein stabiles Wheel mit demselben Digest wie das ursprüngliche Distributions-Wheel und erzeugt einen kanonischen Inventardigest
+- LQ-2402 roundtrip-artifact inventory evidence:
+  `docs/lq-2402-roundtrip-artifact-inventory-evidence.md`
+  - belegt deterministische Einzeldateiidentität sowie fail-closed Extra-, Symlink- und Modusdrift; production_ready=false
+
+- LQ-2403 bounded installed-wheel tree contract:
+  `docs/lq-2403-bounded-installed-wheel-tree-contract.md`
+- LQ-2404 private installed-wheel tree normalization gate:
+  `docs/lq-2404-private-installed-wheel-tree-normalization-gate.md`
+  - traversiert deskriptorgebunden mit festen Tiefen-, Anzahl- und Bytegrenzen und normalisiert Verzeichnisse auf 0700 sowie Dateien auf 0600
+- LQ-2405 terminal installed-wheel tree gate:
+  `docs/lq-2405-terminal-installed-wheel-tree-gate.md`
+  - verlangt im Bundle-Gate denselben kanonischen Baumdigest, dieselbe Dateizahl und Gesamtbytemenge ohne erneute Normalisierung
+- LQ-2406 installed-wheel tree evidence:
+  `docs/lq-2406-installed-wheel-tree-evidence.md`
+  - belegt stabile Wiedervermessung, private Modi sowie fail-closed Symlink- und Modusdrift; production_ready=false
+
+- LQ-2407 installed-distribution identity contract:
+  `docs/lq-2407-installed-distribution-identity-contract.md`
+- LQ-2408 exact installed-distribution gate:
+  `docs/lq-2408-exact-installed-distribution-gate.md`
+  - bindet genau eine installierte liquent-Distribution an Version und vollständige Konsolenbefehl-Identität des verifizierten Wheels
+- LQ-2409 exact entry-point load gate:
+  `docs/lq-2409-exact-entry-point-load-gate.md`
+  - lädt jeden der 71 erwarteten Befehle über sein exaktes Namen-/Zielpaar und verwirft fremde, fehlende oder abweichende Einträge
+- LQ-2410 installed-distribution identity evidence:
+  `docs/lq-2410-installed-distribution-identity-evidence.md`
+  - belegt kanonische Identität, Änderungsbindung und terminale Neuableitung vor Kandidatenerzeugung; production_ready=false
+
+- LQ-2411 isolated wheel-installation contract:
+  `docs/lq-2411-isolated-wheel-installation-contract.md`
+- LQ-2412 configuration-independent Pip-install gate:
+  `docs/lq-2412-configuration-independent-pip-install-gate.md`
+  - installiert ausschließlich das verifizierte lokale Wheel ohne Index, Dependency-Auflösung, Bytecode oder benutzergesteuerte Pip-Konfiguration
+- LQ-2413 isolated entry-point import-origin gate:
+  `docs/lq-2413-isolated-entry-point-import-origin-gate.md`
+  - lädt im isolierten Interpreter und verlangt für jedes aufrufbare Ziel einen strikt unterhalb des privaten Installationsbaums aufgelösten Modulursprung
+- LQ-2414 isolated install-and-origin evidence:
+  `docs/lq-2414-isolated-install-and-origin-evidence.md`
+  - belegt feste Installationsflags, isolierte Importpräzedenz und fail-closed fremde Modulursprünge; production_ready=false
+
+- LQ-2415 installed-root continuity contract:
+  `docs/lq-2415-installed-root-continuity-contract.md`
+- LQ-2416 post-install root-identity gate:
+  `docs/lq-2416-post-install-root-identity-gate.md`
+  - bindet Geräte-/Inode-Identität des privaten Installationsziels und prüft sie unmittelbar nach Pip erneut
+- LQ-2417 loader-to-tree root-continuity gate:
+  `docs/lq-2417-loader-tree-root-continuity-gate.md`
+  - trägt dieselbe Wurzelidentität über Loader, Normalisierung und terminale Bundle-Wiedervermessung
+- LQ-2418 installed-root continuity evidence:
+  `docs/lq-2418-installed-root-continuity-evidence.md`
+  - belegt fail-closed Austausch durch ein gleichnamiges neues Verzeichnis sowie geordnete Identitätsprüfungen; production_ready=false
+
+- LQ-2419 distribution-directory continuity contract:
+  `docs/lq-2419-distribution-directory-continuity-contract.md`
+- LQ-2420 post-build distribution-directory gate:
+  `docs/lq-2420-post-build-distribution-directory-gate.md`
+  - bindet die private Artefaktverzeichnis-Identität und prüft sie nach Build sowie nach Normalisierung und Paarmessung
+- LQ-2421 cross-gate distribution-directory identity:
+  `docs/lq-2421-cross-gate-distribution-directory-identity.md`
+  - verlangt dieselbe Elternidentität bei jeder Paarprüfung und der terminalen exakten Zwei-Dateien-Inventur
+- LQ-2422 distribution-directory continuity evidence:
+  `docs/lq-2422-distribution-directory-continuity-evidence.md`
+  - belegt fail-closed Austausch durch ein gleichnamiges privates Verzeichnis trotz gültiger Artefaktbytes; production_ready=false
+
+- LQ-2423 roundtrip-directory continuity contract:
+  `docs/lq-2423-roundtrip-directory-continuity-contract.md`
+- LQ-2424 post-rebuild roundtrip-directory gate:
+  `docs/lq-2424-post-rebuild-roundtrip-directory-gate.md`
+  - bindet die private Roundtrip-Verzeichnisidentität und prüft sie direkt nach Rebuild sowie nach Wheel-Verifikation
+- LQ-2425 terminal roundtrip-directory identity gate:
+  `docs/lq-2425-terminal-roundtrip-directory-identity-gate.md`
+  - verlangt dieselbe Geräte-/Inode-Identität bei der terminalen exakten Ein-Wheel-Inventur
+- LQ-2426 roundtrip-directory continuity evidence:
+  `docs/lq-2426-roundtrip-directory-continuity-evidence.md`
+  - belegt fail-closed Austausch durch ein gleichnamiges privates Verzeichnis trotz identischer Wheelbytes; production_ready=false
+
+- LQ-2427 controlled phase-output identity contract:
+  `docs/lq-2427-controlled-phase-output-identity-contract.md`
+- LQ-2428 phase-output identity capture gate:
+  `docs/lq-2428-phase-output-identity-capture-gate.md`
+  - erfasst genau vier private Kindidentitäten deskriptorgebunden unmittelbar nach ihren festen Erzeugungsphasen
+- LQ-2429 cross-phase output-continuity gate:
+  `docs/lq-2429-cross-phase-output-continuity-gate.md`
+  - prüft alle erfassten Geräte-/Inode-Identitäten vor und nach späteren Phasen sowie in der terminalen Workspace-Inventur
+- LQ-2430 controlled phase-output continuity evidence:
+  `docs/lq-2430-controlled-phase-output-continuity-evidence.md`
+  - belegt fail-closed Verzeichnisaustausch während einer späteren Phase und unmittelbar vor Veröffentlichung; production_ready=false
+
+- LQ-2431 publication child-identity contract:
+  `docs/lq-2431-publication-child-identity-contract.md`
+- LQ-2432 descriptor-bound precommit child gate:
+  `docs/lq-2432-descriptor-bound-precommit-child-gate.md`
+  - prüft alle vier erfassten Kindidentitäten innerhalb der relativen Veröffentlichungsgrenze unmittelbar vor Rename
+- LQ-2433 post-rename child-identity gate:
+  `docs/lq-2433-post-rename-child-identity-gate.md`
+  - öffnet das veröffentlichte Ziel über denselben Elterndeskriptor und verlangt unveränderte Workspace- und Kindidentitäten
+- LQ-2434 publication child-continuity evidence:
+  `docs/lq-2434-publication-child-continuity-evidence.md`
+  - belegt fail-closed Austausch vor Commit sowie Identitätsprüfung auf beiden Seiten des relativen Rename; production_ready=false
+
+- LQ-2435 post-rename failure atomicity contract:
+  `docs/lq-2435-post-rename-failure-atomicity-contract.md`
+- LQ-2436 identity-bound publication rollback gate:
+  `docs/lq-2436-identity-bound-publication-rollback-gate.md`
+  - führt ausschließlich dasselbe gebundene Workspace-Verzeichnis relativ zum gemeinsamen Elterndeskriptor an den privaten Namen zurück
+- LQ-2437 post-rename verification-failure cleanup:
+  `docs/lq-2437-post-rename-verification-failure-cleanup.md`
+  - entfernt bei sicherer Rückführung den sichtbaren Ergebnisnamen, bevor die detailarme Ablehnung den temporären Cleanup erreicht
+- LQ-2438 publication rollback evidence:
+  `docs/lq-2438-publication-rollback-evidence.md`
+  - belegt erzwungenes Scheitern der zweiten Identitätsprüfung, sichere Rückführung und fehlenden öffentlichen Ausgabepfad; production_ready=false
+
+- LQ-2439 published-workspace readback contract:
+  `docs/lq-2439-published-workspace-readback-contract.md`
+- LQ-2440 post-rename evidence-readback gate:
+  `docs/lq-2440-post-rename-evidence-readback-gate.md`
+  - liest die exakten kontrollierten Evidence-Bytes über den endgültigen Ergebnisnamen erneut und führt Fehler sicher zurück
+- LQ-2441 post-rename workspace-inventory gate:
+  `docs/lq-2441-post-rename-workspace-inventory-gate.md`
+  - prüft am endgültigen Pfad erneut exakte Topologie, private Metadaten sowie alle vier gebundenen Kindidentitäten
+- LQ-2442 published-workspace readback evidence:
+  `docs/lq-2442-published-workspace-readback-evidence.md`
+  - belegt erzwungenes Readback-Scheitern, Rückführung und fehlenden sichtbaren Ergebnispfad; production_ready=false
+
+- LQ-2443 durable private-publication contract:
+  `docs/lq-2443-durable-private-publication-contract.md`
+- LQ-2444 forward-rename parent-sync gate:
+  `docs/lq-2444-forward-rename-parent-sync-gate.md`
+  - synchronisiert den gebundenen gemeinsamen Elterndeskriptor direkt nach Rename und führt Synchronisationsfehler sicher zurück
+- LQ-2445 terminal publication-namespace gate:
+  `docs/lq-2445-terminal-publication-namespace-gate.md`
+  - verlangt terminal dieselbe Elternidentität, Abwesenheit des temporären Namens und Workspace-Identität am Ergebnisnamen
+- LQ-2446 durable publication evidence:
+  `docs/lq-2446-durable-publication-evidence.md`
+  - belegt erzwungenen Forward-Sync-Fehler, sichere Rückführung und terminale Namespace-Bindung; production_ready=false
+
+- LQ-2447 terminal publication-metadata contract:
+  `docs/lq-2447-terminal-publication-metadata-contract.md`
+- LQ-2448 terminal parent-metadata gate:
+  `docs/lq-2448-terminal-parent-metadata-gate.md`
+  - verlangt am offenen Elterndeskriptor terminal unveränderte Identität, Modus 0700 und aktuellen lokalen Eigentümer
+- LQ-2449 terminal published-root metadata gate:
+  `docs/lq-2449-terminal-published-root-metadata-gate.md`
+  - prüft am endgültigen Ergebnisnamen erneut echten Verzeichnistyp, Workspace-Identität, Modus 0700 und Eigentümer
+- LQ-2450 terminal publication-metadata evidence:
+  `docs/lq-2450-terminal-publication-metadata-evidence.md`
+  - belegt fail-closed späte Modusdrift an Eltern- und Ergebnisverzeichnis mit sicherer Rückführung; production_ready=false
+
+- LQ-2451 bound child-descriptor set contract:
+  `docs/lq-2451-bound-child-descriptor-set-contract.md`
+- LQ-2452 exact publication workspace-entry-set gate:
+  `docs/lq-2452-exact-publication-workspace-entry-set-gate.md`
+  - verlangt vor Kindöffnung exakt vier feste Verzeichnisse plus kontrollierte Evidence und prüft dieselbe Eintragsliste danach erneut
+- LQ-2453 terminal child-descriptor stability gate:
+  `docs/lq-2453-terminal-child-descriptor-stability-gate.md`
+  - hält alle vier relativen No-Follow-Deskriptoren bis zur zweiten Identitäts-, Modus- und Eigentümerprüfung offen
+- LQ-2454 bound child-descriptor set evidence:
+  `docs/lq-2454-bound-child-descriptor-set-evidence.md`
+  - belegt exakte Eintragsmenge, fail-closed Fremdeintrag und deskriptorgebundene Stabilitätsprüfung; production_ready=false
+
+- LQ-2455 controlled evidence-file continuity contract:
+  `docs/lq-2455-controlled-evidence-file-continuity-contract.md`
+- LQ-2456 retained controlled-evidence identity gate:
+  `docs/lq-2456-retained-controlled-evidence-identity-gate.md`
+  - hält Geräte-/Inode-Identität aus der ersten stabilen Evidence-Wiederlesung und verlangt sie in der Precommit-Inventur
+- LQ-2457 published evidence-file identity gate:
+  `docs/lq-2457-published-evidence-file-identity-gate.md`
+  - bindet finalen No-Follow-Readback und veröffentlichte Workspace-Inventur an dieselbe konkrete Evidence-Datei
+- LQ-2458 controlled evidence-file continuity evidence:
+  `docs/lq-2458-controlled-evidence-file-continuity-evidence.md`
+  - belegt fail-closed bytegleichen Dateiaustausch bei Readback und Inventur; production_ready=false
+
+- LQ-2459 atomic evidence-identity capture contract:
+  `docs/lq-2459-atomic-evidence-identity-capture-contract.md`
+- LQ-2460 evidence-writer identity result:
+  `docs/lq-2460-evidence-writer-identity-result.md`
+  - liefert Pfad und Geräte-/Inode-Identität gemeinsam aus dem exklusiven synchronisierten Schreibdeskriptor
+- LQ-2461 first-readback writer-identity gate:
+  `docs/lq-2461-first-readback-writer-identity-gate.md`
+  - bindet bereits die erste No-Follow-Wiederlesung an die vom Writer erfasste Dateiidentität und vergleicht das Ergebnis erneut
+- LQ-2462 atomic evidence-identity capture evidence:
+  `docs/lq-2462-atomic-evidence-identity-capture-evidence.md`
+  - belegt deskriptorabgeleitete Writer-Identität, identische erste Wiederlesung und direkte kontrollierte Nutzung; production_ready=false
+
+- LQ-2463 bound evidence-writer workspace contract:
+  `docs/lq-2463-bound-evidence-writer-workspace-contract.md`
+- LQ-2464 prewrite workspace-identity gate:
+  `docs/lq-2464-prewrite-workspace-identity-gate.md`
+  - verlangt am offenen Writer-Verzeichnis vor exklusiver Dateierzeugung dieselbe vom Controller gehaltene Workspace-Identität
+- LQ-2465 postwrite workspace-identity gate:
+  `docs/lq-2465-postwrite-workspace-identity-gate.md`
+  - prüft dieselbe Geräte-/Inode-Identität nach Datei- und Elternsynchronisierung erneut
+- LQ-2466 bound evidence-writer workspace evidence:
+  `docs/lq-2466-bound-evidence-writer-workspace-evidence.md`
+  - belegt fail-closed gleichnamigen Workspace-Austausch vor Evidence-Erzeugung und direkte kontrollierte Bindung; production_ready=false
+
+- LQ-2467 bound evidence-reader workspace contract:
+  `docs/lq-2467-bound-evidence-reader-workspace-contract.md`
+- LQ-2468 pre-read workspace-identity gate:
+  `docs/lq-2468-pre-read-workspace-identity-gate.md`
+  - verlangt vor Evidence-Öffnung am No-Follow-Verzeichnisdeskriptor dieselbe vom Controller gebundene Workspace-Identität
+- LQ-2469 post-read workspace-identity gate:
+  `docs/lq-2469-post-read-workspace-identity-gate.md`
+  - prüft dieselbe Elternidentität nach vollständiger stabiler Dateiwiederlesung erneut
+- LQ-2470 precommit evidence-reader root binding:
+  `docs/lq-2470-precommit-evidence-reader-root-binding.md`
+  - bindet die erste Wiederlesung gemeinsam an Writer-Dateiidentität und temporäre Workspace-Identität
+- LQ-2471 published evidence-reader root binding:
+  `docs/lq-2471-published-evidence-reader-root-binding.md`
+  - verlangt beim finalen Ergebnis-Readback dieselbe ursprüngliche Workspace- und Evidence-Dateiidentität
+- LQ-2472 bound evidence-reader workspace evidence:
+  `docs/lq-2472-bound-evidence-reader-workspace-evidence.md`
+  - belegt fail-closed Verschieben des originalen Evidence-Inodes in einen gleichnamigen Ersatz-Workspace; production_ready=false
+
+- LQ-2473 evidence-writer cleanup ownership contract:
+  `docs/lq-2473-evidence-writer-cleanup-ownership-contract.md`
+- LQ-2474 immediate created-evidence identity gate:
+  `docs/lq-2474-immediate-created-evidence-identity-gate.md`
+  - erfasst Geräte-/Inode-Identität direkt nach exklusiver Erzeugung und vor dem ersten potenziell fehlschlagenden Payload-Write
+- LQ-2475 identity-bound evidence-unlink gate:
+  `docs/lq-2475-identity-bound-evidence-unlink-gate.md`
+  - entfernt bei Fehlern ausschließlich den relativ gefundenen regulären Eintrag mit exakt derselben Erzeugungsidentität
+- LQ-2476 replacement-preserving writer failure:
+  `docs/lq-2476-replacement-preserving-writer-failure.md`
+  - bewahrt einen zwischenzeitlich eingesetzten fremden Eintrag trotz gleichem Namen, Modus und Eigentümer
+- LQ-2477 synchronized evidence-cleanup boundary:
+  `docs/lq-2477-synchronized-evidence-cleanup-boundary.md`
+  - synchronisiert das gehaltene Workspace-Verzeichnis nach erfolgreichem identitätsgebundenem Unlink
+- LQ-2478 evidence-writer cleanup ownership evidence:
+  `docs/lq-2478-evidence-writer-cleanup-ownership-evidence.md`
+  - belegt Entfernung der Writer-Datei und Erhalt einer ersetzten Datei bei erzwungenem Schreibfehler; production_ready=false
+
+- LQ-2479 evidence-cleanup parent-authority contract:
+  `docs/lq-2479-evidence-cleanup-parent-authority-contract.md`
+- LQ-2480 pre-unlink workspace-metadata gate:
+  `docs/lq-2480-preunlink-workspace-metadata-gate.md`
+  - verlangt vor Dateiprüfung dieselbe Workspace-Identität, Modus 0700 und aktuellen Eigentümer am gehaltenen Deskriptor
+- LQ-2481 post-unlink workspace-metadata gate:
+  `docs/lq-2481-postunlink-workspace-metadata-gate.md`
+  - synchronisiert nach identitätsgebundenem Unlink und misst dieselben Elternfakten erneut
+- LQ-2482 parent-drift-preserving writer cleanup:
+  `docs/lq-2482-parent-drift-preserving-writer-cleanup.md`
+  - bewahrt selbst die Writer-Datei, wenn späte Workspace-Metadatendrift die Cleanup-Autorität entzieht
+- LQ-2483 composite evidence-cleanup authority:
+  `docs/lq-2483-composite-evidence-cleanup-authority.md`
+  - verlangt die Konjunktion aus Elternidentität, Elternmetadaten, regulärem Dateityp und Erzeugungsidentität
+- LQ-2484 evidence-cleanup parent-authority evidence:
+  `docs/lq-2484-evidence-cleanup-parent-authority-evidence.md`
+  - belegt Erhalt der Datei bei erzwungenem Schreibfehler nach Workspace-Modusdrift; production_ready=false
+
+- LQ-2485 publication-rollback parent contract:
+  `docs/lq-2485-publication-rollback-parent-contract.md`
+- LQ-2486 pre-rollback parent-identity gate:
+  `docs/lq-2486-pre-rollback-parent-identity-gate.md`
+  - verlangt vor Rückführung dieselbe gebundene Elternidentität und aktuellen lokalen Eigentümer
+- LQ-2487 terminal rollback-namespace gate:
+  `docs/lq-2487-terminal-rollback-namespace-gate.md`
+  - prüft nach relativem Rück-Rename privaten Namen, fehlenden Ergebnisnamen sowie unveränderte Eltern- und Workspace-Identität
+- LQ-2488 explicit publication-rollback outcome:
+  `docs/lq-2488-explicit-publication-rollback-outcome.md`
+  - meldet nur verifizierte vollständige Rückführung als true und alle unsicheren oder technischen Fälle als false
+- LQ-2489 shared publication-exception rollback boundary:
+  `docs/lq-2489-shared-publication-exception-rollback-boundary.md`
+  - nutzt denselben gebundenen Rollback-Vertrag für kontrollierte Ablehnung und Betriebssystemfehler nach Rename
+- LQ-2490 publication-rollback parent evidence:
+  `docs/lq-2490-publication-rollback-parent-evidence.md`
+  - belegt nichtdestruktives false bei falscher Elternidentität und verifiziertes true bei sicherer Rückführung; production_ready=false
+
+- LQ-2491 immediate precommit-namespace contract:
+  `docs/lq-2491-immediate-precommit-namespace-contract.md`
+- LQ-2492 second target-absence gate:
+  `docs/lq-2492-second-target-absence-gate.md`
+  - prüft den Ergebnisnamen nach der Kindprüfung unmittelbar vor Rename erneut relativ und ohne Symlinkfolge
+- LQ-2493 immediate source-workspace gate:
+  `docs/lq-2493-immediate-source-workspace-gate.md`
+  - verlangt direkt vor Commit dieselbe Workspace-Identität, echten Verzeichnistyp, Modus 0700 und aktuellen Eigentümer
+- LQ-2494 immediate parent-workspace gate:
+  `docs/lq-2494-immediate-parent-workspace-gate.md`
+  - misst am gemeinsamen Deskriptor erneut Elternidentität, privaten Modus und Eigentümer
+- LQ-2495 ordered publication-commit checks:
+  `docs/lq-2495-ordered-publication-commit-checks.md`
+  - ordnet Kind-, Eltern-, Quell- und Zielprüfung direkt vor dem relativen Rename ohne dazwischenliegende Callback-Arbeit
+- LQ-2496 immediate precommit-namespace evidence:
+  `docs/lq-2496-immediate-precommit-namespace-evidence.md`
+  - belegt Erhalt eines zwischenzeitlich angelegten Ergebnisverzeichnisses und unveränderten privaten Workspace; production_ready=false
+
+- LQ-2497 intermediate workspace-topology contract:
+  `docs/lq-2497-intermediate-workspace-topology-contract.md`
+- LQ-2498 prephase exact workspace-entry gate:
+  `docs/lq-2498-prephase-exact-workspace-entry-gate.md`
+  - verlangt vor jeder Phase exakt die bereits erfassten privaten Ausgabeverzeichnisse und keine weiteren Root-Einträge
+- LQ-2499 single mapped phase-output transition:
+  `docs/lq-2499-single-mapped-phase-output-transition.md`
+  - erlaubt nur vier festen Phasen jeweils genau ihr vordefiniertes neues Ausgabeverzeichnis
+- LQ-2500 postphase exact workspace-entry gate:
+  `docs/lq-2500-postphase-exact-workspace-entry-gate.md`
+  - prüft nach optionaler Identitätserfassung die Root-Menge erneut exakt gegen alle gehaltenen Namen
+- LQ-2501 future phase-output precreation rejection:
+  `docs/lq-2501-future-phase-output-precreation-rejection.md`
+  - verwirft vorzeitig angelegte spätere Ausgabeziele bereits in der verursachenden Phase
+- LQ-2502 intermediate workspace-topology evidence:
+  `docs/lq-2502-intermediate-workspace-topology-evidence.md`
+  - belegt unmittelbare Ablehnung eines zukünftigen Bundle-Verzeichnisses und eines fremden Root-Files; production_ready=false
+
+- LQ-2503 bound intermediate directory-set contract:
+  `docs/lq-2503-bound-intermediate-directory-set-contract.md`
+- LQ-2504 intermediate identity-map verifier:
+  `docs/lq-2504-intermediate-identity-map-verifier.md`
+  - bindet exakte Root-Namen und private Kindmetadaten in einem Deskriptordurchlauf an die gehaltenen Geräte-/Inode-Identitäten
+- LQ-2505 prephase bound directory-set gate:
+  `docs/lq-2505-prephase-bound-directory-set-gate.md`
+  - verlangt vor jeder Phase die vollständige unveränderte Identitätsabbildung aller bereits erfassten Ausgaben
+- LQ-2506 postphase bound directory-set gate:
+  `docs/lq-2506-postphase-bound-directory-set-gate.md`
+  - prüft nach optionaler Neuerfassung bisherige und neue Verzeichnisidentitäten gemeinsam vor Receipt-Parsing
+- LQ-2507 same-name intermediate replacement rejection:
+  `docs/lq-2507-same-name-intermediate-replacement-rejection.md`
+  - verwirft gleichnamigen privaten Austausch, ohne dessen neue Identität nachträglich zu übernehmen
+- LQ-2508 bound intermediate directory-set evidence:
+  `docs/lq-2508-bound-intermediate-directory-set-evidence.md`
+  - belegt direkte Ablehnung eines gleichnamigen 0700-Verzeichnisaustauschs; production_ready=false
+
+- LQ-2509 intermediate child-stability contract:
+  `docs/lq-2509-intermediate-child-stability-contract.md`
+- LQ-2510 second intermediate listing gate:
+  `docs/lq-2510-second-intermediate-listing-gate.md`
+  - verlangt nach der ersten Kindprüfung erneut exakt dieselbe deskriptorgebundene Namensmenge
+- LQ-2511 post-relist child-identity gate:
+  `docs/lq-2511-post-relist-child-identity-gate.md`
+  - prüft nach der Relistung Typ, Modus, Eigentümer sowie Geräte-/Inode-Identität jedes Kindes erneut
+- LQ-2512 terminal intermediate root-metadata gate:
+  `docs/lq-2512-terminal-intermediate-root-metadata-gate.md`
+  - misst Workspace-Identität, privaten Modus und Eigentümer terminal am weiterhin offenen Deskriptor
+- LQ-2513 relist-bound replacement rejection:
+  `docs/lq-2513-relist-bound-replacement-rejection.md`
+  - verwirft einen gleichnamigen privaten Austausch genau während der zweiten Verzeichnisauflistung
+- LQ-2514 intermediate child-stability evidence:
+  `docs/lq-2514-intermediate-child-stability-evidence.md`
+  - belegt zwei Listungen und fail-closed Identitätsabweichung im anschließenden zweiten Kinddurchlauf; production_ready=false
+
+- LQ-2515 retained intermediate child-descriptor contract:
+  `docs/lq-2515-retained-intermediate-child-descriptor-contract.md`
+- LQ-2516 relative no-follow intermediate child open:
+  `docs/lq-2516-relative-no-follow-intermediate-child-open.md`
+  - öffnet jeden festen Kindnamen relativ zum gehaltenen Workspace-Deskriptor als echtes No-Follow-Verzeichnis
+- LQ-2517 retained child-descriptor metadata gate:
+  `docs/lq-2517-retained-child-descriptor-metadata-gate.md`
+  - bindet anfängliche und terminale Kindmetadaten desselben offenen Deskriptors an die erfasste Identität
+- LQ-2518 terminal namespace-to-descriptor binding:
+  `docs/lq-2518-terminal-namespace-to-descriptor-binding.md`
+  - verlangt terminal sowohl am sichtbaren Namen als auch am gehaltenen Objekt dieselbe Geräte-/Inode-Identität
+- LQ-2519 intermediate child-descriptor lifecycle:
+  `docs/lq-2519-intermediate-child-descriptor-lifecycle.md`
+  - schließt alle gehaltenen Kinddeskriptoren auf Erfolgs- und Fehlerpfaden vor dem Workspace-Deskriptor
+- LQ-2520 retained intermediate child-descriptor evidence:
+  `docs/lq-2520-retained-intermediate-child-descriptor-evidence.md`
+  - belegt identitätsgebundene Prüfung und exakt einen Kind- sowie Workspace-Deskriptor-Close; production_ready=false
+
+- LQ-2521 intermediate descriptor-cleanup failure contract:
+  `docs/lq-2521-intermediate-descriptor-cleanup-failure-contract.md`
+- LQ-2522 exhaustive intermediate child close:
+  `docs/lq-2522-exhaustive-intermediate-child-close.md`
+  - führt nach einem einzelnen Close-Fehler alle übrigen gehaltenen Kind-Close-Versuche weiter aus
+- LQ-2523 parent close after child failure:
+  `docs/lq-2523-parent-close-after-child-failure.md`
+  - versucht den Workspace-Deskriptor auch nach einem fehlgeschlagenen Kind-Close genau einmal zu schließen
+- LQ-2524 close-failure detail normalization:
+  `docs/lq-2524-close-failure-detail-normalization.md`
+  - vereinheitlicht jeden Cleanup-Fehler in die bestehende detailarme kontrollierte Ablehnung
+- LQ-2525 intermediate descriptor-cleanup boundedness:
+  `docs/lq-2525-intermediate-descriptor-cleanup-boundedness.md`
+  - begrenzt Cleanup auf höchstens vier fest erfasste Kinder und einen Workspace-Deskriptor
+- LQ-2526 intermediate descriptor-cleanup evidence:
+  `docs/lq-2526-intermediate-descriptor-cleanup-evidence.md`
+  - belegt vollständige Close-Versuche und detailarme Ablehnung nach injiziertem erstem Close-Fehler; production_ready=false
+
+- LQ-2527 phase-output identity-capture contract:
+  `docs/lq-2527-phase-output-identity-capture-contract.md`
+- LQ-2528 relative phase-output descriptor capture:
+  `docs/lq-2528-relative-phase-output-descriptor-capture.md`
+  - öffnet neue feste Phasenausgaben relativ, verzeichnisgebunden und ohne Symlinkfolge vor Identitätsübernahme
+- LQ-2529 capture namespace-descriptor consistency gate:
+  `docs/lq-2529-capture-namespace-descriptor-consistency-gate.md`
+  - verlangt am sichtbaren Namen und gehaltenen Kinddeskriptor dieselbe private Geräte-/Inode-Identität
+- LQ-2530 capture parent-continuity gate:
+  `docs/lq-2530-capture-parent-continuity-gate.md`
+  - bindet Workspace-Identität, Modus und Eigentümer vor und nach der Kindaufnahme an denselben Deskriptor
+- LQ-2531 phase-output capture descriptor lifecycle:
+  `docs/lq-2531-phase-output-capture-descriptor-lifecycle.md`
+  - schließt Kind und Workspace vollständig sowie detailarm fail-closed auf allen Capture-Pfaden
+- LQ-2532 phase-output identity-capture evidence:
+  `docs/lq-2532-phase-output-identity-capture-evidence.md`
+  - belegt Ablehnung eines gleichnamigen privaten Austauschs zwischen Kindöffnung und Namespace-Messung; production_ready=false
+
+- LQ-2533 phase-output capture-stability contract:
+  `docs/lq-2533-phase-output-capture-stability-contract.md`
+- LQ-2534 terminal captured-child descriptor gate:
+  `docs/lq-2534-terminal-captured-child-descriptor-gate.md`
+  - misst das gehaltene Kind nach erster Namespace-Prüfung erneut gegen Identität und private Metadaten
+- LQ-2535 second capture-namespace gate:
+  `docs/lq-2535-second-capture-namespace-gate.md`
+  - bindet eine zweite relative No-Follow-Namensmessung an dieselbe erfasste Kindidentität
+- LQ-2536 terminal capture-workspace gate:
+  `docs/lq-2536-terminal-capture-workspace-gate.md`
+  - prüft nach beiden terminalen Kindbeobachtungen erneut Workspace-Identität, Modus und Eigentümer
+- LQ-2537 mid-capture metadata-drift rejection:
+  `docs/lq-2537-mid-capture-metadata-drift-rejection.md`
+  - verwirft Modusdrift unmittelbar nach der ersten Namespace-Messung, ohne die Identität zurückzugeben
+- LQ-2538 phase-output capture-stability evidence:
+  `docs/lq-2538-phase-output-capture-stability-evidence.md`
+  - belegt fail-closed terminale Erkennung einer während Capture injizierten Kindmetadatendrift; production_ready=false
+
+- LQ-2539 shared preflight descriptor-cleanup contract:
+  `docs/lq-2539-shared-preflight-descriptor-cleanup-contract.md`
+- LQ-2540 ordered preflight descriptor-close sequence:
+  `docs/lq-2540-ordered-preflight-descriptor-close-sequence.md`
+  - ordnet alle Kinddeskriptoren vor ihrem Workspace-Anker und erhält die vorgegebene Reihenfolge
+- LQ-2541 exhaustive close-and-reject helper:
+  `docs/lq-2541-exhaustive-close-and-reject-helper.md`
+  - versucht jede Schließung trotz Einzelfehler und verwirft erst danach einheitlich detailarm
+- LQ-2542 phase-output capture shared cleanup:
+  `docs/lq-2542-phase-output-capture-shared-cleanup.md`
+  - übergibt Capture-Kind und Workspace geordnet an dieselbe vollständige Cleanup-Grenze
+- LQ-2543 intermediate verifier shared cleanup:
+  `docs/lq-2543-intermediate-verifier-shared-cleanup.md`
+  - führt auch partielle Verifier-Öffnungen über den gemeinsamen begrenzten Cleanup-Pfad zurück
+- LQ-2544 shared preflight descriptor-cleanup evidence:
+  `docs/lq-2544-shared-preflight-descriptor-cleanup-evidence.md`
+  - belegt beim Capture vollständige Close-Versuche und kontrollierte Ablehnung nach erstem Close-Fehler; production_ready=false
+
+- LQ-2545 terminal intermediate-namespace contract:
+  `docs/lq-2545-terminal-intermediate-namespace-contract.md`
+- LQ-2546 third intermediate listing gate:
+  `docs/lq-2546-third-intermediate-listing-gate.md`
+  - verlangt nach dem terminalen Kinddurchlauf erneut exakt die anfänglich akzeptierte Root-Namensmenge
+- LQ-2547 post-child-pass entry rejection:
+  `docs/lq-2547-post-child-pass-entry-rejection.md`
+  - verwirft auch nach der letzten Kindmetadatenmessung noch hinzugefügte fremde Einträge
+- LQ-2548 post-list terminal root gate:
+  `docs/lq-2548-post-list-terminal-root-gate.md`
+  - misst Workspace-Identität, privaten Modus und Eigentümer erst nach erfolgreicher dritter Auflistung
+- LQ-2549 terminal intermediate-before-receipt order:
+  `docs/lq-2549-terminal-intermediate-before-receipt-order.md`
+  - hält Receipt-Parsing strikt hinter vollständig abgeschlossener Zwischen-Namespace-Prüfung
+- LQ-2550 terminal intermediate-namespace evidence:
+  `docs/lq-2550-terminal-intermediate-namespace-evidence.md`
+  - belegt Ablehnung eines nach terminalem Kinddurchlauf erzeugten fremden Root-Files; production_ready=false
+
+- LQ-2551 immutable intermediate-expectation contract:
+  `docs/lq-2551-immutable-intermediate-expectation-contract.md`
+- LQ-2552 entry-time identity-map snapshot:
+  `docs/lq-2552-entry-time-identity-map-snapshot.md`
+  - kopiert die vollständige erwartete Name-zu-Identität-Abbildung vor jeder Dateisystembeobachtung
+- LQ-2553 snapshotted fixed-name validation:
+  `docs/lq-2553-snapshotted-fixed-name-validation.md`
+  - validiert ausschließlich den lokalen Snapshot gegen die vier festen Phasenausgaben
+- LQ-2554 snapshotted child-identity comparison:
+  `docs/lq-2554-snapshotted-child-identity-comparison.md`
+  - nutzt in allen Namespace- und Deskriptorprüfungen dieselben eingefrorenen Kindidentitäten
+- LQ-2555 expected-map alias-mutation isolation:
+  `docs/lq-2555-expected-map-alias-mutation-isolation.md`
+  - isoliert die laufende Entscheidung von Änderungen am ursprünglich übergebenen Controller-Dictionary
+- LQ-2556 immutable intermediate-expectation evidence:
+  `docs/lq-2556-immutable-intermediate-expectation-evidence.md`
+  - belegt erfolgreiche Snapshot-Prüfung trotz injizierter Alias-Mutation auf eine falsche Identität; production_ready=false
+
+- LQ-2557 closed filesystem-identity fact contract:
+  `docs/lq-2557-closed-filesystem-identity-fact-contract.md`
+- LQ-2558 exact device-inode tuple validation:
+  `docs/lq-2558-exact-device-inode-tuple-validation.md`
+  - akzeptiert ausschließlich exakte Zweiertupel aus nichtnegativen Integern ohne Bool- oder Containerersatz
+- LQ-2559 preopen workspace-identity gate:
+  `docs/lq-2559-preopen-workspace-identity-gate.md`
+  - verwirft ungültige Workspace-Identität vor dem ersten Dateisystemzugriff
+- LQ-2560 preopen child-identity map gate:
+  `docs/lq-2560-preopen-child-identity-map-gate.md`
+  - verlangt gemeinsam gültige Identitätstupel für sämtliche eingefrorenen Kindwerte
+- LQ-2561 invalid-identity no-I/O rejection:
+  `docs/lq-2561-invalid-identity-no-io-rejection.md`
+  - garantiert bei ungültigen Identitätsfakten kontrollierte Ablehnung ohne Open, Listing oder Metadatenzugriff
+- LQ-2562 closed filesystem-identity fact evidence:
+  `docs/lq-2562-closed-filesystem-identity-fact-evidence.md`
+  - belegt sechs ungültige Workspace-/Kindfälle und unerreichbare Workspace-Öffnung; production_ready=false
+
+- LQ-2563 closed phase-output capture-input contract:
+  `docs/lq-2563-closed-phase-output-capture-input-contract.md`
+- LQ-2564 capture workspace-identity preopen gate:
+  `docs/lq-2564-capture-workspace-identity-preopen-gate.md`
+  - nutzt den exakten Identitätsfaktvertrag vor jeder Workspace- oder Kindöffnung im Capture
+- LQ-2565 exact phase-output-name preopen gate:
+  `docs/lq-2565-exact-phase-output-name-preopen-gate.md`
+  - akzeptiert ausschließlich exakte Strings aus den vier fest abgebildeten Phasenausgaben
+- LQ-2566 capture invalid-input no-I/O rejection:
+  `docs/lq-2566-capture-invalid-input-no-io-rejection.md`
+  - verwirft ungültige Identität oder Namen vor Open, Listing, Stat und Cleanup
+- LQ-2567 capture input-validation order:
+  `docs/lq-2567-capture-input-validation-order.md`
+  - ordnet Identitäts- und exakte Stringprüfung vollständig vor den ersten Dateisystemzugriff
+- LQ-2568 closed phase-output capture-input evidence:
+  `docs/lq-2568-closed-phase-output-capture-input-evidence.md`
+  - belegt acht ungültige Identity-/Name-Fälle mit garantiert unerreichbarer Workspace-Öffnung; production_ready=false
+
+- LQ-2569 distinct intermediate identity-map contract:
+  `docs/lq-2569-distinct-intermediate-identity-map-contract.md`
+- LQ-2570 exact expected-name type gate:
+  `docs/lq-2570-exact-expected-name-type-gate.md`
+  - verlangt für jeden eingefrorenen erwarteten Schlüssel den exakten String-Laufzeittyp
+- LQ-2571 unique child-identity value gate:
+  `docs/lq-2571-unique-child-identity-value-gate.md`
+  - fordert paarweise verschiedene Geräte-/Inode-Tupel für alle erwarteten Phasenausgaben
+- LQ-2572 preopen identity-map coherence gate:
+  `docs/lq-2572-preopen-identity-map-coherence-gate.md`
+  - entscheidet Workspace-, Schlüssel-, Namens-, Wert- und Eindeutigkeitskohärenz gemeinsam vor Open
+- LQ-2573 duplicate-identity alias rejection:
+  `docs/lq-2573-duplicate-identity-alias-rejection.md`
+  - verhindert die Darstellung eines Dateisystemobjekts als zwei verschiedene Phasenausgaben
+- LQ-2574 distinct intermediate identity-map evidence:
+  `docs/lq-2574-distinct-intermediate-identity-map-evidence.md`
+  - belegt I/O-freie Ablehnung eines Bool-Schlüssels und zweier Namen mit derselben Identität; production_ready=false
+
+- LQ-2575 parent-child identity-separation contract:
+  `docs/lq-2575-parent-child-identity-separation-contract.md`
+- LQ-2576 workspace-identity exclusion gate:
+  `docs/lq-2576-workspace-identity-exclusion-gate.md`
+  - schließt die validierte Workspace-Identität aus sämtlichen erwarteten Kindwerten aus
+- LQ-2577 preopen parent-child coherence order:
+  `docs/lq-2577-preopen-parent-child-coherence-order.md`
+  - verlangt vollständige Identitätskohärenz vor Workspace-Open und partieller Deskriptorbildung
+- LQ-2578 workspace-as-child alias rejection:
+  `docs/lq-2578-workspace-as-child-alias-rejection.md`
+  - verwirft einen festen Kindnamen mit dem strukturell gültigen tatsächlichen Workspace-Tupel
+- LQ-2579 disjoint intermediate identity set:
+  `docs/lq-2579-disjoint-intermediate-identity-set.md`
+  - hält Workspace und bis zu vier erwartete Kinder als paarweise verschiedene lokale Identitäten
+- LQ-2580 parent-child identity-separation evidence:
+  `docs/lq-2580-parent-child-identity-separation-evidence.md`
+  - belegt I/O-freie Ablehnung der echten Workspace-Identität als erwartetes `artifacts`-Kind; production_ready=false
+
+- LQ-2581 single intermediate verification-authority contract:
+  `docs/lq-2581-single-intermediate-verification-authority-contract.md`
+- LQ-2582 prephase redundant child-loop removal:
+  `docs/lq-2582-prephase-redundant-child-loop-removal.md`
+  - ersetzt die zusätzliche Pfadschleife vollständig durch die kohärente deskriptorgebundene Map-Prüfung
+- LQ-2583 postphase redundant child-loop removal:
+  `docs/lq-2583-postphase-redundant-child-loop-removal.md`
+  - prüft bestehende und optional neu erfasste Kinder gemeinsam nur noch in der vollständigen Postphase-Map
+- LQ-2584 single new-output capture call:
+  `docs/lq-2584-single-new-output-capture-call.md`
+  - behält im Phasenloop genau einen Kindidentitätsaufruf ausschließlich zur festen Neuausgabe-Erfassung
+- LQ-2585 coherent phase-boundary order:
+  `docs/lq-2585-coherent-phase-boundary-order.md`
+  - ordnet Pre-Verifier, Gate, optionale Capture und Post-Verifier ohne redundantes Wiederöffnungsfenster
+- LQ-2586 single intermediate verification-authority evidence:
+  `docs/lq-2586-single-intermediate-verification-authority-evidence.md`
+  - belegt zwei Map-Prüfungen, einen Capture-Aufruf und keine alte Retained-Identity-Schleife; production_ready=false
+
+- LQ-2587 cumulative current-state inventory synchronization:
+  `docs/lq-2587-cumulative-current-state-inventory-synchronization.md`
+  - synchronisiert Test-, Paket-, Migrations- und dateigenaues Working-Tree-Inventar im Roadmap-Kopf
+- LQ-2588 external release-prerequisite availability audit:
+  `docs/lq-2588-external-release-prerequisite-availability-audit.md`
+  - belegt fehlendes Pflicht-DSN sowie nicht verfügbare Docker- und Grype-Werkzeuge ohne Wertoffenlegung
+- LQ-2589 real controlled-preflight blocker evidence:
+  `docs/lq-2589-real-controlled-preflight-blocker-evidence.md`
+  - belegt detailarme Ablehnung des realen lokalen Preflights ohne Ziel oder temporären Rückstand
+- LQ-2590 release-closure critical path:
+  `docs/lq-2590-release-closure-critical-path.md`
+  - ersetzt weitere Mikro-Härtung durch Pflicht-DSN-, Container-, Scan-, Preflight-, Staging- und Git-Handoff-Reihenfolge
+
+- LQ-2591 disposable local PostgreSQL runtime:
+  `docs/lq-2591-disposable-local-postgresql-runtime.md`
+- LQ-2592 cumulative PostgreSQL required-suite evidence:
+  `docs/lq-2592-cumulative-postgresql-required-suite-evidence.md`
+  - belegt PostgreSQL 16.14 mit UTC-Sessions und 7277 bestandene Pflichtsuite-Tests ohne Skip
+- LQ-2593 local Docker and Colima build runtime:
+  `docs/lq-2593-local-docker-colima-build-runtime.md`
+  - installiert und aktiviert begrenzte lokale ARM64-Containerwerkzeuge ohne Registry-Push
+- LQ-2594 immutable patched Python base-image refresh:
+  `docs/lq-2594-immutable-patched-python-base-image-refresh.md`
+  - ersetzt ausschließlich den Python-3.13.15-Slim-Digest durch die OpenSSL-gepatchte offizielle Revision
+- LQ-2595 local container smoke and Grype gate evidence:
+  `docs/lq-2595-local-container-smoke-grype-gate-evidence.md`
+  - belegt Imagevertrag, gehärteten Smoke-Test und null fixbare High-/Critical-Grype-Blocker
+- LQ-2596 clean-tree controlled-preflight blocker audit:
+  `docs/lq-2596-clean-tree-controlled-preflight-blocker-audit.md`
+  - grenzt den letzten lokalen Gesamtrunner-Blocker auf den absichtlich uncommittierten Git-Baum ein
+
+- LQ-2597 exact cumulative handoff scope inventory:
+  `docs/lq-2597-exact-cumulative-handoff-scope-inventory.md`
+  - erfasst dateigenau 34 getrackte Änderungen und 3336 neue Dateien ausschließlich im erlaubten Scope
+- LQ-2598 cumulative filesystem safety review:
+  `docs/lq-2598-cumulative-filesystem-safety-review.md`
+  - belegt fehlende Symlinks, Konfliktmarker und Dateien über 1 MiB im kumulierten Reviewumfang
+- LQ-2599 cumulative secret-pattern fixture triage:
+  `docs/lq-2599-cumulative-secret-pattern-fixture-triage.md`
+  - bestätigt zwei erwartete PRIVATE-KEY-Header-Negativfixtures und ausschließlich deren Dokumentation
+- LQ-2600 authorized integration-commit readiness gate:
+  `docs/lq-2600-authorized-integration-commit-readiness-gate.md`
+  - bestätigt leeren Index und grenzt den nächsten Schritt auf autorisierten Branch, Staging und Integrationscommit ein
+
+- LQ-192 persistent active OIDC client configuration:
+  `docs/lq-192-persistent-active-oidc-client-configuration.md`
+  - Status:
+    - implementiert den bestehenden parameterlosen ActiveOidcClientConfigurationLookup als aktuellen read-only Datenbank-Lookup; keine browser- oder caller-gesteuerte Providerwahl
+    - additive Revision 20260812_0007 hält höchstens einen explizit aktiven Singleton und erzeugt keinen Seed; leer und inaktiv sind dasselbe neutrale None
+    - alle neun TrustedOidcClientConfiguration-Werte werden ohne Normalisierung rekonstruiert und durch das bestehende Domainmodell erneut vollständig validiert
+    - jeder Aufruf liest den aktuellen Bestand neu, sodass committierte Deaktivierung spätere Login- und Callback-Entscheidungen sperrt; kein Cache oder Trust-Snapshot
+    - beschädigte aktive Persistenz und Infrastrukturfehler bleiben separat und detailfrei; Konfiguration, SQL und Verbindungsdetails verlassen die Grenze nicht
+    - keine Mutations-, Operator-, Discovery-, Secret-, Route- oder Production-Wiring-Grenze; als Nächstes folgt kontrollierte OIDC-Verifier-Composition, Membership-Persistenz bleibt separat offen
+
+- LQ-193 controlled OIDC verifier composition:
+  `docs/lq-193-controlled-oidc-verifier-composition.md`
+  - Status:
+    - komponiert persistenten aktuellen LQ-192-Lookup, Token Exchange, begrenzten JWKS-Loader, Single-Slot-Cache und bestehenden Authorization-Code-Verifier ohne neue Kryptografie oder Portänderung
+    - nutzt genau eine extern besessene Engine, einen extern besessenen synchronen HTTP-Client und eine explizite unveränderte Verification-Policy; kein eigener Close, Dispose, DSN-Read oder zweiter Client
+    - getrennte Wall- und Monotonic-Clocks entscheiden Token-Zeit beziehungsweise technische Dauer und Cache-Frische; Aufbau führt keinerlei I/O oder Clock-Read aus
+    - jede Verifikation liest aktuellen Trust genau einmal und reicht dasselbe Konfigurationsobjekt durch alle Stufen; leer, inaktiv oder Issuer-Mismatch endet vor Netzwerk fail-closed
+    - technische Fehler werden an der bestehenden Verifier-Grenze detailfrei vereinheitlicht; kein Retry nach bereits beanspruchter Login-Transaktion
+    - keine Route, Discovery, Secret-, Operator- oder automatische create_app-Verdrahtung; nächster Slice ist kontrolliertes OIDC-Production-Wiring, Membership-Persistenz bleibt getrennt offen
+
+- LQ-194 controlled OIDC production wiring:
+  `docs/lq-194-controlled-oidc-production-wiring.md`
+  - Status:
+    - aktiviert bestehende Login-Start- und Callback-Routen opt-in nur mit App-Datenbank, externem synchronem HTTP-Client, expliziter Verification-Policy und vollständigen Origin-, Lifetime- und Zielentscheidungen
+    - verdrahtet aktuelle OIDC-Konfiguration, gemeinsame persistente Login-Transaktionen, Verifier, Identity/Admission und persistente Sessions um dieselbe Engine; OIDC- und Session-Material bleiben getrennt sicher erzeugt
+    - unvollständige Auto-Composition und Mischung mit explizit injizierten verwalteten Ports scheitern beim Factory-Aufbau, sodass Start und Callback nie unterschiedliche Trust- oder Transaction-Quellen erhalten
+    - injizierte Engine und HTTP-Client bleiben extern besessen; App-eigene Engine behält Lifespan-Disposal, und Factory-Aufbau führt weder Datenbank-Lookup noch Providerzugriff aus
+    - leere oder inaktive Konfiguration lässt Login neutral und ohne Netzwerk mit 503 scheitern; bestehende Callback-, Cookie-, Claim-, Retry- und Fehlerverträge bleiben unverändert
+    - keine Trust-Mutation, Discovery, Secret-, Bootstrap-, Onboarding- oder Research-Autorisierung; nächster Slice ist reguläre persistente Workspace-Membership und Research-Capability-Auflösung
+
+- LQ-195 persistent workspace membership and research capabilities:
+  `docs/lq-195-persistent-workspace-membership-research-capabilities.md`
+  - Status:
+    - implementiert den bestehenden WorkspaceMembershipLookup persistent und read-only für genau ein UserId-/WorkspaceId-Paar; keine Liste, Rolle, caller-supplied Allow-Entscheidung oder Portänderung
+    - additive Revision 20260812_0008 speichert Membership-Status und explizite research:read-/research:write-Zeilen normalisiert, mit Foundation- und zusammengesetzter Membership-Bindung, ohne Seed
+    - unbekannte oder inaktive Nutzer und Workspaces sowie fehlende Membership bleiben neutrales None; inactive Membership und aktive Membership ohne Permission bleiben sichtbare, aber durch die bestehende Policy verweigerte Snapshots
+    - research:write wird nicht persistent zu read ergänzt, sondern impliziert Lesen weiterhin ausschließlich über die bestehende reine Policy
+    - jeder Lookup liest aktuellen Status und Permissions neu, sodass committierter Entzug spätere Entscheidungen sperrt; technische Fehler bleiben separat und detailfrei
+    - keine Membership-/Permission-Mutation, Einladung, Rolle, Operatorgrenze oder automatische Routeneröffnung; nächster Slice ist kontrolliertes persistentes Research-Authorization-Wiring
+
+- LQ-196 controlled persistent research authorization wiring:
+  `docs/lq-196-controlled-persistent-research-authorization-wiring.md`
+  - Status:
+    - bindet bei vorhandener App-Datenbank persistente Browser-Sessions und LQ-195-Membership-Lookup automatisch an bestehende Research-Read- und Research-Start-Grenzen; kein anonymer Production-Fallback
+    - Research, Logout und bei LQ-194 auch OIDC-Sessionausgabe verwenden dieselbe DatabaseBrowserSessions-Instanz und Engine; SessionPrincipal trägt weiterhin keine Membership oder Permission
+    - vollständig explizit injizierte Research-Abhängigkeiten behalten Vorrang, partielle Paare bleiben fail-fast und werden nicht durch Persistenz ergänzt
+    - Read prüft gegen den Workspace des gespeicherten Jobs und bleibt bei fehlender Authority neutral 404; Start verlangt zusätzlich bestehenden CSRF-Nachweis und aktuelle research:write-Permission
+    - jeder Request löst Session und Membership aktuell neu auf, sodass committierter Session- oder Permission-Entzug spätere Zugriffe sperrt; kein Authority-Cache
+    - keine Membership-Mutation, neue Route, persistente Research-Jobs oder automatische Resolver-Aktivierung; nächster Slice ist der abschließende LQ-177-Blocker-Audit
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

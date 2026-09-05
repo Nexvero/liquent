@@ -13,8 +13,8 @@ def _sqlite_url(path: Path) -> str:
 
 def test_migration_history_has_one_unambiguous_head() -> None:
     # Moves with each additive revision; the point is that exactly one head
-    # exists, not which one. LQ-180 added the identity and admission tables.
-    assert expected_head() == "20260811_0002"
+    # exists, not which one. LQ-497 added the cleanup clearance foundation.
+    assert expected_head() == "20260826_0042"
 
 
 def test_migration_history_is_declared_as_packaged_artifact_data() -> None:
@@ -33,6 +33,61 @@ def test_upgrade_establishes_current_revision_and_readiness(tmp_path: Path) -> N
         with engine.connect() as connection:
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
         assert revision == expected_head()
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_identity_authority_foundation_without_seed_data(
+    tmp_path: Path,
+) -> None:
+    url = _sqlite_url(tmp_path / "authority.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                )
+            }
+            assert {
+                "identity_users",
+                "identity_workspaces",
+                "workspace_onboarding_management",
+            } <= tables
+            for table in (
+                "identity_users",
+                "identity_workspaces",
+                "workspace_onboarding_management",
+            ):
+                assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 0
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_empty_authorized_onboarding_decisions(tmp_path: Path) -> None:
+    url = _sqlite_url(tmp_path / "decisions.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(
+                text("SELECT count(*) FROM authorized_onboarding_decisions")
+            ) == 0
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_empty_authorized_oidc_trust_changes(tmp_path: Path) -> None:
+    url = _sqlite_url(tmp_path / "oidc-trust-changes.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(
+                text("SELECT count(*) FROM authorized_oidc_trust_changes")
+            ) == 0
     finally:
         engine.dispose()
 

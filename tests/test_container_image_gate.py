@@ -16,8 +16,8 @@ def test_base_image_is_versioned_and_digest_pinned() -> None:
     match = re.search(r"ARG PYTHON_IMAGE=(python:[^\s]+@sha256:[0-9a-f]{64})", dockerfile)
     assert match
     assert match.group(1) == (
-        "python:3.13.14-slim-trixie@"
-        "sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91"
+        "python:3.13.15-slim-trixie@"
+        "sha256:9d2e5553305c7c7b0097999bb17187c69b921ccd6bc9d40e4bb5ebe652c00285"
     )
     assert ":latest" not in dockerfile
 

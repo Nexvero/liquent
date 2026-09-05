@@ -1,0 +1,33 @@
+services:
+  supervisor-engine-api:
+    image: ${LIQUENT_APP_IMAGE:?set an immutable application image digest}
+    profiles: ["supervisor-engine-api"]
+    command: ["python", "-m", "liquent_platform.transport.manifest_handoff_supervisor_engine_api_joint_entrypoint", "--settings-file", "/run/liquent/config/engine-api-joint.env"]
+    user: "10001:10002"
+    group_add: ["998"]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    stop_grace_period: 15s
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /run/liquent:size=4m,mode=0700,uid=10001,gid=10002
+    volumes:
+      - ${LIQUENT_ENGINE_API_JOINT_SETTINGS_FILE:?set owner-only joint settings file}:/run/liquent/config/engine-api-joint.env:ro
+      - ${LIQUENT_ENGINE_API_PROXY_SETTINGS_FILE:?set owner-only proxy settings file}:/run/liquent/config/engine-api-proxy.env:ro
+      - ${LIQUENT_ENGINE_API_HEALTH_SETTINGS_FILE:?set owner-only health settings file}:/run/liquent/config/engine-api-health.env:ro
+      - ${LIQUENT_ENGINE_API_HEALTH_RUN_SETTINGS_FILE:?set owner-only health run settings file}:/run/liquent/config/engine-api-health-run.env:ro
+      - ${LIQUENT_ENGINE_API_DOCKER_SOCKET:?set Docker Engine Unix socket}:/var/run/docker.sock
+      - ${LIQUENT_ENGINE_API_CONTROL_ROOT:?set supervisor control root}:/srv/liquent/control
+      - ${LIQUENT_ENGINE_API_SOURCE_ROOT:?set read-only source root}:/srv/liquent/source:ro
+      - ${LIQUENT_ENGINE_API_TARGET_ROOT:?set target root}:/srv/liquent/target
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(socket.AF_UNIX); s.settimeout(2); s.connect('/run/liquent/health.sock'); s.sendall(b'GET /ready HTTP/1.1\\r\\nhost: local\\r\\nconnection: close\\r\\n\\r\\n'); raise SystemExit(0 if b' 200 ' in s.recv(512) else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    cpus: 1.00
+    mem_limit: 768m

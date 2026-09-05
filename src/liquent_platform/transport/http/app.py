@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from hmac import compare_digest
 from typing import Annotated, AsyncIterator, Callable
 from urllib.parse import urlsplit
 
+import httpx2
 from fastapi import (
     Cookie,
     Depends,
@@ -20,6 +21,7 @@ from fastapi import (
 )
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import Engine
 
 from liquent_platform import __version__
 from liquent_platform.application.authenticate_session import (
@@ -27,6 +29,10 @@ from liquent_platform.application.authenticate_session import (
     require_browser_session,
 )
 from liquent_platform.application.health import ProcessHealth
+from liquent_platform.application.manifest_handoff_supervisor_process_composition import (
+    ManifestHandoffSupervisorCandidateProcess,
+    ManifestHandoffSupervisorCandidateReadinessProbe,
+)
 from liquent_platform.application.evidence import evidence_document
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
 from liquent_platform.application.authorization_errors import (
@@ -69,6 +75,7 @@ from liquent_platform.identity.oidc_login_material import (
     SecureOidcLoginMaterialGenerator,
 )
 from liquent_platform.identity.oidc_login_transaction import OidcLoginState
+from liquent_platform.identity.oidc_verification_policy import OidcVerificationPolicy
 from liquent_platform.identity.ports import (
     ActiveOidcClientConfigurationLookup,
     BrowserSessionCreationStore,
@@ -96,6 +103,17 @@ from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearc
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
+from liquent_platform.persistence.browser_sessions import DatabaseBrowserSessions
+from liquent_platform.persistence.identity_store import DatabaseExternalIdentities
+from liquent_platform.persistence.login_session_composition import (
+    compose_login_sessions,
+)
+from liquent_platform.persistence.oidc_verifier_composition import (
+    compose_oidc_verifier,
+)
+from liquent_platform.persistence.workspace_memberships import (
+    DatabaseWorkspaceMemberships,
+)
 from liquent_platform.observability.http import ObservabilityMiddleware
 from liquent_platform.observability.metrics import ControlPlaneMetrics
 
@@ -286,14 +304,153 @@ def create_app(
     oidc_session_lifetime: timedelta | None = None,
     oidc_callback_rejection: ValidatedInternalDestination | None = None,
     oidc_callback_unavailable: ValidatedInternalDestination | None = None,
+    database_engine: Engine | None = None,
+    database_engine_owned: bool = False,
+    oidc_http_client: httpx2.Client | None = None,
+    oidc_verification_policy: OidcVerificationPolicy | None = None,
+    oidc_monotonic_clock: Callable[[], float] | None = None,
+    oidc_http_client_owned: bool = False,
+    manifest_handoff_supervisor_process: (
+        ManifestHandoffSupervisorCandidateProcess | None
+    ) = None,
+    manifest_handoff_supervisor_readiness: (
+        ManifestHandoffSupervisorCandidateReadinessProbe | None
+    ) = None,
+    manifest_handoff_supervisor_process_owned: bool = False,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
     runtime_settings = settings or PlatformSettings()
+    if oidc_http_client_owned and oidc_http_client is None:
+        raise ValueError("owned oidc http client requires a client")
+    engine = database_engine
+    if database_engine_owned and engine is None:
+        raise ValueError("owned database engine requires an explicit engine")
+    owns_engine = database_engine_owned
+    supervisor_requested = any((
+        manifest_handoff_supervisor_process is not None,
+        manifest_handoff_supervisor_readiness is not None,
+        manifest_handoff_supervisor_process_owned,
+    ))
+    if supervisor_requested and not all((
+        type(manifest_handoff_supervisor_process)
+        is ManifestHandoffSupervisorCandidateProcess,
+        type(manifest_handoff_supervisor_readiness)
+        is ManifestHandoffSupervisorCandidateReadinessProbe,
+        manifest_handoff_supervisor_process_owned is True,
+        manifest_handoff_supervisor_readiness is not None
+        and manifest_handoff_supervisor_readiness.process
+        is manifest_handoff_supervisor_process,
+        runtime_settings.manifest_handoff_supervisor_enabled,
+        isinstance(engine, Engine),
+        health is None,
+    )):
+        raise ValueError(
+            "manifest handoff supervisor process, readiness, ownership, settings, "
+            "and explicit database engine must be provided together"
+        )
+    auto_oidc_requested = any(
+        dependency is not None
+        for dependency in (
+            oidc_http_client,
+            oidc_verification_policy,
+            oidc_monotonic_clock,
+        )
+    )
+    if auto_oidc_requested:
+        database_available = engine is not None or (
+            health is None and runtime_settings.database_url is not None
+        )
+        if (
+            not database_available
+            or oidc_http_client is None
+            or oidc_verification_policy is None
+        ):
+            raise ValueError(
+                "automatic oidc wiring requires database, http client, and "
+                "verification policy together"
+            )
+        auto_managed = (
+            oidc_login_configurations,
+            oidc_login_transactions,
+            oidc_login_material,
+            oidc_callback_transactions,
+            oidc_callback_verifier,
+            oidc_callback_identities,
+            oidc_callback_admissions,
+            oidc_callback_sessions,
+            oidc_callback_material,
+        )
+        if any(dependency is not None for dependency in auto_managed):
+            raise ValueError(
+                "automatic oidc wiring cannot mix explicit managed dependencies"
+            )
+        if not isinstance(oidc_session_lifetime, timedelta):
+            raise ValueError(
+                "automatic oidc wiring requires an explicit session lifetime"
+            )
+        if int(oidc_session_lifetime.total_seconds()) < 1:
+            raise ValueError("oidc session lifetime must be at least one whole second")
+        if not isinstance(oidc_login_lifetime, timedelta) or int(
+            oidc_login_lifetime.total_seconds()
+        ) < 1:
+            raise ValueError(
+                "automatic oidc wiring requires a login lifetime of at least "
+                "one whole second"
+            )
+        if oidc_login_origin is None:
+            raise ValueError("automatic oidc wiring requires a trusted login origin")
+        _require_trusted_https_origin(oidc_login_origin)
+        if oidc_callback_rejection is None or oidc_callback_unavailable is None:
+            raise ValueError(
+                "automatic oidc wiring requires both callback destinations"
+            )
+    if engine is None and health is None and runtime_settings.database_url is not None:
+        engine = build_engine(runtime_settings.database_url.get_secret_value())
+        owns_engine = True
+    persistent_sessions: DatabaseBrowserSessions | None = None
+    if auto_oidc_requested:
+        # Established by the fail-fast availability check above.
+        assert engine is not None
+        assert oidc_http_client is not None
+        assert oidc_verification_policy is not None
+        clock = oidc_login_clock or (lambda: datetime.now(UTC))
+        assert isinstance(oidc_session_lifetime, timedelta)
+        login = compose_login_sessions(
+            engine,
+            session_lifetime=oidc_session_lifetime,
+            now=clock,
+        )
+        persistent_sessions = login.sessions
+        verification = compose_oidc_verifier(
+            engine,
+            oidc_http_client,
+            oidc_verification_policy,
+            now=clock,
+            monotonic=oidc_monotonic_clock,
+        )
+        identities = DatabaseExternalIdentities(engine, now=clock)
+        oidc_login_configurations = verification.configurations
+        oidc_login_transactions = login.transactions
+        oidc_login_material = SecureOidcLoginMaterialGenerator()
+        oidc_callback_transactions = login.transactions
+        oidc_callback_verifier = verification.verifier
+        oidc_callback_identities = identities
+        oidc_callback_admissions = identities
+        oidc_callback_sessions = login.sessions
+        oidc_callback_material = login.material
+        oidc_login_clock = clock
     if (research_sessions is None) is not (research_memberships is None):
         raise ValueError(
             "research session lookup and membership lookup must be provided together"
         )
+    if engine is not None and research_sessions is None:
+        if persistent_sessions is None:
+            persistent_sessions = DatabaseBrowserSessions(
+                engine, now=lambda: datetime.now(UTC)
+            )
+        research_sessions = persistent_sessions
+        research_memberships = DatabaseWorkspaceMemberships(engine)
     if (logout_sessions is None) is not (logout_revocations is None):
         raise ValueError(
             "logout session lookup and revocation store must be provided together"
@@ -366,22 +523,48 @@ def create_app(
                 "oidc login transaction lifetime must be at least one whole second"
             )
         _require_trusted_https_origin(oidc_login_origin)
-    engine = None
-    if health is None and runtime_settings.database_url is not None:
-        engine = build_engine(runtime_settings.database_url.get_secret_value())
-        process_health = ProcessHealth((DatabaseReadinessProbe(engine),))
+    if health is None and engine is not None:
+        probes = (DatabaseReadinessProbe(engine),)
+        if manifest_handoff_supervisor_readiness is not None:
+            probes += (manifest_handoff_supervisor_readiness,)
+        process_health = ProcessHealth(probes)
     else:
         process_health = health or ProcessHealth()
+    if engine is not None and logout_sessions is None and logout_revocations is None:
+        if persistent_sessions is None:
+            persistent_sessions = DatabaseBrowserSessions(
+                engine, now=lambda: datetime.now(UTC)
+            )
+        logout_sessions = persistent_sessions
+        logout_revocations = persistent_sessions
     control_metrics = metrics or ControlPlaneMetrics()
     job_store = research_jobs or InMemoryResearchJobs()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        process_health.mark_started()
-        yield
-        process_health.mark_stopping()
-        if engine is not None:
-            engine.dispose()
+        started = False
+        try:
+            process_health.mark_started()
+            started = True
+            yield
+        finally:
+            try:
+                if started:
+                    process_health.mark_stopping()
+            finally:
+                try:
+                    if (
+                        manifest_handoff_supervisor_process_owned
+                        and manifest_handoff_supervisor_process is not None
+                    ):
+                        manifest_handoff_supervisor_process.close()
+                finally:
+                    try:
+                        if oidc_http_client_owned and oidc_http_client is not None:
+                            oidc_http_client.close()
+                    finally:
+                        if owns_engine and engine is not None:
+                            engine.dispose()
 
     app = FastAPI(
         title="Liquent Control Plane",

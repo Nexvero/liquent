@@ -22,7 +22,9 @@ FIELD_NAMES = [
     "expected_nonce",
     "code_verifier",
     "redirect_uri",
+    "expected_trust_revision",
 ]
+REQUIRED_FIELD_NAMES = FIELD_NAMES[:-1]
 
 
 def _verification(**overrides: Any) -> OidcAuthorizationCodeVerification:
@@ -77,11 +79,11 @@ def test_a_differing_value_makes_two_inputs_unequal() -> None:
     assert _verification() != _verification(authorization_code="other-code")
 
 
-def test_model_has_exactly_the_five_agreed_fields_in_order() -> None:
+def test_model_has_exactly_the_revision_bound_fields_in_order() -> None:
     assert [f.name for f in fields(OidcAuthorizationCodeVerification)] == FIELD_NAMES
 
 
-@pytest.mark.parametrize("name", FIELD_NAMES)
+@pytest.mark.parametrize("name", REQUIRED_FIELD_NAMES)
 def test_every_field_is_mandatory(name: str) -> None:
     arguments = {
         "authorization_code": CODE,
@@ -98,7 +100,7 @@ def test_every_field_is_mandatory(name: str) -> None:
 
 # --- Empty values ----------------------------------------------------------
 
-@pytest.mark.parametrize("name", FIELD_NAMES)
+@pytest.mark.parametrize("name", REQUIRED_FIELD_NAMES)
 def test_an_empty_value_is_rejected_per_field(name: str) -> None:
     with pytest.raises(ValueError, match=f"{name} must not be empty"):
         _verification(**{name: ""})
