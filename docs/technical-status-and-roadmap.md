@@ -11976,5 +11976,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
     - jeder Request löst Session und Membership aktuell neu auf, sodass committierter Session- oder Permission-Entzug spätere Zugriffe sperrt; kein Authority-Cache
     - keine Membership-Mutation, neue Route, persistente Research-Jobs oder automatische Resolver-Aktivierung; nächster Slice ist der abschließende LQ-177-Blocker-Audit
 
+- LQ-2601 clean-tree controlled-preflight completion evidence:
+  `docs/lq-2601-clean-tree-controlled-preflight-completion-evidence.md`
+  - bindet alle zehn bestandenen lokalen Preflight-Phasen an Code-Commit `d273c9a`; Publishing und Deployment bleiben false
+- LQ-2602 installable distribution roundtrip closure:
+  `docs/lq-2602-installable-distribution-roundtrip-closure.md`
+  - schließt 71 isoliert ladbare Entry Points sowie bytegleichen Wheel-/sdist-Roundtrip einschließlich paketiertem `tools`-Root
+- LQ-2603 final-commit container smoke and Grype evidence:
+  `docs/lq-2603-final-commit-container-smoke-grype-evidence.md`
+  - belegt Image `sha256:ea42ec6…ecc8eb`, gehärteten Smoke und null High-/Critical-Grype-Blocker für Code-Commit `d273c9a`
+- LQ-2604 non-publishing release handoff audit:
+  `docs/lq-2604-nonpublishing-release-handoff-audit.md`
+  - hält Signierung, Registry-Push, Staging-Akzeptanz und Deployment als getrennte autorisierungspflichtige Restgrenzen geschlossen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
