@@ -15,6 +15,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import secrets
+import shutil
 import signal
 import stat
 import subprocess
@@ -1208,6 +1209,14 @@ class SdistGate(MeasuredGate):
         roundtrip, roundtrip_identity = _create_private_workspace_directory(
             workspace, "sdist-wheel-roundtrip"
         )
+        extracted_root = roundtrip / root
+        try:
+            with tarfile.open(sdist, "r:gz") as archive:
+                archive.extractall(roundtrip, filter="data")
+            if extracted_root.is_symlink() or not extracted_root.is_dir():
+                _reject()
+        except (OSError, tarfile.TarError):
+            _reject()
         self.context.command(
             (
                 self.context.python_executable,
@@ -1217,9 +1226,13 @@ class SdistGate(MeasuredGate):
                 "--no-isolation",
                 "--outdir",
                 str(roundtrip),
-                str(sdist),
+                str(extracted_root),
             )
         )
+        try:
+            shutil.rmtree(extracted_root)
+        except OSError:
+            _reject()
         if _private_output_directory_identity(roundtrip) != roundtrip_identity:
             _reject()
         rebuilt = list(roundtrip.glob("liquent-*.whl"))
