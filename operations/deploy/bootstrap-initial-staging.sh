@@ -7,6 +7,7 @@ source "$script_dir/lib.sh"
 image="$1"; release_manifest="$2"; backup_evidence="$3"; initial_config="$4"; confirmation="$5"
 [[ "$confirmation" == "INITIALIZE-STAGING" ]] || deploy_die "explicit INITIALIZE-STAGING confirmation required"
 deploy_require_root
+deploy_load_config
 "$script_dir/preflight-initial-staging.sh" "$image" "$release_manifest" "$backup_evidence" "$initial_config"
 # shellcheck disable=SC1090 -- validated by preflight
 source "$initial_config"

@@ -12196,5 +12196,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - bestätigt korrigierten Preflight lokal und auf dem VPS bytegleich und online grün
   - erstellt weder Commit noch Push und führt keinen Bootstrap aus
 
+- LQ-2639 bootstrap parent deployment config load:
+  `docs/lq-2639-bootstrap-parent-deployment-config-load.md`
+  - dokumentiert den sicheren ersten Abbruch vor jeder Mutation
+  - lädt die private Deployment-Konfiguration im Bootstrap-Elternprozess
+  - hält den eigenständigen read-only Preflight unverändert aufrecht
+  - bindet die Ladefolge per Regression vor Image-Pull und Mutation
+  - verändert keine Werte, Dienste, Netzwerke, Container oder Hostports
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
