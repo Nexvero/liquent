@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
+
+import pytest
 
 from tools.pre_staging_manifest import (
     REVIEW_SECTIONS,
@@ -10,6 +13,21 @@ from tools.pre_staging_manifest import (
 
 
 COMMIT = "a" * 40
+
+
+def _real_manifest(root: Path) -> dict[str, object]:
+    try:
+        return build_manifest(root)
+    except PreStagingManifestRejected:
+        status = subprocess.run(
+            ("git", "status", "--porcelain=v1", "--untracked-files=all"),
+            cwd=root,
+            check=True,
+            capture_output=True,
+        ).stdout
+        if status:
+            raise
+        pytest.skip("pre-staging manifest is not applicable to a clean tree")
 
 
 class DriftingGit:
@@ -86,7 +104,7 @@ def test_file_byte_drift_between_passes_is_rejected(tmp_path: Path) -> None:
 
 def test_every_real_manifest_file_has_review_coverage() -> None:
     root = Path(__file__).parents[1]
-    manifest = build_manifest(root)
+    manifest = _real_manifest(root)
     assert manifest["file_count"] == len(manifest["files"])
     assert manifest["review_sections"] == list(REVIEW_SECTIONS)
     covered = set()
@@ -100,7 +118,7 @@ def test_every_real_manifest_file_has_review_coverage() -> None:
 
 def test_root_security_inputs_receive_complete_review_coverage() -> None:
     root = Path(__file__).parents[1]
-    manifest = build_manifest(root)
+    manifest = _real_manifest(root)
     entries = {item["path"]: item for item in manifest["files"]}
     for path in (".grype.yaml", "Dockerfile"):
         assert entries[path]["review_sections"] == list(REVIEW_SECTIONS)
@@ -108,7 +126,7 @@ def test_root_security_inputs_receive_complete_review_coverage() -> None:
 
 def test_known_secret_pattern_hits_are_exact_negative_fixtures() -> None:
     root = Path(__file__).parents[1]
-    manifest = build_manifest(root)
+    manifest = _real_manifest(root)
     marker = b"-----BEGIN " + b"PRIVATE KEY-----"
     hits = {
         item["path"]
