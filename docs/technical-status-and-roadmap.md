@@ -12050,5 +12050,151 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   `docs/lq-2622-post-merge-release-candidate-evidence-renewal.md`
   - erneuert Preflight-, PostgreSQL-, Image-, Smoke- und Scan-Evidenz für den post-merge Kandidaten ohne externe Wirkung
 
+- LQ-2623 staging Edge Compose enablement:
+  `docs/lq-2623-staging-edge-compose-enablement.md`
+  - ergänzt den zuvor nur referenzierten Edge-Compose-Vertrag als geprüftes Repository-Artefakt
+  - bindet nginx ausschließlich über einen operatorfreigegebenen unveränderlichen Digest
+  - erzwingt Repository und vollständigen SHA-256-Digest im bestehenden Preflight vor jeder Mutation
+  - veröffentlicht nur 80/443 am Edge und teilt ausschließlich `liquent_public` mit der Control Plane
+  - mountet Routingkonfiguration und Zertifikate read-only bei schreibgeschütztem Root-Dateisystem
+  - begrenzt Privilegien, temporäre Pfade, Healthcheck, Neustarts und lokale Logrotation
+  - enthält weder reale Digests noch Secrets, Zertifikate, Manifest- oder Backup-Behauptungen
+  - schließt nur den fehlenden Edge-Artefaktblocker; realer Online-Preflight und Bootstrap bleiben offen
+
+- LQ-2624 staging release-evidence intake:
+  `docs/lq-2624-staging-release-evidence-intake.md`
+  - übernimmt das authentifiziert geladene Release-Artefakt `9970074145` für Version `0.1.0`
+  - bestätigt den GitHub-Artefaktdigest bytegleich am heruntergeladenen ZIP
+  - bindet Manifest, Revision, Registry-Image, Image-Digest und SBOM-Hash konsistent
+  - bestätigt null High-/Critical-Scanbefunde ohne den verbliebenen Medium-Befund auszublenden
+  - verwahrt Manifest, SBOM und Scan root-owned und hashgleich auf dem Ziel-VPS
+  - zieht oder startet kein Image und erzeugt weder Secret, Zertifikat noch Backup-Behauptung
+  - schließt den Release-Manifest-Blocker; Infrastrukturfreigaben, TLS, Laufzeitwerte und Backup bleiben offen
+
+- LQ-2625 staging nginx runtime pin:
+  `docs/lq-2625-staging-nginx-runtime-pin.md`
+  - prüft den offiziellen Stable-Kanal als kurzlebigen Container auf dem x86_64-Ziel-VPS
+  - bindet nginx `1.30.4` an den beobachteten vollständigen Registry-Digest
+  - ersetzt den im Zielimage fehlenden `wget`-Healthcheck durch vorhandenes `curl --fail`
+  - hält Tags über den bestehenden Initial-Preflight weiterhin fail-closed ausgeschlossen
+  - hinterlässt ausschließlich den geprüften Image-Cache ohne Container- oder Hostportaktivierung
+  - schließt den Edge-Imageblocker; übrige Infrastrukturpins, TLS, Laufzeitwerte und Backup bleiben offen
+
+- LQ-2626 staging TLS certificate and renewal:
+  `docs/lq-2626-staging-tls-certificate-and-renewal.md`
+  - stellt nach weltweiter DNS-Prüfung ein Let’s-Encrypt-Zertifikat für `staging.liquent.ai` aus
+  - nutzt `admin@liquent.ai` als ACME-Kontakt und hält private Schlüssel aus Git und Ausgaben fern
+  - bestätigt SAN, Schlüsselpaar sowie root-owned Zielrechte mit privatem Schlüsselmodus `0600`
+  - ergänzt einen fail-closed Deploy-Hook für atomare Certbot-Erneuerungsübernahme
+  - belegt echte Hook-Ausführung und erfolgreichen Certbot-Renewal-Dry-Run
+  - lädt nur einen bereits laufenden Edge neu und startet keinen gestoppten Dienst
+  - schließt den TLS-Blocker; übrige Infrastrukturpins, Laufzeitwerte und Backup bleiben offen
+
+- LQ-2627 staging infrastructure runtime pins:
+  `docs/lq-2627-staging-infrastructure-runtime-pins.md`
+  - prüft PostgreSQL 18.6, Prometheus 3.14.0 und Grafana 13.1.0 auf dem x86_64-Ziel-VPS
+  - ersetzt die drei Infrastrukturplatzhalter durch vollständige offizielle Registry-Digests
+  - bindet Repository und Digest zusätzlich mit einer exakten Regression
+  - bestätigt das geladene Liquent-Image gegen Manifestdigest und OCI-Revisionslabel
+  - startet keinen dauerhaften Dienst und öffnet keinen zusätzlichen Hostport
+  - lässt den nicht veröffentlichten Backup-Imagevertrag sowie Laufzeit- und Backup-Gates offen
+
+- LQ-2628 incremental pre-staging manifest test applicability:
+  `docs/lq-2628-incremental-pre-staging-manifest-test-applicability.md`
+  - entfernt die falsche Annahme, jeder Post-Merge-Dirty-Tree enthalte den historischen Vollscope
+  - überspringt nur zwei scope-spezifische Assertions, wenn deren vollständige Eingaben fehlen
+  - hält allgemeine Manifest-, Review-Section- und Driftprüfungen unverändert aktiv
+  - aktiviert die historischen Root- und Secret-Fixture-Assertions weiterhin beim vollständigen Scope
+  - ändert weder Produktionscode noch Manifestformat, Secret-Erkennung oder Reviewklassifikation
+
+- LQ-2629 staging pre-bootstrap backup verification:
+  `docs/lq-2629-staging-prebootstrap-backup-verification.md`
+  - bindet den vorhandenen OVH-Automatic-Backupstand an VPS und UTC-Erstellungszeit
+  - mountet den separaten 101-GB-Datenträger ausschließlich `ro,norecovery`
+  - belegt Lesbarkeit über zwei unkritische Baseline-Dateien und deren SHA-256-Werte
+  - bestätigt den erwarteten Vorher-Zustand ohne vorhandenes `/opt/liquent`
+  - verwahrt den echten Nachweis root-owned mit Modus `0640` neben der Release-Evidenz
+  - entfernt den lokalen Mount und fordert anschließend OVH-Unmount an
+  - schließt den Pre-Bootstrap-Backupblocker, nicht den späteren regulären Backupbetrieb
+
+- LQ-2630 staging runtime and host-interpolation separation:
+  `docs/lq-2630-staging-runtime-and-host-interpolation-separation.md`
+  - verschiebt drei reine Research-Worker-Hostpfade aus der Container-Prozessumgebung
+  - nutzt die bestehende Image-Environment-Datei ausschließlich zur Compose-Interpolation
+  - verhindert unbekannte `LIQUENT_*`-Variablen an Control Plane und Migration
+  - bindet das konfigurierte App-Image exakt an den Releasekandidaten
+  - erzwingt vollständige Digests für alle drei Basis-Infrastrukturimages im Initial-Preflight
+  - lässt den fehlenden Backup-Image-Digest bis zur expliziten Overlay-Trennung sichtbar offen
+
+- LQ-2631 opt-in regular-backup Compose overlay:
+  `docs/lq-2631-opt-in-regular-backup-compose-overlay.md`
+  - trennt regulären Backup-Dienst, Secrets und unveröffentlichten Imagewert vom Basis-Compose
+  - verlangt sowohl die explizite Overlay-Datei als auch das Profil `operations`
+  - bewahrt Netzwerk-, Capability-, tmpfs-, Secret- und Ressourcenbegrenzungen unverändert
+  - verhindert, dass ein nicht gestarteter und unveröffentlichter Backup-Dienst Initial-Staging blockiert
+  - nutzt den real geprüften OVH-Vorher-Zustand ausschließlich als Pre-Bootstrap-Nachweis
+  - aktiviert keinen regulären Backupbetrieb und erzeugt keine Object-Storage-Credentials
+
+- LQ-2632 controlled host-to-container Edge handoff:
+  `docs/lq-2632-controlled-host-to-container-edge-handoff.md`
+  - verschiebt die Portfreigabe bis nach PostgreSQL, Migration, Control Plane und isoliertem nginx-Test
+  - merkt sich Aktivierungs- und Enablementstatus des bestehenden Host-nginx
+  - stoppt bei Fehler zuerst den Container-Edge und stellt Route, Image und Hostdienst wieder her
+  - erhält Certbot-Webroot-Erneuerung über einen read-only eingebundenen engen ACME-HTTP-Pfad
+  - lässt unbekannte HTTP-Challenges und alle unbekannten HTTPS-Pfade geschlossen
+  - führt noch keinen Hostdienst- oder Containerzustandswechsel aus
+
+- LQ-2633 confirmed bootstrap network provisioning:
+  `docs/lq-2633-confirmed-bootstrap-network-provisioning.md`
+  - prüft vorhandene externe Compose-Netzwerke auf Bridge-Treiber und erwartete Isolation
+  - behandelt fehlende Netzwerke im read-only Preflight neutral und sichtbar
+  - erzeugt sie erst im ausdrücklich bestätigten Bootstrap idempotent
+  - hält nur `liquent_public` nicht-intern; Application, Data und Observability bleiben intern
+  - startet keinen Dienst und löscht bei Fehlern keine leeren Infrastruktur-Netzwerke
+
+- LQ-2634 staging online readiness checkpoint:
+  `docs/lq-2634-staging-online-readiness-checkpoint.md`
+  - bestätigt erfolgreich gerendertes Basis- und Edge-Compose auf dem Ziel-VPS
+  - bestätigt den vollständigen nicht-mutierenden Online-Preflight mit realer Evidenz
+  - hält Secretwerte aus Ausgaben und Repository fern
+  - lässt Host-nginx, Container, Ports, Migrationen und Netzwerke unverändert
+  - setzt einen nachvollziehbaren Integrationsstand vor den mutierenden Bootstrap
+
+- LQ-2635 initial staging runtime input gate:
+  `docs/lq-2635-initial-staging-runtime-input-gate.md`
+  - verlangt eine private und nicht leere Runtime-Environment-Datei
+  - verlangt absolute, begrenzte Secretpfade sowie beide benötigten privaten Datenbank-Secretdateien
+  - lehnt fehlende, leere, verlinkte oder zu breit lesbare Eingaben vor jeder Mutation ab
+  - hält noch nicht gestartete Research-Worker-Eingaben außerhalb dieses Gates
+  - verschiebt das erst mit Grafana benötigte Administratorpasswort in dessen Aktivierungsgate
+  - erzeugt keine Secrets und startet keinen Dienst
+
+- LQ-2636 staging sensitive file ownership gate:
+  `docs/lq-2636-staging-sensitive-file-ownership-gate.md`
+  - verlangt im realen Online-Preflight Root-Eigentum für alle sensitiven Eingaben
+  - ergänzt die Eigentümerprüfung zu bestehenden Datei-, Modus- und Inhaltsgates
+  - hält privilegienfreie lokale Offline-Vertragsfixtures ausführbar
+  - verändert weder Eigentümer noch Rechte oder Secretinhalte
+  - führt keinen Container- oder Hostdienstwechsel aus
+
+- LQ-2637 staging installed artifact parity:
+  `docs/lq-2637-staging-installed-artifact-parity.md`
+  - bestätigt sieben installierte nicht-sensitive Betriebsartefakte bytegleich zum lokalen Stand
+  - bindet Basis-Compose, Monitoring, Edge und alle drei Initial-Deployment-Skripte ein
+  - bestätigt Host-nginx weiterhin aktiv und aktiviert
+  - bestätigt null laufende Container und null vorhandene Liquent-Deployment-Netzwerke
+  - verändert weder Dienste, Ports, Netzwerke, Volumes noch Daten
+  - ersetzt ausdrücklich keinen integrierten Git- und Reviewstand
+
+- LQ-2638 pre-bootstrap integration review checkpoint:
+  `docs/lq-2638-pre-bootstrap-integration-review-checkpoint.md`
+  - prüft den vollständigen kumulierten Operationsscope aus 34 Dateien
+  - bestätigt Branchgleichstand mit dem Upstream bei vollständig sichtbarem uncommittetem Diff
+  - entfernt Grafana als unnötige Abhängigkeit des Initial-Control-Plane-Gates
+  - bestätigt Bash-Syntax, Abhängigkeiten, fokussierte und vollständige Regression
+  - prüft tracked und untracked Dateien auf Whitespace- und Zugangsdatenprobleme
+  - bestätigt korrigierten Preflight lokal und auf dem VPS bytegleich und online grün
+  - erstellt weder Commit noch Push und führt keinen Bootstrap aus
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

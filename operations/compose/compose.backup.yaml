@@ -1,0 +1,41 @@
+services:
+  backup:
+    image: ${LIQUENT_BACKUP_IMAGE:?set an immutable backup image digest}
+    profiles: ["operations"]
+    command: ["/opt/liquent/backup/backup.sh"]
+    restart: "no"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    env_file:
+      - path: ../backup/backup.env
+        required: true
+    secrets:
+      - restic_password
+      - ovh_access_key
+      - ovh_secret_key
+      - pgpass
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    cpus: 1.00
+    mem_limit: 1024m
+    tmpfs:
+      - /backup-input/database:size=2048m,mode=0700
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - artifacts:/backup-input/artifacts:ro
+
+secrets:
+  restic_password:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/restic_password
+  ovh_access_key:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/ovh_access_key
+  ovh_secret_key:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/ovh_secret_key
+  pgpass:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/pgpass

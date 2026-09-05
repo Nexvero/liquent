@@ -18,12 +18,30 @@ deploy_require_private_file() {
   (( (8#$mode & 8#077) == 0 )) || deploy_die "permissions are too broad: $path"
 }
 
+deploy_require_nonempty_private_file() {
+  deploy_require_private_file "$1"
+  [[ -s "$1" ]] || deploy_die "required private file is empty: $1"
+}
+
+deploy_require_root_owned_file() {
+  local path="$1" owner
+  if owner="$(stat -c '%u' "$path" 2>/dev/null)"; then :
+  elif owner="$(stat -f '%u' "$path" 2>/dev/null)"; then :
+  else deploy_die "cannot inspect owner: $path"
+  fi
+  [[ "$owner" == 0 ]] || deploy_die "file must be owned by root: $path"
+}
+
 deploy_require_regular_file() {
   [[ -f "$1" && ! -L "$1" ]] || deploy_die "required regular file missing: $1"
 }
 
 deploy_is_digest_ref() {
   [[ "$1" =~ ^ghcr\.io/nexvero/liquent@sha256:[0-9a-f]{64}$ ]]
+}
+
+deploy_is_registry_digest_ref() {
+  [[ "$1" =~ ^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]
 }
 
 deploy_load_config() {
@@ -80,6 +98,30 @@ deploy_set_image() {
 
 deploy_compose() {
   docker compose --env-file "$COMPOSE_ENV_FILE" --file "$COMPOSE_FILE" "$@"
+}
+
+deploy_validate_network() {
+  local name="$1" expected_internal="$2" driver internal
+  if ! docker network inspect "$name" >/dev/null 2>&1; then
+    return 1
+  fi
+  driver="$(docker network inspect --format '{{.Driver}}' "$name")"
+  internal="$(docker network inspect --format '{{.Internal}}' "$name")"
+  [[ "$driver" == "bridge" ]] || deploy_die "network must use bridge driver: $name"
+  [[ "$internal" == "$expected_internal" ]] || deploy_die "network isolation mismatch: $name"
+}
+
+deploy_ensure_network() {
+  local name="$1" expected_internal="$2"
+  if deploy_validate_network "$name" "$expected_internal"; then
+    return 0
+  fi
+  if [[ "$expected_internal" == true ]]; then
+    docker network create --driver bridge --internal "$name" >/dev/null
+  else
+    docker network create --driver bridge "$name" >/dev/null
+  fi
+  deploy_validate_network "$name" "$expected_internal" || deploy_die "network creation failed validation: $name"
 }
 
 deploy_external_health() {

@@ -29,6 +29,9 @@ socket from the same process identity.
   the fixed container mount targets. Copy it outside Git, review it, and set
   mode `0400` or `0600`; do the same for the one-line stable worker-ID file.
 - `images.env.example` documents operator-owned immutable image references.
+- `compose.backup.yaml` and `backup-images.env.example` keep the unpublished
+  regular-backup runtime out of initial staging; enable both only with the
+  explicit `operations` profile after its own image has been released.
 - Real `runtime.env`, image environment files, and secret files stay on the
   deployment host and outside Git.
 
