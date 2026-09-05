@@ -22,7 +22,7 @@
   und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
   `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2608.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2616.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
   Signierung, Providerfreigabe, Staging-Akzeptanz und Deployment bleiben offen.
 
@@ -12015,6 +12015,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-2612 merge-ready local branch handoff:
   `docs/lq-2612-merge-ready-local-branch-handoff.md`
   - stellt den sauberen lokalen Branch ohne Upstream, Push, Tag, Release oder Deployment zur Review bereit
+
+- LQ-2613 merge-diff boundary audit:
+  `docs/lq-2613-merge-diff-boundary-audit.md`
+  - bindet den vollständigen lokalen Reviewumfang an Merge-Basis, Commitzahl und exakten Tree
+- LQ-2614 release-candidate identity contract:
+  `docs/lq-2614-release-candidate-identity-contract.md`
+  - trennt den evidenztragenden Runtime-Commit vom späteren lokalen Review-Stand
+- LQ-2615 external release-execution sequence:
+  `docs/lq-2615-external-release-execution-sequence.md`
+  - ordnet Review, Signierung, Promotion, Publikation, Staging und Deployment fail-closed
+- LQ-2616 release residual-risk and stop criteria:
+  `docs/lq-2616-release-residual-risk-and-stop-criteria.md`
+  - benennt nicht lokal schließbare Risiken, Driftgrenzen und verbindliche Abbruchbedingungen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

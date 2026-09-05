@@ -22,7 +22,7 @@ def test_consolidated_head_records_separate_verified_test_boundaries() -> None:
     assert "**7167 passed**, **111 skipped**" in head
     assert "**107 passed**, **7171 deselected**" in head
     assert "PostgreSQL-16.14-Cluster mit UTC-Sessions" in head
-    assert "bis LQ-2608" in head
+    assert "bis LQ-2616" in head
     assert "alle zehn kontrollierten Phasen" in head
 
 
