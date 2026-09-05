@@ -22,7 +22,7 @@
   und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
   `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2616.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2620.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
   Signierung, Providerfreigabe, Staging-Akzeptanz und Deployment bleiben offen.
 
@@ -12028,6 +12028,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-2616 release residual-risk and stop criteria:
   `docs/lq-2616-release-residual-risk-and-stop-criteria.md`
   - benennt nicht lokal schließbare Risiken, Driftgrenzen und verbindliche Abbruchbedingungen
+
+- LQ-2617 repository-review acceptance checklist:
+  `docs/lq-2617-repository-review-acceptance-checklist.md`
+  - definiert die vollständige commitgebundene Review-Abnahme ohne eine Freigabe zu behaupten
+- LQ-2618 release-evidence custody handoff:
+  `docs/lq-2618-release-evidence-custody-handoff.md`
+  - trennt dauerhafte, identitätsgebundene Evidenz von lokalen temporären Beobachtungen
+- LQ-2619 authorized release-input requirements:
+  `docs/lq-2619-authorized-release-input-requirements.md`
+  - bestimmt je externer Phase erforderliche autoritative Eingaben und fail-closed Ablehnung
+- LQ-2620 post-release verification and rollback boundary:
+  `docs/lq-2620-post-release-verification-and-rollback-boundary.md`
+  - grenzt digestgebundene Nachprüfung, Abbruch und autorisierten Rollback ohne Ausführung ab
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
