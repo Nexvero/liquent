@@ -83,12 +83,12 @@ SdistManifest = tuple[tuple[str, bool, int, int, str | None], ...]
 GENERATED_SDIST_FILES = {
     "PKG-INFO",
     "setup.cfg",
-    "src/liquent.egg-info/PKG-INFO",
-    "src/liquent.egg-info/SOURCES.txt",
-    "src/liquent.egg-info/dependency_links.txt",
-    "src/liquent.egg-info/entry_points.txt",
-    "src/liquent.egg-info/requires.txt",
-    "src/liquent.egg-info/top_level.txt",
+    "liquent.egg-info/PKG-INFO",
+    "liquent.egg-info/SOURCES.txt",
+    "liquent.egg-info/dependency_links.txt",
+    "liquent.egg-info/entry_points.txt",
+    "liquent.egg-info/requires.txt",
+    "liquent.egg-info/top_level.txt",
 }
 EXPECTED_SDIST_SETUP_CFG = b"[egg_info]\ntag_build = \ntag_date = 0\n\n"
 EXPECTED_SDIST_REQUIRES = b"""alembic<2,>=1.16
@@ -489,7 +489,7 @@ def _validate_sdist_generated_payloads(
     wheel_payloads: Mapping[str, bytes],
     archive_names: set[str],
 ) -> str:
-    sources_raw = payloads.get("src/liquent.egg-info/SOURCES.txt", b"")
+    sources_raw = payloads.get("liquent.egg-info/SOURCES.txt", b"")
     try:
         sources = sources_raw.decode("utf-8").splitlines()
     except UnicodeDecodeError:
@@ -501,14 +501,14 @@ def _validate_sdist_generated_payloads(
         or b"\r" in sources_raw
         or len(sources) != len(set(sources))
         or set(sources) != expected_sources
-        or payloads.get("PKG-INFO") != payloads.get("src/liquent.egg-info/PKG-INFO")
+        or payloads.get("PKG-INFO") != payloads.get("liquent.egg-info/PKG-INFO")
         or payloads.get("PKG-INFO") != wheel_payloads.get("METADATA")
-        or payloads.get("src/liquent.egg-info/entry_points.txt")
+        or payloads.get("liquent.egg-info/entry_points.txt")
         != wheel_payloads.get("entry_points.txt")
-        or payloads.get("src/liquent.egg-info/top_level.txt")
+        or payloads.get("liquent.egg-info/top_level.txt")
         != wheel_payloads.get("top_level.txt")
-        or payloads.get("src/liquent.egg-info/dependency_links.txt") != b"\n"
-        or payloads.get("src/liquent.egg-info/requires.txt")
+        or payloads.get("liquent.egg-info/dependency_links.txt") != b"\n"
+        or payloads.get("liquent.egg-info/requires.txt")
         != EXPECTED_SDIST_REQUIRES
         or payloads.get("setup.cfg") != EXPECTED_SDIST_SETUP_CFG
     ):

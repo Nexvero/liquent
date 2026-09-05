@@ -845,12 +845,12 @@ def _generated_payload_fixture() -> tuple[dict[str, bytes], dict[str, bytes], se
     payloads = {
         "PKG-INFO": metadata,
         "setup.cfg": EXPECTED_SDIST_SETUP_CFG,
-        "src/liquent.egg-info/PKG-INFO": metadata,
-        "src/liquent.egg-info/SOURCES.txt": sources,
-        "src/liquent.egg-info/dependency_links.txt": b"\n",
-        "src/liquent.egg-info/entry_points.txt": entries,
-        "src/liquent.egg-info/requires.txt": EXPECTED_SDIST_REQUIRES,
-        "src/liquent.egg-info/top_level.txt": top_level,
+        "liquent.egg-info/PKG-INFO": metadata,
+        "liquent.egg-info/SOURCES.txt": sources,
+        "liquent.egg-info/dependency_links.txt": b"\n",
+        "liquent.egg-info/entry_points.txt": entries,
+        "liquent.egg-info/requires.txt": EXPECTED_SDIST_REQUIRES,
+        "liquent.egg-info/top_level.txt": top_level,
     }
     wheel_payloads = {
         "METADATA": metadata,
@@ -871,8 +871,8 @@ def test_generated_sdist_metadata_gate_accepts_consistent_redundant_facts() -> N
     ("target", "name"),
     [
         ("payload", "PKG-INFO"),
-        ("payload", "src/liquent.egg-info/entry_points.txt"),
-        ("payload", "src/liquent.egg-info/requires.txt"),
+        ("payload", "liquent.egg-info/entry_points.txt"),
+        ("payload", "liquent.egg-info/requires.txt"),
         ("payload", "setup.cfg"),
         ("wheel", "top_level.txt"),
     ],
