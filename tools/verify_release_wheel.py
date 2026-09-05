@@ -67,9 +67,9 @@ EXPECTED_ENTRY_POINT_SEMANTIC_SHA256 = (
 EXPECTED_ENTRY_POINT_FILE_SHA256 = (
     "f2ed86ee956e2816cbdf3d3037dfdc25a7d5762435291e6486e60987f939ad72"
 )
-EXPECTED_WHEEL_MEMBER_COUNT = 422
+EXPECTED_WHEEL_MEMBER_COUNT = 456
 EXPECTED_WHEEL_MEMBER_SET_SHA256 = (
-    "6bf34bbda6cceac4faad674be46d5a4527cd56859761143d8fde2a03f7df5f1a"
+    "61fb70f71c49aa8f7f6aa11cfaa108f2a14f3252aa383dff3196588385fe5af5"
 )
 
 
@@ -252,10 +252,17 @@ def _verify_wheel_member_set(
 ) -> None:
     roots = {name.split("/", 1)[0] for name in names}
     top_level = f"{dist_info}/top_level.txt"
+    legacy_roots = {"liquent", "liquent_platform", dist_info}
+    release_roots = legacy_roots | {"tools"}
+    expected_top_level = (
+        b"liquent\nliquent_platform\ntools\n"
+        if roots == release_roots
+        else b"liquent\nliquent_platform\n"
+    )
     if (
-        roots != {"liquent", "liquent_platform", dist_info}
+        frozenset(roots) not in {frozenset(legacy_roots), frozenset(release_roots)}
         or top_level not in names
-        or archive.read(top_level) != b"liquent\nliquent_platform\n"
+        or archive.read(top_level) != expected_top_level
         or (expected_count is None) != (expected_sha256 is None)
     ):
         raise ValueError("wheel member-set verification failed")
@@ -269,27 +276,34 @@ def _verify_wheel_source_payloads(
     archive: zipfile.ZipFile, names: set[str], source_root: Path
 ) -> None:
     source_directory = source_root / "src"
-    package_roots = (source_directory / "liquent", source_directory / "liquent_platform")
+    package_roots = [
+        (source_directory / "liquent", source_directory),
+        (source_directory / "liquent_platform", source_directory),
+    ]
+    if any(name.startswith("tools/") for name in names):
+        package_roots.append((source_root / "tools", source_root))
     if source_root.is_symlink() or not source_directory.is_dir():
         raise ValueError("wheel source-payload verification failed")
     source_names: set[str] = set()
-    for package_root in package_roots:
+    for package_root, relative_root in package_roots:
         if package_root.is_symlink() or not package_root.is_dir():
             raise ValueError("wheel source-payload verification failed")
         for candidate in package_root.rglob("*"):
             if candidate.is_symlink():
                 raise ValueError("wheel source-payload verification failed")
             if candidate.is_file() and candidate.suffix in {".py", ".mako"}:
-                source_names.add(candidate.relative_to(source_directory).as_posix())
+                source_names.add(candidate.relative_to(relative_root).as_posix())
     wheel_names = {
         name
         for name in names
-        if name.startswith("liquent/") or name.startswith("liquent_platform/")
+        if name.startswith(("liquent/", "liquent_platform/", "tools/"))
     }
     if source_names != wheel_names:
         raise ValueError("wheel source-payload verification failed")
     for name in sorted(wheel_names):
-        candidate = source_directory / PurePosixPath(name)
+        candidate = (
+            source_root if name.startswith("tools/") else source_directory
+        ) / PurePosixPath(name)
         if not candidate.is_file() or archive.read(name) != candidate.read_bytes():
             raise ValueError("wheel source-payload verification failed")
 
