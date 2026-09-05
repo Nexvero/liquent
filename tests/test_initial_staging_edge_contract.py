@@ -194,6 +194,14 @@ def test_initial_network_contract_validates_driver_and_isolation() -> None:
         assert name in preflight
 
 
+def test_initial_preflight_binds_application_secret_to_runtime_identity() -> None:
+    library = (DEPLOY / "lib.sh").read_text(encoding="utf-8")
+    preflight = PREFLIGHT.read_text(encoding="utf-8")
+    assert "deploy_require_file_owner" in library
+    assert 'deploy_require_file_owner "$LIQUENT_SECRETS_DIR/database_url" 10001' in preflight
+    assert '"$LIQUENT_SECRETS_DIR/postgres_password"' in preflight
+
+
 def test_initial_bootstrap_never_publishes_extra_host_ports_or_credentials() -> None:
     combined = EDGE.read_text(encoding="utf-8") + BOOTSTRAP.read_text(encoding="utf-8")
     assert "docker login" not in combined

@@ -24,12 +24,16 @@ deploy_require_nonempty_private_file() {
 }
 
 deploy_require_root_owned_file() {
-  local path="$1" owner
+  deploy_require_file_owner "$1" 0
+}
+
+deploy_require_file_owner() {
+  local path="$1" expected_owner="$2" owner
   if owner="$(stat -c '%u' "$path" 2>/dev/null)"; then :
   elif owner="$(stat -f '%u' "$path" 2>/dev/null)"; then :
   else deploy_die "cannot inspect owner: $path"
   fi
-  [[ "$owner" == 0 ]] || deploy_die "file must be owned by root: $path"
+  [[ "$owner" == "$expected_owner" ]] || deploy_die "file has unexpected owner: $path"
 }
 
 deploy_require_regular_file() {
