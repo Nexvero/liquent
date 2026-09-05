@@ -13,7 +13,8 @@ ARTIFACTS = ROOT / "src/liquent_platform/transport/manifest_handoff_supervisor_c
 
 def test_capability_primitives_are_now_inside_the_installable_package_root():
     project = PYPROJECT.read_text(encoding="utf-8")
-    assert 'where = ["src"]' in project
+    assert 'where = ["src", "."]' in project
+    assert 'include = ["liquent*", "liquent_platform*", "tools*"]' in project
     for name in (
         "private_manifest_handoff.py",
         "pre_staging_manifest.py",
