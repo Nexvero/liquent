@@ -7,23 +7,24 @@
 ## 1. Aktueller Stand (verifiziert)
 
 - **Branch:** `codex/lq-integration`, erstellt auf Ausgangscommit `83699b1`,
-  vier Commits vor und null Commits hinter `origin/main`.
-- **Normaler Teststand:** **7169 passed**, **108 skipped**
-  (LQ-2586, vollständiger lokaler Lauf ohne freigegebenen Pflicht-DSN).
-- **PostgreSQL-Pflichtstand:** **7277 passed**, keine Skips oder Fehler, gegen
-  einen disposable lokalen PostgreSQL-16.14-Cluster mit UTC-Sessions (LQ-2592).
-- **Container-/Scanstand:** lokales ARM64-Image gebaut, Imagevertrag und Smoke
-  bestanden; Grype `only-fixed`, Cutoff High, mit **0 blockierenden Findings**.
-- **Integrationsscope:** **34 zuvor veränderte getrackte** und **3336 neue
-  Dateien**, insgesamt **3370 Dateien**, werden in einem atomaren Commit auf
-  `codex/lq-integration` zusammengeführt; nichts gepusht oder deployed.
+  ohne Upstream; lokale Integrationscommits sind weder gepusht noch deployed.
+- **Normaler Teststand:** **7167 passed**, **111 skipped** auf sauberem Baum;
+  davon sind drei historische Pre-Staging-Vollscope-Reaudits nicht anwendbar.
+- **PostgreSQL-Markerstand:** **107 passed**, **7171 deselected**, gegen einen
+  disposable lokalen PostgreSQL-16.14-Cluster mit UTC-Sessions.
+- **Preflightstand:** alle zehn kontrollierten Phasen auf Code-Commit `d273c9a`
+  bestanden; Publishing und Deployment bleiben ausdrücklich nicht autorisiert.
+- **Container-/Scanstand:** Image `sha256:ea42ec6…ecc8eb`, 71 ladbare Entry
+  Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
+- **Integrationsscope:** der geprüfte 3370-Dateien-Ausgangsscope wurde atomar
+  integriert; der aktuelle Branch-Arbeitsbaum ist sauber.
 - **Paketinventar:** **71 Console Entry Points**, **70 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
   `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2600.
-- **Releasegrenze:** lokale Funktions-, Runtime- und Volumebereitschaft ist
-  weder PostgreSQL-Endnachweis noch Staging-, Deployment- oder Providerfreigabe.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2608.
+- **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
+  Signierung, Providerfreigabe, Staging-Akzeptanz und Deployment bleiben offen.
 
 ## 2. Abgeschlossene Foundations / Schritte
 
@@ -12001,6 +12002,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
 - LQ-2608 external release-authority blocker matrix:
   `docs/lq-2608-external-release-authority-blocker-matrix.md`
   - grenzt reale Signierung, Provider-Publikation, Staging-Akzeptanz und Deployment als verbleibende externe Autoritätsentscheidungen ab
+
+- LQ-2609 consolidated current-status synchronization:
+  `docs/lq-2609-consolidated-current-status-synchronization.md`
+  - trennt aktuelle Normal-, PostgreSQL-, Preflight- und Containerfakten im Roadmap-Kopf
+- LQ-2610 commit and evidence-chain audit:
+  `docs/lq-2610-commit-evidence-chain-audit.md`
+  - bindet Preflight und Image an Code-Commit `d273c9a` und hält spätere Dokumentationscommits davon getrennt
+- LQ-2611 installed release-artifact scope audit:
+  `docs/lq-2611-installed-release-artifact-scope-audit.md`
+  - bestätigt geschlossene Wheelroots, 456 Member, 71 Entry Points und bytegleichen sdist-Roundtrip
+- LQ-2612 merge-ready local branch handoff:
+  `docs/lq-2612-merge-ready-local-branch-handoff.md`
+  - stellt den sauberen lokalen Branch ohne Upstream, Push, Tag, Release oder Deployment zur Review bereit
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

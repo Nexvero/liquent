@@ -19,10 +19,11 @@ def _roadmap_head() -> str:
 
 def test_consolidated_head_records_separate_verified_test_boundaries() -> None:
     head = _roadmap_head()
-    assert "**7169 passed**, **108 skipped**" in head
-    assert "**7277 passed**, keine Skips oder Fehler" in head
+    assert "**7167 passed**, **111 skipped**" in head
+    assert "**107 passed**, **7171 deselected**" in head
     assert "PostgreSQL-16.14-Cluster mit UTC-Sessions" in head
-    assert "bis LQ-2600" in head
+    assert "bis LQ-2608" in head
+    assert "alle zehn kontrollierten Phasen" in head
 
 
 def test_consolidated_inventory_matches_repository_files() -> None:
@@ -59,7 +60,7 @@ def test_release_boundary_and_lq412_bundle_drift_are_traceable() -> None:
         encoding="utf-8"
     )
 
-    assert "weder PostgreSQL-Endnachweis noch Staging-, Deployment-" in head
+    assert "externe\n  Signierung, Providerfreigabe, Staging-Akzeptanz" in head
     assert "34 Console Entry Points" in contract
     assert "38 Operatormodule" in contract
     assert "finale Packaging- und Bundle-Preflight noch nicht als bestanden" in contract
