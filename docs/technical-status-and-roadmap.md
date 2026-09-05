@@ -12204,5 +12204,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - bindet die Ladefolge per Regression vor Image-Pull und Mutation
   - verändert keine Werte, Dienste, Netzwerke, Container oder Hostports
 
+- LQ-2640 PostgreSQL 18 volume and bootstrap failure stop:
+  `docs/lq-2640-postgresql-18-volume-and-bootstrap-failure-stop.md`
+  - dokumentiert den zweiten Abbruch am PostgreSQL-Health-Gate vor Migration und Edge-Handoff
+  - bindet das leere benannte Volume an den PostgreSQL-18-konformen Rootpfad
+  - verbietet den historischen `/var/lib/postgresql/data`-Mount per Regression
+  - stoppt PostgreSQL künftig im Bootstrap-Fehlerpfad neben der Control Plane
+  - bestätigt gestoppten Container, leeres Volume und weiterhin aktiven Host-nginx
+  - löscht weder Container, Volume noch die vier geprüften Deployment-Netzwerke
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
