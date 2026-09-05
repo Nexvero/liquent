@@ -60,10 +60,10 @@ if (( ! offline )); then
     "$initial_config" \
     "$EDGE_ENV_FILE" \
     "$EDGE_KEY_FILE" \
-    "$LIQUENT_SECRETS_DIR/database_url" \
     "$LIQUENT_SECRETS_DIR/postgres_password"; do
     deploy_require_root_owned_file "$root_file"
   done
+  deploy_require_file_owner "$LIQUENT_SECRETS_DIR/database_url" 10001
   for network_spec in \
     liquent_public:false \
     liquent_application:true \
