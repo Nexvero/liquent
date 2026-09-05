@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -85,6 +85,11 @@ class PlatformSettings(BaseSettings):
     manifest_handoff_supervisor_wrapper_gid: int | None = Field(
         default=None, ge=1, le=2_147_483_647
     )
+
+    @field_validator("job_concurrency", mode="before")
+    @classmethod
+    def parse_single_job_concurrency(cls, value: object) -> object:
+        return 1 if value == "1" else value
 
     @model_validator(mode="after")
     def validate_environment_contract(self) -> "PlatformSettings":
