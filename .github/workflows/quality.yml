@@ -224,6 +224,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  backup-container:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Build immutable-base backup image
+        run: |
+          docker build \
+            --file Dockerfile.backup \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --tag "liquent-backup:${GITHUB_SHA}" .
+
+      - name: Verify backup image contract
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' "liquent-backup:${GITHUB_SHA}")" = "10001:10001"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "liquent-backup:${GITHUB_SHA}")" = "${GITHUB_SHA}"
+
+      - name: Run hardened backup smoke test
+        run: operations/container/backup-smoke-test.sh "liquent-backup:${GITHUB_SHA}"
+
   provenance:
     if: github.event_name == 'push'
     # The integration path gates attestation too: nothing may be attested on a
