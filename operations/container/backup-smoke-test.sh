@@ -3,7 +3,15 @@ set -Eeuo pipefail
 
 image="${1:?usage: backup-smoke-test.sh IMAGE}"
 fixture="$(mktemp -d)"
-cleanup() { rm -rf -- "$fixture"; }
+host_uid="$(id -u)"
+host_gid="$(id -g)"
+cleanup() {
+  docker run --rm --user 0:0 \
+    --volume "$fixture:/fixture" \
+    --entrypoint chown "$image" -R "${host_uid}:${host_gid}" /fixture \
+    >/dev/null 2>&1 || true
+  rm -rf -- "$fixture"
+}
 trap cleanup EXIT INT TERM
 
 mkdir -p "$fixture/secrets"
