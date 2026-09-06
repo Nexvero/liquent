@@ -7,6 +7,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKUP_ROOT = ROOT / "operations" / "backup"
+BACKUP_DOCKERFILE = ROOT / "Dockerfile.backup"
+BACKUP_SMOKE = ROOT / "operations" / "container" / "backup-smoke-test.sh"
 SCRIPTS = (
     BACKUP_ROOT / "lib.sh",
     BACKUP_ROOT / "backup.sh",
@@ -53,8 +55,28 @@ def _checked_config(tmp_path: Path) -> Path:
 
 
 def test_backup_scripts_have_valid_bash_syntax() -> None:
-    for script in SCRIPTS:
+    for script in (*SCRIPTS, BACKUP_SMOKE):
         subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
+    dockerfile = BACKUP_DOCKERFILE.read_text(encoding="utf-8")
+    assert "postgres:18.6-trixie@sha256:" in dockerfile
+    assert "restic/restic:0.18.1@sha256:" in dockerfile
+    assert "COPY --from=restic /usr/bin/restic" in dockerfile
+    assert "USER 10001:10001" in dockerfile
+    assert "ENTRYPOINT []" in dockerfile
+    assert '["/opt/liquent/backup/backup.sh", "--check"]' in dockerfile
+
+
+def test_quality_workflow_builds_and_smokes_backup_image() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "quality.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "backup-container:" in workflow
+    assert "--file Dockerfile.backup" in workflow
+    assert "backup-smoke-test.sh" in workflow
+    assert '10001:10001' in workflow
 
 
 def test_backup_and_restore_check_mode_perform_no_external_commands(tmp_path: Path) -> None:
