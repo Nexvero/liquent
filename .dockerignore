@@ -6,6 +6,8 @@ dist
 reports
 data/raw
 data/processed
+operations
+!operations/
 operations/**
 !operations/backup/
 !operations/backup/**
