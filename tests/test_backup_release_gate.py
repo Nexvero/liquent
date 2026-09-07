@@ -34,6 +34,26 @@ def test_backup_release_rebuilds_and_smokes_before_registry_authentication() -> 
     assert "severity-cutoff: high" in workflow
 
 
+def test_backup_release_preserves_blocking_scan_evidence_without_publishing() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    summary = workflow.index("Summarize blocking backup vulnerability findings")
+    evidence = workflow.index("Upload backup scan failure evidence")
+    login = workflow.index("Authenticate to GHCR only after all gates")
+    assert summary < evidence < login
+    assert workflow.count(
+        "if: failure() && hashFiles('dist/backup-grype-results.json') != ''"
+    ) == 2
+    for field in (
+        ".artifact.name",
+        ".artifact.version",
+        ".vulnerability.id",
+        ".vulnerability.fix.versions",
+    ):
+        assert field in workflow
+    assert "dist/backup-grype-results.json" in workflow
+    assert "retention-days: 30" in workflow
+
+
 def test_backup_release_uses_immutable_identity_and_evidence() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "ghcr.io/nexvero/liquent-backup" in workflow
