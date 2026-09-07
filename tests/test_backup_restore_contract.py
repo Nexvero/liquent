@@ -68,7 +68,7 @@ def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
     for module in (
         "golang.org/x/crypto@v0.56.0",
         "golang.org/x/net@v0.57.0",
-        "golang.org/x/text@v0.39.0",
+        "golang.org/x/text@v0.41.0",
         "google.golang.org/grpc@v1.83.1",
     ):
         assert module in dockerfile
