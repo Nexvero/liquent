@@ -19,6 +19,7 @@ services:
       - pgpass
     networks:
       - data
+      - backup-egress
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,6 +30,10 @@ services:
       - /tmp:size=64m,mode=1777
     volumes:
       - artifacts:/backup-input/artifacts:ro
+
+networks:
+  backup-egress:
+    internal: false
 
 secrets:
   restic_password:

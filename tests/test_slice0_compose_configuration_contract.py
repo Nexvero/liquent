@@ -141,3 +141,7 @@ def test_backup_role_is_isolated_in_explicit_operations_overlay() -> None:
     assert "LIQUENT_BACKUP_IMAGE=" in backup_images and "@sha256:" in backup_images
     assert "restic_password:" not in compose
     assert "restic_password:" in overlay
+    backup = _service_block(overlay, "backup", None)
+    assert "      - data\n      - backup-egress\n" in backup
+    assert "ports:" not in backup
+    assert "\nnetworks:\n  backup-egress:\n    internal: false\n" in overlay
