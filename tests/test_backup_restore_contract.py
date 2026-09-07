@@ -14,7 +14,10 @@ SCRIPTS = (
     BACKUP_ROOT / "backup.sh",
     BACKUP_ROOT / "retention.sh",
     BACKUP_ROOT / "restore-verify.sh",
+    BACKUP_ROOT / "alert.sh",
+    BACKUP_ROOT / "check-age.sh",
 )
+SYSTEMD_ROOT = ROOT / "operations" / "systemd"
 
 
 def _checked_config(tmp_path: Path) -> Path:
@@ -152,3 +155,38 @@ def test_runbook_requires_isolated_restore_and_records_rpo_rto() -> None:
     )
     for term in ("isolated", "RPO", "RTO", "snapshot ID", "never into Production"):
         assert term in runbook
+
+
+def test_scheduled_backup_runs_retention_only_after_backup_and_records_success() -> None:
+    service = (SYSTEMD_ROOT / "liquent-backup.service").read_text(encoding="utf-8")
+    backup = service.index("run --rm backup\n")
+    retention = service.index("retention.sh --apply")
+    success = service.index("last-success")
+    assert backup < retention < success
+    assert "OnFailure=liquent-backup-failure-alert.service" in service
+
+
+def test_backup_and_age_timers_are_persistent_and_daily() -> None:
+    backup_timer = (SYSTEMD_ROOT / "liquent-backup.timer").read_text(encoding="utf-8")
+    age_timer = (SYSTEMD_ROOT / "liquent-backup-age.timer").read_text(encoding="utf-8")
+    for timer in (backup_timer, age_timer):
+        assert "OnCalendar=*-*-*" in timer
+        assert "Persistent=true" in timer
+        assert "RandomizedDelaySec=" in timer
+
+
+def test_age_check_defaults_to_24_hours_and_alerts_fail_closed() -> None:
+    script = (BACKUP_ROOT / "check-age.sh").read_text(encoding="utf-8")
+    assert "LIQUENT_BACKUP_MAXIMUM_AGE_SECONDS:-86400" in script
+    assert "No successful backup timestamp is recorded." in script
+    assert "older than 24 hours" in script
+    assert '[[ ! -f "$stamp" || -L "$stamp" ]]' in script
+
+
+def test_alert_configuration_contains_no_real_recipient_or_password() -> None:
+    example = (BACKUP_ROOT / "alert.env.example").read_text(encoding="utf-8")
+    assert "admin@example.invalid" in example
+    assert "password" not in example.lower()
+    alert = (BACKUP_ROOT / "alert.sh").read_text(encoding="utf-8")
+    assert "backup_require_file" in alert
+    assert "msmtp --account=" in alert

@@ -26,6 +26,14 @@ Retention is not implicit. Run `retention.sh --apply` from a reviewed scheduled
 job after a successful backup. Policy: 7 daily, 4 weekly, and 6 monthly
 snapshots. Review the forget plan and repository size before policy changes.
 
+Install `alert.env.example` as `/etc/liquent/backup-alert.env` with mode `0600`
+and replace its example values. Install `alert.sh` and `check-age.sh` beside the
+other backup scripts, then install the units from `operations/systemd`. The SMTP
+client configuration and password are host-managed secrets and never belong in
+this repository. Verify one real alert before enabling both timers. The backup
+timer runs the backup before retention and only then updates the success stamp;
+the age timer alerts when that stamp is absent or older than 24 hours.
+
 ## Isolated restore test
 
 1. Declare incident/test owner, snapshot, start time, and recovery environment.

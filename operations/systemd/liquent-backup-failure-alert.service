@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert on Liquent backup failure
+
+[Service]
+Type=oneshot
+ExecStart=/opt/liquent/backup/alert.sh "Backup or retention failed; inspect the protected system journal."
