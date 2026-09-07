@@ -143,5 +143,9 @@ def test_backup_role_is_isolated_in_explicit_operations_overlay() -> None:
     assert "restic_password:" in overlay
     backup = _service_block(overlay, "backup", None)
     assert "      - data\n      - backup-egress\n" in backup
+    assert "LIQUENT_BACKUP_CONFIG: /etc/liquent/backup.env" in backup
+    assert "RESTIC_CACHE_DIR: /tmp/restic-cache" in backup
+    assert "../backup/backup.env:/etc/liquent/backup.env:ro" in backup
+    assert "/backup-input/database:size=2048m,mode=0700,uid=10001,gid=10001" in backup
     assert "ports:" not in backup
     assert "\nnetworks:\n  backup-egress:\n    internal: false\n" in overlay

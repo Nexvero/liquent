@@ -12,6 +12,9 @@ services:
     env_file:
       - path: ../backup/backup.env
         required: true
+    environment:
+      LIQUENT_BACKUP_CONFIG: /etc/liquent/backup.env
+      RESTIC_CACHE_DIR: /tmp/restic-cache
     secrets:
       - restic_password
       - ovh_access_key
@@ -26,9 +29,10 @@ services:
     cpus: 1.00
     mem_limit: 1024m
     tmpfs:
-      - /backup-input/database:size=2048m,mode=0700
+      - /backup-input/database:size=2048m,mode=0700,uid=10001,gid=10001
       - /tmp:size=64m,mode=1777
     volumes:
+      - ../backup/backup.env:/etc/liquent/backup.env:ro
       - artifacts:/backup-input/artifacts:ro
 
 networks:
