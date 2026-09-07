@@ -22,6 +22,7 @@ RUN mkdir /src /out \
 FROM ${POSTGRES_IMAGE} AS runtime
 ARG VCS_REF=unknown
 ARG OPENSSL_VERSION=3.5.7-1~deb13u2
+ARG CA_CERTIFICATES_VERSION=20250419
 LABEL org.opencontainers.image.title="Liquent Backup" \
       org.opencontainers.image.description="Liquent PostgreSQL and artifact backup runtime" \
       org.opencontainers.image.source="https://github.com/Nexvero/liquent" \
@@ -31,6 +32,8 @@ COPY --from=restic /out/restic /usr/local/bin/restic
 COPY operations/backup/ /opt/liquent/backup/
 
 RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        "ca-certificates=${CA_CERTIFICATES_VERSION}" \
     && apt-get install --yes --no-install-recommends --only-upgrade \
         "libssl3t64=${OPENSSL_VERSION}" \
         "openssl=${OPENSSL_VERSION}" \

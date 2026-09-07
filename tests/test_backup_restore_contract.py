@@ -73,6 +73,8 @@ def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
     ):
         assert module in dockerfile
     assert "ARG OPENSSL_VERSION=3.5.7-1~deb13u2" in dockerfile
+    assert "ARG CA_CERTIFICATES_VERSION=20250419" in dockerfile
+    assert '"ca-certificates=${CA_CERTIFICATES_VERSION}"' in dockerfile
     for package in ("libssl3t64", "openssl", "openssl-provider-legacy"):
         assert f'"{package}=${{OPENSSL_VERSION}}"' in dockerfile
     assert "--only-upgrade" in dockerfile
