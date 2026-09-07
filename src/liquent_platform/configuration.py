@@ -64,6 +64,7 @@ class PlatformSettings(BaseSettings):
     oidc_token_response_max_bytes: int | None = Field(default=None, ge=1)
     oidc_jwks_response_max_bytes: int | None = Field(default=None, ge=1)
     oidc_jwks_cache_ttl_seconds: int | None = Field(default=None, ge=1)
+    oidc_client_secret: SecretStr | None = None
     manifest_handoff_supervisor_mode: Literal["candidate"] | None = None
     manifest_handoff_supervisor_backend_instance_id: str | None = Field(
         default=None,
@@ -174,6 +175,7 @@ class PlatformSettings(BaseSettings):
             self.oidc_token_response_max_bytes,
             self.oidc_jwks_response_max_bytes,
             self.oidc_jwks_cache_ttl_seconds,
+            self.oidc_client_secret,
         )
 
     def _manifest_handoff_supervisor_values(self) -> tuple[object | None, ...]:

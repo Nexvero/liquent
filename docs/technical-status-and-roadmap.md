@@ -12213,5 +12213,49 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - bestätigt gestoppten Container, leeres Volume und weiterhin aktiven Host-nginx
   - löscht weder Container, Volume noch die vier geprüften Deployment-Netzwerke
 
+- LQ-2641 staging runtime restart acceptance:
+  `docs/lq-2641-staging-runtime-restart-acceptance.md`
+  - bindet die Abnahme an den gemergten Repository- und unveränderlichen Release-Stand
+  - startet PostgreSQL, Control Plane und Container-Edge kontrolliert in Abhängigkeitsreihenfolge neu
+  - bestätigt alle drei Healthchecks sowie den externen HTTPS-Liveness-Endpunkt mit HTTP 200
+  - bestätigt den persistent erhaltenen Alembic-Stand `20260826_0042`
+  - hält den abgelösten Host-nginx inaktiv und beide Backup-Überwachungstimer aktiv
+  - belegt 20 erfolgreiche lokale Bootstrap-, Edge- und Promotion-Vertragstests
+  - führt weder Release, Migration, Secretänderung noch Production-Freigabe aus
+  - lässt die authentifizierte Benutzer- und OIDC-Staging-Abnahme als nächsten separaten Strang offen
+
+- LQ-2642 staging OIDC readiness audit:
+  `docs/lq-2642-staging-oidc-readiness-audit.md`
+  - bestätigt die vollständig deaktivierte OIDC-Runtime-Composition ohne Teilverdrahtung
+  - bestätigt die weiterhin geschlossene öffentliche Edge-Grenze für Session- und OIDC-Routen
+  - zählt neutral null Benutzer, Workspaces, Trust-Autoritäten, Client-Konfigurationen und externe Bindungen
+  - trennt Initial-Identity-, Trust-Authority-, Provider-, Runtime-, Edge- und Browserphasen fail-closed
+  - verbietet die Ableitung eines Providers oder einer Autorität aus Caller-, Browser- oder Hostwerten
+  - wahrt die Trennung von SessionPrincipal, Membership, Research und Management Capability
+  - verändert weder Datenbank, Runtime, Edge, DNS, Zertifikate noch externe Providerkonten
+  - lässt Initial-Identity- und Trust-Authority-Bootstrap als nächsten kontrollierten Slice offen
+
+- LQ-2643 staging initial identity and trust-authority bootstrap:
+  `docs/lq-2643-staging-initial-identity-and-trust-authority-bootstrap.md`
+  - führt beide einmaligen Operatoren aus dem digestgebundenen Staging-Release isoliert aus
+  - erzeugt genau einen stabilen internen Benutzer und genau einen stabilen internen Workspace
+  - bindet genau eine globale OIDC-Trust-Management-Autorität an den erzeugten aktiven Benutzer
+  - verwahrt Resultate und enge ID-Übergabe root-only ohne interne IDs offenzulegen
+  - bestätigt weiterhin null OIDC-Client-Konfigurationen und null externe Identitätsbindungen
+  - trennt Trust-Management ausdrücklich von Membership, Onboarding und Research-Berechtigungen
+  - verändert weder Runtime, Edge, DNS, Zertifikate noch externe Providerkonten
+  - lässt Providerwahl, Client-Einrichtung und Trust-Aktivierung als nächsten separaten Strang offen
+
+- LQ-2644 confidential OIDC client runtime secret:
+  `docs/lq-2644-confidential-oidc-client-runtime-secret.md`
+  - ergänzt ein vollständigkeitsgebundenes `SecretStr` ausschließlich für die OIDC-Runtime
+  - hält das Client-Secret vollständig außerhalb persistenter Trust-Konfiguration und Migrationen
+  - sendet Secret und PKCE-Verifier gemeinsam nur an den konfigurierten Token-Endpunkt
+  - hält Secret aus Authorization-URL, JWKS, Browserantworten, Fehlern und Repräsentationen fern
+  - mountet das Docker Secret ausschließlich in die Control Plane
+  - lässt fehlende oder leere Secrets vor automatischer OIDC-Composition geschlossen scheitern
+  - belegt Token-, Composition-, Wiring-, Settings- und Compose-Vertrag mit 78 Tests
+  - lässt Google-Client-Erzeugung, Review, Release und Staging-Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

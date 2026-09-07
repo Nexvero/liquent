@@ -38,6 +38,7 @@ def compose_oidc_verifier(
     client: httpx2.Client,
     policy: OidcVerificationPolicy,
     *,
+    client_secret: str | None = None,
     now: Callable[[], datetime] | None = None,
     monotonic: Callable[[], float] | None = None,
 ) -> OidcVerifierComposition:
@@ -50,7 +51,9 @@ def compose_oidc_verifier(
     wall_clock = now or (lambda: datetime.now(UTC))
     technical_clock = monotonic or time.monotonic
     configurations = DatabaseActiveOidcClientConfiguration(engine)
-    token_endpoint = OidcTokenEndpointClient(client, policy, technical_clock)
+    token_endpoint = OidcTokenEndpointClient(
+        client, policy, technical_clock, client_secret=client_secret
+    )
     jwks_loader = OidcJwksEndpointClient(client, policy, technical_clock)
     jwks_cache = InMemoryOidcJwksCache(jwks_loader, policy, technical_clock)
     verifier = ComposedOidcAuthorizationCodeVerifier(

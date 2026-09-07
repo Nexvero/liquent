@@ -101,7 +101,8 @@ def test_composition_uses_one_lookup_client_policy_and_each_clock(engine: Engine
     wall = lambda: NOW
     try:
         composition = compose_oidc_verifier(
-            engine, client, POLICY, now=wall, monotonic=ticks
+            engine, client, POLICY, client_secret="runtime-secret",
+            now=wall, monotonic=ticks
         )
         assert isinstance(composition, OidcVerifierComposition)
         assert composition.verifier._configurations is composition.configurations
@@ -110,6 +111,7 @@ def test_composition_uses_one_lookup_client_policy_and_each_clock(engine: Engine
         assert token_endpoint._client is client
         assert token_endpoint._policy is POLICY
         assert token_endpoint._monotonic is ticks
+        assert token_endpoint._client_secret == "runtime-secret"
         assert cache._loader._client is client
         assert cache._loader._policy is POLICY
         assert cache._loader._monotonic is ticks

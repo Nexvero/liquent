@@ -308,6 +308,7 @@ def create_app(
     database_engine_owned: bool = False,
     oidc_http_client: httpx2.Client | None = None,
     oidc_verification_policy: OidcVerificationPolicy | None = None,
+    oidc_client_secret: str | None = None,
     oidc_monotonic_clock: Callable[[], float] | None = None,
     oidc_http_client_owned: bool = False,
     manifest_handoff_supervisor_process: (
@@ -354,6 +355,7 @@ def create_app(
         for dependency in (
             oidc_http_client,
             oidc_verification_policy,
+            oidc_client_secret,
             oidc_monotonic_clock,
         )
     )
@@ -365,10 +367,11 @@ def create_app(
             not database_available
             or oidc_http_client is None
             or oidc_verification_policy is None
+            or not oidc_client_secret
         ):
             raise ValueError(
                 "automatic oidc wiring requires database, http client, and "
-                "verification policy together"
+                "verification policy and client secret together"
             )
         auto_managed = (
             oidc_login_configurations,
@@ -426,6 +429,7 @@ def create_app(
             engine,
             oidc_http_client,
             oidc_verification_policy,
+            client_secret=oidc_client_secret,
             now=clock,
             monotonic=oidc_monotonic_clock,
         )
