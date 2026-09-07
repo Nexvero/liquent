@@ -62,7 +62,11 @@ def test_backup_scripts_have_valid_bash_syntax() -> None:
 def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
     dockerfile = BACKUP_DOCKERFILE.read_text(encoding="utf-8")
     assert "postgres:18.6-trixie@sha256:" in dockerfile
-    assert "restic/restic:0.18.1@sha256:" in dockerfile
+    assert "restic/restic:0.19.1@sha256:" in dockerfile
+    assert "ARG OPENSSL_VERSION=3.5.7-1~deb13u2" in dockerfile
+    for package in ("libssl3t64", "openssl", "openssl-provider-legacy"):
+        assert f'"{package}=${{OPENSSL_VERSION}}"' in dockerfile
+    assert "--only-upgrade" in dockerfile
     assert "COPY --from=restic /usr/bin/restic" in dockerfile
     assert "USER 10001:10001" in dockerfile
     assert "ENTRYPOINT []" in dockerfile
