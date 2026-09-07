@@ -86,9 +86,15 @@ def test_staging_infrastructure_examples_are_complete_verified_pins() -> None:
 
 def test_secrets_are_file_mounted_and_examples_contain_no_values() -> None:
     compose = _text(COMPOSE)
+    control_plane = _service_block(compose, "control-plane", "research-worker")
     assert "POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password" in compose
     assert "GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password" in compose
     assert "database_url:" in compose
+    assert "oidc_client_secret:" in compose
+    assert "- oidc_client_secret" in control_plane
+    assert "oidc_client_secret" not in _service_block(
+        compose, "migration-gate", "control-plane"
+    )
     assert "password=" not in _text(RUNTIME_EXAMPLE).lower()
     assert "database_url=" not in _text(RUNTIME_EXAMPLE).lower()
 

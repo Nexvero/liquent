@@ -60,10 +60,15 @@ class OidcTokenEndpointClient:
         client: httpx2.Client,
         policy: OidcVerificationPolicy,
         monotonic: Callable[[], float] = time.monotonic,
+        *,
+        client_secret: str | None = None,
     ) -> None:
+        if client_secret is not None and not client_secret:
+            raise ValueError("oidc client secret must not be empty")
         self._client = client
         self._policy = policy
         self._monotonic = monotonic
+        self._client_secret = client_secret
 
     def exchange_authorization_code(
         self,
@@ -84,16 +89,19 @@ class OidcTokenEndpointClient:
         started = self._read_clock()
 
         try:
+            form = {
+                "grant_type": "authorization_code",
+                "code": verification.authorization_code,
+                "redirect_uri": verification.redirect_uri,
+                "client_id": configuration.client_id,
+                "code_verifier": verification.code_verifier,
+            }
+            if self._client_secret is not None:
+                form["client_secret"] = self._client_secret
             with self._client.stream(
                 "POST",
                 configuration.token_endpoint,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": verification.authorization_code,
-                    "redirect_uri": verification.redirect_uri,
-                    "client_id": configuration.client_id,
-                    "code_verifier": verification.code_verifier,
-                },
+                data=form,
                 # Identity encoding keeps the byte cap counting what was sent.
                 headers={"Accept": _MEDIA_TYPE, "Accept-Encoding": _CONTENT_ENCODING},
                 follow_redirects=False,

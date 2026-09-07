@@ -54,8 +54,9 @@ def test_runtime_environment_contract_lists_the_complete_oidc_group() -> None:
         / "runtime.env.example"
     ).read_text(encoding="utf-8")
     for field in PlatformSettings.model_fields:
-        if field.startswith("oidc_"):
+        if field.startswith("oidc_") and field != "oidc_client_secret":
             assert f"LIQUENT_{field.upper()}=" in example
+    assert "LIQUENT_OIDC_CLIENT_SECRET=" not in example
 
 
 def test_persistent_runtime_lookups_expose_no_management_shortcut() -> None:

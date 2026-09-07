@@ -42,6 +42,9 @@ services:
   control-plane:
     <<: *app-base
     command: ["liquent-control-plane"]
+    secrets:
+      - database_url
+      - oidc_client_secret
     expose:
       - "8000"
     networks:
@@ -195,6 +198,8 @@ volumes:
 secrets:
   database_url:
     file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/database_url
+  oidc_client_secret:
+    file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/oidc_client_secret
   postgres_password:
     file: ${LIQUENT_SECRETS_DIR:?set host secrets directory}/postgres_password
   grafana_admin_password:
