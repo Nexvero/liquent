@@ -51,6 +51,21 @@ def test_oidc_process_settings_are_all_or_none_and_summary_is_value_free() -> No
         PlatformSettings(_secrets_dir=None, oidc_login_origin="https://app.example")
 
 
+def test_oidc_client_secret_is_loaded_from_the_runtime_secret_file(
+    tmp_path: Path,
+) -> None:
+    secret = "runtime-client-secret-from-file"
+    (tmp_path / "oidc_client_secret").write_text(secret, encoding="utf-8")
+    values = _oidc()
+    del values["oidc_client_secret"]
+
+    settings = PlatformSettings(_secrets_dir=tmp_path, **values)
+
+    assert settings.oidc_client_secret is not None
+    assert settings.oidc_client_secret.get_secret_value() == secret
+    assert secret not in repr(settings)
+
+
 @pytest.mark.parametrize(
     "change",
     [

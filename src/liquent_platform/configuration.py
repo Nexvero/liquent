@@ -64,7 +64,12 @@ class PlatformSettings(BaseSettings):
     oidc_token_response_max_bytes: int | None = Field(default=None, ge=1)
     oidc_jwks_response_max_bytes: int | None = Field(default=None, ge=1)
     oidc_jwks_cache_ttl_seconds: int | None = Field(default=None, ge=1)
-    oidc_client_secret: SecretStr | None = None
+    oidc_client_secret: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "LIQUENT_OIDC_CLIENT_SECRET", "oidc_client_secret"
+        ),
+    )
     manifest_handoff_supervisor_mode: Literal["candidate"] | None = None
     manifest_handoff_supervisor_backend_instance_id: str | None = Field(
         default=None,
