@@ -2,6 +2,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+import liquent_platform.persistence.migrate as migrate
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
 from liquent_platform.persistence.migrate import upgrade_to_head
 from liquent_platform.persistence.migrations import expected_head
@@ -22,6 +23,22 @@ def test_migration_history_is_declared_as_packaged_artifact_data() -> None:
         encoding="utf-8"
     )
     assert '"persistence/alembic/versions/*.py"' in pyproject
+
+
+def test_migration_entrypoint_reads_only_its_database_secret(
+    tmp_path: Path, monkeypatch
+) -> None:
+    secret_path = tmp_path / "database_url"
+    database_url = "postgresql+psycopg://migration-only"
+    secret_path.write_text(database_url + "\n", encoding="utf-8")
+    seen: list[str] = []
+    monkeypatch.setattr(migrate, "DATABASE_URL_SECRET_PATH", secret_path)
+    monkeypatch.setattr(migrate, "upgrade_to_head", seen.append)
+    monkeypatch.setenv("LIQUENT_OIDC_LOGIN_ORIGIN", "https://staging.liquent.ai")
+
+    migrate.main()
+
+    assert seen == [database_url]
 
 
 def test_upgrade_establishes_current_revision_and_readiness(tmp_path: Path) -> None:
