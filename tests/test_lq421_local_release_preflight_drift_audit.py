@@ -95,8 +95,8 @@ def test_package_inventory_claims_still_match_repository() -> None:
     migrations = list(
         (ROOT / "src/liquent_platform/persistence/alembic/versions").glob("*.py")
     )
-    assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 71
-    assert len(operators) == EXPECTED_OPERATOR_FILE_COUNT == 71
+    assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 72
+    assert len(operators) == EXPECTED_OPERATOR_FILE_COUNT == 72
     assert len(migrations) == EXPECTED_MIGRATION_COUNT == 42
 
 

@@ -104,7 +104,7 @@ def test_head_inventory_and_roadmap_remain_synchronized() -> None:
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
     assert "**42 lineare Migrationen**, Head\n  `20260826_0042`" in roadmap
     assert "EXPECTED_MIGRATION_COUNT = 42" in bundle
-    assert "**71 Console Entry Points**, **70 Operatorimplementierungs-" in roadmap
+    assert "**72 Console Entry Points**, **71 Operatorimplementierungs-" in roadmap
 
 
 def test_roadmap_records_lq529_and_lq530() -> None:

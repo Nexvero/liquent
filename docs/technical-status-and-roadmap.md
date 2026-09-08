@@ -18,7 +18,7 @@
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
-- **Paketinventar:** **71 Console Entry Points**, **70 Operatorimplementierungs-
+- **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
   `20260826_0042`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -12267,6 +12267,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - wertet die neutrale Callback-Ablehnung ohne Bindung oder Admission als beabsichtigtes fail-closed Verhalten
   - lässt genau eine intern autorisierte, serverseitig an den Login gebundene Staging-Admission als LQ-2646 offen
   - erzeugt weder Identitätsbindung, Session, Membership noch Research-Berechtigung
+
+- LQ-2646 controlled staging OIDC admission login:
+  `docs/lq-2646-controlled-staging-oidc-admission-login.md`
+  - ergänzt einen privaten Offline-Operator für autorisierte Admission-Provisionierung und serverseitige Login-Bindung
+  - akzeptiert weder Browser-State noch Admission-ID, Providerwerte, Rollen oder caller-gelieferte Freigaben
+  - bindet nur bei genau einer aktuellen ungebundenen OIDC-Login-Transaktion
+  - behandelt null oder mehrere Kandidaten neutral und ohne Mutation
+  - macht exakte Wiederholung mit derselben Admission erfolgreich und erzeugt keine zweite Admission
+  - nutzt bestehende persistente Autoritätsauflösung; SessionPrincipal identifiziert nur den Akteur
+  - hält Onboarding-Management getrennt von Membership und Research-Berechtigungen
+  - lässt öffentliche OIDC-Routen und Browserverträge unverändert
+  - lässt Review, Release, Promotion und einen realen kontrollierten Staging-Login separat offen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
