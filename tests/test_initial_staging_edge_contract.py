@@ -123,13 +123,23 @@ def test_offline_initial_preflight_validates_tls_and_performs_no_mutation(tmp_pa
     assert not (tmp_path / "state").exists()
 
 
-def test_edge_exposes_only_liveness_and_denies_default_routes() -> None:
+def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> None:
     config = EDGE.read_text(encoding="utf-8")
     assert "server_name staging.liquent.ai" in config
     assert "location = /health/live" in config
+    assert "location = /v1/session/oidc/login" in config
+    assert "location = /v1/session/oidc/callback" in config
     assert "location ^~ /.well-known/acme-challenge/" in config
     assert "try_files $uri =404" in config
     assert "proxy_pass http://liquent_staging_control_plane/health/live" in config
+    assert (
+        "proxy_pass http://liquent_staging_control_plane/v1/session/oidc/login"
+        in config
+    )
+    assert (
+        "proxy_pass http://liquent_staging_control_plane/v1/session/oidc/callback"
+        in config
+    )
     assert "location /" in config and "return 404" in config
     assert "/health/ready" not in config
     assert "/internal/metrics" not in config
