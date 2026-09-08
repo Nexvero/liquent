@@ -831,7 +831,7 @@ def test_installed_distribution_identity_is_canonical_and_complete(
     wheel.write_bytes(b"wheel")
     entries = [
         {"name": f"liquent-command-{index}", "target": f"package.module{index}:main"}
-        for index in reversed(range(71))
+        for index in reversed(range(72))
     ]
     monkeypatch.setattr(
         local_gates,
@@ -862,7 +862,7 @@ def test_installed_distribution_identity_changes_with_bound_facts(
     wheel.write_bytes(b"wheel")
     entries = [
         {"name": f"liquent-command-{index}", "target": f"package.module{index}:main"}
-        for index in range(71)
+        for index in range(72)
     ]
     details = {
         "entry_points": entries,

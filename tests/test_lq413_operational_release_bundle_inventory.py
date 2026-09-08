@@ -21,8 +21,8 @@ def test_named_wheel_inventory_matches_the_repository() -> None:
         (ROOT / "src/liquent_platform/persistence/alembic/versions").glob("*.py")
     )
 
-    assert EXPECTED_ENTRY_POINT_COUNT == len(scripts) == 71
-    assert EXPECTED_OPERATOR_FILE_COUNT == len(operator_files) == 71
+    assert EXPECTED_ENTRY_POINT_COUNT == len(scripts) == 72
+    assert EXPECTED_OPERATOR_FILE_COUNT == len(operator_files) == 72
     assert EXPECTED_MIGRATION_COUNT == len(migration_files) == 42
 
 

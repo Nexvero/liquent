@@ -8,7 +8,7 @@ ROOT = Path(__file__).parents[1]
 
 def test_packaging_inventory_remains_intentionally_unchanged():
     project = (ROOT / "pyproject.toml").read_text()
-    assert len(re.findall(r"^liquent-[a-z0-9-]+\s*=", project, re.MULTILINE)) == 71
+    assert len(re.findall(r"^liquent-[a-z0-9-]+\s*=", project, re.MULTILINE)) == 72
     assert "liquent-supervisor-engine-api-joint" not in project
     module = (ROOT / "src/liquent_platform/transport/manifest_handoff_supervisor_engine_api_joint_entrypoint.py").read_text()
     assert 'if __name__ == "__main__"' in module

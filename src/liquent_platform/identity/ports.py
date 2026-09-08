@@ -1957,6 +1957,19 @@ class IdentityAdmissionProvisioningStore(Protocol):
     ) -> IdentityAdmissionId: ...
 
 
+class OidcPendingLoginAdmissionBindingStore(Protocol):
+    """Bind one internal admission to the sole eligible pending OIDC login.
+
+    The caller supplies no state, browser value, issuer, user, workspace, or
+    time. The implementation resolves the target facts and exactly one current
+    unbound transaction from its system of record. ``False`` neutrally covers
+    absence, expiry, ineligibility, or ambiguity; technical failure remains the
+    existing detail-free login-transaction store unavailability.
+    """
+
+    def bind_admission(self, admission_id: IdentityAdmissionId) -> bool: ...
+
+
 class OidcLoginTransactionClaimStore(Protocol):
     """Atomically claim one pending login transaction exactly once.
 

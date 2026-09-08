@@ -80,10 +80,10 @@ def test_release_inventory_drift_is_exact_and_fail_closed() -> None:
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
     entry_points = re.findall(r"^liquent-[a-z0-9-]+\s*=", project, re.MULTILINE)
     operators = list((ROOT / "src/liquent_platform/operators").glob("*.py"))
-    assert len(entry_points) == 71
-    assert len(operators) == 71
-    assert "EXPECTED_ENTRY_POINT_COUNT = 71" in bundle
-    assert "EXPECTED_OPERATOR_FILE_COUNT = 71" in bundle
+    assert len(entry_points) == 72
+    assert len(operators) == 72
+    assert "EXPECTED_ENTRY_POINT_COUNT = 72" in bundle
+    assert "EXPECTED_OPERATOR_FILE_COUNT = 72" in bundle
     assert "Blocker 9 — Releaseinventar ist inkonsistent" in text
     assert "59 `liquent-*`-Entry-Points und 66" in text
 

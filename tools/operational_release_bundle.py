@@ -27,8 +27,8 @@ MIGRATION_RE = re.compile(
     r"liquent_platform/persistence/alembic/versions/[^/]+\.py"
 )
 OPERATOR_RE = re.compile(r"liquent_platform/operators/[^/]+\.py")
-EXPECTED_ENTRY_POINT_COUNT = 71
-EXPECTED_OPERATOR_FILE_COUNT = 71
+EXPECTED_ENTRY_POINT_COUNT = 72
+EXPECTED_OPERATOR_FILE_COUNT = 72
 EXPECTED_MIGRATION_COUNT = 42
 
 RUNBOOKS = (
