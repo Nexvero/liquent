@@ -12257,5 +12257,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - belegt Token-, Composition-, Wiring-, Settings- und Compose-Vertrag mit 78 Tests
   - lässt Google-Client-Erzeugung, Review, Release und Staging-Promotion separat offen
 
+- LQ-2645 staging Google OIDC activation acceptance:
+  `docs/lq-2645-staging-google-oidc-activation-acceptance.md`
+  - bindet Google-Provider, persistente Trust-Konfiguration, Release `0.1.4` und exakte öffentliche OIDC-Edge-Routen zu einem geprüften Staging-Checkpoint
+  - bestätigt PostgreSQL, Control Plane und Edge gesund sowie OIDC in der wertfreien Runtime-Zusammenfassung vollständig aktiviert
+  - bestätigt aggregiert genau einen Nutzer, einen Workspace, eine Trust-Autorität und eine Client-Konfiguration, aber null externe Bindungen und null Admissions
+  - belegt Login-Start mit 405 für GET und 303 zu Google für einen gültigen same-origin POST; der Callback erreicht die Anwendung statt Edge-404
+  - hält Client-Secret, interne IDs, Provider-Subject und Client-ID außerhalb von Repository, Evidenz und Ausgaben
+  - wertet die neutrale Callback-Ablehnung ohne Bindung oder Admission als beabsichtigtes fail-closed Verhalten
+  - lässt genau eine intern autorisierte, serverseitig an den Login gebundene Staging-Admission als LQ-2646 offen
+  - erzeugt weder Identitätsbindung, Session, Membership noch Research-Berechtigung
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
