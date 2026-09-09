@@ -821,6 +821,65 @@ def create_app(
             entry.headers["Referrer-Policy"] = "same-origin"
             return entry
 
+        login_outcome_documents = {
+            "/login/rejected": (
+                "Sign-in could not be completed",
+                "Your access has not been changed. Contact your Liquent "
+                "administrator before trying again.",
+            ),
+            "/login/unavailable": (
+                "Sign-in is temporarily unavailable",
+                "Your access has not been changed. Please try again later.",
+            ),
+        }
+
+        def _login_outcome_document(title: str, message: str) -> str:
+            return (
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                f"<title>{title}</title></head><body><main><h1>{title}</h1>"
+                f"<p>{message}</p><p><a href=\"/login\">Return to sign in</a></p>"
+                "</main></body></html>"
+            )
+
+        async def oidc_login_outcome_route(request: Request) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            title, message = login_outcome_documents[request.url.path]
+            outcome = Response(
+                content=_login_outcome_document(title, message),
+                media_type="text/html",
+            )
+            outcome.headers["Cache-Control"] = "no-store"
+            outcome.headers["Referrer-Policy"] = "no-referrer"
+            return outcome
+
+        for outcome_path in login_outcome_documents:
+            app.add_api_route(
+                outcome_path,
+                oidc_login_outcome_route,
+                methods=[
+                    "GET",
+                    "HEAD",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "CONNECT",
+                ],
+                tags=["session"],
+                name=f"oidc_login_outcome_{outcome_path.rsplit('/', 1)[-1]}",
+            )
+
         def _rejected(status_code: int) -> Response:
             """One neutral empty rejection: no cookie, no redirect, no detail."""
 
