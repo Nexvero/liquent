@@ -813,7 +813,12 @@ def create_app(
                 return rejected
             entry = Response(content=login_entry_document, media_type="text/html")
             entry.headers["Cache-Control"] = "no-store"
-            entry.headers["Referrer-Policy"] = "no-referrer"
+            # A same-origin form POST must retain its concrete Origin. With
+            # ``no-referrer`` Safari and Chromium serialize that Origin as
+            # ``null``, which the login-start boundary correctly rejects.
+            # The subsequent redirect to the identity provider still uses
+            # ``no-referrer`` below, so no Liquent URL crosses that boundary.
+            entry.headers["Referrer-Policy"] = "same-origin"
             return entry
 
         def _rejected(status_code: int) -> Response:

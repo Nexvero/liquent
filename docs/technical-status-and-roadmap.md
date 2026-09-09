@@ -12301,5 +12301,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - belegt den Fix mit 179 fokussierten und 7.216 vollständigen erfolgreichen Tests
   - lässt Review, Release, Promotion und den einmaligen realen Staging-Login separat offen
 
+- LQ-2649 login-entry origin preservation:
+  `docs/lq-2649-login-entry-origin-preservation.md`
+  - korrigiert den beobachteten Widerspruch zwischen `no-referrer` und der exakten Origin-Prüfung
+  - verwendet `same-origin` ausschließlich für das statische Login-Dokument
+  - behält `no-referrer` für die anschließende Weiterleitung zum Provider bei
+  - lässt `Origin: null` auch mit same-origin Fetch Metadata weiterhin geschlossen
+  - wiederholt am Edge-Override alle bestehenden Sicherheitsheader ausdrücklich
+  - verändert weder Admission, Callback, Sessionautorität, Persistenz, Schema noch Secrets
+  - lässt Review, Release, Promotion und den realen Browser-Login separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
