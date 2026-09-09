@@ -152,10 +152,15 @@ class ResearchJobStartRequest(BaseModel):
 
 # LQ-175 §4. Enforced on the raw ASGI bytes so the request target stays bounded
 # independently of proxy defaults, and so nothing is decoded under an unbounded
-# input. Four parameters is exactly the largest permitted provider-error form.
+# input. Seven parameters cover the exact success form emitted by Google while
+# retaining a small, fixed upper bound.
 _MAX_RAW_CALLBACK_QUERY_BYTES = 8192
-_MAX_RAW_CALLBACK_QUERY_COMPONENTS = 4
+_MAX_RAW_CALLBACK_QUERY_COMPONENTS = 7
 _MAX_RAW_CALLBACK_COMPONENT_BYTES = 4096
+
+_CALLBACK_SUCCESS_AUXILIARY_PARAMETERS = frozenset(
+    {"iss", "scope", "authuser", "hd", "prompt"}
+)
 
 _CALLBACK_METHODS = [
     "GET",
@@ -181,7 +186,8 @@ def _raw_callback_query_is_bounded(raw: bytes) -> bool:
     if len(components) > _MAX_RAW_CALLBACK_QUERY_COMPONENTS:
         return False
     return all(
-        len(component) <= _MAX_RAW_CALLBACK_COMPONENT_BYTES for component in components
+        component and len(component) <= _MAX_RAW_CALLBACK_COMPONENT_BYTES
+        for component in components
     )
 
 
@@ -197,16 +203,26 @@ def _single_callback_state(parameters: list[tuple[str, str]]) -> str | None:
 def _callback_authorization_code(parameters: list[tuple[str, str]]) -> str | None:
     """The code of a valid success form; ``None`` for every other form.
 
-    The success form is exactly one state and one non-empty code, so an unknown
-    parameter, a duplicate, or an empty code all fail this test. ``None``
-    deliberately does not distinguish a valid provider-error form from a
-    malformed one: both are neutral business rejections that must still leave
-    the transaction consumed fail-closed (LQ-158 §6), which is exactly what the
-    verification use case does when it receives ``None``.
+    The success form has exactly one state and one non-empty code. It may also
+    contain at most one non-empty value for each explicitly recognized Google
+    response annotation. Unknown names, duplicates, empty annotations and any
+    error parameter fail this test. The annotations grant no authority and are
+    not forwarded to the verifier. ``None`` deliberately does not distinguish
+    a valid provider-error form from a malformed one: both are neutral business
+    rejections that must still leave the transaction consumed fail-closed
+    (LQ-158 §6), which is exactly what the verification use case does when it
+    receives ``None``.
     """
 
     names = [name for name, _ in parameters]
-    if len(names) != 2 or set(names) != {"state", "code"}:
+    allowed = _CALLBACK_SUCCESS_AUXILIARY_PARAMETERS | {"state", "code"}
+    if (
+        set(names) - allowed
+        or names.count("state") != 1
+        or names.count("code") != 1
+        or len(names) != len(set(names))
+        or any(not value for name, value in parameters if name in allowed)
+    ):
         return None
     code = next(value for name, value in parameters if name == "code")
     return code or None
