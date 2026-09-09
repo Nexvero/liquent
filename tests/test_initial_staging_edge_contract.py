@@ -149,6 +149,16 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert "ssl_protocols TLSv1.2 TLSv1.3" in config
 
 
+def test_login_entry_preserves_origin_without_weakening_other_security_headers() -> None:
+    config = EDGE.read_text(encoding="utf-8")
+    login_location = config.split("location = /login {", 1)[1].split("}", 1)[0]
+    assert 'add_header Referrer-Policy "same-origin" always;' in login_location
+    assert 'add_header Strict-Transport-Security "max-age=86400" always;' in login_location
+    assert 'add_header X-Content-Type-Options "nosniff" always;' in login_location
+    assert 'add_header X-Frame-Options "DENY" always;' in login_location
+    assert "default-src 'none'; form-action 'self'; frame-ancestors 'none'" in login_location
+
+
 def test_edge_compose_is_digest_bound_and_only_edge_publishes_ports() -> None:
     compose = EDGE_COMPOSE.read_text(encoding="utf-8")
     env_example = EDGE_ENV_EXAMPLE.read_text(encoding="utf-8")

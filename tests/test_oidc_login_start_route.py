@@ -214,7 +214,7 @@ def test_full_injection_exposes_one_script_free_same_origin_login_form() -> None
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert response.headers["cache-control"] == "no-store"
-    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["referrer-policy"] == "same-origin"
     assert response.text.count("<form") == 1
     assert 'method="post"' in response.text
     assert 'action="/v1/session/oidc/login"' in response.text
@@ -774,6 +774,23 @@ def test_safari_form_without_origin_uses_same_origin_fetch_metadata() -> None:
     assert response.status_code == 303
     assert response.headers["location"] == _expected_url()
     assert COOKIE_NAME in _cookie(response)
+
+
+def test_null_origin_remains_rejected_even_with_same_origin_fetch_metadata() -> None:
+    lookup = RecordingLookup(_configuration())
+    store = RecordingStore()
+    generator = RecordingGenerator()
+    clock = RecordingClock()
+    client = _client(lookup, store, generator, clock)
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Origin": "null", "Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    _assert_no_side_effects(response, lookup, store, generator, clock)
 
 
 def test_missing_origin_without_same_origin_fetch_metadata_stays_rejected() -> None:
