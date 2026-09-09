@@ -247,6 +247,60 @@ def test_login_entry_rejects_query_values_without_rendering_them() -> None:
     assert "caller-value" not in response.text
 
 
+@pytest.mark.parametrize(
+    ("path", "heading"),
+    [
+        ("/login/rejected", "Sign-in could not be completed"),
+        ("/login/unavailable", "Sign-in is temporarily unavailable"),
+    ],
+)
+def test_login_outcome_pages_are_static_detail_free_and_not_cached(
+    path: str, heading: str
+) -> None:
+    response = _client().get(path)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert f"<h1>{heading}</h1>" in response.text
+    assert '<a href="/login">Return to sign in</a>' in response.text
+    assert "Google" not in response.text
+    assert "admission" not in response.text.lower()
+    assert "<script" not in response.text
+    assert "<form" not in response.text
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+@pytest.mark.parametrize(
+    "method", ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"]
+)
+def test_login_outcome_pages_reject_non_get_methods_neutrally(
+    path: str, method: str
+) -> None:
+    response = _client().request(method, path)
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+def test_login_outcome_pages_reject_and_do_not_render_query_values(path: str) -> None:
+    response = _client().get(f"{path}?detail=provider-value")
+
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+    assert "provider-value" not in response.text
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+def test_default_app_has_no_login_outcome_pages(path: str) -> None:
+    assert TestClient(create_app()).get(path).status_code == 404
+
+
 DEPENDENCY_NAMES = (
     "oidc_login_configurations",
     "oidc_login_transactions",

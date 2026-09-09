@@ -12322,5 +12322,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - hebt die durch das Image-Gate beanstandeten `httpx2`-/`httpcore2`-Pins auf die reparierten Versionen an
   - lässt Review, Edge-Aktivierung und den realen Browser-Test separat offen
 
+- LQ-2651 OIDC login outcome pages:
+  `docs/lq-2651-oidc-login-outcome-pages.md`
+  - ersetzt die beobachteten Callback-Ziel-404 durch zwei exakte, statische Ergebnis-Seiten
+  - trennt neutrale Ablehnung von detailfreier technischer Nichtverfügbarkeit
+  - legt weder Admission-, Identitäts-, Provider-, Workspace- noch Autoritätsdetails offen
+  - lehnt Querywerte und alle Nicht-GET-Methoden leer und ohne Mutation ab
+  - versieht beide Dokumente mit `no-store`, `no-referrer` und bestehendem Edge-Schutz
+  - erweitert die Staging-Edge nur um `/login/rejected` und `/login/unavailable`
+  - verändert weder Admission, Session, Persistenz, Providerkonfiguration noch Berechtigungen
+  - lässt Review, Release, Promotion und die kontrollierte LQ-2646-Admission separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
