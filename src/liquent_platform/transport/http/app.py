@@ -776,6 +776,46 @@ def create_app(
 
     if oidc_login_enabled:
 
+        login_entry_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Sign in to Liquent</title></head><body><main>"
+            "<h1>Sign in to Liquent</h1>"
+            "<form method=\"post\" action=\"/v1/session/oidc/login\">"
+            "<button type=\"submit\">Continue with Google</button>"
+            "</form></main></body></html>"
+        )
+
+        @app.api_route(
+            "/login",
+            methods=[
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
+            tags=["session"],
+        )
+        async def oidc_login_entry_route(request: Request) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            entry = Response(content=login_entry_document, media_type="text/html")
+            entry.headers["Cache-Control"] = "no-store"
+            entry.headers["Referrer-Policy"] = "no-referrer"
+            return entry
+
         def _rejected(status_code: int) -> Response:
             """One neutral empty rejection: no cookie, no redirect, no detail."""
 

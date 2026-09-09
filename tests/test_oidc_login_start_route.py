@@ -207,6 +207,45 @@ def test_full_injection_activates_the_route() -> None:
     assert response.status_code == 303
 
 
+def test_full_injection_exposes_one_script_free_same_origin_login_form() -> None:
+    response = _client().get("/login")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.text.count("<form") == 1
+    assert 'method="post"' in response.text
+    assert 'action="/v1/session/oidc/login"' in response.text
+    assert "<input" not in response.text
+    assert "<script" not in response.text
+
+
+def test_default_app_has_no_login_entry_route() -> None:
+    assert TestClient(create_app()).get("/login").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "method", ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"]
+)
+def test_login_entry_rejects_every_non_get_method_neutrally(method: str) -> None:
+    response = _client().request(method, "/login")
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+
+
+def test_login_entry_rejects_query_values_without_rendering_them() -> None:
+    response = _client().get("/login?provider=caller-value")
+
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+    assert "caller-value" not in response.text
+
+
 DEPENDENCY_NAMES = (
     "oidc_login_configurations",
     "oidc_login_transactions",
