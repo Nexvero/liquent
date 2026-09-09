@@ -12311,5 +12311,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - verändert weder Admission, Callback, Sessionautorität, Persistenz, Schema noch Secrets
   - lässt Review, Release, Promotion und den realen Browser-Login separat offen
 
+- LQ-2650 OIDC form redirect policy:
+  `docs/lq-2650-oidc-form-redirect-policy.md`
+  - erklärt die leere Browserseite trotz erfolgreichem Login-POST und `303`
+  - erlaubt im `/login`-CSP ausschließlich `https://accounts.google.com`
+  - behält die serverweite Richtlinie bei `form-action 'self'`
+  - erhält `default-src 'none'`, Frame-Schutz und die exakte Origin-Prüfung
+  - lässt `Origin: null` weiterhin geschlossen
+  - verändert weder OIDC-Secrets noch Callback, Admission oder Sessionautorität
+  - lässt Review, Edge-Aktivierung und den realen Browser-Test separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -156,7 +156,11 @@ def test_login_entry_preserves_origin_without_weakening_other_security_headers()
     assert 'add_header Strict-Transport-Security "max-age=86400" always;' in login_location
     assert 'add_header X-Content-Type-Options "nosniff" always;' in login_location
     assert 'add_header X-Frame-Options "DENY" always;' in login_location
-    assert "default-src 'none'; form-action 'self'; frame-ancestors 'none'" in login_location
+    assert (
+        "default-src 'none'; form-action 'self' https://accounts.google.com; "
+        "frame-ancestors 'none'"
+    ) in login_location
+    assert "https://accounts.google.com" not in config.split("location = /login {", 1)[0]
 
 
 def test_edge_compose_is_digest_bound_and_only_edge_publishes_ports() -> None:
