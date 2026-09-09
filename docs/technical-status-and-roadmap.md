@@ -12280,5 +12280,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - lässt öffentliche OIDC-Routen und Browserverträge unverändert
   - lässt Review, Release, Promotion und einen realen kontrollierten Staging-Login separat offen
 
+- LQ-2647 staging OIDC login entry:
+  `docs/lq-2647-staging-oidc-login-entry.md`
+  - ergänzt genau eine statische same-origin Loginoberfläche bei vollständiger OIDC-Komposition
+  - enthält ein einziges skriptfreies POST-Formular ohne Browser- oder Geschäftseingaben
+  - übernimmt weder Provider-, State-, Admission-, Ziel-, Rollen- noch Autoritätswerte
+  - lehnt Querywerte und alle Nicht-GET-Methoden leer und ohne Loginmutation ab
+  - erweitert die Staging-Edge ausschließlich um den exakten Pfad `/login`
+  - erlaubt per CSP nur same-origin Form-Übermittlung bei fortbestehendem Default-Deny
+  - verändert weder Callback, Session, Persistenz, Schema, Provider noch Secrets
+  - lässt Review, Release, Promotion und den kontrollierten realen Login separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

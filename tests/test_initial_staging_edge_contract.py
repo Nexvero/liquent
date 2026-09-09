@@ -129,6 +129,7 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert "location = /health/live" in config
     assert "location = /v1/session/oidc/login" in config
     assert "location = /v1/session/oidc/callback" in config
+    assert "location = /login" in config
     assert "location ^~ /.well-known/acme-challenge/" in config
     assert "try_files $uri =404" in config
     assert "proxy_pass http://liquent_staging_control_plane/health/live" in config
@@ -140,6 +141,8 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
         "proxy_pass http://liquent_staging_control_plane/v1/session/oidc/callback"
         in config
     )
+    assert "proxy_pass http://liquent_staging_control_plane/login" in config
+    assert "form-action 'self'" in config
     assert "location /" in config and "return 404" in config
     assert "/health/ready" not in config
     assert "/internal/metrics" not in config
