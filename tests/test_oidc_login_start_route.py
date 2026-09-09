@@ -178,6 +178,7 @@ def _assert_no_side_effects(response: Any, *args: Any) -> None:
 
     assert response.content == b""
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-type"].startswith("text/plain")
     assert response.headers.get("set-cookie") is None
     assert response.headers.get("location") is None
     assert "retry-after" not in response.headers
@@ -756,6 +757,37 @@ def test_missing_null_or_foreign_origin_is_a_neutral_403(
     client = _client(lookup, store, generator, clock)
 
     response = client.post(LOGIN_URL, headers=headers, follow_redirects=False)
+
+    assert response.status_code == 403
+    _assert_no_side_effects(response, lookup, store, generator, clock)
+
+
+def test_safari_form_without_origin_uses_same_origin_fetch_metadata() -> None:
+    client = _client()
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == _expected_url()
+    assert COOKIE_NAME in _cookie(response)
+
+
+def test_missing_origin_without_same_origin_fetch_metadata_stays_rejected() -> None:
+    lookup = RecordingLookup(_configuration())
+    store = RecordingStore()
+    generator = RecordingGenerator()
+    clock = RecordingClock()
+    client = _client(lookup, store, generator, clock)
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Sec-Fetch-Site": "none"},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 403
     _assert_no_side_effects(response, lookup, store, generator, clock)

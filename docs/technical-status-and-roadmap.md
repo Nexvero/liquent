@@ -12291,5 +12291,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - verändert weder Callback, Session, Persistenz, Schema, Provider noch Secrets
   - lässt Review, Release, Promotion und den kontrollierten realen Login separat offen
 
+- LQ-2648 Safari OIDC login-start compatibility:
+  `docs/lq-2648-safari-oidc-login-start-compatibility.md`
+  - akzeptiert fehlenden Origin nur mit exakt browsergebundenem `Sec-Fetch-Site: same-origin`
+  - lässt jeden vorhandenen Origin weiterhin ausschließlich bei exakter Übereinstimmung passieren
+  - hält fremde, null-, unvollständige und cross-site Nachweise vor jeder Mutation geschlossen
+  - versieht leere neutrale Ablehnungen mit browsergeeignetem `text/plain` statt Downloadverhalten
+  - verändert weder Admission, Callback, Sessionautorität, Persistenz, Schema noch Secrets
+  - belegt den Fix mit 179 fokussierten und 7.216 vollständigen erfolgreichen Tests
+  - lässt Review, Release, Promotion und den einmaligen realen Staging-Login separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -819,7 +819,10 @@ def create_app(
         def _rejected(status_code: int) -> Response:
             """One neutral empty rejection: no cookie, no redirect, no detail."""
 
-            rejected = Response(status_code=status_code)
+            # An explicit text type keeps navigation responses renderable as an
+            # empty page.  Safari otherwise treats Starlette's untyped empty
+            # response as a downloadable application/octet-stream document.
+            rejected = Response(status_code=status_code, media_type="text/plain")
             rejected.headers["Cache-Control"] = "no-store"
             return rejected
 
@@ -859,13 +862,18 @@ def create_app(
                 return _rejected(status.HTTP_400_BAD_REQUEST)
             if await request.body():
                 return _rejected(status.HTTP_400_BAD_REQUEST)
-            # Unauthenticated, so no Liquent CSRF token exists yet. The trusted
-            # origin is injected and never derived from Host, Forwarded,
-            # X-Forwarded-Host, query, or body; Referer is no substitute. A
-            # missing header and the opaque "null" both fail this comparison.
-            if request.headers.get("origin") != oidc_login_origin:
-                return _rejected(status.HTTP_403_FORBIDDEN)
+            # Unauthenticated, so no Liquent CSRF token exists yet. Prefer the
+            # exact trusted Origin. Safari may omit Origin for a same-origin
+            # HTML form navigation, so a missing Origin is accepted only with
+            # the browser-controlled Sec-Fetch-Site proof below. A present
+            # Origin never falls back: null, foreign, and malformed values fail.
+            origin = request.headers.get("origin")
             fetch_site = request.headers.get("sec-fetch-site")
+            if origin is None:
+                if fetch_site != "same-origin":
+                    return _rejected(status.HTTP_403_FORBIDDEN)
+            elif origin != oidc_login_origin:
+                return _rejected(status.HTTP_403_FORBIDDEN)
             if fetch_site is not None and fetch_site != "same-origin":
                 # cross-site, same-site, none, and any unknown value are refused.
                 return _rejected(status.HTTP_403_FORBIDDEN)
