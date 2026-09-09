@@ -12319,6 +12319,7 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erhält `default-src 'none'`, Frame-Schutz und die exakte Origin-Prüfung
   - lässt `Origin: null` weiterhin geschlossen
   - verändert weder OIDC-Secrets noch Callback, Admission oder Sessionautorität
+  - hebt die durch das Image-Gate beanstandeten `httpx2`-/`httpcore2`-Pins auf die reparierten Versionen an
   - lässt Review, Edge-Aktivierung und den realen Browser-Test separat offen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine

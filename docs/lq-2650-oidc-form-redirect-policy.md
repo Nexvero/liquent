@@ -47,3 +47,9 @@ inside `/login` and proves it is absent from the server-wide policy. Existing
 route tests continue to cover the accepted concrete origin and rejected null
 origin. A real browser login remains the final staging verification after the
 reviewed edge configuration is released.
+
+The review gate additionally identified newly published fixed-version
+requirements for the existing `httpx2` and `httpcore2` dependencies. Their CI
+pins advance from 2.9.1 to 2.12.0 for both packages; no dependency family
+or declared version range changes. The image vulnerability gate remains the
+authority for accepting those replacements.
