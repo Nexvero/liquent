@@ -12333,5 +12333,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - verändert weder Admission, Session, Persistenz, Providerkonfiguration noch Berechtigungen
   - lässt Review, Release, Promotion und die kontrollierte LQ-2646-Admission separat offen
 
+- LQ-2652 Google OIDC callback compatibility:
+  `docs/lq-2652-google-oidc-callback-compatibility.md`
+  - akzeptiert die beobachteten Google-Erfolgsannotationen nur als begrenzte, nicht autoritative Metadaten
+  - verlangt weiterhin genau einen nicht leeren State und Authorization Code
+  - lehnt unbekannte, doppelte, leere und überlange Queryformen geschlossen ab
+  - reicht ausschließlich den Authorization Code an die bestehende Verifikationskette weiter
+  - erhält Issuer-, PKCE-, Nonce-, Admission-, Lebenszyklus- und Session-Gates
+  - verändert weder Identität, Autorität, Mitgliedschaft, Schema, Migration, Route noch Edge
+  - lässt Review, Release, Promotion und eine neue kontrollierte Admission separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
