@@ -12355,5 +12355,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder verändert weder Nutzer, Workspace, Admission, Bindung, Membership, Rolle, Capability noch Research-Recht
   - lässt Produktoberfläche, Workspace-Auswahl, autorisierte Navigation, Review, Release und Staging-Abnahme separat offen
 
+- LQ-2654 staging authenticated landing acceptance:
+  `docs/lq-2654-staging-authenticated-landing-acceptance.md`
+  - bindet die reale Staging-Abnahme an `main`-Revision `424d8a5`, Release `0.1.12` und den unveränderlichen Image-Digest
+  - bestätigt grünen Post-Merge-Qualitätslauf, erfolgreiche Veröffentlichung und Attestations-Evidenz
+  - bindet die Promotion an den frischen, isoliert verifizierten Backup-Snapshot `ab25235e`
+  - bestätigt den vollständigen Promotionslauf sowie gesunde PostgreSQL- und Control-Plane-Container
+  - belegt die Bytegleichheit der aktiven Edge-Konfiguration mit dem geprüften Repositorystand
+  - bestätigt öffentlich 200 für Health und Login-Ergebnisse sowie neutralen 303-Redirect ohne Session
+  - bestätigt mit bestehender aktiver Session das statische Erfolgsdokument statt Root-404 oder Download
+  - hält SessionPrincipal nicht autorisierend und erzeugt weder Workspace-Auswahl noch Membership oder Research-Recht
+  - lässt die erste workspace-aware Read-Oberfläche und reguläre Autoritätspersistenz ausdrücklich für spätere Slices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
