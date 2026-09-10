@@ -96,6 +96,7 @@ from liquent_platform.transport.http.oidc_state_cookie import (
     set_oidc_state_cookie,
 )
 from liquent_platform.transport.http.session_cookie import (
+    SESSION_COOKIE_NAME,
     clear_session_cookie,
     set_issued_session,
 )
@@ -104,6 +105,7 @@ from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
 from liquent_platform.persistence.browser_sessions import DatabaseBrowserSessions
+from liquent_platform.persistence.identity_errors import BrowserSessionStoreUnavailable
 from liquent_platform.persistence.identity_store import DatabaseExternalIdentities
 from liquent_platform.persistence.login_session_composition import (
     compose_login_sessions,
@@ -789,6 +791,73 @@ def create_app(
             except SessionRevocationUnavailable:
                 return _no_store(status.HTTP_500_INTERNAL_SERVER_ERROR)  # keep cookie
             return _neutral_cleared()
+
+    if oidc_callback_enabled and logout_sessions is not None:
+
+        landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "</main></body></html>"
+        )
+
+        def _landing_redirect(
+            destination: str, *, clear_cookie: bool = False
+        ) -> Response:
+            redirected = Response(status_code=status.HTTP_303_SEE_OTHER)
+            redirected.headers["Location"] = destination
+            redirected.headers["Cache-Control"] = "no-store"
+            redirected.headers["Referrer-Policy"] = "no-referrer"
+            if clear_cookie:
+                clear_session_cookie(redirected)
+            return redirected
+
+        @app.api_route(
+            "/",
+            methods=[
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
+            tags=["session"],
+        )
+        def oidc_authenticated_landing(
+            request: Request,
+            session_cookie: Annotated[
+                str | None,
+                Cookie(alias=SESSION_COOKIE_NAME),
+            ] = None,
+        ) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            try:
+                session_id = None if session_cookie is None else SessionId(session_cookie)
+                require_browser_session(logout_sessions, session_id)
+            except (AuthenticationRequired, ValueError):
+                return _landing_redirect(
+                    "/login", clear_cookie=session_cookie is not None
+                )
+            except BrowserSessionStoreUnavailable:
+                return _landing_redirect("/login/unavailable")
+            landed = Response(content=landing_document, media_type="text/html")
+            landed.headers["Cache-Control"] = "no-store"
+            landed.headers["Referrer-Policy"] = "no-referrer"
+            return landed
 
     if oidc_login_enabled:
 
