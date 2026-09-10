@@ -12343,5 +12343,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - verändert weder Identität, Autorität, Mitgliedschaft, Schema, Migration, Route noch Edge
   - lässt Review, Release, Promotion und eine neue kontrollierte Admission separat offen
 
+- LQ-2653 authenticated post-login landing:
+  `docs/lq-2653-authenticated-post-login-landing.md`
+  - schließt den nach erfolgreichem kontrolliertem OIDC-Login beobachteten Root-404
+  - liefert bei aktuell aktiver Browser-Session ein statisches, detailfreies Erfolgsdokument
+  - leitet fehlende oder ungültige Sessions neutral zu `/login` zurück und löscht vorhandene ungültige Cookies
+  - trennt technische Session-Store-Nichtverfügbarkeit über `/login/unavailable` von einer Authentifizierungsentscheidung
+  - bindet den Akteur ausschließlich aus der aktuellen persistenten Session und leitet daraus keine Autorität ab
+  - akzeptiert keine Querywerte und lehnt jede Nicht-GET-Methode leer vor einem Lookup ab
+  - exponiert am Staging-Edge ausschließlich den exakten Root-Pfad bei fortbestehendem Default-Deny
+  - erzeugt oder verändert weder Nutzer, Workspace, Admission, Bindung, Membership, Rolle, Capability noch Research-Recht
+  - lässt Produktoberfläche, Workspace-Auswahl, autorisierte Navigation, Review, Release und Staging-Abnahme separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
