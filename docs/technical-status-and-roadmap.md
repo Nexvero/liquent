@@ -12381,5 +12381,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder verändert keine Identitäts-, Workspace-, Membership-, Capability-, Session- oder Autoritätsfakten
   - lässt Resolver, Port, Modell, Persistenz, Route, Tests, Wiring, Edge und Staging-Abnahme für explizite Folgeslices offen
 
+- LQ-2656 current workspace context resolver:
+  `docs/lq-2656-current-workspace-context-resolver.md`
+  - ergänzt einen read-only Port und ein unveränderliches internes Ergebnis für genau einen aktuellen Workspace-Kontext
+  - akzeptiert nur die stabile interne UserId und keine caller-supplied Workspace-Auswahl, Rolle, Capability oder Allow-Entscheidung
+  - bindet Nutzer, Workspace und ordinary Membership bei jedem Lookup frisch an aktive persistente System-of-Record-Fakten
+  - liefert bei null oder mehreren geeigneten Memberships dasselbe neutrale `None` und wählt niemals die erste Zeile
+  - verwendet für technische Persistenzfehler die bestehende detailfreie Membership-Unavailability-Grenze
+  - hält SessionPrincipal, Workspace-Kontext und Research- sowie Management-Autorität strikt getrennt
+  - macht eine committete Deaktivierung ohne Session-, Route-, Prozess- oder Adaptercache bei der nächsten Auflösung wirksam
+  - ergänzt weder Schema noch Migration und erzeugt oder verändert keine persistente Tatsache
+  - lässt Browserroute, HTML, Edge-Freigabe, Mehrfach-Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
