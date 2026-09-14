@@ -56,6 +56,9 @@ from liquent_platform.application.prepare_oidc_login_authorization import (
     prepare_oidc_login_authorization,
 )
 from liquent_platform.application.read_research_job import get_authorized_research_job
+from liquent_platform.application.resolve_workspace_research_read import (
+    permits_workspace_research_read,
+)
 from liquent_platform.application.revoke_session import revoke_browser_session
 from liquent_platform.application.session_lifecycle_errors import (
     SessionRevocationUnavailable,
@@ -821,6 +824,16 @@ def create_app(
             "<p>Your workspace context is available.</p>"
             "</main></body></html>"
         )
+        workspace_research_read_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>Your workspace context is available.</p>"
+            "<p>Research read access is available.</p>"
+            "</main></body></html>"
+        )
         no_workspace_landing_document = (
             "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
@@ -897,6 +910,17 @@ def create_app(
                     if workspace_context is not None
                     else no_workspace_landing_document
                 )
+                if workspace_context is not None and research_memberships is not None:
+                    try:
+                        has_research_read = permits_workspace_research_read(
+                            research_memberships,
+                            session.principal,
+                            workspace_context,
+                        )
+                    except WorkspaceMembershipStoreUnavailable:
+                        return _landing_redirect("/login/unavailable")
+                    if has_research_read:
+                        document = workspace_research_read_landing_document
             landed = Response(content=document, media_type="text/html")
             landed.headers["Cache-Control"] = "no-store"
             landed.headers["Referrer-Policy"] = "no-referrer"
