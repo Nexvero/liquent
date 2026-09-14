@@ -87,6 +87,7 @@ from liquent_platform.identity.ports import (
     OidcAuthorizationCodeVerifier,
     OidcLoginTransactionClaimStore,
     OidcLoginTransactionCreationStore,
+    CurrentWorkspaceContextLookup,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
@@ -105,7 +106,10 @@ from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
 from liquent_platform.persistence.browser_sessions import DatabaseBrowserSessions
-from liquent_platform.persistence.identity_errors import BrowserSessionStoreUnavailable
+from liquent_platform.persistence.identity_errors import (
+    BrowserSessionStoreUnavailable,
+    WorkspaceMembershipStoreUnavailable,
+)
 from liquent_platform.persistence.identity_store import DatabaseExternalIdentities
 from liquent_platform.persistence.login_session_composition import (
     compose_login_sessions,
@@ -115,6 +119,9 @@ from liquent_platform.persistence.oidc_verifier_composition import (
 )
 from liquent_platform.persistence.workspace_memberships import (
     DatabaseWorkspaceMemberships,
+)
+from liquent_platform.persistence.workspace_contexts import (
+    DatabaseCurrentWorkspaceContexts,
 )
 from liquent_platform.observability.http import ObservabilityMiddleware
 from liquent_platform.observability.metrics import ControlPlaneMetrics
@@ -307,6 +314,7 @@ def create_app(
     research_memberships: WorkspaceMembershipLookup | None = None,
     logout_sessions: BrowserSessionLookup | None = None,
     logout_revocations: BrowserSessionRevocationStore | None = None,
+    landing_workspace_contexts: CurrentWorkspaceContextLookup | None = None,
     oidc_login_configurations: ActiveOidcClientConfigurationLookup | None = None,
     oidc_login_transactions: OidcLoginTransactionCreationStore | None = None,
     oidc_login_material: SecureOidcLoginMaterialGenerator | None = None,
@@ -559,6 +567,8 @@ def create_app(
             )
         logout_sessions = persistent_sessions
         logout_revocations = persistent_sessions
+    if engine is not None and landing_workspace_contexts is None:
+        landing_workspace_contexts = DatabaseCurrentWorkspaceContexts(engine)
     control_metrics = metrics or ControlPlaneMetrics()
     job_store = research_jobs or InMemoryResearchJobs()
 
@@ -802,6 +812,24 @@ def create_app(
             "<p>Your authenticated session is active.</p>"
             "</main></body></html>"
         )
+        workspace_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>Your workspace context is available.</p>"
+            "</main></body></html>"
+        )
+        no_workspace_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>No workspace context is available.</p>"
+            "</main></body></html>"
+        )
 
         def _landing_redirect(
             destination: str, *, clear_cookie: bool = False
@@ -847,14 +875,29 @@ def create_app(
                 return rejected
             try:
                 session_id = None if session_cookie is None else SessionId(session_cookie)
-                require_browser_session(logout_sessions, session_id)
+                session = require_browser_session(logout_sessions, session_id)
             except (AuthenticationRequired, ValueError):
                 return _landing_redirect(
                     "/login", clear_cookie=session_cookie is not None
                 )
             except BrowserSessionStoreUnavailable:
                 return _landing_redirect("/login/unavailable")
-            landed = Response(content=landing_document, media_type="text/html")
+            document = landing_document
+            if landing_workspace_contexts is not None:
+                try:
+                    workspace_context = (
+                        landing_workspace_contexts.resolve_current_workspace(
+                            session.principal.user_id
+                        )
+                    )
+                except WorkspaceMembershipStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                document = (
+                    workspace_landing_document
+                    if workspace_context is not None
+                    else no_workspace_landing_document
+                )
+            landed = Response(content=document, media_type="text/html")
             landed.headers["Cache-Control"] = "no-store"
             landed.headers["Referrer-Policy"] = "no-referrer"
             return landed
