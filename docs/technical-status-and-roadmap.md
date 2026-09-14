@@ -12367,5 +12367,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - hält SessionPrincipal nicht autorisierend und erzeugt weder Workspace-Auswahl noch Membership oder Research-Recht
   - lässt die erste workspace-aware Read-Oberfläche und reguläre Autoritätspersistenz ausdrücklich für spätere Slices offen
 
+- LQ-2655 workspace-aware read surface contract:
+  `docs/lq-2655-workspace-aware-read-surface-contract.md`
+  - definiert die erste read-only Browsergrenze nach der authentifizierten Landing-Abnahme
+  - lässt den SessionPrincipal ausschließlich den Akteur identifizieren und verleiht ihm keine Workspace- oder Research-Autorität
+  - verlangt die serverseitige Bindung des Workspace-Kontexts an aktuelle aktive Nutzer-, Workspace- und Membership-Fakten
+  - akzeptiert weder caller-supplied Workspace-Auswahl noch Allow-Boolean, Rolle, Status oder Capability-Snapshot
+  - behandelt null oder mehrere geeignete Memberships deterministisch fail-closed und ohne implizite Auswahl
+  - trennt ordinary Membership weiterhin von Research-, Onboarding-, Membership- und Lifecycle-Management-Capabilities
+  - macht Deaktivierung und Entzug bei jeder späteren Entscheidung ohne Session-, Route- oder Prozesscache wirksam
+  - trennt neutrale Abwesenheit und Ablehnung von detailfreier technischer Nichtverfügbarkeit
+  - hält stabile interne UserId und WorkspaceId dauerhaft nicht wiederverwendbar, ohne ein konkretes Retentionsschema festzulegen
+  - erzeugt oder verändert keine Identitäts-, Workspace-, Membership-, Capability-, Session- oder Autoritätsfakten
+  - lässt Resolver, Port, Modell, Persistenz, Route, Tests, Wiring, Edge und Staging-Abnahme für explizite Folgeslices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
