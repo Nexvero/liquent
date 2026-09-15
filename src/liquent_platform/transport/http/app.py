@@ -124,6 +124,7 @@ from liquent_platform.persistence.identity_store import DatabaseExternalIdentiti
 from liquent_platform.persistence.login_session_composition import (
     compose_login_sessions,
 )
+from liquent_platform.persistence.research_jobs import DatabaseResearchJobs
 from liquent_platform.persistence.oidc_verifier_composition import (
     compose_oidc_verifier,
 )
@@ -580,6 +581,18 @@ def create_app(
         logout_revocations = persistent_sessions
     if engine is not None and landing_workspace_contexts is None:
         landing_workspace_contexts = DatabaseCurrentWorkspaceContexts(engine)
+    if engine is not None and workspace_research_job_index is None:
+        def _read_only_identifier():
+            raise ResearchJobStoreUnavailable
+
+        workspace_research_job_index = DatabaseResearchJobs(
+            engine,
+            generate_job_id=_read_only_identifier,
+            generate_revision_id=_read_only_identifier,
+            generate_claim_id=_read_only_identifier,
+            clock=lambda: datetime.now(UTC),
+            lease_duration=timedelta(seconds=1),
+        )
     control_metrics = metrics or ControlPlaneMetrics()
     job_store = research_jobs or InMemoryResearchJobs()
 
@@ -620,6 +633,7 @@ def create_app(
     app.state.settings = runtime_settings
     app.state.metrics = control_metrics
     app.state.research_jobs = job_store
+    app.state.workspace_research_job_index = workspace_research_job_index
     app.add_middleware(ObservabilityMiddleware, metrics=control_metrics)
 
     def job_response(job: InMemoryResearchJob) -> ResearchJobResponse:
