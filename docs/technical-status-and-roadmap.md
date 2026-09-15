@@ -12574,5 +12574,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Netzwerkzugriff, CLI, Evidenzdatei noch Workflow
   - lässt Aufnahmeadapter, Operations-Wiring und reale Staging-Abnahme offen
 
+- LQ-2669 staging Research-index acceptance offline tool:
+  `docs/lq-2669-staging-research-index-acceptance-offline-tool.md`
+  - ergänzt ein repository-lokales Offline-Tool für den LQ-2668-Evaluator
+  - hält die eingefrorene Inventur von 72 installierten Operatoren unverändert
+  - liest nur ein sanitisiertes owner-private reguläres JSON-Dokument
+  - weist Symlinks, leere, zu große, malformed und erweiterte Eingaben zurück
+  - akzeptiert keine Cookies, Tokens, Bodies, Identitäten oder Diagnosen
+  - gibt nur Digest, HTTPS-Origin, UTC-Zeit und Gesamtklassifikation aus
+  - trennt Statuscodes für Acceptance, Rejection, Unavailability und Inputfehler
+  - reflektiert bei Inputfehlern keine privaten Details
+  - führt keinen Netzwerkzugriff, Login und Redirect-Following aus
+  - schreibt keine Evidenz und besitzt keine Authority- oder Mutationfähigkeit
+  - startet weder Workflow, Service, Deployment noch Promotion
+  - lässt reale Beobachtungsaufnahme und autorisierte Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
