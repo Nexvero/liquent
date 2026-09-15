@@ -12469,5 +12469,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - exponiert weder Jobliste, Jobdetails, Evidence noch Research-Schreiboperationen
   - lässt Release, Promotion und reale Staging-Abnahme als separate Folgeschritte offen
 
+- LQ-2662 workspace Research-job index contract:
+  `docs/lq-2662-workspace-research-job-index-contract.md`
+  - definiert einen begrenzten read-only Index persistenter Jobs im aktuellen Workspace
+  - bindet Actor und Workspace ausschließlich aus Session und aktuellen System-of-Record-Fakten
+  - verlangt pro Request eine frische aktive Membership mit Research-Leseautorität
+  - erlaubt nur opaque JobId, kontrollierten Status sowie Acceptance- und Update-Zeit
+  - lässt Workspace-, Actor-, Revision-, Claim-, Worker- und Artifact-IDs unsichtbar
+  - ordnet deterministisch nach Acceptance-Zeit und JobId unter einem serverseitigen Maximum
+  - unterscheidet autorisierte Leere von neutraler Authority-Ablehnung
+  - trennt technische Store-Nichtverfügbarkeit vom leeren oder abgelehnten Ergebnis
+  - macht Entzug und Deaktivierung bei der nächsten Entscheidung wirksam
+  - hält UserId, WorkspaceId und JobId stabil, nicht wiederverwendbar und lineage-erhaltend
+  - entscheidet noch kein Schema, SQL, Port, Modell, Route, Test, Wiring oder Pagination
+  - lässt Implementierung, HTTP-Rendering, Edge und Staging-Abnahme für Folgeslices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
