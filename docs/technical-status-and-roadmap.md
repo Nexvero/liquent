@@ -12536,5 +12536,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Schema, SQL noch Migration und mutiert keine persistente Tatsache
   - lässt Release, Promotion, Edge und reale Staging-Abnahme separat offen
 
+- LQ-2667 staging workspace Research-job index acceptance contract:
+  `docs/lq-2667-staging-workspace-research-job-index-acceptance-contract.md`
+  - bindet Abnahme an unveränderlichen Candidate-Digest, HTTPS-Origin und Ausführung
+  - kann keinen fehlgeschlagenen Vulnerability- oder Release-Gate überstimmen
+  - verlangt vorhandene Deployment-, TLS-, Edge-, OIDC- und Authority-Voraussetzungen
+  - prüft anonymen Schutz sowie autorisierte leere und nichtleere Indexseiten
+  - verlangt No-store, No-referrer und ausschließlich minimale sichtbare Jobfakten
+  - weist caller-gesteuerte Query-, Workspace- und Seitenauswahl zurück
+  - verlangt frische Revocation- und detailfreie Unavailability-Beobachtung
+  - beschränkt den Erfolg auf den exakten HTTPS-Pfad `/research`
+  - speichert weder Cookies, Tokens, IDs, Response-Bodies noch Providerdiagnosen
+  - akzeptiert nur einen vollständigen widerspruchsfreien Beobachtungssatz
+  - löst selbst keine Promotion, Reparatur, Wiederherstellung oder Mutation aus
+  - lässt Evaluator, Netzwerkaufnahme, CLI und reale Ausführung separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
