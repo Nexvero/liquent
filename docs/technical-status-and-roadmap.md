@@ -12937,5 +12937,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Deployment- oder Promotion-Änderung
   - lässt Secret-Auflösung, kontrollierte Akquisition und Promotion offen
 
+- LQ-2693 controlled staging session acquisition:
+  `docs/lq-2693-controlled-staging-session-acquisition.md`
+  - löst das exakte aktive Set vor jeder externen Akquisition auf
+  - validiert Set-, Revisions- und Handoff-Bindung des Ergebnisses
+  - löst dieselbe Registry-Bindung nach der Akquisition erneut auf
+  - lässt Deaktivierung, Revocation und Rotation während der Akquisition wirken
+  - verhindert Akquisition bei initialer neutraler Absenz
+  - behandelt Acquirer-Absenz und spätere Registry-Absenz neutral
+  - reduziert Substitution und technische Fehler detailfrei
+  - akzeptiert keine Caller-Authority-, Rollen-, Permission- oder Allow-Fakten
+  - ergänzt keine Credential-Persistenz, Login-Automation, Migration oder CLI
+  - lässt konkreten Acquirer, Runtime-Handoff und Promotion offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
