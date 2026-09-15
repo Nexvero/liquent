@@ -12491,5 +12491,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Schema noch Migration und erzeugt oder mutiert keine persistente Tatsache
   - lässt Application-Komposition, HTTP-Rendering, Edge und Staging-Abnahme separat offen
 
+- LQ-2664 workspace Research-job index application composition:
+  `docs/lq-2664-workspace-research-job-index-application-composition.md`
+  - komponiert aktuelle Workspace-Auflösung und Research-Leseentscheidung mit dem Index-Port
+  - behandelt den SessionPrincipal nur als Actor-Identität und niemals als Authority-Beleg
+  - akzeptiert keinen caller-gelieferten Workspace, Allow-Wert, Rolle, Filter oder Seitenwert
+  - bindet exakt den Principal-Actor an den frisch aufgelösten aktuellen Workspace
+  - ruft den Jobindex bei fehlender oder widersprüchlicher Authority nicht auf
+  - unterscheidet autorisierte Ergebnisse, autorisierte Leere und neutrale Ablehnung
+  - hält die Ablehnung frei von Details zur fehlenden Authority-Tatsache
+  - propagiert bestehende technische Unavailability-Grenzen unverändert
+  - wiederholt Context-, Membership- und Index-Auflösung bei jedem Aufruf
+  - cached weder Authority noch Ergebnis und macht Entzug beim nächsten Aufruf wirksam
+  - erzeugt und mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt HTTP-Rendering, persistentes Wiring, Edge und Staging-Abnahme separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
