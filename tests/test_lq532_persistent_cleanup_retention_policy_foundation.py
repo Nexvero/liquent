@@ -85,9 +85,9 @@ def test_current_inventory_and_roadmap_are_synchronized() -> None:
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
     roadmap = (ROOT / "docs/technical-status-and-roadmap.md").read_text(encoding="utf-8")
     migrations = list((ROOT / "src/liquent_platform/persistence/alembic/versions").glob("*.py"))
-    assert len(migrations) == 43
-    assert 'expected_head() == "20260915_0043"' in gate
-    assert "EXPECTED_MIGRATION_COUNT = 43" in bundle
-    assert "**43 lineare Migrationen**, Head\n  `20260915_0043`" in roadmap
+    assert len(migrations) == 44
+    assert 'expected_head() == "20260916_0044"' in gate
+    assert "EXPECTED_MIGRATION_COUNT = 44" in bundle
+    assert "**44 lineare Migrationen**, Head\n  `20260916_0044`" in roadmap
     assert "- LQ-532 persistent supervisor cleanup retention policy and authority foundation:" in roadmap
     assert "nächster Slice LQ-533" in roadmap

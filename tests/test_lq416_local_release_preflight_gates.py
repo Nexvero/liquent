@@ -198,7 +198,7 @@ def test_commands_and_artifact_checks_are_fixed_inside_adapters() -> None:
         '"postgresql": context.postgres_version',
     )
     assert all(item in source for item in required)
-    assert 'details["migration_head"] != "20260915_0043"' in source
+    assert 'details["migration_head"] != "20260916_0044"' in source
 
 
 def test_no_publication_or_deployment_adapter_is_exposed() -> None:
