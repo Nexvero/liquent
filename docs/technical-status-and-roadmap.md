@@ -12521,5 +12521,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - bleibt ohne explizite Index-Abhängigkeit kompatibel zur bisherigen Landing-Seite
   - lässt persistentes Wiring, Edge, Deployment und Staging-Abnahme separat offen
 
+- LQ-2666 workspace Research-job index persistent wiring:
+  `docs/lq-2666-workspace-research-job-index-persistent-wiring.md`
+  - verdrahtet den vorhandenen DatabaseResearchJobs-Adapter bei vorhandener Engine
+  - verwendet dieselbe Engine wie Sessions, Workspace-Kontext und Memberships
+  - exponiert den Adapter am Renderer nur über den read-only Index-Port
+  - erhält explizit injizierte Index-Abhängigkeiten mit Vorrang
+  - inferiert ohne Datenbank-Engine keinen persistenten Index
+  - hält nicht benötigte Mutationsgeneratoren durch bestehende Unavailability fail-closed
+  - aktiviert weder Acceptance noch Claiming, Leases, Completion oder Worker
+  - bindet Actor und aktuellen Workspace weiterhin aus frischen Authority-Fakten
+  - cached weder Authority noch Indexresultat
+  - macht committed Permission-Entzug beim nächsten HTTP-Request wirksam
+  - ergänzt weder Schema, SQL noch Migration und mutiert keine persistente Tatsache
+  - lässt Release, Promotion, Edge und reale Staging-Abnahme separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
