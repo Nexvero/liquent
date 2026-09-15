@@ -58,6 +58,7 @@ from liquent_platform.application.prepare_oidc_login_authorization import (
 from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.resolve_workspace_research_read import (
     permits_workspace_research_read,
+    resolve_workspace_research_read,
 )
 from liquent_platform.application.revoke_session import revoke_browser_session
 from liquent_platform.application.session_lifecycle_errors import (
@@ -832,6 +833,7 @@ def create_app(
             "<p>Your authenticated session is active.</p>"
             "<p>Your workspace context is available.</p>"
             "<p>Research read access is available.</p>"
+            "<p><a href=\"/research\">Open Research</a></p>"
             "</main></body></html>"
         )
         no_workspace_landing_document = (
@@ -925,6 +927,80 @@ def create_app(
             landed.headers["Cache-Control"] = "no-store"
             landed.headers["Referrer-Policy"] = "no-referrer"
             return landed
+
+        if landing_workspace_contexts is not None and research_memberships is not None:
+
+            research_landing_document = (
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                "<title>Liquent Research</title></head><body><main>"
+                "<h1>Research</h1>"
+                "<p>Read-only Research access is available.</p>"
+                "<p><a href=\"/\">Return to Liquent</a></p>"
+                "</main></body></html>"
+            )
+
+            @app.api_route(
+                "/research",
+                methods=[
+                    "GET",
+                    "HEAD",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "CONNECT",
+                ],
+                tags=["research"],
+            )
+            def workspace_research_landing(
+                request: Request,
+                session_cookie: Annotated[
+                    str | None,
+                    Cookie(alias=SESSION_COOKIE_NAME),
+                ] = None,
+            ) -> Response:
+                if request.method != "GET":
+                    rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                    rejected.headers["Allow"] = "GET"
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                if request.url.query:
+                    rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                try:
+                    session_id = (
+                        None if session_cookie is None else SessionId(session_cookie)
+                    )
+                    session = require_browser_session(logout_sessions, session_id)
+                except (AuthenticationRequired, ValueError):
+                    return _landing_redirect(
+                        "/login", clear_cookie=session_cookie is not None
+                    )
+                except BrowserSessionStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                try:
+                    context = resolve_workspace_research_read(
+                        landing_workspace_contexts,
+                        research_memberships,
+                        session.principal,
+                    )
+                except WorkspaceMembershipStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                if context is None:
+                    rejected = Response(status_code=status.HTTP_404_NOT_FOUND)
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                landed = Response(
+                    content=research_landing_document,
+                    media_type="text/html",
+                )
+                landed.headers["Cache-Control"] = "no-store"
+                landed.headers["Referrer-Policy"] = "no-referrer"
+                return landed
 
     if oidc_login_enabled:
 
