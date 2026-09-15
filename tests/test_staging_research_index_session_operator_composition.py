@@ -72,3 +72,41 @@ def test_representation_hides_resources_and_source() -> None:
     rendered = repr(wired)
     assert rendered == "StagingResearchIndexSessionOperatorComposition()"
     assert repr(source) not in rendered
+
+
+def test_ephemeral_composition_binds_resolver_without_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, client, resolver, material = Mock(), Mock(), Mock(), Mock()
+    compose = Mock(return_value=Mock())
+    monkeypatch.setattr(
+        composition, "compose_staging_research_index_session_operator", compose
+    )
+
+    result = composition.compose_ephemeral_staging_research_index_session_operator(
+        engine, client, resolver, material=material
+    )
+
+    resolver.assert_not_called()
+    source = compose.call_args.args[2]
+    assert source._resolver is resolver
+    compose.assert_called_once_with(engine, client, source, material=material)
+    assert result is compose.return_value
+
+
+def test_ephemeral_composition_forwards_source_only_on_execute(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    engine, client, resolver = Mock(), Mock(), Mock(return_value=None)
+    run = Mock(return_value=None)
+    monkeypatch.setattr(
+        composition, "run_staging_research_index_session_operator", run
+    )
+    wired = composition.compose_ephemeral_staging_research_index_session_operator(
+        engine, client, resolver
+    )
+
+    resolver.assert_not_called()
+    assert wired.execute(_request(tmp_path)) is None
+    run.assert_called_once()
+    assert run.call_args.args[3]._source._resolver is resolver
