@@ -12551,5 +12551,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - löst selbst keine Promotion, Reparatur, Wiederherstellung oder Mutation aus
   - lässt Evaluator, Netzwerkaufnahme, CLI und reale Ausführung separat offen
 
+- LQ-2668 staging Research-index acceptance evaluator:
+  `docs/lq-2668-staging-research-index-acceptance-evaluator.md`
+  - implementiert einen lokalen side-effect-freien Evaluator für LQ-2667
+  - bindet jeden Lauf an kanonischen SHA-256-Digest, HTTPS-Origin und UTC-Zeit
+  - weist Origins mit Credentials, Pfad, Query, Fragment oder Klartext zurück
+  - verwendet ein geschlossenes Vokabular aus acht Pflichtbeobachtungen
+  - akzeptiert nur einen vollständigen einmaligen Pass-Satz
+  - weist fehlende, doppelte und ersetzte Beobachtungssätze neutral zurück
+  - trennt technische Unavailability von fachlicher Rejection und Acceptance
+  - speichert nur Laufbindung und Gesamtklassifikation
+  - transportiert keine Bodies, Cookies, Tokens, IDs oder Diagnosedetails
+  - löst keine Mutation, Reparatur, Promotion oder Folgeaktion aus
+  - ergänzt weder Netzwerkzugriff, CLI, Evidenzdatei noch Workflow
+  - lässt Aufnahmeadapter, Operations-Wiring und reale Staging-Abnahme offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
