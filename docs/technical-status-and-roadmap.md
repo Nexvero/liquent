@@ -12717,5 +12717,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - korrigiert den LQ-2676-Adapterimport durch einen application-eigenen opaque Sessiontyp
   - lässt owner-private Ablage, reale Ausführung und Promotion separat offen
 
+- LQ-2679 staging Research-index evidence writer:
+  `docs/lq-2679-staging-research-index-evidence-writer.md`
+  - schreibt ausschließlich die kanonischen sanitisierten LQ-2678-Evidenzbytes
+  - verlangt einen absoluten expliziten Zielpfad
+  - verlangt ein bestehendes owner-eigenes reales Parent-Verzeichnis mit Modus 0700
+  - hält das Parent descriptorgebunden ohne Symlink-Following
+  - erstellt das Ziel ausschließlich mit O_EXCL, O_NOFOLLOW und O_CLOEXEC
+  - erzwingt owner-private Modus 0600 und ersetzt niemals bestehende Ziele
+  - schreibt vollständig und behandelt Zero-Write geschlossen als Unavailability
+  - synchronisiert Datei und gehaltenes Parent-Verzeichnis vor Erfolg
+  - entfernt bei technischem Fehlschlag eine exklusiv erstellte Teil-Datei
+  - reduziert Pfad-, Encoding-, Konflikt- und Dateifehler detailfrei
+  - erstellt keine Verzeichnisse und besitzt keine Read-, List- oder Credential-Fähigkeit
+  - führt weder Acquisition, Revocation, Restore, Deployment noch Promotion aus
+  - lässt owner-private Reader, reale Ausführung und Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
