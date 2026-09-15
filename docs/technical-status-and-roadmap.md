@@ -13082,5 +13082,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt keine Publication, Deployment-, Environment- oder Promotionmutation aus
   - lässt aktuelle Candidate-/Authority-Auflösung und reale Promotion separat offen
 
+- LQ-2703 current staging promotion evidence:
+  `docs/lq-2703-current-staging-promotion-evidence.md`
+  - löst persistierte Evidenz gegen den aktuell aktiven Staging-Candidate auf
+  - bezieht Evidenz und Candidate ausschließlich aus getrennten trusted readers
+  - akzeptiert vom Caller nur den Evidenz-Digest, kein Allow, Role oder Authority
+  - liefert nur bei exakter Candidate-Digest- und Origin-Bindung ein Ergebnis
+  - behandelt Evidenzabsenz, Candidate-Absenz, Austausch und Deaktivierung neutral
+  - reduziert fehlerhafte Rückgaben und technische Readerfehler detailfrei
+  - erzwingt frische Auflösung für jede spätere Entscheidung ohne Cache
+  - behandelt das Ergebnis ausdrücklich als Evidenz und nicht als Authority
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
+  - lässt aktuelle Operator-Authority und reale Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
