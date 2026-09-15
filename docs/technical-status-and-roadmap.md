@@ -13033,5 +13033,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Retry-Entscheidung
   - lässt externe Invocation und reale Staging-Promotion separat offen
 
+- LQ-2700 staging promotion eligibility:
+  `docs/lq-2700-staging-promotion-eligibility.md`
+  - leitet eine enge nicht autorisierende Eignungsbeobachtung aus Acceptance ab
+  - akzeptiert ausschließlich ein exaktes LQ-2668-Ergebnis mit Outcome accepted
+  - bindet Eignung an den vollständigen exakten Acceptance-Run
+  - bildet Invocation-Absenz, Rejection und Unavailability als neutrale Absenz ab
+  - lässt neutrale Ergebnisse niemals in Richtung Promotion fortschreiten
+  - behandelt Eignung ausdrücklich nicht als Deployment- oder Promotion-Authority
+  - exponiert keine Operatoridentität, Mutation oder Promote-Fähigkeit
+  - verlangt spätere aktuelle Authority- und Candidate-Auflösung aus Systemen of Record
+  - führt keine Persistenz, Publication, Deployment- oder Environmentmutation aus
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Secret-Entscheidung
+  - lässt dauerhafte Evidenzbindung und reale Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
