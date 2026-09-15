@@ -99,7 +99,7 @@ def test_bundle_and_migration_claims_match_current_inventory() -> None:
     assert "len(entry_points) != EXPECTED_ENTRY_POINT_COUNT" in bundle
     assert "len(operators) != EXPECTED_OPERATOR_FILE_COUNT" in bundle
     assert "len(migrations) != EXPECTED_MIGRATION_COUNT" in bundle
-    assert 'details["migration_head"] != "20260826_0042"' in bundle
+    assert 'details["migration_head"] != "20260915_0043"' in bundle
 
 
 def test_contract_chain_and_external_blocker_remain_explicit() -> None:
