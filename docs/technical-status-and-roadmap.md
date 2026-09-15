@@ -12447,5 +12447,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
   - lässt Edge-Freigabe, reale Staging-Abnahme und persistenten Jobindex separat offen
 
+- LQ-2661 staging Research-read edge:
+  `docs/lq-2661-staging-research-read-edge.md`
+  - exponiert ausschließlich den exakten HTTPS-Pfad `/research` zur Control Plane
+  - erhält `/research/`, Unterpfade, Research-APIs und alle übrigen Pfade im Default-Deny
+  - ergänzt weder Prefix-, Regex-, Rewrite- noch Fallback-Routing
+  - übernimmt bestehende Security-Header und begrenzte Proxy-Timeouts
+  - hält die Google-spezifische Form-Ausnahme weiterhin allein auf `/login`
+  - trifft selbst keine Authority-Entscheidung und übermittelt keine Rollen oder Allow-Werte
+  - lässt Session-, Workspace- und Research-Autorisierung bei jedem Request in der Anwendung
+  - cached keine Entscheidung und schafft keinen alternativen Erfolgsweg
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - exponiert weder Jobliste, Jobdetails, Evidence noch Research-Schreiboperationen
+  - lässt Release, Promotion und reale Staging-Abnahme als separate Folgeschritte offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
