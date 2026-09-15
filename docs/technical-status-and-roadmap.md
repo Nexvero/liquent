@@ -12701,5 +12701,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt kein I/O, Workflow oder installierten Operator
   - lässt Evidence-Codec, reale Ausführung und Promotion separat offen
 
+- LQ-2678 staging Research-index evidence codec:
+  `docs/lq-2678-staging-research-index-evidence-codec.md`
+  - kodiert den exakt validierten Drei-Stage-Handoff als kanonisches ASCII-JSON
+  - begrenzt das Dokument und verlangt genau einen abschließenden Newline
+  - ordnet Stages und Klassifikationen kanonisch und entzieht Caller-Reihenfolge jede Authority
+  - transportiert nur Run-Bindung und sanitiserte Check-, Phasen- und Ergebniswerte
+  - rekonstruiert beim Lesen ausschließlich geschlossene Domain-Typen
+  - wiederholt Handoff-Validierung, Reduktion und finale Acceptance-Auswertung
+  - behandelt das gespeicherte Gesamtergebnis nur als abgeleiteten Cross-Check
+  - weist unbekannte Felder, Versionen und nichtkanonische Bytes geschlossen zurück
+  - weist unvollständige, doppelte, falsch phasierte und gemischte Runs zurück
+  - enthält keine Session-, Credential-, Response-, Identitäts- oder Diagnosedaten
+  - besitzt weder Datei-, Netzwerk-, Revocation-, Restore- noch Promotion-Fähigkeit
+  - korrigiert den LQ-2676-Adapterimport durch einen application-eigenen opaque Sessiontyp
+  - lässt owner-private Ablage, reale Ausführung und Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
