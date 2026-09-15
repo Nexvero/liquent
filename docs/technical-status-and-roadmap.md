@@ -12656,5 +12656,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt weder Netzwerk, Datei-I/O, Mutation noch Promotion aus
   - lässt Acquisition, Evidenz und reale Staging-Ausführung separat offen
 
+- LQ-2675 staging Research-index HTTP acquisition adapter:
+  `docs/lq-2675-staging-research-index-http-acquisition-adapter.md`
+  - führt exakt einen bereits validierten Planrequest aus
+  - leitet Methode und URL ausschließlich aus dem geschlossenen Request ab
+  - entfernt geerbte Cookie- und Authorization-Header
+  - verlangt Session-Abwesenheit für anonyme und Session-Präsenz für autorisierte Slots
+  - hält opaque Sessionmaterial aus Repräsentationen und Ergebnissen heraus
+  - verwendet feste Timeouts, Identity-Encoding und kein Redirect-Following
+  - führt weder Retry noch Client-Authentifizierung aus
+  - begrenzt deklarierte und tatsächlich gelesene Bodies auf 64 KiB
+  - weist komprimierte und malformed Responses technisch unavailable zurück
+  - unterdrückt Transport-, Provider- und Clientdiagnosen
+  - besitzt keine Revocation-, Evidenz-, Deployment- oder Promotion-Fähigkeit
+  - lässt Koordination, Credential-Provisioning und reale Ausführung separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
