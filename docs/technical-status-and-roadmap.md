@@ -12757,5 +12757,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt weder Revocation, Restore, Deployment noch Promotion aus
   - lässt Ausführungscomposition und reale Promotion separat offen
 
+- LQ-2681 staging Research-index evidence composition:
+  `docs/lq-2681-staging-research-index-evidence-composition.md`
+  - komponiert bestehende Acquisition-, Handoff-, Evaluation- und Writer-Grenzen
+  - bindet jede explizit gestartete Stage unmittelbar an den validierten Run
+  - delegiert exakte Session-Inventur und sofortige Klassifikation an LQ-2676
+  - hält Stages als getrennte Aufrufe ohne mutable Cross-Stage-State
+  - evaluiert das vollständige Drei-Stage-Set vor jeder Dateierstellung
+  - veröffentlicht ausschließlich über den kanonischen owner-private No-Replace-Pfad
+  - gibt nur das bestehende detailfreie Acceptance-Ergebnis zurück
+  - lässt veröffentlichte Evidenz unabhängig durch LQ-2680 revalidieren
+  - erstellt keine Sessions, Credentials, Memberships, Rollen oder Capabilities
+  - trifft keine Admission- oder Authority-Entscheidung
+  - besitzt weder Revocation-, Restore-, Retry- noch Scheduling-Fähigkeit
+  - führt weder Deployment noch Promotion aus
+  - korrigiert einen am festen Kalendertag abgelaufenen persistenten Session-Testfixture
+  - lässt explizite Fixture-Mutation und reale Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
