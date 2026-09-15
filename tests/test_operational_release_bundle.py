@@ -41,15 +41,17 @@ def _wheel(path: Path, *, disconnected: bool = False) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("liquent-1.2.3.dist-info/METADATA", metadata)
         archive.writestr("liquent-1.2.3.dist-info/entry_points.txt", entries)
-        for index in range(44):
+        for index in range(45):
             revision = (
                 "20260915_0043" if index == 42 else
                 "20260916_0044" if index == 43 else
+                "20260916_0045" if index == 44 else
                 f"20260826_{index + 1:04d}"
             )
             parent = None if index == 0 or (disconnected and index == 18) else (
                 "20260826_0042" if index == 42 else
                 "20260915_0043" if index == 43 else
+                "20260916_0044" if index == 44 else
                 f"20260826_{index:04d}"
             )
             archive.writestr(
@@ -175,7 +177,7 @@ def test_build_is_deterministic_and_verify_is_explicitly_non_promotable(
         "bundle_format_version": 1,
         "source_commit": COMMIT,
         "package_version": VERSION,
-        "migration_head": "20260916_0044",
+        "migration_head": "20260916_0045",
         "integrity": "verified",
         "signature": "not_verified",
         "promotable": False,
