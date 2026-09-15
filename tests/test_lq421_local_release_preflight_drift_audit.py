@@ -97,7 +97,7 @@ def test_package_inventory_claims_still_match_repository() -> None:
     )
     assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 72
     assert len(operators) == EXPECTED_OPERATOR_FILE_COUNT == 72
-    assert len(migrations) == EXPECTED_MIGRATION_COUNT == 42
+    assert len(migrations) == EXPECTED_MIGRATION_COUNT == 43
 
 
 def test_docs_tests_and_roadmap_cover_every_preflight_slice() -> None:

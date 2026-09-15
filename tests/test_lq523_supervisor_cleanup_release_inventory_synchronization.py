@@ -22,7 +22,7 @@ def test_named_inventory_exactly_matches_current_source() -> None:
     )
     assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 72
     assert len(operators) == EXPECTED_OPERATOR_FILE_COUNT == 72
-    assert len(migrations) == EXPECTED_MIGRATION_COUNT == 42
+    assert len(migrations) == EXPECTED_MIGRATION_COUNT == 43
 
 
 def test_cleanup_entry_point_is_unique_and_separate() -> None:
@@ -56,10 +56,10 @@ def test_synthetic_wheel_fixture_uses_current_linear_migration_inventory() -> No
     fixture = (ROOT / "tests/test_operational_release_bundle.py").read_text(
         encoding="utf-8"
     )
-    assert "for index in range(42):" in fixture
-    assert 'revision = f"20260826_{index + 1:04d}"' in fixture
-    assert 'f"20260826_{index:04d}"' in fixture
-    assert '"migration_head": "20260826_0042"' in fixture
+    assert "for index in range(43):" in fixture
+    assert '"20260915_0043" if index == 42' in fixture
+    assert '"20260826_0042" if index == 42' in fixture
+    assert '"migration_head": "20260915_0043"' in fixture
     assert "range(27)" not in fixture
 
 

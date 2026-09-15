@@ -38,19 +38,19 @@ def test_consolidated_inventory_matches_repository_files() -> None:
 
     assert len(scripts) == 72
     assert len(operators) == 71
-    assert len(migrations) == 42
+    assert len(migrations) == 43
 
     head = _roadmap_head()
     assert "**72 Console Entry Points**, **71 Operatorimplementierungs-" in head
     assert "und Hilfsmodule** plus Paketinitialisierer" in head
-    assert "**42 lineare Migrationen**, Head\n  `20260826_0042`" in head
+    assert "**43 lineare Migrationen**, Head\n  `20260915_0043`" in head
 
 
 def test_migration_head_claim_matches_the_enforced_gate() -> None:
     gate = (ROOT / "tests" / "test_persistence_migration_gate.py").read_text(
         encoding="utf-8"
     )
-    assert 'expected_head() == "20260826_0042"' in gate
+    assert 'expected_head() == "20260915_0043"' in gate
 
 
 def test_release_boundary_and_lq412_bundle_drift_are_traceable() -> None:
