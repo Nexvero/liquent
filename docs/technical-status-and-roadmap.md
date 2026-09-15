@@ -12671,5 +12671,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - besitzt keine Revocation-, Evidenz-, Deployment- oder Promotion-Fähigkeit
   - lässt Koordination, Credential-Provisioning und reale Ausführung separat offen
 
+- LQ-2676 staging Research-index staged acquisition:
+  `docs/lq-2676-staging-research-index-staged-acquisition.md`
+  - teilt Acquisition geschlossen in Baseline, After-Revocation und Unavailability
+  - beendet die Baseline mit der Before-Revocation-Beobachtung
+  - isoliert After-Revocation und Unavailability in eigene Stages
+  - verlangt je Stage exakt die benötigten opaque Session-Slots
+  - weist fehlende, zusätzliche und untypisierte Sessions vor I/O zurück
+  - übergibt anonymen Requests niemals Sessionmaterial
+  - klassifiziert jede begrenzte Response unmittelbar
+  - behält ausschließlich Check, Phase und Ergebnis
+  - reduziert Acquisition- und Classifier-Fehler detailfrei auf Unavailability
+  - besitzt weder Revocation- noch Restore- oder Cross-Stage-State
+  - ergänzt keinen Credential-Store, Workflow oder installierten Operator
+  - lässt Handoff, reale Ausführung, Evidenz und Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
