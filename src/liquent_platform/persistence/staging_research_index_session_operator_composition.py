@@ -8,6 +8,10 @@ from sqlalchemy import Engine
 from liquent_platform.application.staging_research_index_acceptance import (
     StagingResearchIndexAcceptanceResult,
 )
+from liquent_platform.application.staging_research_index_ephemeral_session_source import (
+    EphemeralStagingResearchIndexSessionHandoffSource,
+    StagingResearchIndexSessionHandoffResolver,
+)
 from liquent_platform.application.staging_research_index_session_material_acquirer import (
     InjectedStagingResearchIndexSessionSetAcquirer,
     StagingResearchIndexSessionHandoffSource,
@@ -57,4 +61,19 @@ def compose_staging_research_index_session_operator(
         _engine=engine,
         _client=client,
         _material=material,
+    )
+
+
+def compose_ephemeral_staging_research_index_session_operator(
+    engine: Engine,
+    client: httpx2.Client,
+    resolver: StagingResearchIndexSessionHandoffResolver,
+    *,
+    material: SecureIdentityAuthorityMaterialGenerator | None = None,
+) -> StagingResearchIndexSessionOperatorComposition:
+    """Bind a fresh-per-call resolver without accessing it during composition."""
+
+    source = EphemeralStagingResearchIndexSessionHandoffSource(resolver)
+    return compose_staging_research_index_session_operator(
+        engine, client, source, material=material
     )
