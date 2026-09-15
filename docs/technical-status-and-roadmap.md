@@ -12783,5 +12783,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt selbst keine Mutation, Ausführung, Evidenzablage oder Promotion aus
   - lässt Controller-Adapter, reale Ausführung und Promotion separat offen
 
+- LQ-2683 staging Research-index fixture controller:
+  `docs/lq-2683-staging-research-index-fixture-controller.md`
+  - adaptiert opake Fixtures an die bestehende autorisierte Membership-Mutation
+  - bezieht Actor, Target, Workspace und Snapshot nur aus einem System-of-Record-Resolver
+  - behandelt Fixture-Handle und SessionPrincipal nicht als Authority
+  - akzeptiert keine Caller-IDs, Rollen, Permissions, Memberships oder Allow-Booleans
+  - verlangt die exakte erwartete aktive Revision vor Revocation
+  - revoked durch einen aktiven vollständigen Membership-Snapshot ohne Permissions
+  - re-resolved das Fixture vor Restore und prüft die ursprüngliche Bindung erneut
+  - restored exakt Status und Permissions aus dem System-of-Record-Snapshot
+  - bindet Restore an die committed revoked Revision
+  - verlangt neue nicht wiederverwendbare Change- und Result-Revisionen
+  - reduziert Absence, Stale, Rejection und Technik detailfrei auf Unavailability
+  - ergänzt keine Registry-, Schema-, SQL-, Migration-, CLI- oder Credential-Entscheidung
+  - führt keine Fixture-Creation, Evidenzmutation, Deployment oder Promotion aus
+  - lässt persistenten Resolver, reale Ausführung und Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
