@@ -12876,5 +12876,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Migration, Credential-Quelle, CLI, Deployment oder Promotion
   - lässt Session-Akquisition, kontrollierten Operator und Promotion offen
 
+- LQ-2689 staging Research-index controlled operator:
+  `docs/lq-2689-staging-research-index-controlled-operator.md`
+  - bindet Run, Evidenzziel, Fixture, Revision und Session-Handoff vor Composition
+  - verlangt für den Operator-Request ausschließlich exakte Domänentypen
+  - komponiert die bestehende Runtime genau einmal je explizitem Aufruf
+  - führt genau eine Ausführung mit den gebundenen Request-Werten aus
+  - nutzt ausschließlich extern besessene Database Engine und HTTP-Client
+  - besitzt und schließt weder Engine noch Client
+  - akzeptiert keine Authority-Aussage, Rolle, Permission oder Allow-Boolean
+  - belässt aktuelle Authority-Auflösung vollständig im System of Record
+  - behandelt Session-Handoffs weiterhin nur als Identifikationsmaterial
+  - reduziert operative Fehler auf ein einziges detailfreies Unavailable-Signal
+  - interpretiert abgeschlossene Acceptance-Ergebnisse nicht um
+  - serialisiert Sessions weder in Argumente, Umgebung noch Request-Dateien
+  - ergänzt bewusst keine CLI, Migration, Provisionierung oder Promotion
+  - lässt kontrollierte Credential-Akquisition und reale Promotion offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
