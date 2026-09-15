@@ -12963,5 +12963,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Provider-, Login-, CLI-, Deployment- oder Promotion-Entscheidung
   - lässt konkreten Acquirer und reale Staging-Promotion separat offen
 
+- LQ-2695 injected staging session acquirer:
+  `docs/lq-2695-injected-staging-session-acquirer.md`
+  - implementiert den LQ-2690-Acquirer über eine extern besessene Handoff-Quelle
+  - übergibt ausschließlich opake Set-ID und exakt erwartete Revision
+  - akzeptiert nur einen bereits validierten vollständigen LQ-2688-Handoff
+  - bindet den Handoff unverändert an Set-ID und Revision
+  - bewahrt Quellenabsenz als neutrales Ergebnis
+  - überlässt Quellenfehler den detailfreien LQ-2693-/LQ-2694-Grenzen
+  - hält Sessions, Set-Identitäten und Revisionen aus Repräsentationen heraus
+  - führt bei Construction keinerlei Quellenzugriff aus
+  - ergänzt keine Secret-, Login-, Provider-, Persistenz- oder Cache-Entscheidung
+  - ergänzt keine CLI-, Deployment- oder Promotion-Fähigkeit
+  - lässt sichere operative Quelle und reale Staging-Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
