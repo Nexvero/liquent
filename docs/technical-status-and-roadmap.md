@@ -12581,5 +12581,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - startet weder Workflow, Service, Deployment noch Promotion
   - lässt reale Beobachtungsaufnahme und autorisierte Promotion separat offen
 
+- LQ-2670 staging Research-index observation acquisition contract:
+  `docs/lq-2670-staging-research-index-observation-acquisition-contract.md`
+  - bindet eine Aufnahme vor dem ersten Request an Digest, HTTPS-Origin und UTC-Zeit
+  - verwendet ausschließlich den exakten Pfad `/research` ohne caller-gesteuerte Auswahl
+  - behandelt Sessionmaterial nur als Identität und niemals als Authority
+  - verlangt frische Authority-Auflösung durch das deployte System of Record
+  - hält Credentials aus URLs, Argumenten, Logs, Ausgaben und Fehlern fern
+  - verlangt einzelne redirect-freie, zeit- und größenbegrenzte Requests
+  - trennt neutrale Abwesenheit oder Rejection von detailfreier Unavailability
+  - emittiert nur geschlossene Checknamen und sanitiserte Klassifikationen
+  - cached weder Antworten noch Authority-, Workspace- oder Ergebnisfakten
+  - besitzt keine Revocation-, Restore-, Reparatur- oder Mutationfähigkeit
+  - ergänzt noch keinen HTTP-Client, Request-Builder, Classifier oder Workflow
+  - lässt reale Aufnahme, Evidenzbildung und Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
