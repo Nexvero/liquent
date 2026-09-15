@@ -12977,5 +12977,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine CLI-, Deployment- oder Promotion-Fähigkeit
   - lässt sichere operative Quelle und reale Staging-Promotion separat offen
 
+- LQ-2696 staging session operator composition:
+  `docs/lq-2696-staging-session-operator-composition.md`
+  - bindet externe Engine, HTTP-Client und Handoff-Quelle an einen Operator
+  - adaptiert die Quelle ausschließlich über den LQ-2695-Acquirer
+  - delegiert jede Ausführung an die vollständige LQ-2694-Grenze
+  - führt bei Composition keinerlei Datenbank-, HTTP- oder Quellenzugriff aus
+  - besitzt und schließt keine externe Ressource
+  - persistiert oder cached kein erworbenes Session-Set
+  - hält Quellen-, Ressourcen- und Sessiondetails aus Repräsentationen heraus
+  - behandelt Sessions weiterhin ausschließlich als Identifikationsmaterial
+  - belässt Fixture-Authority im bestehenden System-of-Record-Pfad
+  - ergänzt keine Secret-, Login-, Provider-, CLI- oder Scheduling-Entscheidung
+  - lässt sichere Quelle, Invocation und reale Promotion separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
