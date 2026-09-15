@@ -12860,5 +12860,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Migration, Login-Automation, CLI, Deployment oder Promotion
   - lässt sicheren Session-Handoff, kontrollierten Operator und Promotion offen
 
+- LQ-2688 staging Research-index session handoff:
+  `docs/lq-2688-staging-research-index-session-handoff.md`
+  - verlangt vor jeder Ausführung das vollständige exakte Drei-Stage-Inventar
+  - bindet Baseline und After-Revocation an dieselbe opake Fixture-Session
+  - verwirft fehlende, zusätzliche, anonyme und falsch typisierte Session-Slots
+  - kopiert akzeptierte Inventare defensiv gegen spätere Caller-Mutation
+  - gibt jeder Ausführung eine frische Mapping-Struktur
+  - behandelt Sessions ausschließlich als Identifikation und niemals als Authority
+  - akzeptiert keine Rollen, Memberships, Permissions oder Allow-Booleans
+  - validiert vollständig vor Datenbankmutation, HTTP-I/O und Evidenzablage
+  - hält opakes Sessionmaterial aus Repräsentationen heraus
+  - lässt die bestehenden exakten Stage-Prüfungen als zweite Grenze bestehen
+  - ergänzt keine Session-Erzeugung, Persistenz, Erneuerung oder Discovery
+  - ergänzt keine Migration, Credential-Quelle, CLI, Deployment oder Promotion
+  - lässt Session-Akquisition, kontrollierten Operator und Promotion offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
