@@ -22,7 +22,7 @@ from liquent_platform.persistence.migrate import upgrade_to_head
 from liquent_platform.persistence.research_jobs import DatabaseResearchJobs
 from liquent_platform.transport.http.app import create_app
 
-NOW = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
+NOW = datetime(2099, 9, 15, 12, 0, tzinfo=UTC)
 USER = UserId("wired-index-user")
 WORKSPACE = WorkspaceId("wired-index-workspace")
 SESSION = SessionId("wired-index-session")
