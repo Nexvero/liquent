@@ -63,9 +63,9 @@ def test_migration_gates_are_synchronized_to_33() -> None:
     gate = (ROOT / "tests/test_persistence_migration_gate.py").read_text()
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text()
     roadmap = (ROOT / "docs/technical-status-and-roadmap.md").read_text()
-    assert 'expected_head() == "20260916_0045"' in gate
-    assert "EXPECTED_MIGRATION_COUNT = 45" in bundle
-    assert "**45 lineare Migrationen**, Head\n  `20260916_0045`" in roadmap
+    assert 'expected_head() == "20260916_0046"' in gate
+    assert "EXPECTED_MIGRATION_COUNT = 46" in bundle
+    assert "**46 lineare Migrationen**, Head\n  `20260916_0046`" in roadmap
 
 
 def test_roadmap_records_lq473_and_next_adapter() -> None:
