@@ -13190,5 +13190,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Providerkomposition und Unknown-Effect-Reconciliation separat offen
 
+- LQ-2711 persistent staging promotion reconciliation commit:
+  `docs/lq-2711-persistent-staging-promotion-reconciliation-commit.md`
+  - schließt effect-unknown nur über einen getrennten Reconciliation-Übergang
+  - bindet Receipt exakt an Operation, Actor, Evidenz, Candidate, Origin und Target
+  - verlangt die Historie prepared/write-started/effect-unknown vollständig
+  - bewahrt Unknown als immutable Event und hängt committed als viertes Event an
+  - speichert Receipt-Identität ausschließlich am committed-Event
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist fehlende Zustände oder substituierte Receipts geschlossen ab
+  - behandelt den Übergang weder als Providerbeobachtung noch als Authority
+  - exponiert keine automatische Retry- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt trusted Providerbeobachtung und Reconciliation-Orchestrierung offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
