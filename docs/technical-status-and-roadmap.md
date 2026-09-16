@@ -13205,5 +13205,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt trusted Providerbeobachtung und Reconciliation-Orchestrierung offen
 
+- LQ-2712 staging promotion reconciliation observation:
+  `docs/lq-2712-staging-promotion-reconciliation-observation.md`
+  - akzeptiert ausschließlich den exakt gebundenen Unknown-Versuch vom Caller
+  - bezieht Commit-Beobachtung und Receipt nur aus einem trusted Outcome-Reader
+  - bindet Operation, Actor, Evidenz, Candidate, Origin und Target vollständig
+  - übergibt nur exakte Beobachtungen an den separaten Reconciliation-Recorder
+  - behandelt fehlenden Commit-Nachweis neutral und schreibt dabei nichts
+  - löst Providerzustand für jede Entscheidung frisch ohne Cache auf
+  - weist substituierte oder inkonsistente Ergebnisse geschlossen ab
+  - reduziert Observer- und Recorderfehler detailfrei
+  - behandelt Observation und Receipt weder als Authority noch als Retry-Erlaubnis
+  - ergänzt keinen konkreten Provider-, Netzwerk- oder Mutationadapter
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Provideradapter und operativen Reconciliation-Trigger separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
