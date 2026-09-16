@@ -13175,5 +13175,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Receipt-Persistenz und Unknown-Effect-Reconciliation separat offen
 
+- LQ-2710 persistent staging promotion commit receipt:
+  `docs/lq-2710-persistent-staging-promotion-commit-receipt.md`
+  - persistiert committed nur für den exakt gebundenen write-started-Versuch
+  - bindet Receipt an Operation, Actor, Evidenz, Candidate, Origin und Target
+  - verlangt die vollständige geordnete prepared/write-started-Historie
+  - hängt committed und Receipt-Identität transaktional als drittes Event an
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist substituierte Bindungen oder abweichende Receipts geschlossen ab
+  - erlaubt keine direkte Umdeutung von effect-unknown zu committed
+  - behandelt das Receipt als Effektnachweis und nicht als Authority
+  - exponiert keine Retry-, Provider- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Providerkomposition und Unknown-Effect-Reconciliation separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

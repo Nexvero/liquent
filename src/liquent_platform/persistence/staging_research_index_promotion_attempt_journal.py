@@ -10,6 +10,9 @@ from liquent_platform.application.staging_research_index_promotion_attempt impor
     UnknownStagingResearchIndexPromotionEffect,
     WriteStartedStagingResearchIndexPromotionAttempt,
 )
+from liquent_platform.application.staging_research_index_atomic_promotion import (
+    StagingResearchIndexPromotionReceipt,
+)
 
 
 _INSERT_ATTEMPT = text(
@@ -22,6 +25,11 @@ _INSERT_EVENT = text(
     "INSERT INTO staging_research_index_promotion_attempt_events"
     " (operation_id,sequence,state,provider_receipt_id,observed_at)"
     " VALUES (:operation,:sequence,:state,NULL,:observed)"
+)
+_INSERT_COMMITTED = text(
+    "INSERT INTO staging_research_index_promotion_attempt_events"
+    " (operation_id,sequence,state,provider_receipt_id,observed_at)"
+    " VALUES (:operation,3,'committed',:receipt,:observed)"
 )
 _SELECT_ATTEMPT = text(
     "SELECT operation_id,actor_user_id,evidence_digest,candidate_digest,"
@@ -131,6 +139,54 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
             pass
         raise StagingResearchIndexPromotionAttemptJournalUnavailable from None
 
+    def record_committed(
+        self,
+        attempt: WriteStartedStagingResearchIndexPromotionAttempt,
+        receipt: StagingResearchIndexPromotionReceipt,
+        *,
+        observed_at: datetime,
+    ) -> StagingResearchIndexPromotionReceipt:
+        if (
+            type(attempt) is not WriteStartedStagingResearchIndexPromotionAttempt
+            or type(receipt) is not StagingResearchIndexPromotionReceipt
+        ):
+            raise StagingResearchIndexPromotionAttemptJournalUnavailable
+        prepared = attempt.prepared
+        if (
+            receipt.operation_id != prepared.operation_id
+            or receipt.actor_user_id != prepared.command.actor.user_id
+            or receipt.evidence_digest != prepared.command.evidence_digest
+            or receipt.candidate_digest != prepared.authority.candidate_digest
+            or receipt.staging_origin != prepared.authority.staging_origin
+            or receipt.target_environment != prepared.authority.target_environment
+        ):
+            raise StagingResearchIndexPromotionAttemptJournalUnavailable
+        values = self._values(prepared, observed_at) | {
+            "receipt": receipt.operation_id
+        }
+        try:
+            with self._engine.begin() as connection:
+                states = self._require_exact(
+                    connection, prepared, allow_committed_receipt=True
+                )
+                if states == ["prepared", "write_started"]:
+                    connection.execute(_INSERT_COMMITTED, values)
+                elif states == ["prepared", "write_started", "committed"]:
+                    events = connection.execute(
+                        _SELECT_EVENTS, {"operation": prepared.operation_id}
+                    ).mappings().all()
+                    if events[-1]["provider_receipt_id"] != receipt.operation_id:
+                        raise StagingResearchIndexPromotionAttemptJournalUnavailable
+                else:
+                    raise StagingResearchIndexPromotionAttemptJournalUnavailable
+            return receipt
+        except StagingResearchIndexPromotionAttemptJournalUnavailable as error:
+            if error.__cause__ is None and error.__context__ is None:
+                raise
+        except Exception:
+            pass
+        raise StagingResearchIndexPromotionAttemptJournalUnavailable from None
+
     @staticmethod
     def _values(
         attempt: PreparedStagingResearchIndexPromotionAttempt,
@@ -154,7 +210,13 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
         }
 
     @staticmethod
-    def _require_exact(connection, attempt, expected_states=None) -> list[str]:
+    def _require_exact(
+        connection,
+        attempt,
+        expected_states=None,
+        *,
+        allow_committed_receipt: bool = False,
+    ) -> list[str]:
         operation = {"operation": attempt.operation_id}
         row = connection.execute(_SELECT_ATTEMPT, operation).mappings().one_or_none()
         expected = {
@@ -168,7 +230,11 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
         if row is None or any(row[key] != value for key, value in expected.items()):
             raise StagingResearchIndexPromotionAttemptJournalUnavailable
         events = connection.execute(_SELECT_EVENTS, operation).mappings().all()
-        if any(event["provider_receipt_id"] is not None for event in events):
+        if any(
+            event["provider_receipt_id"] is not None
+            and not (allow_committed_receipt and event["state"] == "committed")
+            for event in events
+        ):
             raise StagingResearchIndexPromotionAttemptJournalUnavailable
         states = [event["state"] for event in events]
         if [event["sequence"] for event in events] != list(range(1, len(events) + 1)):
