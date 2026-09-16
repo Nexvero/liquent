@@ -13235,5 +13235,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt operative Auswahl und konkreten Provider-Observer separat offen
 
+- LQ-2714 staging promotion reconciliation operation:
+  `docs/lq-2714-staging-promotion-reconciliation-operation.md`
+  - komponiert Unknown-Auflösung und trusted Observation für genau eine Operation
+  - akzeptiert ausschließlich eine opaque Operation-ID vom Caller
+  - lädt den persistenten Unknown-Zustand vor jeder Providerbeobachtung frisch
+  - bindet das Resolver-Ergebnis exakt an die angeforderte Operation
+  - kontaktiert bei Absenz oder Abschluss keinen Outcome-Observer
+  - behandelt fehlenden Commit-Nachweis neutral und mutationsfrei
+  - weist substituierte Ergebnisse und malformed IDs geschlossen ab
+  - reduziert Reader-, Observer- und Recorderfehler detailfrei
+  - behandelt Operation-ID und Ergebnis weder als Authority noch Retry-Erlaubnis
+  - führt keinen Scan, Claim, Lease, Batch oder automatischen Retry aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt operative Discovery und konkreten Providertransport separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
