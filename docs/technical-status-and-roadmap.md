@@ -13220,5 +13220,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Provideradapter und operativen Reconciliation-Trigger separat offen
 
+- LQ-2713 persistent staging promotion unknown reader:
+  `docs/lq-2713-persistent-staging-promotion-unknown-reader.md`
+  - löst Unknown-Versuche read-only über eine opaque Operation-ID auf
+  - rekonstruiert Actor, Evidenz, Candidate, Origin und Target aus Persistenz
+  - verlangt die exakte Historie prepared/write-started/effect-unknown
+  - behandelt fehlende, unvollständige oder bereits abgeschlossene Versuche neutral
+  - validiert lückenlose Sequenzen und zustandsgebundene Receipt-Präsenz
+  - weist Lücken, Umordnung und malformed Fakten geschlossen ab
+  - reduziert technische Datenbankfehler detailfrei
+  - behandelt den rekonstruierten Actor weder als frische Session noch Authority
+  - exponiert keine Write-, Retry-, Provider- oder Promotionoperation
+  - ergänzt keine Enumeration, Queue-, Scheduler- oder Workerentscheidung
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt operative Auswahl und konkreten Provider-Observer separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
