@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from liquent_platform.application.staging_research_index_atomic_promotion import (
     StagingResearchIndexPromotionCommand,
+    StagingResearchIndexPromotionReceipt,
 )
 from liquent_platform.application.staging_research_index_promotion_attempt import (
     PreparedStagingResearchIndexPromotionAttempt,
@@ -122,7 +123,6 @@ def test_invalid_time_and_missing_schema_are_detail_free(tmp_path: Path, journal
 
 def test_journal_exposes_no_outcome_or_retry_operation(journal) -> None:
     _, store = journal
-    assert not hasattr(store, "record_committed")
     assert not hasattr(store, "retry")
 
 
@@ -168,3 +168,54 @@ def test_unknown_effect_rejects_missing_or_substituted_started_attempt(journal) 
             " ORDER BY sequence"
         )).scalars().all()
     assert states == ["prepared", "write_started"]
+
+
+def _receipt(prepared, operation: str | None = None):
+    return StagingResearchIndexPromotionReceipt(
+        operation or prepared.operation_id,
+        prepared.command.actor.user_id,
+        prepared.command.evidence_digest,
+        prepared.authority.candidate_digest,
+        prepared.authority.staging_origin,
+        prepared.authority.target_environment,
+    )
+
+
+def test_committed_receipt_requires_exact_started_attempt_and_is_idempotent(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    store.record_prepared(prepared, observed_at=NOW)
+    started = store.mark_write_started(prepared, observed_at=NOW)
+    receipt = _receipt(prepared)
+    assert store.record_committed(started, receipt, observed_at=NOW) is receipt
+    assert store.record_committed(started, receipt, observed_at=NOW) is receipt
+    with engine.connect() as connection:
+        events = connection.execute(text(
+            "SELECT sequence,state,provider_receipt_id"
+            " FROM staging_research_index_promotion_attempt_events ORDER BY sequence"
+        )).all()
+    assert events == [
+        (1, "prepared", None),
+        (2, "write_started", None),
+        (3, "committed", prepared.operation_id),
+    ]
+
+
+def test_committed_receipt_rejects_substitution_and_unknown_effect(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    store.record_prepared(prepared, observed_at=NOW)
+    started = store.mark_write_started(prepared, observed_at=NOW)
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_committed(
+            started, _receipt(prepared, "different-operation"), observed_at=NOW
+        )
+    store.record_unknown(started, observed_at=NOW)
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_committed(started, _receipt(prepared), observed_at=NOW)
+    with engine.connect() as connection:
+        states = connection.execute(text(
+            "SELECT state FROM staging_research_index_promotion_attempt_events"
+            " ORDER BY sequence"
+        )).scalars().all()
+    assert states == ["prepared", "write_started", "effect_unknown"]
