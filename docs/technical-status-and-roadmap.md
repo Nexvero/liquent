@@ -13280,5 +13280,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Claiming und kontrollierte Ausführung separat offen
 
+- LQ-2717 controlled staging promotion reconciliation execution:
+  `docs/lq-2717-controlled-staging-promotion-reconciliation-execution.md`
+  - komponiert Auswahl und Single-Operation-Reconciliation für höchstens einen Kandidaten
+  - ruft den Candidate-Selector pro Ausführung exakt einmal auf
+  - beendet neutrale Absenz ohne Unknown-Reload oder Providerbeobachtung
+  - übergibt ausschließlich die erste validierte Operation-ID an LQ-2714
+  - lädt dadurch den vollständigen Unknown-Zustand vor Observation erneut
+  - liefert bei trusted Commit-Beobachtung das exakte durable Receipt
+  - bleibt bei fehlendem Commit-Nachweis neutral und mutationsfrei
+  - reduziert Selector-, Reader-, Observer- und Recorderfehler detailfrei
+  - führt keinen Loop, Batch, Claim oder automatischen Retry aus
+  - initiiert und wiederholt keine Promotionmutation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Triggering und konkreten Providertransport separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
