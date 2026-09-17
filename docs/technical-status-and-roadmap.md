@@ -13295,5 +13295,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Production-Triggering und konkreten Providertransport separat offen
 
+- LQ-2718 staging promotion provider outcome adapter:
+  `docs/lq-2718-staging-promotion-provider-outcome-adapter.md`
+  - verbindet ein trusted Provider-Status-Gateway read-only mit dem Observation-Vertrag
+  - ruft das Gateway nur mit der persistent rekonstruierten Operation-ID auf
+  - behandelt Providerabsenz neutral
+  - bindet Operation, Actor, Evidenz, Candidate, Origin und Target vollständig
+  - konstruiert nur aus einem exakten Commit-Status ein trusted Receipt
+  - verlangt einen zeitzonenbewussten Beobachtungszeitpunkt
+  - weist substituierte oder malformed Providerergebnisse geschlossen ab
+  - reduziert Gatewayfehler detailfrei
+  - akzeptiert keinen caller-supplied Success-Boolean oder Receipt
+  - exponiert keine Promotionmutation, Authority, Claim- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkreten Providertransport und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
