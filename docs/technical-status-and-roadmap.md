@@ -13250,5 +13250,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt operative Discovery und konkreten Providertransport separat offen
 
+- LQ-2715 persistent staging promotion unknown index:
+  `docs/lq-2715-persistent-staging-promotion-unknown-index.md`
+  - entdeckt durable Unknown-Operationen read-only über den bestehenden Journalzustand
+  - liefert ausschließlich opaque Operation-IDs als untrusted Kandidaten
+  - begrenzt jede Abfrage fest auf höchstens 100 deterministisch sortierte Ergebnisse
+  - blendet vorbereitete, gestartete, direkt committete und reconciliierte Versuche aus
+  - macht einen Reconciliation-Commit beim nächsten Read sichtbar
+  - verlangt für jeden Kandidaten weiterhin den exakten Reload über LQ-2714
+  - behandelt leere Ergebnisse neutral ohne Mutation
+  - reduziert technische Datenbankfehler detailfrei
+  - behandelt Discovery weder als Authority noch als Claim oder Retry-Erlaubnis
+  - ergänzt keinen Scheduler, Worker, Batch-Reconciler oder Provideraufruf
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Claiming und kontrollierte Ausführung separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
