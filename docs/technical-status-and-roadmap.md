@@ -13265,5 +13265,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Claiming und kontrollierte Ausführung separat offen
 
+- LQ-2716 staging promotion reconciliation candidate selection:
+  `docs/lq-2716-staging-promotion-reconciliation-candidate-selection.md`
+  - liest den begrenzten Unknown-Index pro Auswahl exakt einmal
+  - liefert bei leerem Index neutrale Absenz
+  - wählt aus einem validen Ergebnis höchstens die erste Operation-ID
+  - verlangt ein unveränderliches Tuple mit höchstens 100 Einträgen
+  - validiert opaque IDs, Eindeutigkeit und deterministische Sortierung vollständig
+  - weist Listen, Duplikate, malformed IDs und übergroße Ergebnisse geschlossen ab
+  - reduziert Indexfehler detailfrei
+  - behandelt die ausgewählte ID ausschließlich als untrusted Lookup-Kandidaten
+  - gewährt weder Authority, Claim, Exklusivität noch Retry-Erlaubnis
+  - führt keine Persistence-Mutation oder Providerbeobachtung aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Claiming und kontrollierte Ausführung separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
