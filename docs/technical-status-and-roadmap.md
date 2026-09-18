@@ -13400,5 +13400,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Settings-Sourcing und Production-Wiring separat offen
 
+- LQ-2725 staging promotion provider settings source:
+  `docs/lq-2725-staging-promotion-provider-settings-source.md`
+  - lädt die geschlossenen Endpoint-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt den vollständigen UTF-8-Inhalt auf 4 KiB
+  - verlangt genau einen vollständigen Endpoint-Key mit abschließendem Newline
+  - delegiert die Endpoint-Validierung unverändert an LQ-2724
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - trägt keine Credential-, Authority-, Mutation-, Watch- oder Retryfähigkeit
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Lifecycle-Komposition und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
