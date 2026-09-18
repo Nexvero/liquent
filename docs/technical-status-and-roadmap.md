@@ -13325,5 +13325,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt konkrete Providerakquisition und Production-Wiring separat offen
 
+- LQ-2720 staging promotion provider acquisition request:
+  `docs/lq-2720-staging-promotion-provider-acquisition-request.md`
+  - kapselt eine opaque Operation-ID in einen unveränderlichen Status-Request
+  - verbirgt die Operation-ID vollständig aus der Repräsentation
+  - übergibt den geschlossenen Request exakt einmal an Acquisition
+  - lässt neutrale Absenz unverändert passieren
+  - akzeptiert ausschließlich die expliziten Pending- und Commit-Response-Typen
+  - lässt malformed Operation-IDs niemals bis zur Acquisition gelangen
+  - weist unbekannte Response-Werte geschlossen ab
+  - reduziert Acquisition-Fehler detailfrei
+  - akzeptiert weder Role, Success-Flag, Receipt noch Target-Override
+  - entscheidet noch keinen HTTP-Pfad, Credential-, Timeout- oder Retrymechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
