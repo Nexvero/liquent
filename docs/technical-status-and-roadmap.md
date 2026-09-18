@@ -13415,5 +13415,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Lifecycle-Komposition und Production-Wiring separat offen
 
+- LQ-2726 settings-backed staging promotion provider composition:
+  `docs/lq-2726-settings-backed-staging-promotion-provider-composition.md`
+  - verbindet die explizite Settings-Datei mit der bestehenden Observer-Kette
+  - akzeptiert genau einen bestehenden HTTP-Client und einen absoluten Pfad
+  - lädt die Settings pro Komposition exakt einmal
+  - reicht ausschließlich den validierten Endpoint an LQ-2723 weiter
+  - führt während der Komposition keinen Providerrequest aus
+  - bewahrt die Ein-Request-Grenze jeder späteren Observation
+  - reduziert Settings- und Wiringfehler detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - ergänzt weder Watch noch Reload oder Default-Pfad
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Runtime-Lifecycle- und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
