@@ -13490,5 +13490,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt externes Triggering und Production-Wiring separat offen
 
+- LQ-2731 staging promotion reconciliation process settings:
+  `docs/lq-2731-staging-promotion-reconciliation-process-settings.md`
+  - definiert genau Settings-Datei und Datenbank-URL als geschlossene Gruppe
+  - verlangt eine vollständige Mappingform ohne Defaults oder Extra-Felder
+  - validiert einen absoluten, kanonischen und begrenzten Settings-Pfad
+  - akzeptiert nur bereits unterstützte SQLite- und PostgreSQL-Treiber
+  - weist malformed und nicht-stringförmige Werte geschlossen ab
+  - verbirgt Pfad und Datenbank-URL vollständig aus der Repräsentation
+  - ist unveränderlich und hält kein caller-owned Mapping fest
+  - reduziert invalide Konfiguration detailfrei
+  - gewährt weder Authority noch Trigger-, Retry- oder Promotionfähigkeit
+  - ergänzt noch keine Settings-Quelle oder Engine-Erzeugung
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt sicheres Sourcing und Process-Komposition separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
