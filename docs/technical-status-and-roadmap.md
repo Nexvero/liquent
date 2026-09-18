@@ -13475,5 +13475,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Process-Lifecycle- und Production-Wiring separat offen
 
+- LQ-2730 one-shot staging promotion reconciliation:
+  `docs/lq-2730-one-shot-staging-promotion-reconciliation.md`
+  - exponiert eine explizite process-neutrale One-shot-Operation
+  - komponiert pro Aufruf genau eine datenbankgestützte Runtime
+  - reicht Settings-Pfad und caller-owned Engine unverändert weiter
+  - führt die kontrollierte Reconciliation exakt einmal aus
+  - liefert neutrale Absenz oder das exakte durable Receipt
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - schließt die Runtime bei Erfolg, Absenz und Fehler zuverlässig
+  - reduziert Fehler detailfrei
+  - besitzt und disponiert den Datenbank-Engine nicht
+  - ergänzt weder Trigger noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt externes Triggering und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
