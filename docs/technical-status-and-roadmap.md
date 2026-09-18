@@ -13340,5 +13340,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt konkrete Providerakquisition und Production-Wiring separat offen
 
+- LQ-2721 staging promotion provider response decoder:
+  `docs/lq-2721-staging-promotion-provider-response-decoder.md`
+  - dekodiert genau eine begrenzte rohe Providerantwort
+  - behandelt einen bodylosen 404 neutral als Absenz
+  - verlangt für Pending exakt Status 202, Operation-ID und Statuswert
+  - verlangt für Commit exakt Status 200 und den vollständigen Feldsatz
+  - akzeptiert für nicht-leere Antworten ausschließlich application/json
+  - begrenzt den Body auf 16 KiB und weist Duplicate Keys geschlossen ab
+  - weist Extra-Felder, invalides JSON und substituierte Operationen geschlossen ab
+  - reduziert rohe Acquisition-Fehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - etabliert weder Authority noch Promotion- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt bounded HTTP-Akquisition und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
