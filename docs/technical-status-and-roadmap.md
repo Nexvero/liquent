@@ -13505,5 +13505,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
   - lässt sicheres Sourcing und Process-Komposition separat offen
 
+- LQ-2732 staging promotion reconciliation process settings source:
+  `docs/lq-2732-staging-promotion-reconciliation-process-settings-source.md`
+  - lädt die vollständigen Process-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt stabilen UTF-8-Inhalt auf 8 KiB mit Abschluss-Newline
+  - verlangt beide präfigierten Keys jeweils exakt einmal
+  - delegiert sämtliche Wertevalidierung unverändert an LQ-2731
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - erzeugt weder Engine noch Verbindung und triggert keine Reconciliation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt Process-Komposition und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
