@@ -13445,5 +13445,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Application-Lifecycle- und Production-Wiring separat offen
 
+- LQ-2728 controlled staging promotion reconciliation runtime:
+  `docs/lq-2728-controlled-staging-promotion-reconciliation-runtime.md`
+  - verbindet den owned Provider-Lifecycle mit der kontrollierten Reconciliation
+  - akzeptiert die bestehenden Index-, Resolver- und Recorder-Ports
+  - führt ausschließlich auf expliziten Aufruf höchstens eine Operation aus
+  - beendet einen leeren Index neutral ohne Providerzugriff
+  - persistiert Commit-Ergebnisse nur über den bestehenden Recorder
+  - reduziert Kompositions- und Ausführungsfehler detailfrei
+  - schließt den Provider-Client bei Runtime-Close deterministisch
+  - behandelt Close als terminal für spätere Ausführungen
+  - exponiert weder Promotionmutation noch Claim oder Retry
+  - ergänzt keinen Loop, Scheduler, Worker, Timer oder Pollingmechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Triggering und konkrete Persistence-Komposition separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
