@@ -13370,5 +13370,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Endpoint-Provisioning und Production-Wiring separat offen
 
+- LQ-2723 staging promotion provider observer composition:
+  `docs/lq-2723-staging-promotion-provider-observer-composition.md`
+  - komponiert HTTP, Decoder, Request-Boundary, Classifier und Outcome-Adapter
+  - akzeptiert einen bestehenden HTTP-Client und einen trusted Endpoint
+  - umgeht keine der zuvor definierten Validierungsschichten
+  - führt pro Observation höchstens einen Providerrequest aus
+  - bewahrt Providerabsenz und Pending neutral
+  - übersetzt exakte Commit-Antworten in exakt gebundene Observations
+  - reduziert invalides Wiring detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keinen Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Lifecycle-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
