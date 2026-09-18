@@ -13385,5 +13385,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Production-Lifecycle-Wiring separat offen
 
+- LQ-2724 staging promotion provider endpoint settings:
+  `docs/lq-2724-staging-promotion-provider-endpoint-settings.md`
+  - definiert einen geschlossenen Settings-Wert für genau einen Status-Endpunkt
+  - verlangt eine vollständige Mappingform mit ausschließlich dem Endpoint-Key
+  - akzeptiert nur begrenzte HTTPS-Endpunkte an einer vollständigen Pfadgrenze
+  - weist Userinfo, Query, Fragment, Extra-Keys und fehlenden Slash geschlossen ab
+  - verbirgt den Endpoint aus der Repräsentation
+  - reduziert invalide Settings detailfrei
+  - bietet keinen impliziten oder unsicheren Default
+  - behandelt Routingkonfiguration weder als Content-Trust noch Authority
+  - trägt keine Credential-, Mutation-, Claim- oder Retryfähigkeit
+  - ergänzt noch keinen Environment- oder File-Settings-Source
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Settings-Sourcing und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
