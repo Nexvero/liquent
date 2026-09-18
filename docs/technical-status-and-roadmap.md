@@ -13550,5 +13550,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine CLI-, Route-, Signal- oder Deployment-Entscheidung
   - lässt externen Aufruf weiterhin separat offen
 
+- LQ-2735 staging promotion reconciliation process outcome:
+  `docs/lq-2735-staging-promotion-reconciliation-process-outcome.md`
+  - setzt eine minimale detailfreie Ausgangsgrenze vor den ready Process
+  - ruft den Prozess mit dem gelieferten Settings-Pfad exakt einmal auf
+  - übersetzt neutrale Absenz ausschließlich in `IDLE`
+  - übersetzt ein exaktes durable Receipt ausschließlich in `RECONCILED`
+  - hält weder Receipt-Inhalt noch Operation-ID fest
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - reduziert technische Fehler detailfrei
+  - exponiert weder DSN, Pfad noch Providerdetails
+  - behandelt Outcomes weder als Authority noch Permission oder Retryhinweis
+  - ergänzt noch kein Exit-Code-, stdout-, stderr- oder CLI-Format
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt externe Präsentation separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
