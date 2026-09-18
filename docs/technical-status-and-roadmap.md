@@ -13535,5 +13535,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, CLI-, Route- oder Environment-Entscheidung
   - lässt externen Aufruf und Schema-Readiness separat offen
 
+- LQ-2734 readiness-gated staging promotion reconciliation process:
+  `docs/lq-2734-readiness-gated-staging-promotion-reconciliation-process.md`
+  - setzt den bestehenden Datenbank-Readiness-Probe vor die One-shot-Ausführung
+  - prüft Erreichbarkeit und erwarteten Migration-Head exakt einmal
+  - erlaubt Ausführung ausschließlich bei einem exakten Ready-Ergebnis
+  - stoppt bei Unverfügbarkeit, Schema-Mismatch und malformed Readiness geschlossen
+  - führt im unready Fall weder Providerzugriff noch Reconciliation aus
+  - disponiert den process-owned Engine in jedem Ausgang zuverlässig
+  - reduziert Readiness- und Downstream-Fehler detailfrei
+  - behandelt Readiness als Voraussetzung und niemals als Authority
+  - appliziert keine Migration und erstellt weder Schema noch Bootstrap-Fakten
+  - ergänzt weder Waiting noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine CLI-, Route-, Signal- oder Deployment-Entscheidung
+  - lässt externen Aufruf weiterhin separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
