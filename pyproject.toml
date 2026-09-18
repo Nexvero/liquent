@@ -99,6 +99,7 @@ liquent-supervisor-cleanup-retention-authority-recovery = "liquent_platform.oper
 liquent-supervisor-cleanup-retention-evaluate = "liquent_platform.operators.manifest_handoff_supervisor_cleanup_retention_policy:retention_main"
 liquent-supervisor-writer-wrapper = "liquent_platform.operators.manifest_handoff_supervisor_child:writer_main"
 liquent-supervisor-recovery-wrapper = "liquent_platform.operators.manifest_handoff_supervisor_child:recovery_main"
+liquent-staging-promotion-reconcile = "liquent_platform.transport.staging_research_index_promotion_reconciliation_cli:main"
 
 [project.optional-dependencies]
 dev = [

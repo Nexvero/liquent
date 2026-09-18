@@ -18,7 +18,7 @@
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
-- **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
+- **Paketinventar:** **73 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -13579,6 +13579,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt noch keinen installierten Script-Eintrag oder Shell-Wrapper
   - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
   - lässt Packaging und externe Invocation separat offen
+
+- LQ-2737 staging promotion reconciliation entry point:
+  `docs/lq-2737-staging-promotion-reconciliation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconcile`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält die LQ-2736-Ausgaben und Exit-Codes unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup
+  - synchronisiert das Paketinventar auf 73 Console Entry Points
+  - aktualisiert die exakte semantische und dateibasierte Wheel-Identität
+  - ergänzt kein weiteres Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet keinen Prozess implizit
+  - ergänzt weder Retry noch Loop, Scheduler, Timer oder Worker
+  - ergänzt keine Route, Migration, Bootstrap- oder Deployment-Entscheidung
+  - lässt operatives Triggering und Production-Wiring separat offen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
