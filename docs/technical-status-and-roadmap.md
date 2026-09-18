@@ -13624,5 +13624,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
   - lässt Timer, Service, Worker, Retry und Bulk-Drain als neue Slices offen
 
+- LQ-2740 staging promotion reconciliation settings installation contract:
+  `docs/lq-2740-staging-promotion-reconciliation-settings-installation-contract.md`
+  - definiert vier explizite absolute Quell- und Zielpfade ohne Defaults
+  - bewahrt die geschlossenen Provider- und Process-Settings-Grammatiken
+  - verlangt owner-private reguläre Quellen mit Mode 0600 und einem Link
+  - verlangt bestehende owner-gehaltene, nicht fremd-schreibbare Zielverzeichnisse
+  - bindet den Process-Inhalt exakt an den kanonischen Provider-Zielpfad
+  - verlangt zwei neue getrennte Mode-0600-Zieldateien ohne Alias
+  - verbietet Überschreiben, Ersetzen, Truncation und Content-Offenlegung
+  - publiziert Provider zuerst und Process als abschließenden Activation Record
+  - hält einen privaten verwaisten Provider nach Unterbrechung inert und neutral
+  - synchronisiert Inhalt und Verzeichnispublikation vor Erfolg
+  - behandelt konkurrierende oder wiederholte Installation geschlossen
+  - transportiert Konfiguration ohne Authority oder Reconciliation-Ausführung
+  - lässt Implementierung, Kommando und Runtime-Trigger als separate Slices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
