@@ -13609,5 +13609,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Datei noch Secret, Default, Wrapper oder Service
   - lässt Production-Triggering und Deployment-Wiring separat offen
 
+- LQ-2739 staging promotion reconciliation completion audit:
+  `docs/lq-2739-staging-promotion-reconciliation-completion-audit.md`
+  - schließt den manuellen Reconciliation-Strang LQ-2712 bis LQ-2738 ab
+  - belegt die geordnete Kette vom durable Unknown bis zur Runbook-Übergabe
+  - bestätigt systemseitige Zielwahl ohne caller-supplied Allow oder Rolle
+  - bestätigt exakte Readiness vor jedem Providerzugriff
+  - bestätigt höchstens einen Kandidaten pro explizitem Prozesslauf
+  - bestätigt geschlossene Providerakquise, Decodierung und Klassifikation
+  - bestätigt zuverlässige Client- und Engine-Disposition
+  - bestätigt die vier festen detailfreien CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt Timer, Service, Worker, Retry und Bulk-Drain als neue Slices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
