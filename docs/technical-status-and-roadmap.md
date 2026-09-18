@@ -13520,5 +13520,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
   - lässt Process-Komposition und Production-Wiring separat offen
 
+- LQ-2733 owned staging promotion reconciliation process:
+  `docs/lq-2733-owned-staging-promotion-reconciliation-process.md`
+  - komponiert Settings-Quelle, Engine-Fabrik und One-shot-Ausführung
+  - lädt pro explizitem Aufruf genau einen Settings-Pfad
+  - erzeugt genau einen Engine aus der validierten Datenbank-URL
+  - reicht Provider-Settings-Pfad und Engine an genau eine Ausführung weiter
+  - bewahrt neutrale Absenz und exakte Receipts unverändert
+  - disponiert den Engine bei Erfolg, Absenz und Fehler zuverlässig
+  - erzeugt bei Settingsfehlern weder Engine noch Reconciliation-Aufruf
+  - reduziert unbekannte Ergebnisse und Downstream-Fehler detailfrei
+  - besitzt Ressourcenlebenszeit, gewährt aber keine Promotionauthority
+  - ergänzt weder Migration noch Bootstrap, Loop, Scheduler oder Retry
+  - ergänzt keine Schema-, CLI-, Route- oder Environment-Entscheidung
+  - lässt externen Aufruf und Schema-Readiness separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
