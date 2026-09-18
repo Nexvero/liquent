@@ -13310,5 +13310,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt konkreten Providertransport und Production-Wiring separat offen
 
+- LQ-2719 staging promotion provider response classifier:
+  `docs/lq-2719-staging-promotion-provider-response-classifier.md`
+  - klassifiziert transportneutrale Providerantworten hinter dem trusted Gateway
+  - ruft den read-only Transport mit genau einer validen Operation-ID auf
+  - behandelt Absenz und exakt gebundenen Pending-Zustand neutral
+  - übersetzt ausschließlich einen exakten Commit-Status in trusted Statusdaten
+  - bindet jede nicht-leere Antwort erneut an die angeforderte Operation
+  - weist substituierte IDs und unbekannte Response-Typen geschlossen ab
+  - reduziert malformed Werte und Transportfehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - exponiert keine Mutation, Polling-, Claim- oder Retry-Erlaubnis
+  - entscheidet weder URL, Authentifizierung, TLS noch Timeout
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
