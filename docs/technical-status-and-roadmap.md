@@ -13460,5 +13460,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Triggering und konkrete Persistence-Komposition separat offen
 
+- LQ-2729 database-backed staging promotion reconciliation runtime:
+  `docs/lq-2729-database-backed-staging-promotion-reconciliation-runtime.md`
+  - komponiert Unknown-Index, exakten Reader und Attempt-Journal gemeinsam
+  - verwendet für alle drei Adapter genau einen caller-owned Engine
+  - verbindet ausschließlich bestehende Persistence-Verträge mit LQ-2728
+  - reconciliert ein durables Unknown über einen expliziten Runtime-Aufruf
+  - entfernt ein finalisiertes Unknown aus der nächsten Auswahl
+  - behandelt eine leere Datenbank neutral ohne Providerzugriff
+  - reduziert Engine- und Wiringfehler detailfrei
+  - disponiert den caller-owned Engine bei Runtime-Close nicht
+  - erstellt weder Attempt noch User, Workspace, Membership oder Rolle
+  - ergänzt weder DSN-Quelle noch Engine-Konstruktion oder Bootstrap
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Process-Lifecycle- und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
