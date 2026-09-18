@@ -13430,5 +13430,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Runtime-Lifecycle- und Production-Wiring separat offen
 
+- LQ-2727 owned staging promotion provider lifecycle:
+  `docs/lq-2727-owned-staging-promotion-provider-lifecycle.md`
+  - besitzt genau einen HTTP-Client und den settings-gestützten Observer
+  - deaktiviert ambient Proxy-/Zertifikatskonfiguration und Redirect-Following
+  - führt während der Komposition keinen Providerrequest aus
+  - exponiert den read-only Observer und deterministisches Close
+  - schließt den Client bei Context-Exit zuverlässig
+  - behandelt wiederholtes Close neutral und verbietet erneuten Eintritt
+  - schließt einen bereits erstellten Client auch bei Kompositionsfehlern
+  - reduziert Lifecycle-Fehler detailfrei
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt weder Singleton noch Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Application-Lifecycle- und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
