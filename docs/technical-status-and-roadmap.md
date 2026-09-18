@@ -13355,5 +13355,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt bounded HTTP-Akquisition und Production-Wiring separat offen
 
+- LQ-2722 staging promotion provider HTTP acquisition:
+  `docs/lq-2722-staging-promotion-provider-http-acquisition.md`
+  - führt genau einen begrenzten GET für einen geschlossenen Status-Request aus
+  - verlangt einen trusted HTTPS-Endpunkt ohne Userinfo, Query oder Fragment
+  - entfernt geerbte Authorization- und Cookie-Header
+  - deaktiviert Redirects, Client-Authentifizierung und Retry
+  - fordert JSON mit identity encoding und festen Timeouts an
+  - begrenzt declared und gestreamte Bodies strikt auf 16 KiB
+  - weist komprimierte, malformed und übergroße Antworten geschlossen ab
+  - reduziert Transportfehler detailfrei
+  - übergibt nur Status, Header und begrenzte Rohbytes an LQ-2721
+  - etabliert keine Authority, Mutation, Credential- oder Pollingfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Endpoint-Provisioning und Production-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
