@@ -13565,5 +13565,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
   - lässt externe Präsentation separat offen
 
+- LQ-2736 staging promotion reconciliation CLI:
+  `docs/lq-2736-staging-promotion-reconciliation-cli.md`
+  - akzeptiert genau einen absoluten Process-Settings-Pfad
+  - weist Root, Parent-Traversal und falsche Argumentanzahl vor Ausführung ab
+  - präsentiert `IDLE` ausschließlich als `idle` mit Exit null
+  - präsentiert `RECONCILED` ausschließlich als `reconciled` mit Exit null
+  - präsentiert technische Unverfügbarkeit detailfrei mit Exit eins
+  - präsentiert invalide Invocation detailfrei mit Exit zwei
+  - weist unbekannte Outcomes geschlossen als unavailable ab
+  - exponiert weder Receipt noch Operation, Pfad, DSN oder Providerdetails
+  - gewährt keine Authority und ergänzt weder Retry noch Loop
+  - ergänzt noch keinen installierten Script-Eintrag oder Shell-Wrapper
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt Packaging und externe Invocation separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
