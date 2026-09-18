@@ -13594,5 +13594,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Route, Migration, Bootstrap- oder Deployment-Entscheidung
   - lässt operatives Triggering und Production-Wiring separat offen
 
+- LQ-2738 staging promotion reconciliation runbook handoff:
+  `docs/lq-2738-staging-promotion-reconciliation-runbook-handoff.md`
+  - ergänzt die manuelle Recovery-Übergabe im bestehenden Staging-Runbook
+  - trennt Reconciliation ausdrücklich von normaler Promotion und Rollback
+  - nennt das installierte Kommando mit genau einem expliziten Settings-Pfad
+  - beschreibt beide owner-privaten Mode-0600-Settingsdateien
+  - fixiert die exakten Provider- und Process-Settings-Keys
+  - bewahrt die vier detailfreien Ausgabe- und Exit-Code-Fälle unverändert
+  - verlangt bei Unverfügbarkeit einen Stopp ohne automatischen Retry
+  - schließt Settingswerte und durable Identitäten aus Argumenten und Logs aus
+  - verlangt für jeden späteren Aufruf eine neue Operatorentscheidung
+  - gewährt keine Promotionauthority und bestätigt kein Deployment
+  - ergänzt weder Datei noch Secret, Default, Wrapper oder Service
+  - lässt Production-Triggering und Deployment-Wiring separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
