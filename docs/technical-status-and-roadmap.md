@@ -13655,5 +13655,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - reduziert alle übrigen Fehler detailfrei auf technische Unverfügbarkeit
   - ergänzt weder CLI noch Authority, Netzwerk, Datenbankzugriff oder Trigger
 
+- LQ-2742 staging promotion reconciliation settings installation CLI contract:
+  `docs/lq-2742-staging-promotion-reconciliation-settings-installation-cli-contract.md`
+  - akzeptiert genau vier explizite absolute Positionsargumente
+  - bewahrt die feste Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - ergänzt weder Default-Pfad noch Environment- oder Arbeitsverzeichnissuche
+  - ruft den Installer höchstens einmal pro Invocation auf
+  - bildet `INSTALLED` fest auf `installed`, stdout und Exit-Code 0 ab
+  - bildet neutrales `PRESENT` fest auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Unverfügbarkeit detailfrei auf stderr und Exit-Code 1 ab
+  - bildet ungültige Invocation detailfrei auf stderr und Exit-Code 2 ab
+  - legt pro Aufruf genau ein festes Token auf genau einem Stream offen
+  - legt weder Pfad noch Inhalt, Endpoint, DSN, Metadaten oder Fehlerdetail offen
+  - behandelt Presence nicht als Erfolg, Inhaltsgleichheit oder Replacement-Erlaubnis
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt weder Implementierung noch Entry Point, Retry, Service oder Deployment
+  - lässt Implementierung und Packaging als getrennte Folgeslices offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
