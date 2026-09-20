@@ -13640,5 +13640,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - transportiert Konfiguration ohne Authority oder Reconciliation-Ausführung
   - lässt Implementierung, Kommando und Runtime-Trigger als separate Slices offen
 
+- LQ-2741 staging promotion reconciliation settings installer:
+  `docs/lq-2741-staging-promotion-reconciliation-settings-installer.md`
+  - implementiert die vier expliziten Path-Eingaben ohne Defaults
+  - liest beide Quellen stabil über non-following, non-inheritable Deskriptoren
+  - delegiert Werteprüfung an die bestehenden Provider- und Process-Settings
+  - bindet den Process-Providerpfad exakt an das gelieferte Providerziel
+  - prüft owner-gehaltene und nicht fremd-schreibbare Zielverzeichnisse
+  - publiziert private temporäre Dateien per Hard Link ohne Replacement
+  - synchronisiert Datei und Verzeichnis vor dem nächsten Schritt
+  - publiziert Provider zuerst und Process zuletzt als Activation Record
+  - lässt einen Provider nach Activation-Fehler vollständig und inert zurück
+  - unterscheidet `INSTALLED` von neutralem `PRESENT`
+  - reduziert alle übrigen Fehler detailfrei auf technische Unverfügbarkeit
+  - ergänzt weder CLI noch Authority, Netzwerk, Datenbankzugriff oder Trigger
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
