@@ -13672,5 +13672,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Implementierung noch Entry Point, Retry, Service oder Deployment
   - lässt Implementierung und Packaging als getrennte Folgeslices offen
 
+- LQ-2743 staging promotion reconciliation settings installation CLI:
+  `docs/lq-2743-staging-promotion-reconciliation-settings-installation-cli.md`
+  - implementiert den geschlossenen LQ-2742-Präsentationsvertrag
+  - akzeptiert genau vier Strings und validiert sie vor jeder Delegation
+  - delegiert genau einen Aufruf mit vier expliziten `Path`-Werten
+  - bildet `INSTALLED` auf `installed`, stdout und Exit-Code 0 ab
+  - bildet `PRESENT` auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Fehler und unbekannte Outcomes detailfrei auf Exit-Code 1 ab
+  - bildet ungültige Aufrufe ohne Installerzugriff auf Exit-Code 2 ab
+  - legt weder Settingsinhalt noch Pfad, Endpoint, DSN, Metadaten oder Fehler offen
+  - ergänzt weder Discovery noch Environment-Lookup, Retry, Cleanup oder Trigger
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt keinen installierten Entry Point und lässt Packaging separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
