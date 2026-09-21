@@ -18,7 +18,7 @@
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
-- **Paketinventar:** **73 Console Entry Points**, **71 Operatorimplementierungs-
+- **Paketinventar:** **74 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -13623,6 +13623,120 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - gewährt weder Promotion- noch Deploymentauthority
   - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
   - lässt Timer, Service, Worker, Retry und Bulk-Drain als neue Slices offen
+
+- LQ-2740 staging promotion reconciliation settings installation contract:
+  `docs/lq-2740-staging-promotion-reconciliation-settings-installation-contract.md`
+  - definiert vier explizite absolute Quell- und Zielpfade ohne Defaults
+  - bewahrt die geschlossenen Provider- und Process-Settings-Grammatiken
+  - verlangt owner-private reguläre Quellen mit Mode 0600 und einem Link
+  - verlangt bestehende owner-gehaltene, nicht fremd-schreibbare Zielverzeichnisse
+  - bindet den Process-Inhalt exakt an den kanonischen Provider-Zielpfad
+  - verlangt zwei neue getrennte Mode-0600-Zieldateien ohne Alias
+  - verbietet Überschreiben, Ersetzen, Truncation und Content-Offenlegung
+  - publiziert Provider zuerst und Process als abschließenden Activation Record
+  - hält einen privaten verwaisten Provider nach Unterbrechung inert und neutral
+  - synchronisiert Inhalt und Verzeichnispublikation vor Erfolg
+  - behandelt konkurrierende oder wiederholte Installation geschlossen
+  - transportiert Konfiguration ohne Authority oder Reconciliation-Ausführung
+  - lässt Implementierung, Kommando und Runtime-Trigger als separate Slices offen
+
+- LQ-2741 staging promotion reconciliation settings installer:
+  `docs/lq-2741-staging-promotion-reconciliation-settings-installer.md`
+  - implementiert die vier expliziten Path-Eingaben ohne Defaults
+  - liest beide Quellen stabil über non-following, non-inheritable Deskriptoren
+  - delegiert Werteprüfung an die bestehenden Provider- und Process-Settings
+  - bindet den Process-Providerpfad exakt an das gelieferte Providerziel
+  - prüft owner-gehaltene und nicht fremd-schreibbare Zielverzeichnisse
+  - publiziert private temporäre Dateien per Hard Link ohne Replacement
+  - synchronisiert Datei und Verzeichnis vor dem nächsten Schritt
+  - publiziert Provider zuerst und Process zuletzt als Activation Record
+  - lässt einen Provider nach Activation-Fehler vollständig und inert zurück
+  - unterscheidet `INSTALLED` von neutralem `PRESENT`
+  - reduziert alle übrigen Fehler detailfrei auf technische Unverfügbarkeit
+  - ergänzt weder CLI noch Authority, Netzwerk, Datenbankzugriff oder Trigger
+
+- LQ-2742 staging promotion reconciliation settings installation CLI contract:
+  `docs/lq-2742-staging-promotion-reconciliation-settings-installation-cli-contract.md`
+  - akzeptiert genau vier explizite absolute Positionsargumente
+  - bewahrt die feste Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - ergänzt weder Default-Pfad noch Environment- oder Arbeitsverzeichnissuche
+  - ruft den Installer höchstens einmal pro Invocation auf
+  - bildet `INSTALLED` fest auf `installed`, stdout und Exit-Code 0 ab
+  - bildet neutrales `PRESENT` fest auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Unverfügbarkeit detailfrei auf stderr und Exit-Code 1 ab
+  - bildet ungültige Invocation detailfrei auf stderr und Exit-Code 2 ab
+  - legt pro Aufruf genau ein festes Token auf genau einem Stream offen
+  - legt weder Pfad noch Inhalt, Endpoint, DSN, Metadaten oder Fehlerdetail offen
+  - behandelt Presence nicht als Erfolg, Inhaltsgleichheit oder Replacement-Erlaubnis
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt weder Implementierung noch Entry Point, Retry, Service oder Deployment
+  - lässt Implementierung und Packaging als getrennte Folgeslices offen
+
+- LQ-2743 staging promotion reconciliation settings installation CLI:
+  `docs/lq-2743-staging-promotion-reconciliation-settings-installation-cli.md`
+  - implementiert den geschlossenen LQ-2742-Präsentationsvertrag
+  - akzeptiert genau vier Strings und validiert sie vor jeder Delegation
+  - delegiert genau einen Aufruf mit vier expliziten `Path`-Werten
+  - bildet `INSTALLED` auf `installed`, stdout und Exit-Code 0 ab
+  - bildet `PRESENT` auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Fehler und unbekannte Outcomes detailfrei auf Exit-Code 1 ab
+  - bildet ungültige Aufrufe ohne Installerzugriff auf Exit-Code 2 ab
+  - legt weder Settingsinhalt noch Pfad, Endpoint, DSN, Metadaten oder Fehler offen
+  - ergänzt weder Discovery noch Environment-Lookup, Retry, Cleanup oder Trigger
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt keinen installierten Entry Point und lässt Packaging separat offen
+
+- LQ-2744 staging promotion reconciliation settings installation entry point:
+  `docs/lq-2744-staging-promotion-reconciliation-settings-installation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconciliation-settings-install`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält Argumente, Ausgaben und Exit-Codes aus LQ-2742 und LQ-2743 unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup oder zweite Präsentation
+  - synchronisiert das Paketinventar auf 74 Console Entry Points
+  - aktualisiert semantische, dateibasierte und Member-basierte Wheel-Identität
+  - ergänzt kein Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet weder Installation noch Reconciliation
+  - ergänzt weder Retry noch Service, Scheduler, Route oder Deployment
+  - lässt operatives Triggering und Runbook-Übergabe separat offen
+
+- LQ-2745 staging promotion reconciliation settings installation runbook handoff:
+  `docs/lq-2745-staging-promotion-reconciliation-settings-installation-runbook-handoff.md`
+  - ergänzt die manuelle Settings-Installation im bestehenden Staging-Runbook
+  - nennt den installierten Befehl mit vier expliziten absoluten Pfaden
+  - fixiert die Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - bewahrt Owner-, Mode-, Link-, Verzeichnis- und Bindungsregeln
+  - behandelt ausschließlich `installed` mit Exit-Code 0 als Erfolg
+  - stoppt bei `present` ohne Inhaltsvergleich, Löschung oder Replacement
+  - stoppt bei `unavailable` ohne automatischen Retry
+  - trennt Installation ausdrücklich von späterer Reconciliation-Entscheidung
+  - schließt Settingswerte aus Argumenten, Logs, Tickets und Evidenz aus
+  - gewährt weder Promotionauthority noch Deploymentfreigabe
+  - ergänzt weder Secret noch Default, Cleanup, Rotation, Service oder Trigger
+
+- LQ-2746 staging promotion reconciliation settings installation completion audit:
+  `docs/lq-2746-staging-promotion-reconciliation-settings-installation-completion-audit.md`
+  - schließt den manuellen Settings-Installationsstrang LQ-2740 bis LQ-2745 ab
+  - belegt die geordnete Kette von Vertrag bis Runbook-Übergabe
+  - bestätigt vier explizite absolute und getrennte Pfade ohne Discovery
+  - bestätigt private stabile Quellen und geschlossene Settingsgrammatiken
+  - bestätigt no-replace-Publikation ohne Vergleich oder Löschung
+  - bestätigt Provider zuerst und Process zuletzt als Activation Record
+  - bestätigt den inert-neutralen verwaisten Providerfall
+  - bestätigt vier feste detailfreie CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - startet weder Provider-, Datenbank- noch Reconciliation-Runtime
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt reale Staging-Provisionierung und Integration als externe Arbeit offen
+
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
