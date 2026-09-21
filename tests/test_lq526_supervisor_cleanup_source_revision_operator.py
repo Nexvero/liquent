@@ -107,9 +107,9 @@ def test_package_inventory_and_contract_are_synchronized() -> None:
     scripts = re.findall(r"^liquent-[a-z0-9-]+\s*=", project, re.MULTILINE)
     operators = list((ROOT / "src/liquent_platform/operators").glob("*.py"))
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
-    assert len(scripts) == 73
+    assert len(scripts) == 74
     assert len(operators) == 72
-    assert "EXPECTED_ENTRY_POINT_COUNT = 73" in bundle
+    assert "EXPECTED_ENTRY_POINT_COUNT = 74" in bundle
     assert "EXPECTED_OPERATOR_FILE_COUNT = 72" in bundle
     assert "lq-526-owner-controlled-supervisor-cleanup-source-revision-operator.md" in bundle
 
