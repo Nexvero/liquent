@@ -13713,5 +13713,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - gewährt weder Promotionauthority noch Deploymentfreigabe
   - ergänzt weder Secret noch Default, Cleanup, Rotation, Service oder Trigger
 
+- LQ-2746 staging promotion reconciliation settings installation completion audit:
+  `docs/lq-2746-staging-promotion-reconciliation-settings-installation-completion-audit.md`
+  - schließt den manuellen Settings-Installationsstrang LQ-2740 bis LQ-2745 ab
+  - belegt die geordnete Kette von Vertrag bis Runbook-Übergabe
+  - bestätigt vier explizite absolute und getrennte Pfade ohne Discovery
+  - bestätigt private stabile Quellen und geschlossene Settingsgrammatiken
+  - bestätigt no-replace-Publikation ohne Vergleich oder Löschung
+  - bestätigt Provider zuerst und Process zuletzt als Activation Record
+  - bestätigt den inert-neutralen verwaisten Providerfall
+  - bestätigt vier feste detailfreie CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - startet weder Provider-, Datenbank- noch Reconciliation-Runtime
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt reale Staging-Provisionierung und Integration als externe Arbeit offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
