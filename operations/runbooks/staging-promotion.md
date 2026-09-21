@@ -39,6 +39,38 @@ application version.
 
 ## Research-index unknown-effect reconciliation
 
+### Install reconciliation settings
+
+Before the first reconciliation invocation, prepare the provider and process
+source files in a separate owner-held directory. Both source files must be
+regular files owned by the effective installer user, have mode `0600`, exactly
+one hard link, UTF-8 content and a trailing newline. Prepare two distinct
+absolute target paths in existing owner-held directories that are not writable
+by group or others. The process source must name the exact provider target.
+
+Install the pair once with four explicit absolute paths in this fixed order:
+
+```text
+liquent-staging-promotion-reconciliation-settings-install /ABSOLUTE/PROVIDER_SOURCE /ABSOLUTE/PROVIDER_TARGET /ABSOLUTE/PROCESS_SOURCE /ABSOLUTE/PROCESS_TARGET
+```
+
+Interpret only the fixed installation result and exit status:
+
+- `installed` on stdout with exit `0`: both targets were durably published;
+- `present` on stderr with exit `3`: stop; at least one target was already
+  present and no existing content was compared or replaced;
+- `unavailable` on stderr with exit `1`: stop and investigate outside this
+  command; do not retry automatically;
+- `invalid_invocation` on stderr with exit `2`: correct the invocation without
+  assuming that either target was installed.
+
+Never place either settings value in command arguments, logs, tickets or copied
+evidence. Do not remove or overwrite a retained provider target after a failed
+activation. Any cleanup, rotation or replacement requires a separate reviewed
+operator procedure. Installation does not authorize reconciliation; review the
+durable unknown-effect state and make a new explicit operator decision before
+the bounded reconciliation command below.
+
 This is a separate, manual recovery action. Do not run it during the normal
 application promotion or rollback flow. Use it only when the durable staging
 research-index promotion journal already contains an unknown-effect attempt and
