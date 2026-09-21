@@ -13699,5 +13699,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Retry noch Service, Scheduler, Route oder Deployment
   - lässt operatives Triggering und Runbook-Übergabe separat offen
 
+- LQ-2745 staging promotion reconciliation settings installation runbook handoff:
+  `docs/lq-2745-staging-promotion-reconciliation-settings-installation-runbook-handoff.md`
+  - ergänzt die manuelle Settings-Installation im bestehenden Staging-Runbook
+  - nennt den installierten Befehl mit vier expliziten absoluten Pfaden
+  - fixiert die Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - bewahrt Owner-, Mode-, Link-, Verzeichnis- und Bindungsregeln
+  - behandelt ausschließlich `installed` mit Exit-Code 0 als Erfolg
+  - stoppt bei `present` ohne Inhaltsvergleich, Löschung oder Replacement
+  - stoppt bei `unavailable` ohne automatischen Retry
+  - trennt Installation ausdrücklich von späterer Reconciliation-Entscheidung
+  - schließt Settingswerte aus Argumenten, Logs, Tickets und Evidenz aus
+  - gewährt weder Promotionauthority noch Deploymentfreigabe
+  - ergänzt weder Secret noch Default, Cleanup, Rotation, Service oder Trigger
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
