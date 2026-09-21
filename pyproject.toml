@@ -100,6 +100,7 @@ liquent-supervisor-cleanup-retention-evaluate = "liquent_platform.operators.mani
 liquent-supervisor-writer-wrapper = "liquent_platform.operators.manifest_handoff_supervisor_child:writer_main"
 liquent-supervisor-recovery-wrapper = "liquent_platform.operators.manifest_handoff_supervisor_child:recovery_main"
 liquent-staging-promotion-reconcile = "liquent_platform.transport.staging_research_index_promotion_reconciliation_cli:main"
+liquent-staging-promotion-reconciliation-settings-install = "liquent_platform.transport.staging_research_index_promotion_reconciliation_settings_installation_cli:main"
 
 [project.optional-dependencies]
 dev = [
