@@ -36,12 +36,12 @@ def test_consolidated_inventory_matches_repository_files() -> None:
         path for path in MIGRATIONS.glob("*.py") if path.name != "__init__.py"
     ]
 
-    assert len(scripts) == 73
+    assert len(scripts) == 74
     assert len(operators) == 71
     assert len(migrations) == 46
 
     head = _roadmap_head()
-    assert "**73 Console Entry Points**, **71 Operatorimplementierungs-" in head
+    assert "**74 Console Entry Points**, **71 Operatorimplementierungs-" in head
     assert "und Hilfsmodule** plus Paketinitialisierer" in head
     assert "**46 lineare Migrationen**, Head\n  `20260916_0046`" in head
 
@@ -64,7 +64,7 @@ def test_release_boundary_and_lq412_bundle_drift_are_traceable() -> None:
     assert "34 Console Entry Points" in contract
     assert "38 Operatormodule" in contract
     assert "finale Packaging- und Bundle-Preflight noch nicht als bestanden" in contract
-    assert "EXPECTED_ENTRY_POINT_COUNT = 73" in bundle
+    assert "EXPECTED_ENTRY_POINT_COUNT = 74" in bundle
     assert "EXPECTED_OPERATOR_FILE_COUNT = 72" in bundle
 
 
