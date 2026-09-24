@@ -18,7 +18,7 @@
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
-- **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
+- **Paketinventar:** **74 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -13279,6 +13279,464 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt keine Persistence-Mutation oder Providerbeobachtung aus
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Claiming und kontrollierte Ausführung separat offen
+
+- LQ-2717 controlled staging promotion reconciliation execution:
+  `docs/lq-2717-controlled-staging-promotion-reconciliation-execution.md`
+  - komponiert Auswahl und Single-Operation-Reconciliation für höchstens einen Kandidaten
+  - ruft den Candidate-Selector pro Ausführung exakt einmal auf
+  - beendet neutrale Absenz ohne Unknown-Reload oder Providerbeobachtung
+  - übergibt ausschließlich die erste validierte Operation-ID an LQ-2714
+  - lädt dadurch den vollständigen Unknown-Zustand vor Observation erneut
+  - liefert bei trusted Commit-Beobachtung das exakte durable Receipt
+  - bleibt bei fehlendem Commit-Nachweis neutral und mutationsfrei
+  - reduziert Selector-, Reader-, Observer- und Recorderfehler detailfrei
+  - führt keinen Loop, Batch, Claim oder automatischen Retry aus
+  - initiiert und wiederholt keine Promotionmutation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Triggering und konkreten Providertransport separat offen
+
+- LQ-2718 staging promotion provider outcome adapter:
+  `docs/lq-2718-staging-promotion-provider-outcome-adapter.md`
+  - verbindet ein trusted Provider-Status-Gateway read-only mit dem Observation-Vertrag
+  - ruft das Gateway nur mit der persistent rekonstruierten Operation-ID auf
+  - behandelt Providerabsenz neutral
+  - bindet Operation, Actor, Evidenz, Candidate, Origin und Target vollständig
+  - konstruiert nur aus einem exakten Commit-Status ein trusted Receipt
+  - verlangt einen zeitzonenbewussten Beobachtungszeitpunkt
+  - weist substituierte oder malformed Providerergebnisse geschlossen ab
+  - reduziert Gatewayfehler detailfrei
+  - akzeptiert keinen caller-supplied Success-Boolean oder Receipt
+  - exponiert keine Promotionmutation, Authority, Claim- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkreten Providertransport und Production-Wiring separat offen
+
+- LQ-2719 staging promotion provider response classifier:
+  `docs/lq-2719-staging-promotion-provider-response-classifier.md`
+  - klassifiziert transportneutrale Providerantworten hinter dem trusted Gateway
+  - ruft den read-only Transport mit genau einer validen Operation-ID auf
+  - behandelt Absenz und exakt gebundenen Pending-Zustand neutral
+  - übersetzt ausschließlich einen exakten Commit-Status in trusted Statusdaten
+  - bindet jede nicht-leere Antwort erneut an die angeforderte Operation
+  - weist substituierte IDs und unbekannte Response-Typen geschlossen ab
+  - reduziert malformed Werte und Transportfehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - exponiert keine Mutation, Polling-, Claim- oder Retry-Erlaubnis
+  - entscheidet weder URL, Authentifizierung, TLS noch Timeout
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
+- LQ-2720 staging promotion provider acquisition request:
+  `docs/lq-2720-staging-promotion-provider-acquisition-request.md`
+  - kapselt eine opaque Operation-ID in einen unveränderlichen Status-Request
+  - verbirgt die Operation-ID vollständig aus der Repräsentation
+  - übergibt den geschlossenen Request exakt einmal an Acquisition
+  - lässt neutrale Absenz unverändert passieren
+  - akzeptiert ausschließlich die expliziten Pending- und Commit-Response-Typen
+  - lässt malformed Operation-IDs niemals bis zur Acquisition gelangen
+  - weist unbekannte Response-Werte geschlossen ab
+  - reduziert Acquisition-Fehler detailfrei
+  - akzeptiert weder Role, Success-Flag, Receipt noch Target-Override
+  - entscheidet noch keinen HTTP-Pfad, Credential-, Timeout- oder Retrymechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
+- LQ-2721 staging promotion provider response decoder:
+  `docs/lq-2721-staging-promotion-provider-response-decoder.md`
+  - dekodiert genau eine begrenzte rohe Providerantwort
+  - behandelt einen bodylosen 404 neutral als Absenz
+  - verlangt für Pending exakt Status 202, Operation-ID und Statuswert
+  - verlangt für Commit exakt Status 200 und den vollständigen Feldsatz
+  - akzeptiert für nicht-leere Antworten ausschließlich application/json
+  - begrenzt den Body auf 16 KiB und weist Duplicate Keys geschlossen ab
+  - weist Extra-Felder, invalides JSON und substituierte Operationen geschlossen ab
+  - reduziert rohe Acquisition-Fehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - etabliert weder Authority noch Promotion- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt bounded HTTP-Akquisition und Production-Wiring separat offen
+
+- LQ-2722 staging promotion provider HTTP acquisition:
+  `docs/lq-2722-staging-promotion-provider-http-acquisition.md`
+  - führt genau einen begrenzten GET für einen geschlossenen Status-Request aus
+  - verlangt einen trusted HTTPS-Endpunkt ohne Userinfo, Query oder Fragment
+  - entfernt geerbte Authorization- und Cookie-Header
+  - deaktiviert Redirects, Client-Authentifizierung und Retry
+  - fordert JSON mit identity encoding und festen Timeouts an
+  - begrenzt declared und gestreamte Bodies strikt auf 16 KiB
+  - weist komprimierte, malformed und übergroße Antworten geschlossen ab
+  - reduziert Transportfehler detailfrei
+  - übergibt nur Status, Header und begrenzte Rohbytes an LQ-2721
+  - etabliert keine Authority, Mutation, Credential- oder Pollingfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Endpoint-Provisioning und Production-Wiring separat offen
+
+- LQ-2723 staging promotion provider observer composition:
+  `docs/lq-2723-staging-promotion-provider-observer-composition.md`
+  - komponiert HTTP, Decoder, Request-Boundary, Classifier und Outcome-Adapter
+  - akzeptiert einen bestehenden HTTP-Client und einen trusted Endpoint
+  - umgeht keine der zuvor definierten Validierungsschichten
+  - führt pro Observation höchstens einen Providerrequest aus
+  - bewahrt Providerabsenz und Pending neutral
+  - übersetzt exakte Commit-Antworten in exakt gebundene Observations
+  - reduziert invalides Wiring detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keinen Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Lifecycle-Wiring separat offen
+
+- LQ-2724 staging promotion provider endpoint settings:
+  `docs/lq-2724-staging-promotion-provider-endpoint-settings.md`
+  - definiert einen geschlossenen Settings-Wert für genau einen Status-Endpunkt
+  - verlangt eine vollständige Mappingform mit ausschließlich dem Endpoint-Key
+  - akzeptiert nur begrenzte HTTPS-Endpunkte an einer vollständigen Pfadgrenze
+  - weist Userinfo, Query, Fragment, Extra-Keys und fehlenden Slash geschlossen ab
+  - verbirgt den Endpoint aus der Repräsentation
+  - reduziert invalide Settings detailfrei
+  - bietet keinen impliziten oder unsicheren Default
+  - behandelt Routingkonfiguration weder als Content-Trust noch Authority
+  - trägt keine Credential-, Mutation-, Claim- oder Retryfähigkeit
+  - ergänzt noch keinen Environment- oder File-Settings-Source
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Settings-Sourcing und Production-Wiring separat offen
+
+- LQ-2725 staging promotion provider settings source:
+  `docs/lq-2725-staging-promotion-provider-settings-source.md`
+  - lädt die geschlossenen Endpoint-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt den vollständigen UTF-8-Inhalt auf 4 KiB
+  - verlangt genau einen vollständigen Endpoint-Key mit abschließendem Newline
+  - delegiert die Endpoint-Validierung unverändert an LQ-2724
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - trägt keine Credential-, Authority-, Mutation-, Watch- oder Retryfähigkeit
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Lifecycle-Komposition und Production-Wiring separat offen
+
+- LQ-2726 settings-backed staging promotion provider composition:
+  `docs/lq-2726-settings-backed-staging-promotion-provider-composition.md`
+  - verbindet die explizite Settings-Datei mit der bestehenden Observer-Kette
+  - akzeptiert genau einen bestehenden HTTP-Client und einen absoluten Pfad
+  - lädt die Settings pro Komposition exakt einmal
+  - reicht ausschließlich den validierten Endpoint an LQ-2723 weiter
+  - führt während der Komposition keinen Providerrequest aus
+  - bewahrt die Ein-Request-Grenze jeder späteren Observation
+  - reduziert Settings- und Wiringfehler detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - ergänzt weder Watch noch Reload oder Default-Pfad
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Runtime-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2727 owned staging promotion provider lifecycle:
+  `docs/lq-2727-owned-staging-promotion-provider-lifecycle.md`
+  - besitzt genau einen HTTP-Client und den settings-gestützten Observer
+  - deaktiviert ambient Proxy-/Zertifikatskonfiguration und Redirect-Following
+  - führt während der Komposition keinen Providerrequest aus
+  - exponiert den read-only Observer und deterministisches Close
+  - schließt den Client bei Context-Exit zuverlässig
+  - behandelt wiederholtes Close neutral und verbietet erneuten Eintritt
+  - schließt einen bereits erstellten Client auch bei Kompositionsfehlern
+  - reduziert Lifecycle-Fehler detailfrei
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt weder Singleton noch Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Application-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2728 controlled staging promotion reconciliation runtime:
+  `docs/lq-2728-controlled-staging-promotion-reconciliation-runtime.md`
+  - verbindet den owned Provider-Lifecycle mit der kontrollierten Reconciliation
+  - akzeptiert die bestehenden Index-, Resolver- und Recorder-Ports
+  - führt ausschließlich auf expliziten Aufruf höchstens eine Operation aus
+  - beendet einen leeren Index neutral ohne Providerzugriff
+  - persistiert Commit-Ergebnisse nur über den bestehenden Recorder
+  - reduziert Kompositions- und Ausführungsfehler detailfrei
+  - schließt den Provider-Client bei Runtime-Close deterministisch
+  - behandelt Close als terminal für spätere Ausführungen
+  - exponiert weder Promotionmutation noch Claim oder Retry
+  - ergänzt keinen Loop, Scheduler, Worker, Timer oder Pollingmechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Triggering und konkrete Persistence-Komposition separat offen
+
+- LQ-2729 database-backed staging promotion reconciliation runtime:
+  `docs/lq-2729-database-backed-staging-promotion-reconciliation-runtime.md`
+  - komponiert Unknown-Index, exakten Reader und Attempt-Journal gemeinsam
+  - verwendet für alle drei Adapter genau einen caller-owned Engine
+  - verbindet ausschließlich bestehende Persistence-Verträge mit LQ-2728
+  - reconciliert ein durables Unknown über einen expliziten Runtime-Aufruf
+  - entfernt ein finalisiertes Unknown aus der nächsten Auswahl
+  - behandelt eine leere Datenbank neutral ohne Providerzugriff
+  - reduziert Engine- und Wiringfehler detailfrei
+  - disponiert den caller-owned Engine bei Runtime-Close nicht
+  - erstellt weder Attempt noch User, Workspace, Membership oder Rolle
+  - ergänzt weder DSN-Quelle noch Engine-Konstruktion oder Bootstrap
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Process-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2730 one-shot staging promotion reconciliation:
+  `docs/lq-2730-one-shot-staging-promotion-reconciliation.md`
+  - exponiert eine explizite process-neutrale One-shot-Operation
+  - komponiert pro Aufruf genau eine datenbankgestützte Runtime
+  - reicht Settings-Pfad und caller-owned Engine unverändert weiter
+  - führt die kontrollierte Reconciliation exakt einmal aus
+  - liefert neutrale Absenz oder das exakte durable Receipt
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - schließt die Runtime bei Erfolg, Absenz und Fehler zuverlässig
+  - reduziert Fehler detailfrei
+  - besitzt und disponiert den Datenbank-Engine nicht
+  - ergänzt weder Trigger noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt externes Triggering und Production-Wiring separat offen
+
+- LQ-2731 staging promotion reconciliation process settings:
+  `docs/lq-2731-staging-promotion-reconciliation-process-settings.md`
+  - definiert genau Settings-Datei und Datenbank-URL als geschlossene Gruppe
+  - verlangt eine vollständige Mappingform ohne Defaults oder Extra-Felder
+  - validiert einen absoluten, kanonischen und begrenzten Settings-Pfad
+  - akzeptiert nur bereits unterstützte SQLite- und PostgreSQL-Treiber
+  - weist malformed und nicht-stringförmige Werte geschlossen ab
+  - verbirgt Pfad und Datenbank-URL vollständig aus der Repräsentation
+  - ist unveränderlich und hält kein caller-owned Mapping fest
+  - reduziert invalide Konfiguration detailfrei
+  - gewährt weder Authority noch Trigger-, Retry- oder Promotionfähigkeit
+  - ergänzt noch keine Settings-Quelle oder Engine-Erzeugung
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt sicheres Sourcing und Process-Komposition separat offen
+
+- LQ-2732 staging promotion reconciliation process settings source:
+  `docs/lq-2732-staging-promotion-reconciliation-process-settings-source.md`
+  - lädt die vollständigen Process-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt stabilen UTF-8-Inhalt auf 8 KiB mit Abschluss-Newline
+  - verlangt beide präfigierten Keys jeweils exakt einmal
+  - delegiert sämtliche Wertevalidierung unverändert an LQ-2731
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - erzeugt weder Engine noch Verbindung und triggert keine Reconciliation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt Process-Komposition und Production-Wiring separat offen
+
+- LQ-2733 owned staging promotion reconciliation process:
+  `docs/lq-2733-owned-staging-promotion-reconciliation-process.md`
+  - komponiert Settings-Quelle, Engine-Fabrik und One-shot-Ausführung
+  - lädt pro explizitem Aufruf genau einen Settings-Pfad
+  - erzeugt genau einen Engine aus der validierten Datenbank-URL
+  - reicht Provider-Settings-Pfad und Engine an genau eine Ausführung weiter
+  - bewahrt neutrale Absenz und exakte Receipts unverändert
+  - disponiert den Engine bei Erfolg, Absenz und Fehler zuverlässig
+  - erzeugt bei Settingsfehlern weder Engine noch Reconciliation-Aufruf
+  - reduziert unbekannte Ergebnisse und Downstream-Fehler detailfrei
+  - besitzt Ressourcenlebenszeit, gewährt aber keine Promotionauthority
+  - ergänzt weder Migration noch Bootstrap, Loop, Scheduler oder Retry
+  - ergänzt keine Schema-, CLI-, Route- oder Environment-Entscheidung
+  - lässt externen Aufruf und Schema-Readiness separat offen
+
+- LQ-2734 readiness-gated staging promotion reconciliation process:
+  `docs/lq-2734-readiness-gated-staging-promotion-reconciliation-process.md`
+  - setzt den bestehenden Datenbank-Readiness-Probe vor die One-shot-Ausführung
+  - prüft Erreichbarkeit und erwarteten Migration-Head exakt einmal
+  - erlaubt Ausführung ausschließlich bei einem exakten Ready-Ergebnis
+  - stoppt bei Unverfügbarkeit, Schema-Mismatch und malformed Readiness geschlossen
+  - führt im unready Fall weder Providerzugriff noch Reconciliation aus
+  - disponiert den process-owned Engine in jedem Ausgang zuverlässig
+  - reduziert Readiness- und Downstream-Fehler detailfrei
+  - behandelt Readiness als Voraussetzung und niemals als Authority
+  - appliziert keine Migration und erstellt weder Schema noch Bootstrap-Fakten
+  - ergänzt weder Waiting noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine CLI-, Route-, Signal- oder Deployment-Entscheidung
+  - lässt externen Aufruf weiterhin separat offen
+
+- LQ-2735 staging promotion reconciliation process outcome:
+  `docs/lq-2735-staging-promotion-reconciliation-process-outcome.md`
+  - setzt eine minimale detailfreie Ausgangsgrenze vor den ready Process
+  - ruft den Prozess mit dem gelieferten Settings-Pfad exakt einmal auf
+  - übersetzt neutrale Absenz ausschließlich in `IDLE`
+  - übersetzt ein exaktes durable Receipt ausschließlich in `RECONCILED`
+  - hält weder Receipt-Inhalt noch Operation-ID fest
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - reduziert technische Fehler detailfrei
+  - exponiert weder DSN, Pfad noch Providerdetails
+  - behandelt Outcomes weder als Authority noch Permission oder Retryhinweis
+  - ergänzt noch kein Exit-Code-, stdout-, stderr- oder CLI-Format
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt externe Präsentation separat offen
+
+- LQ-2736 staging promotion reconciliation CLI:
+  `docs/lq-2736-staging-promotion-reconciliation-cli.md`
+  - akzeptiert genau einen absoluten Process-Settings-Pfad
+  - weist Root, Parent-Traversal und falsche Argumentanzahl vor Ausführung ab
+  - präsentiert `IDLE` ausschließlich als `idle` mit Exit null
+  - präsentiert `RECONCILED` ausschließlich als `reconciled` mit Exit null
+  - präsentiert technische Unverfügbarkeit detailfrei mit Exit eins
+  - präsentiert invalide Invocation detailfrei mit Exit zwei
+  - weist unbekannte Outcomes geschlossen als unavailable ab
+  - exponiert weder Receipt noch Operation, Pfad, DSN oder Providerdetails
+  - gewährt keine Authority und ergänzt weder Retry noch Loop
+  - ergänzt noch keinen installierten Script-Eintrag oder Shell-Wrapper
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt Packaging und externe Invocation separat offen
+
+- LQ-2737 staging promotion reconciliation entry point:
+  `docs/lq-2737-staging-promotion-reconciliation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconcile`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält die LQ-2736-Ausgaben und Exit-Codes unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup
+  - synchronisiert das Paketinventar auf 73 Console Entry Points
+  - aktualisiert die exakte semantische und dateibasierte Wheel-Identität
+  - ergänzt kein weiteres Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet keinen Prozess implizit
+  - ergänzt weder Retry noch Loop, Scheduler, Timer oder Worker
+  - ergänzt keine Route, Migration, Bootstrap- oder Deployment-Entscheidung
+  - lässt operatives Triggering und Production-Wiring separat offen
+
+- LQ-2738 staging promotion reconciliation runbook handoff:
+  `docs/lq-2738-staging-promotion-reconciliation-runbook-handoff.md`
+  - ergänzt die manuelle Recovery-Übergabe im bestehenden Staging-Runbook
+  - trennt Reconciliation ausdrücklich von normaler Promotion und Rollback
+  - nennt das installierte Kommando mit genau einem expliziten Settings-Pfad
+  - beschreibt beide owner-privaten Mode-0600-Settingsdateien
+  - fixiert die exakten Provider- und Process-Settings-Keys
+  - bewahrt die vier detailfreien Ausgabe- und Exit-Code-Fälle unverändert
+  - verlangt bei Unverfügbarkeit einen Stopp ohne automatischen Retry
+  - schließt Settingswerte und durable Identitäten aus Argumenten und Logs aus
+  - verlangt für jeden späteren Aufruf eine neue Operatorentscheidung
+  - gewährt keine Promotionauthority und bestätigt kein Deployment
+  - ergänzt weder Datei noch Secret, Default, Wrapper oder Service
+  - lässt Production-Triggering und Deployment-Wiring separat offen
+
+- LQ-2739 staging promotion reconciliation completion audit:
+  `docs/lq-2739-staging-promotion-reconciliation-completion-audit.md`
+  - schließt den manuellen Reconciliation-Strang LQ-2712 bis LQ-2738 ab
+  - belegt die geordnete Kette vom durable Unknown bis zur Runbook-Übergabe
+  - bestätigt systemseitige Zielwahl ohne caller-supplied Allow oder Rolle
+  - bestätigt exakte Readiness vor jedem Providerzugriff
+  - bestätigt höchstens einen Kandidaten pro explizitem Prozesslauf
+  - bestätigt geschlossene Providerakquise, Decodierung und Klassifikation
+  - bestätigt zuverlässige Client- und Engine-Disposition
+  - bestätigt die vier festen detailfreien CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt Timer, Service, Worker, Retry und Bulk-Drain als neue Slices offen
+
+- LQ-2740 staging promotion reconciliation settings installation contract:
+  `docs/lq-2740-staging-promotion-reconciliation-settings-installation-contract.md`
+  - definiert vier explizite absolute Quell- und Zielpfade ohne Defaults
+  - bewahrt die geschlossenen Provider- und Process-Settings-Grammatiken
+  - verlangt owner-private reguläre Quellen mit Mode 0600 und einem Link
+  - verlangt bestehende owner-gehaltene, nicht fremd-schreibbare Zielverzeichnisse
+  - bindet den Process-Inhalt exakt an den kanonischen Provider-Zielpfad
+  - verlangt zwei neue getrennte Mode-0600-Zieldateien ohne Alias
+  - verbietet Überschreiben, Ersetzen, Truncation und Content-Offenlegung
+  - publiziert Provider zuerst und Process als abschließenden Activation Record
+  - hält einen privaten verwaisten Provider nach Unterbrechung inert und neutral
+  - synchronisiert Inhalt und Verzeichnispublikation vor Erfolg
+  - behandelt konkurrierende oder wiederholte Installation geschlossen
+  - transportiert Konfiguration ohne Authority oder Reconciliation-Ausführung
+  - lässt Implementierung, Kommando und Runtime-Trigger als separate Slices offen
+
+- LQ-2741 staging promotion reconciliation settings installer:
+  `docs/lq-2741-staging-promotion-reconciliation-settings-installer.md`
+  - implementiert die vier expliziten Path-Eingaben ohne Defaults
+  - liest beide Quellen stabil über non-following, non-inheritable Deskriptoren
+  - delegiert Werteprüfung an die bestehenden Provider- und Process-Settings
+  - bindet den Process-Providerpfad exakt an das gelieferte Providerziel
+  - prüft owner-gehaltene und nicht fremd-schreibbare Zielverzeichnisse
+  - publiziert private temporäre Dateien per Hard Link ohne Replacement
+  - synchronisiert Datei und Verzeichnis vor dem nächsten Schritt
+  - publiziert Provider zuerst und Process zuletzt als Activation Record
+  - lässt einen Provider nach Activation-Fehler vollständig und inert zurück
+  - unterscheidet `INSTALLED` von neutralem `PRESENT`
+  - reduziert alle übrigen Fehler detailfrei auf technische Unverfügbarkeit
+  - ergänzt weder CLI noch Authority, Netzwerk, Datenbankzugriff oder Trigger
+
+- LQ-2742 staging promotion reconciliation settings installation CLI contract:
+  `docs/lq-2742-staging-promotion-reconciliation-settings-installation-cli-contract.md`
+  - akzeptiert genau vier explizite absolute Positionsargumente
+  - bewahrt die feste Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - ergänzt weder Default-Pfad noch Environment- oder Arbeitsverzeichnissuche
+  - ruft den Installer höchstens einmal pro Invocation auf
+  - bildet `INSTALLED` fest auf `installed`, stdout und Exit-Code 0 ab
+  - bildet neutrales `PRESENT` fest auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Unverfügbarkeit detailfrei auf stderr und Exit-Code 1 ab
+  - bildet ungültige Invocation detailfrei auf stderr und Exit-Code 2 ab
+  - legt pro Aufruf genau ein festes Token auf genau einem Stream offen
+  - legt weder Pfad noch Inhalt, Endpoint, DSN, Metadaten oder Fehlerdetail offen
+  - behandelt Presence nicht als Erfolg, Inhaltsgleichheit oder Replacement-Erlaubnis
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt weder Implementierung noch Entry Point, Retry, Service oder Deployment
+  - lässt Implementierung und Packaging als getrennte Folgeslices offen
+
+- LQ-2743 staging promotion reconciliation settings installation CLI:
+  `docs/lq-2743-staging-promotion-reconciliation-settings-installation-cli.md`
+  - implementiert den geschlossenen LQ-2742-Präsentationsvertrag
+  - akzeptiert genau vier Strings und validiert sie vor jeder Delegation
+  - delegiert genau einen Aufruf mit vier expliziten `Path`-Werten
+  - bildet `INSTALLED` auf `installed`, stdout und Exit-Code 0 ab
+  - bildet `PRESENT` auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Fehler und unbekannte Outcomes detailfrei auf Exit-Code 1 ab
+  - bildet ungültige Aufrufe ohne Installerzugriff auf Exit-Code 2 ab
+  - legt weder Settingsinhalt noch Pfad, Endpoint, DSN, Metadaten oder Fehler offen
+  - ergänzt weder Discovery noch Environment-Lookup, Retry, Cleanup oder Trigger
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt keinen installierten Entry Point und lässt Packaging separat offen
+
+- LQ-2744 staging promotion reconciliation settings installation entry point:
+  `docs/lq-2744-staging-promotion-reconciliation-settings-installation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconciliation-settings-install`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält Argumente, Ausgaben und Exit-Codes aus LQ-2742 und LQ-2743 unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup oder zweite Präsentation
+  - synchronisiert das Paketinventar auf 74 Console Entry Points
+  - aktualisiert semantische, dateibasierte und Member-basierte Wheel-Identität
+  - ergänzt kein Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet weder Installation noch Reconciliation
+  - ergänzt weder Retry noch Service, Scheduler, Route oder Deployment
+  - lässt operatives Triggering und Runbook-Übergabe separat offen
+
+- LQ-2745 staging promotion reconciliation settings installation runbook handoff:
+  `docs/lq-2745-staging-promotion-reconciliation-settings-installation-runbook-handoff.md`
+  - ergänzt die manuelle Settings-Installation im bestehenden Staging-Runbook
+  - nennt den installierten Befehl mit vier expliziten absoluten Pfaden
+  - fixiert die Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - bewahrt Owner-, Mode-, Link-, Verzeichnis- und Bindungsregeln
+  - behandelt ausschließlich `installed` mit Exit-Code 0 als Erfolg
+  - stoppt bei `present` ohne Inhaltsvergleich, Löschung oder Replacement
+  - stoppt bei `unavailable` ohne automatischen Retry
+  - trennt Installation ausdrücklich von späterer Reconciliation-Entscheidung
+  - schließt Settingswerte aus Argumenten, Logs, Tickets und Evidenz aus
+  - gewährt weder Promotionauthority noch Deploymentfreigabe
+  - ergänzt weder Secret noch Default, Cleanup, Rotation, Service oder Trigger
+
+- LQ-2746 staging promotion reconciliation settings installation completion audit:
+  `docs/lq-2746-staging-promotion-reconciliation-settings-installation-completion-audit.md`
+  - schließt den manuellen Settings-Installationsstrang LQ-2740 bis LQ-2745 ab
+  - belegt die geordnete Kette von Vertrag bis Runbook-Übergabe
+  - bestätigt vier explizite absolute und getrennte Pfade ohne Discovery
+  - bestätigt private stabile Quellen und geschlossene Settingsgrammatiken
+  - bestätigt no-replace-Publikation ohne Vergleich oder Löschung
+  - bestätigt Provider zuerst und Process zuletzt als Activation Record
+  - bestätigt den inert-neutralen verwaisten Providerfall
+  - bestätigt vier feste detailfreie CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - startet weder Provider-, Datenbank- noch Reconciliation-Runtime
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt reale Staging-Provisionierung und Integration als externe Arbeit offen
+
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
