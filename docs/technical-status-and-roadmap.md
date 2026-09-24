@@ -12381,5 +12381,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder verändert keine Identitäts-, Workspace-, Membership-, Capability-, Session- oder Autoritätsfakten
   - lässt Resolver, Port, Modell, Persistenz, Route, Tests, Wiring, Edge und Staging-Abnahme für explizite Folgeslices offen
 
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
