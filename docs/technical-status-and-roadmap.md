@@ -12830,6 +12830,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Provisionierung, Credentials, CLI, Deployment oder Promotion
   - lässt operative Composition, kontrollierten Operator und Promotion offen
 
+- LQ-2686 persistent staging Research-index control composition:
+  `docs/lq-2686-staging-research-index-persistent-control-composition.md`
+  - verdrahtet Resolver, autorisierten Membership-Store und Fixture-Controller
+  - nutzt genau eine extern besessene Database Engine
+  - erzeugt Revision- und Change-Identitäten aus einer sicheren Materialquelle
+  - adaptiert die Change-ID-Quelle nur über eine private schmale Fähigkeit
+  - führt bei Construction keinerlei Datenbankzugriff oder Mutation aus
+  - startet keine Acquisition, Revocation, Restoration oder Evidenzablage
+  - behandelt erzeugte Identitäten ausdrücklich nicht als Authority
+  - bewahrt die aktuelle System-of-Record-Auflösung je Controller-Aufruf
+  - exponiert Controller und persistente Adapter für höhere Composition
+  - hält die Materialquelle aus der Repräsentation heraus
+  - ergänzt keine Migration, Provisionierung, Credentials, CLI oder Promotion
+  - lässt Session-/HTTP-Bindung, kontrollierten Operator und Promotion offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
