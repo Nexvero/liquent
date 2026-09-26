@@ -12733,6 +12733,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt weder Acquisition, Revocation, Restore, Deployment noch Promotion aus
   - lässt owner-private Reader, reale Ausführung und Promotion separat offen
 
+- LQ-2680 staging Research-index evidence reader:
+  `docs/lq-2680-staging-research-index-evidence-reader.md`
+  - liest genau einen expliziten absoluten Evidenzpfad
+  - verlangt ein owner-eigenes reales Parent-Verzeichnis mit exaktem Modus 0700
+  - öffnet Parent und Ziel descriptorgebunden ohne Symlink-Following
+  - verlangt eine reguläre owner-eigene Single-Link-Datei mit exaktem Modus 0600
+  - begrenzt deklarierte und tatsächlich gelesene Evidenz auf 8192 Bytes
+  - verlangt positive Größe und Byteanzahl identisch zur Descriptorgröße
+  - revalidiert Device, Inode, Modus, Owner, Linkzahl und Größe nach dem Read
+  - gibt ausschließlich vollständig kanonisch dekodierte LQ-2678-Handoffs zurück
+  - reduziert Pfad-, Metadaten-, Read- und Decodefehler detailfrei
+  - erstellt, ersetzt, repariert, löscht und listet keine Evidenz
+  - besitzt weder Netzwerk-, Credential-, Acquisition- noch Mutationsfähigkeit
+  - führt weder Revocation, Restore, Deployment noch Promotion aus
+  - lässt Ausführungscomposition und reale Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
