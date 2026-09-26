@@ -19,8 +19,8 @@
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
 - **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **43 lineare Migrationen**, Head
-  `20260915_0043`.
+  und Hilfsmodule** plus Paketinitialisierer, **44 lineare Migrationen**, Head
+  `20260916_0044`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
@@ -12917,6 +12917,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Login-Automation, Credential-Quelle oder Session-Erzeugung
   - ergänzt keine Schema-, SQL-, Migration-, CLI- oder Promotion-Entscheidung
   - lässt persistente Registry und konkrete Akquisition separat offen
+
+- LQ-2691 persistent staging session-set registry:
+  `docs/lq-2691-persistent-staging-session-set-registry.md`
+  - persistiert ausschließlich opake Set-ID, nicht wiederverwendbare Revision und Lifecycle
+  - speichert keinerlei Session-, Passwort-, Token- oder Provider-Material
+  - löst nur die exakte aktive Set-/Revisionsbindung auf
+  - bildet unbekannte, inaktive, revoked und stale Fakten als neutrale Absenz ab
+  - reduziert technische Speicherfehler detailfrei
+  - lässt spätere Lifecycle-Änderungen auf jeden späteren Lookup wirken
+  - akzeptiert keine User-, Workspace-, Rollen- oder Authority-Fakten
+  - besitzt ausschließlich eine read-only Resolver-Fähigkeit
+  - ergänzt keine Provisionierungs-, Mutations- oder Löschoperation
+  - ergänzt keine Login-Automation, Credential-Auflösung, CLI oder Promotion
+  - lässt Provisionierung, Mutation, konkrete Akquisition und Promotion offen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
