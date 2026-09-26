@@ -23,7 +23,7 @@ def test_named_wheel_inventory_matches_the_repository() -> None:
 
     assert EXPECTED_ENTRY_POINT_COUNT == len(scripts) == 72
     assert EXPECTED_OPERATOR_FILE_COUNT == len(operator_files) == 72
-    assert EXPECTED_MIGRATION_COUNT == len(migration_files) == 45
+    assert EXPECTED_MIGRATION_COUNT == len(migration_files) == 46
 
 
 def test_required_runbook_inventory_is_complete_and_exact() -> None:

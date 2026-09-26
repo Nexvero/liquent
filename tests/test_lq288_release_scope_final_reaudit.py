@@ -57,7 +57,7 @@ def test_release_commands_are_not_automatic_runtime_or_ci_wiring():
 def test_migration_and_operational_bundle_claims_match_enforced_gates():
     migration_test = _text("tests/test_persistence_migration_gate.py")
     bundle = _text("tools/operational_release_bundle.py")
-    assert 'expected_head() == "20260916_0045"' in migration_test
+    assert 'expected_head() == "20260916_0046"' in migration_test
     assert "len(migrations) != EXPECTED_MIGRATION_COUNT" in bundle
     assert "len(entry_points) != EXPECTED_ENTRY_POINT_COUNT" in bundle
     assert "len(operators) != EXPECTED_OPERATOR_FILE_COUNT" in bundle

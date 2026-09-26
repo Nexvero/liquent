@@ -19,8 +19,8 @@
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
 - **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **45 lineare Migrationen**, Head
-  `20260916_0045`.
+  und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
+  `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
@@ -13132,6 +13132,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt persistente Umsetzung, Reconciliation und Provideradapter separat offen
 
+- LQ-2707 persistent staging promotion attempt schema:
+  `docs/lq-2707-persistent-staging-promotion-attempt-schema.md`
+  - persistiert immutable Attempt-Bindungen und ein append-only Eventjournal
+  - bindet Operation, Actor, Evidenz, Candidate, Origin, Target und Erstellzeit
+  - erlaubt prepared, write-started, effect-unknown und committed als Zustände
+  - ordnet Events pro Operation über eine positive Sequenz
+  - erlaubt Provider-Receipt-Identität ausschließlich für committed
+  - erzwingt Schlüssel-, Referenz-, Status-, Digest- und Receipt-Constraints
+  - speichert keine Session, Credentials, Role, Allow oder Provider-Secrets
+  - ergänzt Migration 20260916_0046 ohne Seed-Daten
+  - führt keine Transition, Provideroperation oder Promotionmutation aus
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Retry-Entscheidung
+  - lässt transaktionalen Store und Unknown-Effect-Reconciliation separat offen
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
