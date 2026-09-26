@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from html import escape
 from hmac import compare_digest
 from typing import Annotated, AsyncIterator, Callable
 from urllib.parse import urlsplit
@@ -46,6 +47,9 @@ from liquent_platform.application.csrf import (
 from liquent_platform.application.internal_destination import (
     ValidatedInternalDestination,
     resolve_internal_destination,
+)
+from liquent_platform.application.list_workspace_research_jobs import (
+    list_current_workspace_research_jobs,
 )
 from liquent_platform.application.oidc_login_errors import (
     OidcLoginStartConflict,
@@ -92,6 +96,7 @@ from liquent_platform.identity.ports import (
     OidcLoginTransactionClaimStore,
     OidcLoginTransactionCreationStore,
     CurrentWorkspaceContextLookup,
+    AuthorizedWorkspaceResearchJobIndex,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
@@ -112,6 +117,7 @@ from liquent_platform.persistence.database import DatabaseReadinessProbe, build_
 from liquent_platform.persistence.browser_sessions import DatabaseBrowserSessions
 from liquent_platform.persistence.identity_errors import (
     BrowserSessionStoreUnavailable,
+    ResearchJobStoreUnavailable,
     WorkspaceMembershipStoreUnavailable,
 )
 from liquent_platform.persistence.identity_store import DatabaseExternalIdentities
@@ -319,6 +325,7 @@ def create_app(
     logout_sessions: BrowserSessionLookup | None = None,
     logout_revocations: BrowserSessionRevocationStore | None = None,
     landing_workspace_contexts: CurrentWorkspaceContextLookup | None = None,
+    workspace_research_job_index: AuthorizedWorkspaceResearchJobIndex | None = None,
     oidc_login_configurations: ActiveOidcClientConfigurationLookup | None = None,
     oidc_login_transactions: OidcLoginTransactionCreationStore | None = None,
     oidc_login_material: SecureOidcLoginMaterialGenerator | None = None,
@@ -940,6 +947,34 @@ def create_app(
                 "</main></body></html>"
             )
 
+            def _research_index_document(items) -> str:
+                if not items:
+                    rows = "<p>No Research jobs are available.</p>"
+                else:
+                    entries = "".join(
+                        "<li><span>"
+                        + escape(str(item.job_id))
+                        + "</span> <span>"
+                        + escape(item.status.value)
+                        + "</span> <time datetime=\""
+                        + escape(item.updated_at.isoformat())
+                        + "\">"
+                        + escape(item.updated_at.isoformat())
+                        + "</time></li>"
+                        for item in items
+                    )
+                    rows = "<ol>" + entries + "</ol>"
+                return (
+                    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                    "<title>Liquent Research</title></head><body><main>"
+                    "<h1>Research</h1><p>Read-only Research access is available.</p>"
+                    "<h2>Research jobs</h2>"
+                    + rows
+                    + "<p><a href=\"/\">Return to Liquent</a></p>"
+                    "</main></body></html>"
+                )
+
             @app.api_route(
                 "/research",
                 methods=[
@@ -983,19 +1018,32 @@ def create_app(
                 except BrowserSessionStoreUnavailable:
                     return _landing_redirect("/login/unavailable")
                 try:
-                    context = resolve_workspace_research_read(
-                        landing_workspace_contexts,
-                        research_memberships,
-                        session.principal,
-                    )
-                except WorkspaceMembershipStoreUnavailable:
+                    if workspace_research_job_index is None:
+                        result = resolve_workspace_research_read(
+                            landing_workspace_contexts,
+                            research_memberships,
+                            session.principal,
+                        )
+                    else:
+                        result = list_current_workspace_research_jobs(
+                            landing_workspace_contexts,
+                            research_memberships,
+                            workspace_research_job_index,
+                            session.principal,
+                        )
+                except (WorkspaceMembershipStoreUnavailable, ResearchJobStoreUnavailable):
                     return _landing_redirect("/login/unavailable")
-                if context is None:
+                if result is None:
                     rejected = Response(status_code=status.HTTP_404_NOT_FOUND)
                     rejected.headers["Cache-Control"] = "no-store"
                     return rejected
+                document = (
+                    research_landing_document
+                    if workspace_research_job_index is None
+                    else _research_index_document(result)
+                )
                 landed = Response(
-                    content=research_landing_document,
+                    content=document,
                     media_type="text/html",
                 )
                 landed.headers["Cache-Control"] = "no-store"

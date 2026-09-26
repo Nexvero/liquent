@@ -12506,6 +12506,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt und mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
   - lässt HTTP-Rendering, persistentes Wiring, Edge und Staging-Abnahme separat offen
 
+- LQ-2665 workspace Research-job index HTTP rendering:
+  `docs/lq-2665-workspace-research-job-index-http-rendering.md`
+  - rendert den autorisierten Jobindex auf dem bestehenden exakten GET-Pfad `/research`
+  - zeigt nur opaque JobId, kontrollierten Status und committed Update-Zeit
+  - hält Actor, Workspace, Membership, Revision, Claims und Artifacts unsichtbar
+  - erzeugt noch keine Detail-, Evidence-, Mutation-, Retry- oder Löschlinks
+  - weist Querywerte und caller-gesteuerte Workspace-, Filter- und Seitenwerte vor Lookup ab
+  - rendert autorisierte Leere als erfolgreichen ausdrücklichen Leerzustand
+  - erhält neutrale Ablehnung als detailfreien bodylosen 404
+  - mappt bestehende technische Store-Unavailability auf das vorhandene Ziel
+  - escaped alle persistenten Werte und liefert keine Scripts oder Formulare
+  - erhält No-store- und No-referrer-Sicherheitsheader
+  - bleibt ohne explizite Index-Abhängigkeit kompatibel zur bisherigen Landing-Seite
+  - lässt persistentes Wiring, Edge, Deployment und Staging-Abnahme separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
