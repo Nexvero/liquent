@@ -13088,6 +13088,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
   - lässt aktuelle Operator-Authority und reale Promotion separat offen
 
+- LQ-2704 current staging promotion authority:
+  `docs/lq-2704-current-staging-promotion-authority.md`
+  - trennt aktuelle Operator-Authority strikt von Session und Evidenz
+  - behandelt SessionPrincipal ausschließlich als Actor-Identifikation
+  - löst Authority ausschließlich über einen trusted system-of-record resolver
+  - bindet Actor, Candidate, Staging-Origin und Zielumgebung gemeinsam
+  - akzeptiert kein caller-supplied Allow, Role, Target oder Authority-Assertion
+  - behandelt fehlende, inaktive oder widerrufene Authority als neutrale Absenz
+  - reduziert substituierte Bindungen und technische Resolverfehler detailfrei
+  - löst für jede spätere Entscheidung frisch auf, sodass Revocation wirkt
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
+  - lässt atomare Abschlussprüfung und reale Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
