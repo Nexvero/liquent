@@ -12596,6 +12596,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt noch keinen HTTP-Client, Request-Builder, Classifier oder Workflow
   - lässt reale Aufnahme, Evidenzbildung und Promotion separat offen
 
+- LQ-2671 staging Research-index request plan:
+  `docs/lq-2671-staging-research-index-request-plan.md`
+  - implementiert einen reinen geschlossenen Plan ohne Netzwerkzugriff
+  - leitet alle URLs ausschließlich aus der validierten Laufbindung ab
+  - deckt acht Checks mit neun geordneten Requests einschließlich Revocation-Paar ab
+  - verwendet ausschließlich `GET` und den exakten `/research`-Pfad
+  - hält anonyme und Query-Rejection-Requests credential-frei
+  - trennt opaque Credential-Slots für autorisierte Testfälle
+  - enthält selbst keinerlei Credential-, Header- oder Bodymaterial
+  - akzeptiert keine Workspace-, Rollen-, URL- oder Allow-Eingabe
+  - transportiert weder Identitäten noch WorkspaceIds oder JobIds
+  - führt keine Klassifikation, Mutation, Persistenz oder Promotion aus
+  - ergänzt keinen installierten Operator und verändert dessen Inventur nicht
+  - lässt Transport, Response-Klassifikation und Evidenz separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
