@@ -12406,6 +12406,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
   - lässt Operationnavigation, Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
 
+- LQ-2658 current workspace research-read access:
+  `docs/lq-2658-current-workspace-research-read-access.md`
+  - komponiert den serverseitig aktuellen Workspace-Kontext mit der bestehenden Research-Autorisierung
+  - verlangt für denselben Sessionakteur und Workspace eine frische aktive Membership mit `research:read`
+  - erhält die bestehende Write-impliziert-Read-Regel, ohne Read zu Write-Autorität zu erweitern
+  - stoppt bei fehlendem oder mehrdeutigem Workspace-Kontext vor jedem Membership-Lookup
+  - lehnt abweichende Akteur- oder Workspace-Fakten geschlossen ab
+  - vereinheitlicht alle fachlichen Ablehnungen als neutrales `None` ohne Grund-, ID- oder Capability-Offenlegung
+  - lässt technische Store-Nichtverfügbarkeit detailfrei propagieren und tarnt sie nicht als Ablehnung
+  - cached keine Entscheidung, sodass Deaktivierung und Permission-Entzug beim nächsten Aufruf wirken
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt HTTP-Route, Linkziel, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
