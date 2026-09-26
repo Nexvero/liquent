@@ -12641,6 +12641,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keinen installierten Operator und keine Infrastrukturentscheidung
   - lässt Composition, reale Aufnahme, Evidenz und Promotion separat offen
 
+- LQ-2674 staging Research-index offline composition:
+  `docs/lq-2674-staging-research-index-offline-composition.md`
+  - verbindet Request-Plan, Classifier, Reducer und Evaluator side-effect-frei
+  - akzeptiert nur den validierten Lauf und exakt neun Response-Container
+  - erzeugt den kanonischen Plan intern statt caller-gesteuerter Requests
+  - paart Responses ausschließlich in der geschlossenen Planreihenfolge
+  - weist Listen sowie fehlende und zusätzliche Responses zurück
+  - erhält Response-Abweichung als Rejection
+  - erhält malformed Response-Material als technische Unavailability
+  - reduziert das Revocation-Paar vor der finalen Auswertung
+  - gibt ausschließlich das etablierte Acceptance-Ergebnis zurück
+  - hält Response-, Credential-, Identitäts- und Diagnosedaten aus dem Ergebnis
+  - führt weder Netzwerk, Datei-I/O, Mutation noch Promotion aus
+  - lässt Acquisition, Evidenz und reale Staging-Ausführung separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
