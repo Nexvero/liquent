@@ -1,6 +1,7 @@
 import pytest
 
 from liquent_platform.application.resolve_workspace_research_read import (
+    permits_workspace_research_read,
     resolve_workspace_research_read,
 )
 from liquent_platform.identity.access import (
@@ -111,6 +112,21 @@ def test_mismatched_context_actor_stops_fail_closed() -> None:
     memberships = Memberships(_membership(Permission.RESEARCH_READ))
 
     assert resolve_workspace_research_read(contexts, memberships, PRINCIPAL) is None
+    assert memberships.calls == []
+
+
+def test_already_resolved_context_can_be_authorized_without_context_lookup() -> None:
+    memberships = Memberships(_membership(Permission.RESEARCH_READ))
+
+    assert permits_workspace_research_read(memberships, PRINCIPAL, CONTEXT)
+    assert memberships.calls == [(USER, WORKSPACE)]
+
+
+def test_already_resolved_context_still_binds_the_session_actor() -> None:
+    memberships = Memberships(_membership(Permission.RESEARCH_READ))
+    mismatched = CurrentWorkspaceContext(UserId("other-user"), WORKSPACE)
+
+    assert not permits_workspace_research_read(memberships, PRINCIPAL, mismatched)
     assert memberships.calls == []
 
 
