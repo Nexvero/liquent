@@ -12950,6 +12950,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Credential-Persistenz, Login-Automation, Migration oder CLI
   - lässt konkreten Acquirer, Runtime-Handoff und Promotion offen
 
+- LQ-2694 staging session runtime handoff:
+  `docs/lq-2694-staging-session-runtime-handoff.md`
+  - bindet die kontrollierte Registry-Akquisition an den bestehenden Operator
+  - akzeptiert nur opake Session-Set-ID und exakt erwartete Revision
+  - startet die Runtime erst nach einem vollständig validierten Handoff
+  - führt bei neutraler Absenz keinerlei Acceptance-Ausführung aus
+  - behandelt Sessions weiterhin nur als Identifikationsmaterial
+  - belässt Fixture-Authority vollständig im bestehenden System-of-Record-Pfad
+  - reduziert Registry-, Akquisitions- und Runtime-Fehler detailfrei
+  - ergänzt keine Session-, Credential-, User- oder Authority-Mutation
+  - ergänzt keine Provider-, Login-, CLI-, Deployment- oder Promotion-Entscheidung
+  - lässt konkreten Acquirer und reale Staging-Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
