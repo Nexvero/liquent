@@ -13019,6 +13019,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Secret-, Provider-, Login-, Retry- oder Scheduling-Entscheidung
   - lässt sicheren Resolver, Invocation und reale Promotion separat offen
 
+- LQ-2699 controlled staging session invocation:
+  `docs/lq-2699-controlled-staging-session-invocation.md`
+  - exponiert genau eine callable Invocation über die vollständige LQ-2698-Composition
+  - validiert den exakten LQ-2694-Request vor jeder Composition
+  - komponiert pro explizitem Aufruf genau einen ephemeren Operator
+  - ruft den Operator je Invocation höchstens einmal auf
+  - führt keine Wiederholung, Schleife, Planung oder Ergebniswiederverwendung aus
+  - bewahrt neutrale Session-Set-Absenz als neutrales Ergebnis
+  - verhindert bei ungültigem Request Resolver-, Datenbank- und HTTP-Zugriff
+  - reduziert Composition-, Akquisitions- und Ausführungsfehler detailfrei
+  - ergänzt keine Idempotenzbehauptung und keine Authority-Aussage
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Retry-Entscheidung
+  - lässt externe Invocation und reale Staging-Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
