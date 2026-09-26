@@ -13047,6 +13047,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Secret-Entscheidung
   - lässt dauerhafte Evidenzbindung und reale Promotion separat offen
 
+- LQ-2701 staging promotion evidence binding:
+  `docs/lq-2701-staging-promotion-evidence-binding.md`
+  - bindet LQ-2700-Eignung an vollständige kanonische Acceptance-Evidenz
+  - decodiert und evaluiert die Evidenz vor jeder Bindung erneut
+  - verlangt accepted sowie exakt identischen Candidate, Origin und Zeitpunkt
+  - identifiziert die exakten Evidenzbytes über einen stabilen SHA-256-Digest
+  - weist nichtkanonische, abgelehnte, unavailable oder fremde Evidenz zurück
+  - behandelt die Bindung ausdrücklich als Evidenz und niemals als Authority
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - verlangt spätere aktuelle Lifecycle- und Authority-Auflösung aus Systemen of Record
+  - schreibt weder Datei noch Datenbankrecord
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt dauerhafte Ablage und reale Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
