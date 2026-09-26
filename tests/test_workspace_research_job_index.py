@@ -133,6 +133,28 @@ def test_index_is_workspace_bound_bounded_and_deterministic(tmp_path) -> None:
     assert len(result) <= store.INDEX_LIMIT
 
 
+def test_index_does_not_duplicate_jobs_for_read_and_write_authority(tmp_path) -> None:
+    engine, store = _store(tmp_path)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO workspace_membership_permissions"
+                " VALUES (:user,:workspace,'research:write')"
+            ),
+            {"user": USER.encode(), "workspace": WORKSPACE.encode()},
+        )
+    _insert_job(
+        engine,
+        "job-visible-once",
+        WORKSPACE,
+        datetime(2026, 9, 15, tzinfo=timezone.utc),
+    )
+
+    result = store.list_jobs(USER, WORKSPACE)
+
+    assert tuple(item.job_id for item in result) == (JobId("job-visible-once"),)
+
+
 def test_empty_authorized_workspace_is_successful(tmp_path) -> None:
     _, store = _store(tmp_path)
 

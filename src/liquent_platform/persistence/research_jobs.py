@@ -234,10 +234,10 @@ class DatabaseResearchJobs:
                     "AND w.status='active' "
                     "JOIN workspace_memberships m ON m.user_id=:actor "
                     "AND m.workspace_id=:workspace AND m.status='active' "
-                    "JOIN workspace_membership_permissions p ON p.user_id=:actor "
-                    "AND p.workspace_id=:workspace "
-                    "AND p.permission IN ('research:read','research:write') "
                     "WHERE j.workspace_id=:workspace "
+                    "AND EXISTS (SELECT 1 FROM workspace_membership_permissions p "
+                    "WHERE p.user_id=:actor AND p.workspace_id=:workspace "
+                    "AND p.permission IN ('research:read','research:write')) "
                     "ORDER BY j.accepted_at DESC,j.job_id DESC LIMIT :limit"
                 ), values).mappings().all()
             return tuple(
