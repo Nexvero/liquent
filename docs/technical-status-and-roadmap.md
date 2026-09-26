@@ -12893,6 +12893,23 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt bewusst keine CLI, Migration, Provisionierung oder Promotion
   - lässt kontrollierte Credential-Akquisition und reale Promotion offen
 
+- LQ-2690 staging Research-index session-acquisition contract:
+  `docs/lq-2690-staging-research-index-session-acquisition-contract.md`
+  - definiert opake nicht autorisierende Session-Set- und Revisionswerte
+  - bindet jede Akquisition an die exakt erwartete aktuelle Revision
+  - liefert bei Erfolg ausschließlich einen bereits validierten LQ-2688-Handoff
+  - validiert zurückgegebenes Set, Revision und Handoff als eine Einheit
+  - akzeptiert keine User-, Workspace-, Rollen- oder Membership-Angaben
+  - akzeptiert keine Permission-, Capability-, Provider- oder Allow-Behauptung
+  - bildet unbekannte, inaktive, revoked oder stale Sets als neutrale Absenz ab
+  - überlässt technische Fehler der detailfreien Reduktion höherer Composition
+  - verlangt spätere Lifecycle- und Revisionsauflösung aus dem System of Record
+  - lässt Revocation und Rotation auf alle späteren Akquisitionen wirken
+  - exponiert opake Set- und Revisionswerte nicht in Repräsentationen
+  - ergänzt keine Login-Automation, Credential-Quelle oder Session-Erzeugung
+  - ergänzt keine Schema-, SQL-, Migration-, CLI- oder Promotion-Entscheidung
+  - lässt persistente Registry und konkrete Akquisition separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
