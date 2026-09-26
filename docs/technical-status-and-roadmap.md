@@ -12433,6 +12433,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
   - lässt Research-Zielroute, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
 
+- LQ-2660 workspace Research-read destination:
+  `docs/lq-2660-workspace-research-read-destination.md`
+  - ergänzt den festen queryfreien Pfad `GET /research` als erste statische Read-Oberfläche
+  - verlinkt ihn ausschließlich aus der aktuell autorisierten LQ-2659-Landing
+  - bindet Sessionakteur und aktuellen Workspace serverseitig ohne Browserauswahl
+  - verlangt bei jedem Request eine frische aktive Membership mit `research:read`
+  - wahrt Write-impliziert-Read, ohne Read zu Schreib- oder Managementautorität zu erweitern
+  - vereinheitlicht fehlenden Kontext und fachliche Ablehnung als leeres `404`
+  - trennt technische Store-Nichtverfügbarkeit über `/login/unavailable`
+  - lehnt Querywerte und Nicht-GET-Methoden vor allen Authority-Lookups ab
+  - exponiert weder IDs, Membershipdetails, Permissions, Jobs noch Sessionmaterial
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Edge-Freigabe, reale Staging-Abnahme und persistenten Jobindex separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
