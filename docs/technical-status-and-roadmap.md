@@ -13117,6 +13117,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt atomare Persistenz und realen Promotion-Adapter separat offen
 
+- LQ-2706 staging promotion attempt state:
+  `docs/lq-2706-staging-promotion-attempt-state.md`
+  - definiert crash-sichere immutable Zustände hinter dem atomaren Gateway
+  - bindet Operation, authentifizierten Command und system-of-record Authority
+  - verlangt aktuelle Evidenz-, Candidate-, Authority- und Target-Auflösung bei Prepare
+  - persistiert Write-Started zwingend vor jedem externen Mutationseffekt
+  - behandelt fehlende Bestätigung nach Write-Started als unbekannten Effekt
+  - erlaubt aus unbekanntem Effekt keine automatische Wiederholung
+  - bindet ein Receipt ausschließlich an den exakten Write-Started-Versuch
+  - akzeptiert kein caller-supplied Allow, Role, Candidate, Origin oder Target
+  - exponiert keine Retry- oder direkte Promote-Fähigkeit
+  - implementiert noch keine Datenbank- oder Provideroperation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt persistente Umsetzung, Reconciliation und Provideradapter separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
