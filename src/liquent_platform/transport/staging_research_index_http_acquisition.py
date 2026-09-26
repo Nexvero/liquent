@@ -1,8 +1,5 @@
 """Bounded single-request acquisition for staging Research-index acceptance."""
 
-from dataclasses import dataclass, field
-import re
-
 import httpx2
 
 from liquent_platform.application.staging_research_index_request_plan import (
@@ -12,24 +9,17 @@ from liquent_platform.application.staging_research_index_request_plan import (
 from liquent_platform.application.staging_research_index_response_classifier import (
     StagingResearchIndexResponse,
 )
+from liquent_platform.application.staging_research_index_staged_acquisition import (
+    OpaqueStagingResearchSession,
+)
 
 
-_SESSION = re.compile(r"[A-Za-z0-9._~-]{16,4096}\Z")
 _MAX_BODY_BYTES = 65_536
 
 
 class StagingResearchIndexAcquisitionUnavailable(Exception):
     def __init__(self) -> None:
         super().__init__("staging_research_index_acquisition_unavailable")
-
-
-@dataclass(frozen=True, slots=True)
-class OpaqueStagingResearchSession:
-    value: str = field(repr=False)
-
-    def __post_init__(self) -> None:
-        if type(self.value) is not str or _SESSION.fullmatch(self.value) is None:
-            raise ValueError("opaque staging session is invalid")
 
 
 class StagingResearchIndexHttpAcquisition:
