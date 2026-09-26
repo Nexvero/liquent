@@ -13243,5 +13243,29 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt operative Auswahl und konkreten Provider-Observer separat offen
 
+- LQ-2714 staging promotion reconciliation operation:
+  `docs/lq-2714-staging-promotion-reconciliation-operation.md`
+  - komponiert Unknown-Auflösung und trusted Observation für genau eine Operation
+  - akzeptiert ausschließlich eine opaque Operation-ID vom Caller
+  - lädt den persistenten Unknown-Zustand vor jeder Providerbeobachtung frisch
+  - bindet das Resolver-Ergebnis exakt an die angeforderte Operation
+  - kontaktiert bei Absenz oder Abschluss keinen Outcome-Observer
+  - behandelt fehlenden Commit-Nachweis neutral und mutationsfrei
+  - weist substituierte Ergebnisse und malformed IDs geschlossen ab
+  - reduziert Reader-, Observer- und Recorderfehler detailfrei
+  - behandelt Operation-ID und Ergebnis weder als Authority noch Retry-Erlaubnis
+  - führt keinen Scan, Claim, Lease, Batch oder automatischen Retry aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt operative Discovery und konkreten Providertransport separat offen
+
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
