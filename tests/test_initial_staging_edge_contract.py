@@ -133,6 +133,7 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert "location = /login/rejected" in config
     assert "location = /login/unavailable" in config
     assert "location = / {" in config
+    assert "location = /research" in config
     assert "location ^~ /.well-known/acme-challenge/" in config
     assert "try_files $uri =404" in config
     assert "proxy_pass http://liquent_staging_control_plane/health/live" in config
@@ -151,6 +152,13 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert (
         "proxy_pass http://liquent_staging_control_plane/login/unavailable" in config
     )
+    research_location = config.split("location = /research {", 1)[1].split("}", 1)[0]
+    assert (
+        "proxy_pass http://liquent_staging_control_plane/research" in research_location
+    )
+    assert "proxy_read_timeout 5s" in research_location
+    assert "location /research" not in config
+    assert "location ^~ /research" not in config
     root_location = config.split("location = / {", 1)[1].split("}", 1)[0]
     assert "proxy_pass http://liquent_staging_control_plane/" in root_location
     assert "form-action 'self'" in config
