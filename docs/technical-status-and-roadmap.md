@@ -13154,5 +13154,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
   - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
 
+- LQ-2708 persistent staging promotion attempt journal:
+  `docs/lq-2708-persistent-staging-promotion-attempt-journal.md`
+  - persistiert Attempt-Bindung und prepared-Event in einer Transaktion
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist Operation-ID-Wiederverwendung mit abweichender Bindung geschlossen ab
+  - prüft vor write-started die vollständige immutable Attempt-Bindung
+  - persistiert write-started vor jedem späteren externen Provideraufruf
+  - verhindert doppelte write-started-Events bei identischer Wiederholung
+  - akzeptiert kein Allow, Role, Candidate, Origin oder Target vom Caller
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - löst selbst keine Evidenz, Authority oder Zielumgebung auf
+  - führt keine Provider-, Deployment- oder Promotionmutation aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Unknown-Effect-Persistenz und Receipt-Reconciliation separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
