@@ -12626,6 +12626,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keinen installierten Operator und keine Mutation
   - lässt Reduktion, reale Aufnahme, Evidenz und Promotion separat offen
 
+- LQ-2673 staging Research-index classification reducer:
+  `docs/lq-2673-staging-research-index-classification-reducer.md`
+  - reduziert neun geschlossene Klassifikationen auf acht Acceptance-Beobachtungen
+  - verlangt jeden Single-Phase-Check exakt einmal
+  - verlangt beide Revocation-Phasen exakt einmal
+  - weist fehlende, doppelte, unbekannte und falsch phasierte Eingaben zurück
+  - gibt Beobachtungen ausschließlich in kanonischer Check-Reihenfolge aus
+  - lässt Revocation nur bei zwei bestandenen Phasen passieren
+  - priorisiert technische Unavailability im Revocation-Paar
+  - behandelt jede andere Revocation-Abweichung als Failure
+  - transportiert keine Response-, Credential-, Identitäts- oder Diagnosedaten
+  - führt keinerlei I/O, Authority-Lookup oder Mutation aus
+  - ergänzt keinen installierten Operator und keine Infrastrukturentscheidung
+  - lässt Composition, reale Aufnahme, Evidenz und Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
