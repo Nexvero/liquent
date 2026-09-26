@@ -12766,6 +12766,23 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - korrigiert einen am festen Kalendertag abgelaufenen persistenten Session-Testfixture
   - lässt explizite Fixture-Mutation und reale Promotion separat offen
 
+- LQ-2682 staging Research-index fixture-control contract:
+  `docs/lq-2682-staging-research-index-fixture-control-contract.md`
+  - definiert einen opaken begrenzten Handle für genau ein vorprovisioniertes Fixture
+  - behandelt den Handle ausdrücklich nicht als Authority
+  - trennt Revocation und Restore in zwei injizierte Fähigkeiten
+  - bindet Revocation an die exakt erwartete aktive Revision
+  - verlangt für erfolgreiche Revocation eine neue unterscheidbare Revision
+  - bindet Restore an das vollständige vorausgehende Revocation-Ergebnis
+  - verlangt identisches Fixture und identische revoked Source-Revision
+  - verbietet die Wiederverwendung aktiver oder revoked Revisionen beim Restore
+  - akzeptiert keine Caller-Allow-, Rollen-, Membership- oder Permission-Fakten
+  - transportiert keine UserId, WorkspaceId, Session, Credentials oder URLs
+  - verlangt spätere Authority- und Target-Auflösung aus dem System of Record
+  - definiert keine Schema-, SQL-, Migration-, CLI- oder Fixture-Creation-Entscheidung
+  - führt selbst keine Mutation, Ausführung, Evidenzablage oder Promotion aus
+  - lässt Controller-Adapter, reale Ausführung und Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
