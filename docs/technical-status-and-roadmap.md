@@ -12815,6 +12815,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Fixture-Anlage, Mutation, Credentials, Ausführung oder Promotion
   - lässt Provisionierung, reale Ausführung und Promotion separat offen
 
+- LQ-2685 controlled staging Research-index execution:
+  `docs/lq-2685-staging-research-index-controlled-execution.md`
+  - komponiert bestehende Acquisition-, Fixture-Control- und Evidence-Grenzen
+  - verlangt das exakte geschlossene Session-Inventar aller drei Stages
+  - führt Baseline vor jeder Fixture-Mutation aus
+  - revoked ausschließlich über den opaken revisionsgebundenen Controller
+  - beobachtet Revocation unmittelbar nach der committed Mutation
+  - versucht nach erfolgreicher Revocation auf jedem Ausgang den Restore
+  - validiert die vollständige Fixture- und Revisionskette nach Restore
+  - führt Unavailability-Beobachtung erst nach gültigem Restore aus
+  - veröffentlicht Evidenz ausschließlich nach erfolgreicher Wiederherstellung
+  - reduziert Ablauf-, Restore- und Veröffentlichungsfehler detailfrei
+  - ergänzt keine Provisionierung, Credentials, CLI, Deployment oder Promotion
+  - lässt operative Composition, kontrollierten Operator und Promotion offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
