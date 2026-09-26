@@ -1,7 +1,9 @@
 """Closed staged acquisition and immediate response classification."""
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import Enum
+import re
 from typing import Protocol
 
 from liquent_platform.application.staging_research_index_acceptance import (
@@ -20,9 +22,18 @@ from liquent_platform.application.staging_research_index_response_classifier imp
     StagingResearchIndexResponseClassification,
     classify_staging_research_index_response,
 )
-from liquent_platform.transport.staging_research_index_http_acquisition import (
-    OpaqueStagingResearchSession,
-)
+
+
+_SESSION = re.compile(r"[A-Za-z0-9._~-]{16,4096}\Z")
+
+
+@dataclass(frozen=True, slots=True)
+class OpaqueStagingResearchSession:
+    value: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if type(self.value) is not str or _SESSION.fullmatch(self.value) is None:
+            raise ValueError("opaque staging session is invalid")
 
 
 class StagingResearchIndexAcquisitionStage(str, Enum):
