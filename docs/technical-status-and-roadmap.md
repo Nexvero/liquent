@@ -12991,6 +12991,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Secret-, Login-, Provider-, CLI- oder Scheduling-Entscheidung
   - lässt sichere Quelle, Invocation und reale Promotion separat offen
 
+- LQ-2697 ephemeral staging session source:
+  `docs/lq-2697-ephemeral-staging-session-source.md`
+  - adaptiert einen extern besessenen Resolver an die LQ-2695-Quellengrenze
+  - ruft den Resolver bei jedem Lookup mit exakter Set-/Revisionsbindung neu auf
+  - cached und behält keinen zurückgegebenen Session-Handoff
+  - lässt spätere Rotation, Revocation und Absenz auf spätere Lookups wirken
+  - akzeptiert nur vollständige validierte LQ-2688-Handoffs oder neutrale Absenz
+  - überlässt Resolverfehler den detailfreien LQ-2693-/LQ-2694-Grenzen
+  - hält Resolver-, Session-, Set- und Revisionsdetails aus Repräsentationen heraus
+  - führt bei Construction keinerlei Resolverzugriff aus
+  - besitzt und schließt keine externe Ressource
+  - ergänzt keine Secret-, Login-, Provider-, Retry- oder Cache-Entscheidung
+  - lässt operative Resolverintegration und reale Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
