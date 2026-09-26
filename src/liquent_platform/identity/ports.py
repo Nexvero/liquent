@@ -5,6 +5,7 @@ from typing import Protocol
 
 from liquent_platform.identity.access import (
     BootstrappedIdentityAuthority,
+    CurrentWorkspaceContext,
     MembershipStatus,
     Permission,
     UserId,
@@ -389,6 +390,14 @@ class WorkspaceMembershipLookup(Protocol):
     def get_membership(
         self, user_id: UserId, workspace_id: WorkspaceId
     ) -> WorkspaceMembership | None: ...
+
+
+class CurrentWorkspaceContextLookup(Protocol):
+    """Resolve one current workspace for an actor without caller selection."""
+
+    def resolve_current_workspace(
+        self, user_id: UserId
+    ) -> CurrentWorkspaceContext | None: ...
 
 
 class AuthorizedManifestHandoffAttemptReservation(Protocol):
