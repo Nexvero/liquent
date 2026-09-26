@@ -12924,6 +12924,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Login-Automation, Credential-Auflösung, CLI oder Promotion
   - lässt Provisionierung, Mutation, konkrete Akquisition und Promotion offen
 
+- LQ-2692 persistent staging session-set composition:
+  `docs/lq-2692-persistent-staging-session-set-composition.md`
+  - bindet genau eine extern besessene Database Engine
+  - komponiert ausschließlich den read-only LQ-2691-Resolver
+  - führt beim Aufbau keinerlei Datenbankzugriff oder Mutation aus
+  - besitzt und schließt die Engine nicht
+  - exponiert keine Create-, Update-, Delete- oder Rotate-Fähigkeit
+  - exponiert keine Session-Akquisition oder Ausführung
+  - hält Engine-, Registry-, Revisions- und Secret-Details aus der Repräsentation
+  - ergänzt keine Authority-, Cache-, Login- oder Provider-Entscheidung
+  - ergänzt keine Schema-, Migration-, CLI-, Deployment- oder Promotion-Änderung
+  - lässt Secret-Auflösung, kontrollierte Akquisition und Promotion offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
