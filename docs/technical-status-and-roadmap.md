@@ -12419,6 +12419,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
   - lässt HTTP-Route, Linkziel, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
 
+- LQ-2659 workspace Research-read indicator:
+  `docs/lq-2659-workspace-research-read-indicator.md`
+  - ergänzt die bestehende workspace-aware Landing um einen detailfreien Research-Lesehinweis
+  - zeigt den Hinweis nur nach aktueller Autorisierung für denselben Sessionakteur und Workspace
+  - verwendet den bereits aufgelösten Workspace-Kontext ohne zweiten Kontext-Lookup
+  - wahrt die bestehende Write-impliziert-Read-Regel ohne zusätzliche Autorität zu erzeugen
+  - lässt fehlende, inaktive oder unberechtigte Memberships neutral ohne Hinweis erscheinen
+  - stoppt bei fehlendem oder mehrdeutigem Workspace-Kontext vor dem Research-Lookup
+  - trennt technische Store-Nichtverfügbarkeit über das bestehende detailfreie Ergebnis
+  - cached keine Entscheidung, sodass Deaktivierung und Permission-Entzug beim nächsten Request wirken
+  - exponiert weder IDs, Rollen, Capabilities, Permission-Sätze noch Ablehnungsgründe
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Research-Zielroute, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
