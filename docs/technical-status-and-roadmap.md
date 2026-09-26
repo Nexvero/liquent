@@ -12845,6 +12845,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Migration, Provisionierung, Credentials, CLI oder Promotion
   - lässt Session-/HTTP-Bindung, kontrollierten Operator und Promotion offen
 
+- LQ-2687 staging Research-index runtime composition:
+  `docs/lq-2687-staging-research-index-runtime-composition.md`
+  - bindet persistente Fixture-Control und vorhandene bounded HTTP-Acquisition
+  - nutzt extern besessene Database Engine und extern besessenen HTTP-Client
+  - führt bei Composition keinerlei Datenbank- oder Netzwerk-I/O aus
+  - exponiert Ausführung ausschließlich über einen expliziten Methodenaufruf
+  - verlangt Run, Evidenzpfad, Fixture, aktive Revision und exakte Sessions
+  - reicht opake Sessioninventare ohne Umdeutung an LQ-2685 weiter
+  - nutzt denselben Controller für Revocation und Restoration
+  - führt alle Requests über genau den vorhandenen HTTP-Adapter aus
+  - besitzt oder schließt weder Engine noch Client
+  - speichert und lädt keine Sessions, Credentials oder Secrets
+  - ergänzt keine Migration, Login-Automation, CLI, Deployment oder Promotion
+  - lässt sicheren Session-Handoff, kontrollierten Operator und Promotion offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
