@@ -12393,6 +12393,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Schema noch Migration und erzeugt oder verändert keine persistente Tatsache
   - lässt Browserroute, HTML, Edge-Freigabe, Mehrfach-Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
 
+- LQ-2657 workspace-aware authenticated landing:
+  `docs/lq-2657-workspace-aware-authenticated-landing.md`
+  - komponiert den aktuellen Workspace-Resolver nach erfolgreicher persistenter Sessionauflösung in die bestehende Root-Landing
+  - leitet ausschließlich die interne UserId des SessionPrincipal weiter und akzeptiert keine Workspace-Auswahl vom Browser
+  - bestätigt genau einen aktuellen Kontext ohne interne IDs, Membershipstatus, Rollen, Capabilities oder Permissions offenzulegen
+  - behandelt null und mehrere geeignete Memberships mit demselben neutralen statischen Dokument
+  - verwendet bei technischer Membership-Nichtverfügbarkeit das bestehende detailfreie `/login/unavailable`-Ergebnis
+  - komponiert den persistenten Resolver bei vorhandener App-Datenbank automatisch, wahrt aber explizite Testabhängigkeiten
+  - behält LQ-2653 ohne Resolver unverändert und erweitert weder Pfad- noch Edge-Oberfläche
+  - verleiht durch sichtbaren Workspace-Kontext keine Research- oder Management-Autorität
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Operationnavigation, Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
