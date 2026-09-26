@@ -1,6 +1,8 @@
 from pathlib import Path
+from unittest.mock import Mock
 
 import httpx2
+import pytest
 from sqlalchemy import event
 
 from liquent_platform.persistence.database import build_engine
@@ -45,6 +47,30 @@ def test_runtime_does_not_own_external_resources_or_credentials(tmp_path: Path) 
         assert not hasattr(composition, "close")
         assert not hasattr(composition, "sessions")
         assert not hasattr(composition, "credentials")
+    finally:
+        client.close()
+        engine.dispose()
+
+
+def test_execute_rejects_unvalidated_session_inventory_before_io(tmp_path: Path) -> None:
+    engine = build_engine(f"sqlite:///{tmp_path / 'absent.db'}")
+    requests: list[object] = []
+    client = httpx2.Client(transport=httpx2.MockTransport(
+        lambda request: requests.append(request) or httpx2.Response(500)
+    ))
+    try:
+        composition = compose_staging_research_index_runtime(engine, client)
+        with pytest.raises(ValueError, match="validated staging session handoff"):
+            composition.execute(
+                run=Mock(),
+                evidence_path=tmp_path / "evidence.json",
+                fixture_id=Mock(),
+                expected_active_revision=Mock(),
+                session_handoff={},  # type: ignore[arg-type]
+            )
+        assert requests == []
+        assert not (tmp_path / "absent.db").exists()
+        assert not (tmp_path / "evidence.json").exists()
     finally:
         client.close()
         engine.dispose()
