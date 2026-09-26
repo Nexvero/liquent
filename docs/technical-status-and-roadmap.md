@@ -12611,6 +12611,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keinen installierten Operator und verändert dessen Inventur nicht
   - lässt Transport, Response-Klassifikation und Evidenz separat offen
 
+- LQ-2672 staging Research-index response classifier:
+  `docs/lq-2672-staging-research-index-response-classifier.md`
+  - klassifiziert begrenzte Responses für den geschlossenen Request-Plan
+  - führt selbst keinen Netzwerkzugriff und kein Redirect-Following aus
+  - prüft Closure, HTML, minimale Indexstruktur und Security-Header
+  - prüft Query-Rejection und beide geordneten Revocation-Phasen
+  - verlangt einen leeren detailfreien Unavailability-Redirect ohne Cookie
+  - trennt valide Abweichung als Failure von technischer Unavailability
+  - behandelt doppelte Header und übergroße oder malformed Bodies fail-closed
+  - hält Header und Body aus Repräsentation und Ergebnis heraus
+  - gibt nur Check, geschlossene Phase und Klassifikation zurück
+  - transportiert weder URL, Status, Credential, Identität noch Diagnosedetail
+  - ergänzt keinen installierten Operator und keine Mutation
+  - lässt Reduktion, reale Aufnahme, Evidenz und Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
