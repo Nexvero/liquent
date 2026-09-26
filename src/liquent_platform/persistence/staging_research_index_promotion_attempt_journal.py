@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from liquent_platform.application.staging_research_index_promotion_attempt import (
     PreparedStagingResearchIndexPromotionAttempt,
+    UnknownStagingResearchIndexPromotionEffect,
     WriteStartedStagingResearchIndexPromotionAttempt,
 )
 
@@ -95,6 +96,34 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
                 elif states != ["prepared", "write_started"]:
                     raise StagingResearchIndexPromotionAttemptJournalUnavailable
             return WriteStartedStagingResearchIndexPromotionAttempt(attempt)
+        except StagingResearchIndexPromotionAttemptJournalUnavailable as error:
+            if error.__cause__ is None and error.__context__ is None:
+                raise
+        except Exception:
+            pass
+        raise StagingResearchIndexPromotionAttemptJournalUnavailable from None
+
+    def record_unknown(
+        self,
+        attempt: WriteStartedStagingResearchIndexPromotionAttempt,
+        *,
+        observed_at: datetime,
+    ) -> UnknownStagingResearchIndexPromotionEffect:
+        if type(attempt) is not WriteStartedStagingResearchIndexPromotionAttempt:
+            raise StagingResearchIndexPromotionAttemptJournalUnavailable
+        prepared = attempt.prepared
+        values = self._values(prepared, observed_at)
+        try:
+            with self._engine.begin() as connection:
+                states = self._require_exact(connection, prepared)
+                if states == ["prepared", "write_started"]:
+                    connection.execute(
+                        _INSERT_EVENT,
+                        values | {"sequence": 3, "state": "effect_unknown"},
+                    )
+                elif states != ["prepared", "write_started", "effect_unknown"]:
+                    raise StagingResearchIndexPromotionAttemptJournalUnavailable
+            return UnknownStagingResearchIndexPromotionEffect(attempt)
         except StagingResearchIndexPromotionAttemptJournalUnavailable as error:
             if error.__cause__ is None and error.__context__ is None:
                 raise
