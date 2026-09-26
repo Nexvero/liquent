@@ -324,6 +324,7 @@ from liquent_platform.identity.research_job import (
     CompletedResearchJob,
     RenewedResearchJobLease,
     ResearchJobAcceptanceConflict,
+    ResearchJobIndexItem,
     ResearchJobView,
     ResearchJobFailureCode,
     ResearchResultArtifactClass,
@@ -1336,6 +1337,14 @@ class AuthorizedResearchJobLookup(Protocol):
     def get_job(
         self, actor_user_id: UserId, job_id: JobId
     ) -> ResearchJobView | None: ...
+
+
+class AuthorizedWorkspaceResearchJobIndex(Protocol):
+    """Read one bounded job page for one currently authorized workspace."""
+
+    def list_jobs(
+        self, actor_user_id: UserId, workspace_id: WorkspaceId
+    ) -> tuple[ResearchJobIndexItem, ...]: ...
 
 
 class InitialReleaseRegistryBootstrap(Protocol):

@@ -12484,5 +12484,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - entscheidet noch kein Schema, SQL, Port, Modell, Route, Test, Wiring oder Pagination
   - lässt Implementierung, HTTP-Rendering, Edge und Staging-Abnahme für Folgeslices offen
 
+- LQ-2663 workspace Research-job index foundation:
+  `docs/lq-2663-workspace-research-job-index-foundation.md`
+  - ergänzt ein minimales unveränderliches Indexelement aus JobId, Status und zwei UTC-Zeitpunkten
+  - ergänzt einen read-only Port ausschließlich für interne Actor- und Workspace-IDs
+  - implementiert den Lookup auf den vorhandenen persistenten Research-Jobtabellen
+  - bindet aktive Nutzer-, Workspace-, Membership- und Research-Read-Fakten in derselben Abfrage
+  - beschränkt jede Zeile auf den exakt serverseitig aufgelösten Workspace
+  - liefert höchstens 50 Jobs ohne caller-gesteuerten Limit-, Filter- oder Cursorwert
+  - ordnet deterministisch nach Acceptance-Zeit und opaque JobId
+  - lässt autorisierte Leere als unveränderliches leeres Tupel erscheinen
+  - macht Permission-Entzug und Lifecycle-Deaktivierungen beim nächsten Lookup wirksam
+  - verwendet die bestehende detailfreie Research-Job-Store-Unavailability-Grenze
+  - ergänzt weder Schema noch Migration und erzeugt oder mutiert keine persistente Tatsache
+  - lässt Application-Komposition, HTTP-Rendering, Edge und Staging-Abnahme separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
