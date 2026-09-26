@@ -13005,6 +13005,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Secret-, Login-, Provider-, Retry- oder Cache-Entscheidung
   - lässt operative Resolverintegration und reale Promotion separat offen
 
+- LQ-2698 ephemeral staging runtime composition:
+  `docs/lq-2698-ephemeral-staging-runtime-composition.md`
+  - schließt die Composition vom externen Resolver bis zum kontrollierten Operator
+  - adaptiert Resolver über LQ-2697, LQ-2695 und die vollständige LQ-2694-Grenze
+  - bewahrt sämtliche LQ-2696-Ressourcen- und Ownership-Grenzen
+  - führt beim Aufbau keinerlei Resolver-, Datenbank- oder HTTP-Zugriff aus
+  - erlaubt Sessionauflösung ausschließlich nach explizitem Execute-Aufruf
+  - löst Sessionmaterial für jeden Aufruf frisch und ohne Cache auf
+  - speichert keinen aufgelösten Handoff und kein Session-Set
+  - behandelt Resolverfähigkeit und Sessions nicht als Authority
+  - hält operatives Material aus Repräsentationen heraus
+  - ergänzt keine Secret-, Provider-, Login-, Retry- oder Scheduling-Entscheidung
+  - lässt sicheren Resolver, Invocation und reale Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
