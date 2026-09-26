@@ -19,8 +19,8 @@
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
 - **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **44 lineare Migrationen**, Head
-  `20260916_0044`.
+  und Hilfsmodule** plus Paketinitialisierer, **45 lineare Migrationen**, Head
+  `20260916_0045`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
@@ -13060,6 +13060,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - schreibt weder Datei noch Datenbankrecord
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt dauerhafte Ablage und reale Promotion separat offen
+
+- LQ-2702 persistent staging promotion evidence:
+  `docs/lq-2702-persistent-staging-promotion-evidence.md`
+  - persistiert die nicht autorisierende LQ-2701-Evidenzbindung append-only
+  - speichert Digest, Candidate, Staging-Origin und UTC-Beobachtungszeit
+  - speichert keine Evidenzbytes, Sessions, Credentials oder Authority-Fakten
+  - behandelt identische Wiederholung idempotent und Konflikte fail-closed
+  - liefert unbekannte Bindungen als neutrale Absenz
+  - reduziert fehlerhafte Records und technische Speicherfehler detailfrei
+  - exponiert ausschließlich Record und Read ohne Update, Delete oder Promote
+  - ergänzt Migration 20260916_0045 ohne Seed-Daten
+  - führt keine Publication, Deployment-, Environment- oder Promotionmutation aus
+  - lässt aktuelle Candidate-/Authority-Auflösung und reale Promotion separat offen
 
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
