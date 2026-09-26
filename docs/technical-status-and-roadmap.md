@@ -12686,6 +12686,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keinen Credential-Store, Workflow oder installierten Operator
   - lässt Handoff, reale Ausführung, Evidenz und Promotion separat offen
 
+- LQ-2677 staging Research-index stage handoff:
+  `docs/lq-2677-staging-research-index-stage-handoff.md`
+  - bindet jede Stage an einen validierten Acceptance-Lauf
+  - validiert pro Stage die exakte geschlossene Check- und Phaseninventur
+  - verlangt Baseline, After-Revocation und Unavailability exakt einmal
+  - weist fehlende, doppelte, unbekannte und falsch phasierte Inhalte zurück
+  - weist gemischte Digest-, Origin- oder Zeitbindungen vor Reduktion zurück
+  - behandelt caller-gesteuerte Handoff-Reihenfolge nicht als Authority
+  - stellt die kanonische Stage-Reihenfolge intern wieder her
+  - transportiert nur Lauf, Stage und sanitiserte Klassifikationen
+  - erhält technische Unavailability bis zum finalen Evaluator
+  - besitzt keine Revocation-, Restore- oder Credential-Fähigkeit
+  - ergänzt kein I/O, Workflow oder installierten Operator
+  - lässt Evidence-Codec, reale Ausführung und Promotion separat offen
+
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
