@@ -13169,5 +13169,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
   - lässt Unknown-Effect-Persistenz und Receipt-Reconciliation separat offen
 
+- LQ-2709 persistent staging promotion unknown effect:
+  `docs/lq-2709-persistent-staging-promotion-unknown-effect.md`
+  - persistiert effect-unknown nur nach dem exakten write-started-Versuch
+  - prüft die vollständige immutable Attempt-Bindung und Eventreihenfolge
+  - hängt den Unknown-Zustand transaktional als drittes Event an
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist fehlende, substituierte oder weitergelaufene Zustände geschlossen ab
+  - speichert für effect-unknown niemals ein Provider-Receipt
+  - behandelt Unknown ausdrücklich nicht als Erlaubnis zur Wiederholung
+  - exponiert keine Retry-, Provider- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Receipt-Persistenz und Unknown-Effect-Reconciliation separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
