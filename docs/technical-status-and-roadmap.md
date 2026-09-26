@@ -19,8 +19,8 @@
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
 - **Paketinventar:** **72 Console Entry Points**, **71 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
-  `20260826_0042`.
+  und Hilfsmodule** plus Paketinitialisierer, **43 lineare Migrationen**, Head
+  `20260915_0043`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
@@ -12799,6 +12799,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Registry-, Schema-, SQL-, Migration-, CLI- oder Credential-Entscheidung
   - führt keine Fixture-Creation, Evidenzmutation, Deployment oder Promotion aus
   - lässt persistenten Resolver, reale Ausführung und Promotion separat offen
+
+- LQ-2684 persistent staging Research-index fixture resolver:
+  `docs/lq-2684-staging-research-index-fixture-resolver.md`
+  - löst opake Fixture-Handles ausschließlich aus vorprovisionierten Fakten auf
+  - bindet Actor, Target, Workspace und ursprüngliche aktive Revision atomar
+  - verlangt aktive Actor-, Target- und Workspace-Lifecycle-Fakten
+  - verlangt die separate aktive workspace-scoped Management-Capability
+  - behandelt den SessionPrincipal ausschließlich als Actor-Identität
+  - trennt Management-Authority strikt von Research-Permissions
+  - akzeptiert keine Caller-Allow-, Rollen-, Membership- oder Permission-Fakten
+  - lässt spätere Lifecycle- und Authority-Revocation sofort wirken
+  - bewahrt den ursprünglichen Snapshot für den gebundenen Restore lesbar
+  - liefert Absence neutral und technische Fehler detailfrei
+  - ergänzt keine Fixture-Anlage, Mutation, Credentials, Ausführung oder Promotion
+  - lässt Provisionierung, reale Ausführung und Promotion separat offen
 
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
