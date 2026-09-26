@@ -12392,7 +12392,6 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - macht eine committete Deaktivierung ohne Session-, Route-, Prozess- oder Adaptercache bei der nächsten Auflösung wirksam
   - ergänzt weder Schema noch Migration und erzeugt oder verändert keine persistente Tatsache
   - lässt Browserroute, HTML, Edge-Freigabe, Mehrfach-Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
-
 - LQ-2748 Python 3.14 runtime migration:
   `docs/lq-2748-python-3-14-runtime-migration.md`
   - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
