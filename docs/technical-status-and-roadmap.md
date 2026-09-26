@@ -12355,5 +12355,26 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erzeugt oder verändert weder Nutzer, Workspace, Admission, Bindung, Membership, Rolle, Capability noch Research-Recht
   - lässt Produktoberfläche, Workspace-Auswahl, autorisierte Navigation, Review, Release und Staging-Abnahme separat offen
 
+- LQ-2654 staging authenticated landing acceptance:
+  `docs/lq-2654-staging-authenticated-landing-acceptance.md`
+  - bindet die reale Staging-Abnahme an `main`-Revision `424d8a5`, Release `0.1.12` und den unveränderlichen Image-Digest
+  - bestätigt grünen Post-Merge-Qualitätslauf, erfolgreiche Veröffentlichung und Attestations-Evidenz
+  - bindet die Promotion an den frischen, isoliert verifizierten Backup-Snapshot `ab25235e`
+  - bestätigt den vollständigen Promotionslauf sowie gesunde PostgreSQL- und Control-Plane-Container
+  - belegt die Bytegleichheit der aktiven Edge-Konfiguration mit dem geprüften Repositorystand
+  - bestätigt öffentlich 200 für Health und Login-Ergebnisse sowie neutralen 303-Redirect ohne Session
+  - bestätigt mit bestehender aktiver Session das statische Erfolgsdokument statt Root-404 oder Download
+  - hält SessionPrincipal nicht autorisierend und erzeugt weder Workspace-Auswahl noch Membership oder Research-Recht
+  - lässt die erste workspace-aware Read-Oberfläche und reguläre Autoritätspersistenz ausdrücklich für spätere Slices offen
+
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
