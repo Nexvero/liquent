@@ -1,6 +1,5 @@
 """Runtime composition for explicitly controlled staging Research-index runs."""
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,12 +17,8 @@ from liquent_platform.application.staging_research_index_fixture_control import 
     StagingResearchIndexFixtureId,
     StagingResearchIndexFixtureRevision,
 )
-from liquent_platform.application.staging_research_index_request_plan import (
-    StagingResearchIndexCredentialSlot,
-)
-from liquent_platform.application.staging_research_index_staged_acquisition import (
-    OpaqueStagingResearchSession,
-    StagingResearchIndexAcquisitionStage,
+from liquent_platform.application.staging_research_index_session_handoff import (
+    StagingResearchIndexSessionHandoff,
 )
 from liquent_platform.identity.authority_material import (
     SecureIdentityAuthorityMaterialGenerator,
@@ -53,14 +48,10 @@ class StagingResearchIndexRuntimeComposition:
         evidence_path: Path,
         fixture_id: StagingResearchIndexFixtureId,
         expected_active_revision: StagingResearchIndexFixtureRevision,
-        sessions: Mapping[
-            StagingResearchIndexAcquisitionStage,
-            dict[
-                StagingResearchIndexCredentialSlot,
-                OpaqueStagingResearchSession,
-            ],
-        ],
+        session_handoff: StagingResearchIndexSessionHandoff,
     ) -> StagingResearchIndexAcceptanceResult:
+        if type(session_handoff) is not StagingResearchIndexSessionHandoff:
+            raise ValueError("validated staging session handoff is required")
         return execute_controlled_staging_research_index_acceptance(
             run=run,
             evidence_path=evidence_path,
@@ -69,7 +60,7 @@ class StagingResearchIndexRuntimeComposition:
             revoker=self.fixture_control.controller,
             restorer=self.fixture_control.controller,
             acquisition=self.acquisition,
-            sessions=sessions,
+            sessions=session_handoff.execution_sessions(),
         )
 
 
