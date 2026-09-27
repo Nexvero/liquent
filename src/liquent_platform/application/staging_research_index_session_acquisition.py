@@ -59,6 +59,32 @@ class StagingResearchIndexSessionSetAcquirer(Protocol):
     ) -> AcquiredStagingResearchIndexSessionSet | None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class RegisteredStagingResearchIndexSessionSet:
+    session_set_id: StagingResearchIndexSessionSetId = field(repr=False)
+    revision: StagingResearchIndexSessionSetRevision = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.session_set_id) is not StagingResearchIndexSessionSetId
+            or type(self.revision) is not StagingResearchIndexSessionSetRevision
+        ):
+            raise ValueError("registered staging session set is invalid")
+
+
+class StagingResearchIndexSessionSetRegistryUnavailable(Exception):
+    def __init__(self) -> None:
+        super().__init__("staging_research_index_session_set_registry_unavailable")
+
+
+class StagingResearchIndexSessionSetRegistry(Protocol):
+    def resolve(
+        self,
+        session_set_id: StagingResearchIndexSessionSetId,
+        expected_revision: StagingResearchIndexSessionSetRevision,
+    ) -> RegisteredStagingResearchIndexSessionSet | None: ...
+
+
 def validate_staging_research_index_session_set_acquisition(
     session_set_id: StagingResearchIndexSessionSetId,
     expected_revision: StagingResearchIndexSessionSetRevision,
