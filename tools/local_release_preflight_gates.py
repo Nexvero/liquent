@@ -1063,7 +1063,7 @@ class WheelGate(MeasuredGate):
             len(details["entry_points"]) != EXPECTED_ENTRY_POINT_COUNT
             or details["operator_module_count"] != EXPECTED_OPERATOR_FILE_COUNT
             or details["migration_count"] != EXPECTED_MIGRATION_COUNT
-            or details["migration_head"] != "20260916_0044"
+            or details["migration_head"] != "20260916_0045"
         ):
             _reject()
         return {
