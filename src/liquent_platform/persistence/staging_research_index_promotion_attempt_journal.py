@@ -31,6 +31,11 @@ _INSERT_COMMITTED = text(
     " (operation_id,sequence,state,provider_receipt_id,observed_at)"
     " VALUES (:operation,3,'committed',:receipt,:observed)"
 )
+_INSERT_RECONCILED_COMMITTED = text(
+    "INSERT INTO staging_research_index_promotion_attempt_events"
+    " (operation_id,sequence,state,provider_receipt_id,observed_at)"
+    " VALUES (:operation,4,'committed',:receipt,:observed)"
+)
 _SELECT_ATTEMPT = text(
     "SELECT operation_id,actor_user_id,evidence_digest,candidate_digest,"
     "staging_origin,target_environment FROM staging_research_index_promotion_attempts"
@@ -152,15 +157,7 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
         ):
             raise StagingResearchIndexPromotionAttemptJournalUnavailable
         prepared = attempt.prepared
-        if (
-            receipt.operation_id != prepared.operation_id
-            or receipt.actor_user_id != prepared.command.actor.user_id
-            or receipt.evidence_digest != prepared.command.evidence_digest
-            or receipt.candidate_digest != prepared.authority.candidate_digest
-            or receipt.staging_origin != prepared.authority.staging_origin
-            or receipt.target_environment != prepared.authority.target_environment
-        ):
-            raise StagingResearchIndexPromotionAttemptJournalUnavailable
+        self._require_receipt_binding(prepared, receipt)
         values = self._values(prepared, observed_at) | {
             "receipt": receipt.operation_id
         }
@@ -172,6 +169,51 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
                 if states == ["prepared", "write_started"]:
                     connection.execute(_INSERT_COMMITTED, values)
                 elif states == ["prepared", "write_started", "committed"]:
+                    events = connection.execute(
+                        _SELECT_EVENTS, {"operation": prepared.operation_id}
+                    ).mappings().all()
+                    if events[-1]["provider_receipt_id"] != receipt.operation_id:
+                        raise StagingResearchIndexPromotionAttemptJournalUnavailable
+                else:
+                    raise StagingResearchIndexPromotionAttemptJournalUnavailable
+            return receipt
+        except StagingResearchIndexPromotionAttemptJournalUnavailable as error:
+            if error.__cause__ is None and error.__context__ is None:
+                raise
+        except Exception:
+            pass
+        raise StagingResearchIndexPromotionAttemptJournalUnavailable from None
+
+    def record_reconciled_committed(
+        self,
+        unknown: UnknownStagingResearchIndexPromotionEffect,
+        receipt: StagingResearchIndexPromotionReceipt,
+        *,
+        observed_at: datetime,
+    ) -> StagingResearchIndexPromotionReceipt:
+        if (
+            type(unknown) is not UnknownStagingResearchIndexPromotionEffect
+            or type(receipt) is not StagingResearchIndexPromotionReceipt
+        ):
+            raise StagingResearchIndexPromotionAttemptJournalUnavailable
+        prepared = unknown.attempt.prepared
+        self._require_receipt_binding(prepared, receipt)
+        values = self._values(prepared, observed_at) | {
+            "receipt": receipt.operation_id
+        }
+        try:
+            with self._engine.begin() as connection:
+                states = self._require_exact(
+                    connection, prepared, allow_committed_receipt=True
+                )
+                if states == ["prepared", "write_started", "effect_unknown"]:
+                    connection.execute(_INSERT_RECONCILED_COMMITTED, values)
+                elif states == [
+                    "prepared",
+                    "write_started",
+                    "effect_unknown",
+                    "committed",
+                ]:
                     events = connection.execute(
                         _SELECT_EVENTS, {"operation": prepared.operation_id}
                     ).mappings().all()
@@ -208,6 +250,21 @@ class DatabaseStagingResearchIndexPromotionAttemptJournal:
             "target": attempt.authority.target_environment,
             "observed": observed_at.isoformat().replace("+00:00", "Z"),
         }
+
+    @staticmethod
+    def _require_receipt_binding(
+        prepared: PreparedStagingResearchIndexPromotionAttempt,
+        receipt: StagingResearchIndexPromotionReceipt,
+    ) -> None:
+        if (
+            receipt.operation_id != prepared.operation_id
+            or receipt.actor_user_id != prepared.command.actor.user_id
+            or receipt.evidence_digest != prepared.command.evidence_digest
+            or receipt.candidate_digest != prepared.authority.candidate_digest
+            or receipt.staging_origin != prepared.authority.staging_origin
+            or receipt.target_environment != prepared.authority.target_environment
+        ):
+            raise StagingResearchIndexPromotionAttemptJournalUnavailable
 
     @staticmethod
     def _require_exact(

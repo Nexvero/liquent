@@ -10,6 +10,7 @@ from liquent_platform.application.staging_research_index_atomic_promotion import
 )
 from liquent_platform.application.staging_research_index_promotion_attempt import (
     PreparedStagingResearchIndexPromotionAttempt,
+    UnknownStagingResearchIndexPromotionEffect,
     WriteStartedStagingResearchIndexPromotionAttempt,
 )
 from liquent_platform.application.staging_research_index_promotion_authority import (
@@ -213,6 +214,54 @@ def test_committed_receipt_rejects_substitution_and_unknown_effect(journal) -> N
     store.record_unknown(started, observed_at=NOW)
     with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
         store.record_committed(started, _receipt(prepared), observed_at=NOW)
+    with engine.connect() as connection:
+        states = connection.execute(text(
+            "SELECT state FROM staging_research_index_promotion_attempt_events"
+            " ORDER BY sequence"
+        )).scalars().all()
+    assert states == ["prepared", "write_started", "effect_unknown"]
+
+
+def test_reconciliation_commits_exact_unknown_effect_as_fourth_event(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    store.record_prepared(prepared, observed_at=NOW)
+    started = store.mark_write_started(prepared, observed_at=NOW)
+    unknown = store.record_unknown(started, observed_at=NOW)
+    receipt = _receipt(prepared)
+    assert store.record_reconciled_committed(unknown, receipt, observed_at=NOW) is receipt
+    assert store.record_reconciled_committed(unknown, receipt, observed_at=NOW) is receipt
+    with engine.connect() as connection:
+        events = connection.execute(text(
+            "SELECT sequence,state,provider_receipt_id"
+            " FROM staging_research_index_promotion_attempt_events ORDER BY sequence"
+        )).all()
+    assert events == [
+        (1, "prepared", None),
+        (2, "write_started", None),
+        (3, "effect_unknown", None),
+        (4, "committed", prepared.operation_id),
+    ]
+
+
+def test_reconciliation_rejects_unproven_or_substituted_unknown_effect(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    store.record_prepared(prepared, observed_at=NOW)
+    started = store.mark_write_started(prepared, observed_at=NOW)
+    unknown = store.record_unknown(started, observed_at=NOW)
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_reconciled_committed(
+            unknown, _receipt(prepared, "different-operation"), observed_at=NOW
+    )
+    foreign = _attempt(operation="foreign-operation")
+    foreign_started = WriteStartedStagingResearchIndexPromotionAttempt(foreign)
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_reconciled_committed(
+            UnknownStagingResearchIndexPromotionEffect(foreign_started),
+            _receipt(foreign),
+            observed_at=NOW,
+        )
     with engine.connect() as connection:
         states = connection.execute(text(
             "SELECT state FROM staging_research_index_promotion_attempt_events"
