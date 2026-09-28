@@ -1,0 +1,8 @@
+[Unit]
+Description=Check Liquent backup maximum age
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/liquent/backup/check-age.sh

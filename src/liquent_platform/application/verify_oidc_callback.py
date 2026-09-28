@@ -62,6 +62,7 @@ def verify_oidc_callback(
         expected_nonce=transaction.expected_nonce,
         code_verifier=transaction.code_verifier,
         redirect_uri=transaction.redirect_uri,
+        expected_trust_revision=transaction.expected_trust_revision,
     )
     # OidcVerificationUnavailable is deliberately not caught: technical
     # unavailability is not a business rejection.

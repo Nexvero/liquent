@@ -2,6 +2,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+import liquent_platform.persistence.migrate as migrate
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
 from liquent_platform.persistence.migrate import upgrade_to_head
 from liquent_platform.persistence.migrations import expected_head
@@ -12,7 +13,9 @@ def _sqlite_url(path: Path) -> str:
 
 
 def test_migration_history_has_one_unambiguous_head() -> None:
-    assert expected_head() == "20260726_0001"
+    # Moves with each additive revision; the point is that exactly one head
+    # exists, not which one. LQ-497 added the cleanup clearance foundation.
+    assert expected_head() == "20260916_0046"
 
 
 def test_migration_history_is_declared_as_packaged_artifact_data() -> None:
@@ -20,6 +23,22 @@ def test_migration_history_is_declared_as_packaged_artifact_data() -> None:
         encoding="utf-8"
     )
     assert '"persistence/alembic/versions/*.py"' in pyproject
+
+
+def test_migration_entrypoint_reads_only_its_database_secret(
+    tmp_path: Path, monkeypatch
+) -> None:
+    secret_path = tmp_path / "database_url"
+    database_url = "postgresql+psycopg://migration-only"
+    secret_path.write_text(database_url + "\n", encoding="utf-8")
+    seen: list[str] = []
+    monkeypatch.setattr(migrate, "DATABASE_URL_SECRET_PATH", secret_path)
+    monkeypatch.setattr(migrate, "upgrade_to_head", seen.append)
+    monkeypatch.setenv("LIQUENT_OIDC_LOGIN_ORIGIN", "https://staging.liquent.ai")
+
+    migrate.main()
+
+    assert seen == [database_url]
 
 
 def test_upgrade_establishes_current_revision_and_readiness(tmp_path: Path) -> None:
@@ -31,6 +50,61 @@ def test_upgrade_establishes_current_revision_and_readiness(tmp_path: Path) -> N
         with engine.connect() as connection:
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
         assert revision == expected_head()
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_identity_authority_foundation_without_seed_data(
+    tmp_path: Path,
+) -> None:
+    url = _sqlite_url(tmp_path / "authority.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                )
+            }
+            assert {
+                "identity_users",
+                "identity_workspaces",
+                "workspace_onboarding_management",
+            } <= tables
+            for table in (
+                "identity_users",
+                "identity_workspaces",
+                "workspace_onboarding_management",
+            ):
+                assert connection.scalar(text(f"SELECT count(*) FROM {table}")) == 0
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_empty_authorized_onboarding_decisions(tmp_path: Path) -> None:
+    url = _sqlite_url(tmp_path / "decisions.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(
+                text("SELECT count(*) FROM authorized_onboarding_decisions")
+            ) == 0
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_adds_empty_authorized_oidc_trust_changes(tmp_path: Path) -> None:
+    url = _sqlite_url(tmp_path / "oidc-trust-changes.db")
+    upgrade_to_head(url)
+    engine = build_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert connection.scalar(
+                text("SELECT count(*) FROM authorized_oidc_trust_changes")
+            ) == 0
     finally:
         engine.dispose()
 

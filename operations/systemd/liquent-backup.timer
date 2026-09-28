@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Liquent backup daily
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+Unit=liquent-backup.service
+
+[Install]
+WantedBy=timers.target

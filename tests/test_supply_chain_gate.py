@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import date
 from pathlib import Path
 import re
 
@@ -60,29 +59,12 @@ def test_supply_chain_tools_and_versions_are_explicit() -> None:
         assert term in workflow
 
 
-def test_grype_exception_is_narrow_owned_and_time_bounded() -> None:
+def test_expired_grype_exception_is_not_carried_to_new_runtime() -> None:
     config = GRYPE_CONFIG.read_text(encoding="utf-8")
-    assert "exception-owner: Liquent Platform Architecture" in config
-
-    # One block per ignore entry, so package and version are checked per CVE
-    # rather than anywhere in the file.
     entries = re.split(r"^\s*- vulnerability:", config, flags=re.MULTILINE)[1:]
-    assert len(entries) == 3
-    for entry in entries:
-        assert re.search(r"^\s+name: python$", entry, flags=re.MULTILINE)
-        assert re.search(r"^\s+version: 3\.13\.14$", entry, flags=re.MULTILINE)
-    assert {entry.splitlines()[0].strip() for entry in entries} == {
-        "CVE-2026-15308",
-        "CVE-2026-11940",
-        "CVE-2026-11972",
-    }
-
-    expiry = date.fromisoformat(
-        config.split("exception-expires: ", 1)[1].splitlines()[0].strip()
-    )
-    assert expiry <= date(2026, 8, 31)
-    # Fail closed on and after the expiry date, not only after it.
-    assert date.today() < expiry
+    assert entries == []
+    assert re.search(r"^ignore: \[\]$", config, flags=re.MULTILINE)
+    assert "version: 3.13.14" not in config
 
 
 def test_provenance_is_push_only_and_minimally_permissioned() -> None:

@@ -1,0 +1,20 @@
+import hashlib,json
+from pathlib import Path
+import pytest
+import liquent_platform.operators.disposable_postgres_cleanup_chained_continue as chain
+import liquent_platform.operators.disposable_postgres_cleanup_chained_continue_reconcile as inspect
+from tests.test_lq331_disposable_postgres_reconciliation import NOW,PROJECT
+from tests.test_lq341_disposable_postgres_cleanup_reconciliation import _private
+from tests.test_lq358_disposable_postgres_cleanup_chained_continuation import setup as base
+def setup(tmp_path:Path,final_state):
+    values,cleanup,effective=base(tmp_path,final_state);auth=json.loads(values["chained_continuation_file"].read_text());bind=chain._bind(auth,values["chained_continuation_file"],PROJECT);stem=hashlib.sha256(b"chained-continuation-358").hexdigest();claim=_private(values["evidence_directory"]/f".postgres-cleanup-chained-continuation-{stem}.claim",dict(bind,started_at="2026-08-20T14:00:00Z"));ra={"schema_version":1,"chained_reconciliation_id":"chained-reconciliation-360",**{k:auth[k] for k in inspect.COMPARE},"chained_continuation_authorization_sha256":hashlib.sha256(values["chained_continuation_file"].read_bytes()).hexdigest(),"operation":"inspect_disposable_postgres_cleanup_chained_continuation","scope":"runtime_only","executor_id":"chain-inspector","authorizer_id":"inspection-authorizer","valid_from":"2026-08-20T13:30:00Z","valid_until":"2026-08-20T14:30:00Z"};values["chained_reconciliation_file"]=_private(tmp_path/"chain-reconcile.json",ra);values["clock"]=lambda:NOW;return values,cleanup,claim,bind,stem,effective
+def observed(monkeypatch,state,calls):
+    def run(**_):calls.append(state);return (json.dumps({"operation":"disposable_postgres_runtime_cleanup_reconciliation","outcome":state,"schema_version":1},sort_keys=True,separators=(",",":"))+"\n").encode()
+    monkeypatch.setattr(inspect,"reconcile_disposable_postgres_cleanup",run)
+@pytest.mark.parametrize("final_state,state,outcome",[("recontinuation_not_started","container_removed","chained_continuation_not_started"),("recontinuation_not_started","application_network_removed","application_network_removed"),("recontinuation_not_started","runtime_removed_evidence_missing","runtime_removed_evidence_missing"),("application_network_removed","application_network_removed","chained_continuation_not_started"),("application_network_removed","runtime_removed_evidence_missing","runtime_removed_evidence_missing"),("application_network_removed","container_removed","conflict"),("recontinuation_not_started","container_stopped","conflict")])
+def test_closed_matrix_is_read_only(tmp_path,monkeypatch,final_state,state,outcome):
+    values,cleanup,claim,_,_,_=setup(tmp_path,final_state);calls=[];observed(monkeypatch,state,calls);before=(cleanup.read_bytes(),claim.read_bytes());result=inspect.reconcile_disposable_postgres_cleanup_chained_continuation(**values);assert json.loads(result)["outcome"]==outcome and calls==[state] and before==(cleanup.read_bytes(),claim.read_bytes())
+def test_evidence_wins_without_inspector_or_release(tmp_path,monkeypatch):
+    values,cleanup,claim,bind,stem,_=setup(tmp_path,"recontinuation_not_started");_private(values["evidence_directory"]/f"postgres-cleanup-chained-continuation-{stem}.json",dict(bind,started_at="2026-08-20T14:00:00Z",completed_at="2026-08-20T14:01:00Z",outcome="runtime_removed_pending_cleanup_finalization"));monkeypatch.setattr(inspect,"reconcile_disposable_postgres_cleanup",lambda **_:pytest.fail());assert json.loads(inspect.reconcile_disposable_postgres_cleanup_chained_continuation(**values))["outcome"]=="chained_continuation_evidence_present" and cleanup.exists() and claim.exists()
+def test_missing_claim_is_not_found_without_inspector(tmp_path,monkeypatch):
+    values,_,claim,_,_,_=setup(tmp_path,"recontinuation_not_started");claim.unlink();monkeypatch.setattr(inspect,"reconcile_disposable_postgres_cleanup",lambda **_:pytest.fail());assert json.loads(inspect.reconcile_disposable_postgres_cleanup_chained_continuation(**values))["outcome"]=="not_found"

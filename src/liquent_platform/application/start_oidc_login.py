@@ -14,6 +14,7 @@ from liquent_platform.identity.oidc_login_transaction import (
     OidcLoginState,
     PendingOidcLoginTransaction,
 )
+from liquent_platform.identity.oidc_trust import OidcTrustRevisionId
 from liquent_platform.identity.ports import OidcLoginTransactionCreationStore
 
 
@@ -48,6 +49,7 @@ def start_oidc_login(
     redirect_uri: str,
     now: datetime,
     lifetime: timedelta,
+    expected_trust_revision: OidcTrustRevisionId | None = None,
     admission_id: IdentityAdmissionId | None = None,
     return_path: str | None = None,
 ) -> StartedOidcLogin:
@@ -86,6 +88,7 @@ def start_oidc_login(
         redirect_uri=redirect_uri,
         created_at=now,
         expires_at=now + lifetime,
+        expected_trust_revision=expected_trust_revision,
         admission_id=admission_id,
         return_path=return_path,
     )
