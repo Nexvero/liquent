@@ -104,7 +104,7 @@ uvicorn<1,>=0.34
 [dev]
 build<2,>=1.3
 pytest>=7.0
-setuptools<81,>=80
+setuptools<85,>=80
 wheel<1,>=0.45
 
 [visual]
