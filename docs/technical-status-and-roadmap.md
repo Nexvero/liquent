@@ -13110,5 +13110,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
   - lässt atomare Abschlussprüfung und reale Promotion separat offen
 
+- LQ-2705 atomic staging promotion boundary:
+  `docs/lq-2705-atomic-staging-promotion-boundary.md`
+  - definiert die einzige sichere Gateway-Grenze für eine spätere Promotion
+  - akzeptiert ausschließlich authentifizierten Actor und persistierten Evidenz-Digest
+  - akzeptiert kein Allow, Role, Candidate, Origin, Target oder Authority-Assertion
+  - verlangt Evidenz-, Candidate- und Authority-Auflösung innerhalb einer Operation
+  - verlangt system-of-record Target-Bindung statt caller-supplied Ziel
+  - koppelt Abschlussprüfung, höchstens eine Mutation und Receipt atomar
+  - erlaubt bei Absenz oder Revocation keinerlei Effekt
+  - erzeugt keinen wiederverwendbaren Preauthorization-Token
+  - behandelt das Receipt als Effektnachweis und nicht als zukünftige Authority
+  - implementiert noch keine Persistenz-, Provider- oder Promotionmutation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt atomare Persistenz und realen Promotion-Adapter separat offen
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
