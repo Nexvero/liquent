@@ -15,7 +15,7 @@ def _sqlite_url(path: Path) -> str:
 def test_migration_history_has_one_unambiguous_head() -> None:
     # Moves with each additive revision; the point is that exactly one head
     # exists, not which one. LQ-497 added the cleanup clearance foundation.
-    assert expected_head() == "20260916_0045"
+    assert expected_head() == "20260916_0046"
 
 
 def test_migration_history_is_declared_as_packaged_artifact_data() -> None:

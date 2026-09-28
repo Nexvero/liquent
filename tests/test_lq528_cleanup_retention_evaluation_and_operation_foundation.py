@@ -96,10 +96,10 @@ def test_current_head_inventory_and_roadmap_are_synchronized() -> None:
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
     roadmap = (ROOT / "docs/technical-status-and-roadmap.md").read_text(encoding="utf-8")
     migrations = list((ROOT / "src/liquent_platform/persistence/alembic/versions").glob("*.py"))
-    assert len(migrations) == 45
-    assert 'expected_head() == "20260916_0045"' in gate
-    assert "EXPECTED_MIGRATION_COUNT = 45" in bundle
-    assert "**45 lineare Migrationen**, Head\n  `20260916_0045`" in roadmap
+    assert len(migrations) == 46
+    assert 'expected_head() == "20260916_0046"' in gate
+    assert "EXPECTED_MIGRATION_COUNT = 46" in bundle
+    assert "**46 lineare Migrationen**, Head\n  `20260916_0046`" in roadmap
 
 
 def test_roadmap_records_lq528_and_lq529() -> None:
