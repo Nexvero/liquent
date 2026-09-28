@@ -56,7 +56,7 @@ EXPECTED_REQUIRES_DIST = [
     "uvicorn<1,>=0.34",
     'build<2,>=1.3; extra == "dev"',
     'pytest>=7.0; extra == "dev"',
-    'setuptools<81,>=80; extra == "dev"',
+    'setuptools<85,>=80; extra == "dev"',
     'wheel<1,>=0.45; extra == "dev"',
     'streamlit>=1.0; extra == "visual"',
 ]
