@@ -9,6 +9,7 @@ from liquent_platform.application.staging_research_index_atomic_promotion import
 )
 from liquent_platform.application.staging_research_index_promotion_attempt import (
     PreparedStagingResearchIndexPromotionAttempt,
+    WriteStartedStagingResearchIndexPromotionAttempt,
 )
 from liquent_platform.application.staging_research_index_promotion_authority import (
     CurrentStagingResearchIndexPromotionAuthority,
@@ -121,6 +122,49 @@ def test_invalid_time_and_missing_schema_are_detail_free(tmp_path: Path, journal
 
 def test_journal_exposes_no_outcome_or_retry_operation(journal) -> None:
     _, store = journal
-    assert not hasattr(store, "record_unknown")
     assert not hasattr(store, "record_committed")
     assert not hasattr(store, "retry")
+
+
+def test_unknown_effect_requires_write_started_and_is_idempotent(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    store.record_prepared(prepared, observed_at=NOW)
+    started = store.mark_write_started(prepared, observed_at=NOW)
+    first = store.record_unknown(started, observed_at=NOW)
+    second = store.record_unknown(started, observed_at=NOW)
+    assert first.attempt is started
+    assert second.attempt is started
+    with engine.connect() as connection:
+        events = connection.execute(text(
+            "SELECT sequence,state,provider_receipt_id"
+            " FROM staging_research_index_promotion_attempt_events ORDER BY sequence"
+        )).all()
+    assert events == [
+        (1, "prepared", None),
+        (2, "write_started", None),
+        (3, "effect_unknown", None),
+    ]
+
+
+def test_unknown_effect_rejects_missing_or_substituted_started_attempt(journal) -> None:
+    engine, store = journal
+    prepared = _attempt()
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_unknown(
+            WriteStartedStagingResearchIndexPromotionAttempt(prepared),
+            observed_at=NOW,
+        )
+    store.record_prepared(prepared, observed_at=NOW)
+    store.mark_write_started(prepared, observed_at=NOW)
+    substituted = WriteStartedStagingResearchIndexPromotionAttempt(
+        _attempt(actor="substituted")
+    )
+    with pytest.raises(StagingResearchIndexPromotionAttemptJournalUnavailable):
+        store.record_unknown(substituted, observed_at=NOW)
+    with engine.connect() as connection:
+        states = connection.execute(text(
+            "SELECT state FROM staging_research_index_promotion_attempt_events"
+            " ORDER BY sequence"
+        )).scalars().all()
+    assert states == ["prepared", "write_started"]
