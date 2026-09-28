@@ -225,6 +225,19 @@ def test_a_stored_return_path_reaches_location_verbatim() -> None:
     assert response.headers["location"] == "/workspaces/w-1/research"
 
 
+def test_google_success_annotations_are_accepted_but_not_forwarded() -> None:
+    query = (
+        f"state={STATE}&iss=https%3A%2F%2Faccounts.google.com&code={CODE}"
+        "&scope=openid%20email&authuser=0&hd=example.test&prompt=consent"
+    )
+
+    response, parts = _call(query=query)
+
+    assert response.headers["location"] == "/"
+    assert len(parts["oidc_callback_verifier"].calls) == 1
+    assert parts["oidc_callback_verifier"].calls[0].authorization_code == CODE
+
+
 # --- methods ----------------------------------------------------------------
 
 
@@ -260,12 +273,21 @@ _FILL = "&error_uri=" + "u" * (8192 - len(_HEAD) - len("&error_uri="))
     [
         (_HEAD + _FILL, True),
         (_HEAD + _FILL + "u", False),
-        (f"state={STATE}&code={CODE}&a=1&b=2&c=3", False),
+        (f"state={STATE}&code={CODE}&a=1&b=2&c=3&d=4&e=5", True),
+        (f"state={STATE}&code={CODE}&a=1&b=2&c=3&d=4&e=5&f=6", False),
         (f"state={STATE}&code=" + "c" * (4097 - len("code=")), False),
         ("&&&&" + f"state={STATE}", False),
         ("", False),
     ],
-    ids=["8192", "8193", "five-components", "component-4097", "empty-components", "no-query"],
+    ids=[
+        "8192",
+        "8193",
+        "seven-components",
+        "eight-components",
+        "component-4097",
+        "empty-components",
+        "no-query",
+    ],
 )
 def test_the_raw_gate_runs_before_any_cookie_or_dependency(
     query: str, accepted: bool
@@ -319,6 +341,8 @@ def test_a_pre_match_rejection_never_claims_and_never_clears(
     ("query", "overrides", "location"),
     [
         (f"state={STATE}&code={CODE}&unknown=1", {}, REJECTION.value),
+        (f"state={STATE}&code={CODE}&iss=", {}, REJECTION.value),
+        (f"state={STATE}&code={CODE}&iss=a&iss=b", {}, REJECTION.value),
         (f"state={STATE}&code={CODE}&error=denied", {}, REJECTION.value),
         (f"state={STATE}&error=access_denied", {}, REJECTION.value),
         (
@@ -344,6 +368,8 @@ def test_a_pre_match_rejection_never_claims_and_never_clears(
     ],
     ids=[
         "unknown-parameter",
+        "empty-recognized-parameter",
+        "duplicate-recognized-parameter",
         "code-and-error",
         "provider-error",
         "claim-refused",

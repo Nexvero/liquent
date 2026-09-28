@@ -57,6 +57,7 @@ def test_resolver_builds_existing_runner_for_one_supported_local_path() -> None:
 
     result = runner.run()
 
+    assert result.experiment_id == "experiment-1"
     assert result.parameters["bars"] == 3
     assert result.parameters["strategy"] == "MidBreakoutStrategy"
     assert result.parameters["sizing_mode"] == "absolute"

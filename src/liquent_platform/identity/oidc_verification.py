@@ -1,6 +1,7 @@
 """Input and neutral failure signal for the external OIDC verification boundary."""
 
 from dataclasses import dataclass, field
+from liquent_platform.identity.oidc_trust import OidcTrustRevisionId
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,14 +31,14 @@ class OidcAuthorizationCodeVerification:
     The object also carries no tokens, claims, subject, ExternalIdentity, user,
     workspace, role, session, or permission data, and it authorizes nothing.
 
-    All five values are kept exactly and opaquely: no trimming, lowercasing,
+    All values are kept exactly and opaquely: no trimming, lowercasing,
     URL parsing, percent-decoding, or any other normalization. An authorization
     code and a redirect URI must reach the token endpoint byte for byte as they
     were issued and stored, and the nonce and verifier are compared and proven
     exactly.
 
     Every value is a short-lived secret or a sensitive correlation value, so all
-    five are hidden from ``repr``: the representation reads
+    six are hidden from ``repr``: the representation reads
     ``OidcAuthorizationCodeVerification()`` and cannot carry any of them into
     logs or error diagnostics. The class name may appear.
     """
@@ -47,6 +48,9 @@ class OidcAuthorizationCodeVerification:
     expected_nonce: str = field(repr=False)
     code_verifier: str = field(repr=False)
     redirect_uri: str = field(repr=False)
+    expected_trust_revision: OidcTrustRevisionId | None = field(
+        default=None, repr=False
+    )
 
     def __post_init__(self) -> None:
         # Messages name the field but never echo the value, so a rejected input

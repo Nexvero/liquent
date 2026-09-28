@@ -1,0 +1,18 @@
+[Unit]
+Description=Liquent encrypted database and artifact backup
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+OnFailure=liquent-backup-failure-alert.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/liquent/compose
+StateDirectory=liquent-backup
+UMask=0077
+ExecStart=/usr/bin/docker compose --env-file runtime.env --env-file images.env --env-file backup-images.env -f compose.yaml -f compose.backup.yaml --profile operations run --rm backup
+ExecStart=/usr/bin/docker compose --env-file runtime.env --env-file images.env --env-file backup-images.env -f compose.yaml -f compose.backup.yaml --profile operations run --rm backup /opt/liquent/backup/retention.sh --apply
+ExecStartPost=/usr/bin/touch /var/lib/liquent-backup/last-success
+
+[Install]
+WantedBy=multi-user.target

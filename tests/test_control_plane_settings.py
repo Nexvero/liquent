@@ -25,6 +25,17 @@ def test_environment_values_use_liquent_prefix(monkeypatch: pytest.MonkeyPatch) 
     assert settings.log_level.value == "WARNING"
 
 
+def test_single_job_concurrency_is_loaded_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LIQUENT_JOB_CONCURRENCY", "1")
+    assert PlatformSettings(_secrets_dir=None).job_concurrency == 1
+
+
+def test_other_job_concurrency_is_rejected_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LIQUENT_JOB_CONCURRENCY", "2")
+    with pytest.raises(ValidationError):
+        PlatformSettings(_secrets_dir=None)
+
+
 def test_research_data_root_is_explicit_and_path_is_not_logged(tmp_path: Path) -> None:
     settings = PlatformSettings(_secrets_dir=None, research_data_root=tmp_path)
 

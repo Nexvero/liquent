@@ -1,0 +1,12 @@
+{
+  "worker_id_path": "/run/liquent/research-worker-id",
+  "research_data_root": "/var/lib/liquent/research-data",
+  "artifact_root": "/var/lib/liquent/artifacts",
+  "lease_seconds": 30,
+  "idle_wait_seconds": 2,
+  "unavailable_initial_wait_seconds": 1,
+  "unavailable_max_wait_seconds": 30,
+  "jitter_max_seconds": 1,
+  "job_concurrency": 1,
+  "trading_connectivity": "disabled"
+}

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from html import escape
 from hmac import compare_digest
 from typing import Annotated, AsyncIterator, Callable
 from urllib.parse import urlsplit
 
+import httpx2
 from fastapi import (
     Cookie,
     Depends,
@@ -20,6 +22,7 @@ from fastapi import (
 )
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import Engine
 
 from liquent_platform import __version__
 from liquent_platform.application.authenticate_session import (
@@ -27,6 +30,10 @@ from liquent_platform.application.authenticate_session import (
     require_browser_session,
 )
 from liquent_platform.application.health import ProcessHealth
+from liquent_platform.application.manifest_handoff_supervisor_process_composition import (
+    ManifestHandoffSupervisorCandidateProcess,
+    ManifestHandoffSupervisorCandidateReadinessProbe,
+)
 from liquent_platform.application.evidence import evidence_document
 from liquent_platform.application.experiment import ExperimentSnapshot, freeze_parameters
 from liquent_platform.application.authorization_errors import (
@@ -41,6 +48,9 @@ from liquent_platform.application.internal_destination import (
     ValidatedInternalDestination,
     resolve_internal_destination,
 )
+from liquent_platform.application.list_workspace_research_jobs import (
+    list_current_workspace_research_jobs,
+)
 from liquent_platform.application.oidc_login_errors import (
     OidcLoginStartConflict,
     OidcLoginUnavailable,
@@ -50,6 +60,10 @@ from liquent_platform.application.prepare_oidc_login_authorization import (
     prepare_oidc_login_authorization,
 )
 from liquent_platform.application.read_research_job import get_authorized_research_job
+from liquent_platform.application.resolve_workspace_research_read import (
+    permits_workspace_research_read,
+    resolve_workspace_research_read,
+)
 from liquent_platform.application.revoke_session import revoke_browser_session
 from liquent_platform.application.session_lifecycle_errors import (
     SessionRevocationUnavailable,
@@ -69,6 +83,7 @@ from liquent_platform.identity.oidc_login_material import (
     SecureOidcLoginMaterialGenerator,
 )
 from liquent_platform.identity.oidc_login_transaction import OidcLoginState
+from liquent_platform.identity.oidc_verification_policy import OidcVerificationPolicy
 from liquent_platform.identity.ports import (
     ActiveOidcClientConfigurationLookup,
     BrowserSessionCreationStore,
@@ -80,6 +95,8 @@ from liquent_platform.identity.ports import (
     OidcAuthorizationCodeVerifier,
     OidcLoginTransactionClaimStore,
     OidcLoginTransactionCreationStore,
+    CurrentWorkspaceContextLookup,
+    AuthorizedWorkspaceResearchJobIndex,
     WorkspaceMembershipLookup,
 )
 from liquent_platform.identity.session import ResolvedBrowserSession, SessionId
@@ -89,6 +106,7 @@ from liquent_platform.transport.http.oidc_state_cookie import (
     set_oidc_state_cookie,
 )
 from liquent_platform.transport.http.session_cookie import (
+    SESSION_COOKIE_NAME,
     clear_session_cookie,
     set_issued_session,
 )
@@ -96,6 +114,26 @@ from liquent_platform.jobs.in_memory import InMemoryResearchJob, InMemoryResearc
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.configuration import PlatformSettings
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
+from liquent_platform.persistence.browser_sessions import DatabaseBrowserSessions
+from liquent_platform.persistence.identity_errors import (
+    BrowserSessionStoreUnavailable,
+    ResearchJobStoreUnavailable,
+    WorkspaceMembershipStoreUnavailable,
+)
+from liquent_platform.persistence.identity_store import DatabaseExternalIdentities
+from liquent_platform.persistence.login_session_composition import (
+    compose_login_sessions,
+)
+from liquent_platform.persistence.research_jobs import DatabaseResearchJobs
+from liquent_platform.persistence.oidc_verifier_composition import (
+    compose_oidc_verifier,
+)
+from liquent_platform.persistence.workspace_memberships import (
+    DatabaseWorkspaceMemberships,
+)
+from liquent_platform.persistence.workspace_contexts import (
+    DatabaseCurrentWorkspaceContexts,
+)
 from liquent_platform.observability.http import ObservabilityMiddleware
 from liquent_platform.observability.metrics import ControlPlaneMetrics
 
@@ -134,10 +172,15 @@ class ResearchJobStartRequest(BaseModel):
 
 # LQ-175 §4. Enforced on the raw ASGI bytes so the request target stays bounded
 # independently of proxy defaults, and so nothing is decoded under an unbounded
-# input. Four parameters is exactly the largest permitted provider-error form.
+# input. Seven parameters cover the exact success form emitted by Google while
+# retaining a small, fixed upper bound.
 _MAX_RAW_CALLBACK_QUERY_BYTES = 8192
-_MAX_RAW_CALLBACK_QUERY_COMPONENTS = 4
+_MAX_RAW_CALLBACK_QUERY_COMPONENTS = 7
 _MAX_RAW_CALLBACK_COMPONENT_BYTES = 4096
+
+_CALLBACK_SUCCESS_AUXILIARY_PARAMETERS = frozenset(
+    {"iss", "scope", "authuser", "hd", "prompt"}
+)
 
 _CALLBACK_METHODS = [
     "GET",
@@ -163,7 +206,8 @@ def _raw_callback_query_is_bounded(raw: bytes) -> bool:
     if len(components) > _MAX_RAW_CALLBACK_QUERY_COMPONENTS:
         return False
     return all(
-        len(component) <= _MAX_RAW_CALLBACK_COMPONENT_BYTES for component in components
+        component and len(component) <= _MAX_RAW_CALLBACK_COMPONENT_BYTES
+        for component in components
     )
 
 
@@ -179,16 +223,26 @@ def _single_callback_state(parameters: list[tuple[str, str]]) -> str | None:
 def _callback_authorization_code(parameters: list[tuple[str, str]]) -> str | None:
     """The code of a valid success form; ``None`` for every other form.
 
-    The success form is exactly one state and one non-empty code, so an unknown
-    parameter, a duplicate, or an empty code all fail this test. ``None``
-    deliberately does not distinguish a valid provider-error form from a
-    malformed one: both are neutral business rejections that must still leave
-    the transaction consumed fail-closed (LQ-158 §6), which is exactly what the
-    verification use case does when it receives ``None``.
+    The success form has exactly one state and one non-empty code. It may also
+    contain at most one non-empty value for each explicitly recognized Google
+    response annotation. Unknown names, duplicates, empty annotations and any
+    error parameter fail this test. The annotations grant no authority and are
+    not forwarded to the verifier. ``None`` deliberately does not distinguish
+    a valid provider-error form from a malformed one: both are neutral business
+    rejections that must still leave the transaction consumed fail-closed
+    (LQ-158 §6), which is exactly what the verification use case does when it
+    receives ``None``.
     """
 
     names = [name for name, _ in parameters]
-    if len(names) != 2 or set(names) != {"state", "code"}:
+    allowed = _CALLBACK_SUCCESS_AUXILIARY_PARAMETERS | {"state", "code"}
+    if (
+        set(names) - allowed
+        or names.count("state") != 1
+        or names.count("code") != 1
+        or len(names) != len(set(names))
+        or any(not value for name, value in parameters if name in allowed)
+    ):
         return None
     code = next(value for name, value in parameters if name == "code")
     return code or None
@@ -271,6 +325,8 @@ def create_app(
     research_memberships: WorkspaceMembershipLookup | None = None,
     logout_sessions: BrowserSessionLookup | None = None,
     logout_revocations: BrowserSessionRevocationStore | None = None,
+    landing_workspace_contexts: CurrentWorkspaceContextLookup | None = None,
+    workspace_research_job_index: AuthorizedWorkspaceResearchJobIndex | None = None,
     oidc_login_configurations: ActiveOidcClientConfigurationLookup | None = None,
     oidc_login_transactions: OidcLoginTransactionCreationStore | None = None,
     oidc_login_material: SecureOidcLoginMaterialGenerator | None = None,
@@ -286,14 +342,157 @@ def create_app(
     oidc_session_lifetime: timedelta | None = None,
     oidc_callback_rejection: ValidatedInternalDestination | None = None,
     oidc_callback_unavailable: ValidatedInternalDestination | None = None,
+    database_engine: Engine | None = None,
+    database_engine_owned: bool = False,
+    oidc_http_client: httpx2.Client | None = None,
+    oidc_verification_policy: OidcVerificationPolicy | None = None,
+    oidc_client_secret: str | None = None,
+    oidc_monotonic_clock: Callable[[], float] | None = None,
+    oidc_http_client_owned: bool = False,
+    manifest_handoff_supervisor_process: (
+        ManifestHandoffSupervisorCandidateProcess | None
+    ) = None,
+    manifest_handoff_supervisor_readiness: (
+        ManifestHandoffSupervisorCandidateReadinessProbe | None
+    ) = None,
+    manifest_handoff_supervisor_process_owned: bool = False,
 ) -> FastAPI:
     """Create an isolated app after configuration has validated successfully."""
 
     runtime_settings = settings or PlatformSettings()
+    if oidc_http_client_owned and oidc_http_client is None:
+        raise ValueError("owned oidc http client requires a client")
+    engine = database_engine
+    if database_engine_owned and engine is None:
+        raise ValueError("owned database engine requires an explicit engine")
+    owns_engine = database_engine_owned
+    supervisor_requested = any((
+        manifest_handoff_supervisor_process is not None,
+        manifest_handoff_supervisor_readiness is not None,
+        manifest_handoff_supervisor_process_owned,
+    ))
+    if supervisor_requested and not all((
+        type(manifest_handoff_supervisor_process)
+        is ManifestHandoffSupervisorCandidateProcess,
+        type(manifest_handoff_supervisor_readiness)
+        is ManifestHandoffSupervisorCandidateReadinessProbe,
+        manifest_handoff_supervisor_process_owned is True,
+        manifest_handoff_supervisor_readiness is not None
+        and manifest_handoff_supervisor_readiness.process
+        is manifest_handoff_supervisor_process,
+        runtime_settings.manifest_handoff_supervisor_enabled,
+        isinstance(engine, Engine),
+        health is None,
+    )):
+        raise ValueError(
+            "manifest handoff supervisor process, readiness, ownership, settings, "
+            "and explicit database engine must be provided together"
+        )
+    auto_oidc_requested = any(
+        dependency is not None
+        for dependency in (
+            oidc_http_client,
+            oidc_verification_policy,
+            oidc_client_secret,
+            oidc_monotonic_clock,
+        )
+    )
+    if auto_oidc_requested:
+        database_available = engine is not None or (
+            health is None and runtime_settings.database_url is not None
+        )
+        if (
+            not database_available
+            or oidc_http_client is None
+            or oidc_verification_policy is None
+            or not oidc_client_secret
+        ):
+            raise ValueError(
+                "automatic oidc wiring requires database, http client, and "
+                "verification policy and client secret together"
+            )
+        auto_managed = (
+            oidc_login_configurations,
+            oidc_login_transactions,
+            oidc_login_material,
+            oidc_callback_transactions,
+            oidc_callback_verifier,
+            oidc_callback_identities,
+            oidc_callback_admissions,
+            oidc_callback_sessions,
+            oidc_callback_material,
+        )
+        if any(dependency is not None for dependency in auto_managed):
+            raise ValueError(
+                "automatic oidc wiring cannot mix explicit managed dependencies"
+            )
+        if not isinstance(oidc_session_lifetime, timedelta):
+            raise ValueError(
+                "automatic oidc wiring requires an explicit session lifetime"
+            )
+        if int(oidc_session_lifetime.total_seconds()) < 1:
+            raise ValueError("oidc session lifetime must be at least one whole second")
+        if not isinstance(oidc_login_lifetime, timedelta) or int(
+            oidc_login_lifetime.total_seconds()
+        ) < 1:
+            raise ValueError(
+                "automatic oidc wiring requires a login lifetime of at least "
+                "one whole second"
+            )
+        if oidc_login_origin is None:
+            raise ValueError("automatic oidc wiring requires a trusted login origin")
+        _require_trusted_https_origin(oidc_login_origin)
+        if oidc_callback_rejection is None or oidc_callback_unavailable is None:
+            raise ValueError(
+                "automatic oidc wiring requires both callback destinations"
+            )
+    if engine is None and health is None and runtime_settings.database_url is not None:
+        engine = build_engine(runtime_settings.database_url.get_secret_value())
+        owns_engine = True
+    persistent_sessions: DatabaseBrowserSessions | None = None
+    if auto_oidc_requested:
+        # Established by the fail-fast availability check above.
+        assert engine is not None
+        assert oidc_http_client is not None
+        assert oidc_verification_policy is not None
+        clock = oidc_login_clock or (lambda: datetime.now(UTC))
+        assert isinstance(oidc_session_lifetime, timedelta)
+        login = compose_login_sessions(
+            engine,
+            session_lifetime=oidc_session_lifetime,
+            now=clock,
+        )
+        persistent_sessions = login.sessions
+        verification = compose_oidc_verifier(
+            engine,
+            oidc_http_client,
+            oidc_verification_policy,
+            client_secret=oidc_client_secret,
+            now=clock,
+            monotonic=oidc_monotonic_clock,
+        )
+        identities = DatabaseExternalIdentities(engine, now=clock)
+        oidc_login_configurations = verification.configurations
+        oidc_login_transactions = login.transactions
+        oidc_login_material = SecureOidcLoginMaterialGenerator()
+        oidc_callback_transactions = login.transactions
+        oidc_callback_verifier = verification.verifier
+        oidc_callback_identities = identities
+        oidc_callback_admissions = identities
+        oidc_callback_sessions = login.sessions
+        oidc_callback_material = login.material
+        oidc_login_clock = clock
     if (research_sessions is None) is not (research_memberships is None):
         raise ValueError(
             "research session lookup and membership lookup must be provided together"
         )
+    if engine is not None and research_sessions is None:
+        if persistent_sessions is None:
+            persistent_sessions = DatabaseBrowserSessions(
+                engine, now=lambda: datetime.now(UTC)
+            )
+        research_sessions = persistent_sessions
+        research_memberships = DatabaseWorkspaceMemberships(engine)
     if (logout_sessions is None) is not (logout_revocations is None):
         raise ValueError(
             "logout session lookup and revocation store must be provided together"
@@ -366,22 +565,62 @@ def create_app(
                 "oidc login transaction lifetime must be at least one whole second"
             )
         _require_trusted_https_origin(oidc_login_origin)
-    engine = None
-    if health is None and runtime_settings.database_url is not None:
-        engine = build_engine(runtime_settings.database_url.get_secret_value())
-        process_health = ProcessHealth((DatabaseReadinessProbe(engine),))
+    if health is None and engine is not None:
+        probes = (DatabaseReadinessProbe(engine),)
+        if manifest_handoff_supervisor_readiness is not None:
+            probes += (manifest_handoff_supervisor_readiness,)
+        process_health = ProcessHealth(probes)
     else:
         process_health = health or ProcessHealth()
+    if engine is not None and logout_sessions is None and logout_revocations is None:
+        if persistent_sessions is None:
+            persistent_sessions = DatabaseBrowserSessions(
+                engine, now=lambda: datetime.now(UTC)
+            )
+        logout_sessions = persistent_sessions
+        logout_revocations = persistent_sessions
+    if engine is not None and landing_workspace_contexts is None:
+        landing_workspace_contexts = DatabaseCurrentWorkspaceContexts(engine)
+    if engine is not None and workspace_research_job_index is None:
+        def _read_only_identifier():
+            raise ResearchJobStoreUnavailable
+
+        workspace_research_job_index = DatabaseResearchJobs(
+            engine,
+            generate_job_id=_read_only_identifier,
+            generate_revision_id=_read_only_identifier,
+            generate_claim_id=_read_only_identifier,
+            clock=lambda: datetime.now(UTC),
+            lease_duration=timedelta(seconds=1),
+        )
     control_metrics = metrics or ControlPlaneMetrics()
     job_store = research_jobs or InMemoryResearchJobs()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        process_health.mark_started()
-        yield
-        process_health.mark_stopping()
-        if engine is not None:
-            engine.dispose()
+        started = False
+        try:
+            process_health.mark_started()
+            started = True
+            yield
+        finally:
+            try:
+                if started:
+                    process_health.mark_stopping()
+            finally:
+                try:
+                    if (
+                        manifest_handoff_supervisor_process_owned
+                        and manifest_handoff_supervisor_process is not None
+                    ):
+                        manifest_handoff_supervisor_process.close()
+                finally:
+                    try:
+                        if oidc_http_client_owned and oidc_http_client is not None:
+                            oidc_http_client.close()
+                    finally:
+                        if owns_engine and engine is not None:
+                            engine.dispose()
 
     app = FastAPI(
         title="Liquent Control Plane",
@@ -394,6 +633,7 @@ def create_app(
     app.state.settings = runtime_settings
     app.state.metrics = control_metrics
     app.state.research_jobs = job_store
+    app.state.workspace_research_job_index = workspace_research_job_index
     app.add_middleware(ObservabilityMiddleware, metrics=control_metrics)
 
     def job_response(job: InMemoryResearchJob) -> ResearchJobResponse:
@@ -587,12 +827,356 @@ def create_app(
                 return _no_store(status.HTTP_500_INTERNAL_SERVER_ERROR)  # keep cookie
             return _neutral_cleared()
 
+    if oidc_callback_enabled and logout_sessions is not None:
+
+        landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "</main></body></html>"
+        )
+        workspace_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>Your workspace context is available.</p>"
+            "</main></body></html>"
+        )
+        workspace_research_read_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>Your workspace context is available.</p>"
+            "<p>Research read access is available.</p>"
+            "<p><a href=\"/research\">Open Research</a></p>"
+            "</main></body></html>"
+        )
+        no_workspace_landing_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Liquent</title></head><body><main>"
+            "<h1>Signed in to Liquent</h1>"
+            "<p>Your authenticated session is active.</p>"
+            "<p>No workspace context is available.</p>"
+            "</main></body></html>"
+        )
+
+        def _landing_redirect(
+            destination: str, *, clear_cookie: bool = False
+        ) -> Response:
+            redirected = Response(status_code=status.HTTP_303_SEE_OTHER)
+            redirected.headers["Location"] = destination
+            redirected.headers["Cache-Control"] = "no-store"
+            redirected.headers["Referrer-Policy"] = "no-referrer"
+            if clear_cookie:
+                clear_session_cookie(redirected)
+            return redirected
+
+        @app.api_route(
+            "/",
+            methods=[
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
+            tags=["session"],
+        )
+        def oidc_authenticated_landing(
+            request: Request,
+            session_cookie: Annotated[
+                str | None,
+                Cookie(alias=SESSION_COOKIE_NAME),
+            ] = None,
+        ) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            try:
+                session_id = None if session_cookie is None else SessionId(session_cookie)
+                session = require_browser_session(logout_sessions, session_id)
+            except (AuthenticationRequired, ValueError):
+                return _landing_redirect(
+                    "/login", clear_cookie=session_cookie is not None
+                )
+            except BrowserSessionStoreUnavailable:
+                return _landing_redirect("/login/unavailable")
+            document = landing_document
+            if landing_workspace_contexts is not None:
+                try:
+                    workspace_context = (
+                        landing_workspace_contexts.resolve_current_workspace(
+                            session.principal.user_id
+                        )
+                    )
+                except WorkspaceMembershipStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                document = (
+                    workspace_landing_document
+                    if workspace_context is not None
+                    else no_workspace_landing_document
+                )
+                if workspace_context is not None and research_memberships is not None:
+                    try:
+                        has_research_read = permits_workspace_research_read(
+                            research_memberships,
+                            session.principal,
+                            workspace_context,
+                        )
+                    except WorkspaceMembershipStoreUnavailable:
+                        return _landing_redirect("/login/unavailable")
+                    if has_research_read:
+                        document = workspace_research_read_landing_document
+            landed = Response(content=document, media_type="text/html")
+            landed.headers["Cache-Control"] = "no-store"
+            landed.headers["Referrer-Policy"] = "no-referrer"
+            return landed
+
+        if landing_workspace_contexts is not None and research_memberships is not None:
+
+            research_landing_document = (
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                "<title>Liquent Research</title></head><body><main>"
+                "<h1>Research</h1>"
+                "<p>Read-only Research access is available.</p>"
+                "<p><a href=\"/\">Return to Liquent</a></p>"
+                "</main></body></html>"
+            )
+
+            def _research_index_document(items) -> str:
+                if not items:
+                    rows = "<p>No Research jobs are available.</p>"
+                else:
+                    entries = "".join(
+                        "<li><span>"
+                        + escape(str(item.job_id))
+                        + "</span> <span>"
+                        + escape(item.status.value)
+                        + "</span> <time datetime=\""
+                        + escape(item.updated_at.isoformat())
+                        + "\">"
+                        + escape(item.updated_at.isoformat())
+                        + "</time></li>"
+                        for item in items
+                    )
+                    rows = "<ol>" + entries + "</ol>"
+                return (
+                    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                    "<title>Liquent Research</title></head><body><main>"
+                    "<h1>Research</h1><p>Read-only Research access is available.</p>"
+                    "<h2>Research jobs</h2>"
+                    + rows
+                    + "<p><a href=\"/\">Return to Liquent</a></p>"
+                    "</main></body></html>"
+                )
+
+            @app.api_route(
+                "/research",
+                methods=[
+                    "GET",
+                    "HEAD",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "CONNECT",
+                ],
+                tags=["research"],
+            )
+            def workspace_research_landing(
+                request: Request,
+                session_cookie: Annotated[
+                    str | None,
+                    Cookie(alias=SESSION_COOKIE_NAME),
+                ] = None,
+            ) -> Response:
+                if request.method != "GET":
+                    rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                    rejected.headers["Allow"] = "GET"
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                if request.url.query:
+                    rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                try:
+                    session_id = (
+                        None if session_cookie is None else SessionId(session_cookie)
+                    )
+                    session = require_browser_session(logout_sessions, session_id)
+                except (AuthenticationRequired, ValueError):
+                    return _landing_redirect(
+                        "/login", clear_cookie=session_cookie is not None
+                    )
+                except BrowserSessionStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                try:
+                    if workspace_research_job_index is None:
+                        result = resolve_workspace_research_read(
+                            landing_workspace_contexts,
+                            research_memberships,
+                            session.principal,
+                        )
+                    else:
+                        result = list_current_workspace_research_jobs(
+                            landing_workspace_contexts,
+                            research_memberships,
+                            workspace_research_job_index,
+                            session.principal,
+                        )
+                except (WorkspaceMembershipStoreUnavailable, ResearchJobStoreUnavailable):
+                    return _landing_redirect("/login/unavailable")
+                if result is None:
+                    rejected = Response(status_code=status.HTTP_404_NOT_FOUND)
+                    rejected.headers["Cache-Control"] = "no-store"
+                    return rejected
+                document = (
+                    research_landing_document
+                    if workspace_research_job_index is None
+                    else _research_index_document(result)
+                )
+                landed = Response(
+                    content=document,
+                    media_type="text/html",
+                )
+                landed.headers["Cache-Control"] = "no-store"
+                landed.headers["Referrer-Policy"] = "no-referrer"
+                return landed
+
     if oidc_login_enabled:
+
+        login_entry_document = (
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>Sign in to Liquent</title></head><body><main>"
+            "<h1>Sign in to Liquent</h1>"
+            "<form method=\"post\" action=\"/v1/session/oidc/login\">"
+            "<button type=\"submit\">Continue with Google</button>"
+            "</form></main></body></html>"
+        )
+
+        @app.api_route(
+            "/login",
+            methods=[
+                "GET",
+                "HEAD",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "CONNECT",
+            ],
+            tags=["session"],
+        )
+        async def oidc_login_entry_route(request: Request) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            entry = Response(content=login_entry_document, media_type="text/html")
+            entry.headers["Cache-Control"] = "no-store"
+            # A same-origin form POST must retain its concrete Origin. With
+            # ``no-referrer`` Safari and Chromium serialize that Origin as
+            # ``null``, which the login-start boundary correctly rejects.
+            # The subsequent redirect to the identity provider still uses
+            # ``no-referrer`` below, so no Liquent URL crosses that boundary.
+            entry.headers["Referrer-Policy"] = "same-origin"
+            return entry
+
+        login_outcome_documents = {
+            "/login/rejected": (
+                "Sign-in could not be completed",
+                "Your access has not been changed. Contact your Liquent "
+                "administrator before trying again.",
+            ),
+            "/login/unavailable": (
+                "Sign-in is temporarily unavailable",
+                "Your access has not been changed. Please try again later.",
+            ),
+        }
+
+        def _login_outcome_document(title: str, message: str) -> str:
+            return (
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                f"<title>{title}</title></head><body><main><h1>{title}</h1>"
+                f"<p>{message}</p><p><a href=\"/login\">Return to sign in</a></p>"
+                "</main></body></html>"
+            )
+
+        async def oidc_login_outcome_route(request: Request) -> Response:
+            if request.method != "GET":
+                rejected = Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
+                rejected.headers["Allow"] = "GET"
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            if request.url.query:
+                rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
+                rejected.headers["Cache-Control"] = "no-store"
+                return rejected
+            title, message = login_outcome_documents[request.url.path]
+            outcome = Response(
+                content=_login_outcome_document(title, message),
+                media_type="text/html",
+            )
+            outcome.headers["Cache-Control"] = "no-store"
+            outcome.headers["Referrer-Policy"] = "no-referrer"
+            return outcome
+
+        for outcome_path in login_outcome_documents:
+            app.add_api_route(
+                outcome_path,
+                oidc_login_outcome_route,
+                methods=[
+                    "GET",
+                    "HEAD",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "CONNECT",
+                ],
+                tags=["session"],
+                name=f"oidc_login_outcome_{outcome_path.rsplit('/', 1)[-1]}",
+            )
 
         def _rejected(status_code: int) -> Response:
             """One neutral empty rejection: no cookie, no redirect, no detail."""
 
-            rejected = Response(status_code=status_code)
+            # An explicit text type keeps navigation responses renderable as an
+            # empty page.  Safari otherwise treats Starlette's untyped empty
+            # response as a downloadable application/octet-stream document.
+            rejected = Response(status_code=status_code, media_type="text/plain")
             rejected.headers["Cache-Control"] = "no-store"
             return rejected
 
@@ -632,13 +1216,18 @@ def create_app(
                 return _rejected(status.HTTP_400_BAD_REQUEST)
             if await request.body():
                 return _rejected(status.HTTP_400_BAD_REQUEST)
-            # Unauthenticated, so no Liquent CSRF token exists yet. The trusted
-            # origin is injected and never derived from Host, Forwarded,
-            # X-Forwarded-Host, query, or body; Referer is no substitute. A
-            # missing header and the opaque "null" both fail this comparison.
-            if request.headers.get("origin") != oidc_login_origin:
-                return _rejected(status.HTTP_403_FORBIDDEN)
+            # Unauthenticated, so no Liquent CSRF token exists yet. Prefer the
+            # exact trusted Origin. Safari may omit Origin for a same-origin
+            # HTML form navigation, so a missing Origin is accepted only with
+            # the browser-controlled Sec-Fetch-Site proof below. A present
+            # Origin never falls back: null, foreign, and malformed values fail.
+            origin = request.headers.get("origin")
             fetch_site = request.headers.get("sec-fetch-site")
+            if origin is None:
+                if fetch_site != "same-origin":
+                    return _rejected(status.HTTP_403_FORBIDDEN)
+            elif origin != oidc_login_origin:
+                return _rejected(status.HTTP_403_FORBIDDEN)
             if fetch_site is not None and fetch_site != "same-origin":
                 # cross-site, same-site, none, and any unknown value are refused.
                 return _rejected(status.HTTP_403_FORBIDDEN)

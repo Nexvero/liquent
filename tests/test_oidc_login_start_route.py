@@ -178,6 +178,7 @@ def _assert_no_side_effects(response: Any, *args: Any) -> None:
 
     assert response.content == b""
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-type"].startswith("text/plain")
     assert response.headers.get("set-cookie") is None
     assert response.headers.get("location") is None
     assert "retry-after" not in response.headers
@@ -205,6 +206,99 @@ def test_full_injection_activates_the_route() -> None:
     response = _post(client)
 
     assert response.status_code == 303
+
+
+def test_full_injection_exposes_one_script_free_same_origin_login_form() -> None:
+    response = _client().get("/login")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "same-origin"
+    assert response.text.count("<form") == 1
+    assert 'method="post"' in response.text
+    assert 'action="/v1/session/oidc/login"' in response.text
+    assert "<input" not in response.text
+    assert "<script" not in response.text
+
+
+def test_default_app_has_no_login_entry_route() -> None:
+    assert TestClient(create_app()).get("/login").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "method", ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"]
+)
+def test_login_entry_rejects_every_non_get_method_neutrally(method: str) -> None:
+    response = _client().request(method, "/login")
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+
+
+def test_login_entry_rejects_query_values_without_rendering_them() -> None:
+    response = _client().get("/login?provider=caller-value")
+
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+    assert "caller-value" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("path", "heading"),
+    [
+        ("/login/rejected", "Sign-in could not be completed"),
+        ("/login/unavailable", "Sign-in is temporarily unavailable"),
+    ],
+)
+def test_login_outcome_pages_are_static_detail_free_and_not_cached(
+    path: str, heading: str
+) -> None:
+    response = _client().get(path)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert f"<h1>{heading}</h1>" in response.text
+    assert '<a href="/login">Return to sign in</a>' in response.text
+    assert "Google" not in response.text
+    assert "admission" not in response.text.lower()
+    assert "<script" not in response.text
+    assert "<form" not in response.text
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+@pytest.mark.parametrize(
+    "method", ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"]
+)
+def test_login_outcome_pages_reject_non_get_methods_neutrally(
+    path: str, method: str
+) -> None:
+    response = _client().request(method, path)
+
+    assert response.status_code == 405
+    assert response.headers["allow"] == "GET"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+def test_login_outcome_pages_reject_and_do_not_render_query_values(path: str) -> None:
+    response = _client().get(f"{path}?detail=provider-value")
+
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
+    assert response.content == b""
+    assert "provider-value" not in response.text
+
+
+@pytest.mark.parametrize("path", ["/login/rejected", "/login/unavailable"])
+def test_default_app_has_no_login_outcome_pages(path: str) -> None:
+    assert TestClient(create_app()).get(path).status_code == 404
 
 
 DEPENDENCY_NAMES = (
@@ -717,6 +811,54 @@ def test_missing_null_or_foreign_origin_is_a_neutral_403(
     client = _client(lookup, store, generator, clock)
 
     response = client.post(LOGIN_URL, headers=headers, follow_redirects=False)
+
+    assert response.status_code == 403
+    _assert_no_side_effects(response, lookup, store, generator, clock)
+
+
+def test_safari_form_without_origin_uses_same_origin_fetch_metadata() -> None:
+    client = _client()
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == _expected_url()
+    assert COOKIE_NAME in _cookie(response)
+
+
+def test_null_origin_remains_rejected_even_with_same_origin_fetch_metadata() -> None:
+    lookup = RecordingLookup(_configuration())
+    store = RecordingStore()
+    generator = RecordingGenerator()
+    clock = RecordingClock()
+    client = _client(lookup, store, generator, clock)
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Origin": "null", "Sec-Fetch-Site": "same-origin"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    _assert_no_side_effects(response, lookup, store, generator, clock)
+
+
+def test_missing_origin_without_same_origin_fetch_metadata_stays_rejected() -> None:
+    lookup = RecordingLookup(_configuration())
+    store = RecordingStore()
+    generator = RecordingGenerator()
+    clock = RecordingClock()
+    client = _client(lookup, store, generator, clock)
+
+    response = client.post(
+        LOGIN_URL,
+        headers={"Sec-Fetch-Site": "none"},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 403
     _assert_no_side_effects(response, lookup, store, generator, clock)
