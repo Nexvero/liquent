@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from liquent_platform.identity.access import (
+    IdentityStatus,
     MembershipStatus,
     Permission,
     UserId,
@@ -17,6 +18,10 @@ def test_user_id_is_a_distinct_semantic_string_type() -> None:
 
 def test_membership_status_has_only_the_required_states() -> None:
     assert {status.value for status in MembershipStatus} == {"active", "inactive"}
+
+
+def test_persistent_identity_status_has_only_fail_closed_states() -> None:
+    assert {status.value for status in IdentityStatus} == {"active", "inactive"}
 
 
 def test_permission_has_only_the_two_research_values() -> None:

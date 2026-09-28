@@ -36,7 +36,9 @@ und Prometheus-Metriken sind nicht öffentlich erreichbar.
 - HSTS beginnt für Staging bewusst mit 24 Stunden und ohne `includeSubDomains`,
 - Security Header und ein Requestlimit von 1 MiB sind gesetzt,
 - Proxy-Timeouts sind kurz und begrenzt,
-- nur der exakte Pfad `/health/live` wird weitergereicht,
+- nur der exakte HTTPS-Pfad `/health/live` wird weitergereicht,
+- HTTP stellt zusätzlich ausschließlich vorhandene Certbot-Challenges unter
+  `/.well-known/acme-challenge/` aus einem read-only Host-Webroot bereit,
 - alle übrigen HTTPS-Pfade antworten mit 404.
 
 Die Plattform besitzt noch keine öffentliche Produkt-API oder UI. Das Routing

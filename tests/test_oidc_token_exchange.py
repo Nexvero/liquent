@@ -61,7 +61,8 @@ VERIFICATION = OidcAuthorizationCodeVerification(
 
 
 def _exchange(
-    handler: Any, *, monotonic: Any = None, seen: list[Any] | None = None
+    handler: Any, *, monotonic: Any = None, seen: list[Any] | None = None,
+    client_secret: str | None = None,
 ) -> Any:
     """Run one exchange against a mock transport, recording the exchanges."""
 
@@ -74,7 +75,7 @@ def _exchange(
     arguments = {"monotonic": monotonic} if monotonic is not None else {}
     with httpx2.Client(transport=httpx2.MockTransport(wrapped)) as client:
         return OidcTokenEndpointClient(
-            client, POLICY, **arguments
+            client, POLICY, client_secret=client_secret, **arguments
         ).exchange_authorization_code(CONFIGURATION, VERIFICATION)
 
 
@@ -149,6 +150,21 @@ def test_a_successful_exchange_sends_exactly_one_shaped_post() -> None:
     # Access token and scope are ignored, and the value never reaches repr.
     assert result == OidcIdToken(ID_TOKEN)
     assert repr(result) == "OidcIdToken()"
+
+
+def test_a_runtime_client_secret_is_sent_only_in_the_token_form() -> None:
+    seen: list[Any] = []
+
+    _exchange(_OK, seen=seen, client_secret="confidential-secret")
+
+    request, _ = seen[0]
+    form = dict(parse_qsl(request.content.decode()))
+    assert form["client_secret"] == "confidential-secret"
+    assert "confidential-secret" not in repr(
+        OidcTokenEndpointClient(
+            httpx2.Client(), POLICY, client_secret="confidential-secret"
+        )
+    )
 
 
 @pytest.mark.parametrize(

@@ -165,6 +165,7 @@ def test_model_has_exactly_the_eight_agreed_fields() -> None:
         "redirect_uri",
         "created_at",
         "expires_at",
+        "expected_trust_revision",
         "admission_id",
         "return_path",
     ]

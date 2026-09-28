@@ -30,6 +30,30 @@ class IdentityAdmissionId:
             raise ValueError("admission id must not be empty")
 
 
+@dataclass(frozen=True, slots=True)
+class ProvisioningRequestId:
+    """The caller-side repetition identity of one provisioning operation.
+
+    The authorized onboarding process creates this internal handle once and
+    resends it unchanged on every technical repeat, so the provisioning
+    boundary can tell a retry from a new operation. It is purely internal: not
+    a public API value, not an admission capability handle, and presenting it
+    grants no permission. It is hidden from ``repr`` so it cannot leak through
+    an object representation, stays available via ``.value`` for authorized
+    internal processing, and is stored verbatim.
+    """
+
+    value: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        # Exact type, not isinstance: a str subclass may redefine equality or
+        # hashing, so a value that validates here could still compare
+        # differently where the handle decides whether this is a retry.
+        if type(self.value) is not str or not self.value:
+            # Neutral on purpose: the rejected handle never appears in the text.
+            raise ValueError("invalid provisioning request id")
+
+
 def _require_aware(value: datetime, name: str) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} must be timezone-aware")

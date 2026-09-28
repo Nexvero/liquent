@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
-from liquent.backtesting.runner import BacktestRunner, CostModel
+from liquent.backtesting.runner import BacktestResult, BacktestRunner, CostModel
 from liquent.data.sources import HistoricalFileSource
 from liquent.risk.engine import RiskEngine, RiskLimits
 from liquent.strategy import MidBreakoutStrategy
@@ -27,6 +28,19 @@ _RISK_KEYS = {
     "sizing_mode",
 }
 _COST_KEYS = {"fee_rate", "slippage", "spread"}
+
+
+class _SnapshotBoundBacktestExecution:
+    """Bind runner evidence to the accepted persistent experiment identity."""
+
+    __slots__ = ("_runner", "_experiment_id")
+
+    def __init__(self, runner: BacktestRunner, experiment_id: str) -> None:
+        self._runner = runner
+        self._experiment_id = experiment_id
+
+    def run(self) -> BacktestResult:
+        return replace(self._runner.run(), experiment_id=self._experiment_id)
 
 
 def _exact_parameters(
@@ -79,7 +93,7 @@ class LocalCsvMidBreakoutV0Resolver:
         if not isinstance(strategy["allow_short"], bool):
             raise ValueError("allow_short must be boolean")
 
-        return BacktestRunner(
+        runner = BacktestRunner(
             source=HistoricalFileSource(str(csv_path), history_policy="ignore"),
             strategy=MidBreakoutStrategy(
                 lookback_bars=_integer(strategy, "lookback_bars"),
@@ -103,3 +117,4 @@ class LocalCsvMidBreakoutV0Resolver:
             ),
             initial_equity=_number(risk, "initial_equity"),
         )
+        return _SnapshotBoundBacktestExecution(runner, str(snapshot.experiment_id))

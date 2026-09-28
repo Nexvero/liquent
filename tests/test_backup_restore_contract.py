@@ -7,12 +7,17 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKUP_ROOT = ROOT / "operations" / "backup"
+BACKUP_DOCKERFILE = ROOT / "Dockerfile.backup"
+BACKUP_SMOKE = ROOT / "operations" / "container" / "backup-smoke-test.sh"
 SCRIPTS = (
     BACKUP_ROOT / "lib.sh",
     BACKUP_ROOT / "backup.sh",
     BACKUP_ROOT / "retention.sh",
     BACKUP_ROOT / "restore-verify.sh",
+    BACKUP_ROOT / "alert.sh",
+    BACKUP_ROOT / "check-age.sh",
 )
+SYSTEMD_ROOT = ROOT / "operations" / "systemd"
 
 
 def _checked_config(tmp_path: Path) -> Path:
@@ -53,8 +58,44 @@ def _checked_config(tmp_path: Path) -> Path:
 
 
 def test_backup_scripts_have_valid_bash_syntax() -> None:
-    for script in SCRIPTS:
+    for script in (*SCRIPTS, BACKUP_SMOKE):
         subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
+    dockerfile = BACKUP_DOCKERFILE.read_text(encoding="utf-8")
+    assert "postgres:18.6-trixie@sha256:" in dockerfile
+    assert "golang:1.26.6-trixie@sha256:" in dockerfile
+    assert "ARG RESTIC_VERSION=0.19.1" in dockerfile
+    assert "ARG RESTIC_SOURCE_SHA256=" in dockerfile
+    for module in (
+        "golang.org/x/crypto@v0.56.0",
+        "golang.org/x/net@v0.57.0",
+        "golang.org/x/text@v0.41.0",
+        "google.golang.org/grpc@v1.83.1",
+    ):
+        assert module in dockerfile
+    assert "ARG OPENSSL_VERSION=3.5.7-1~deb13u2" in dockerfile
+    assert "ARG CA_CERTIFICATES_VERSION=20250419" in dockerfile
+    assert '"ca-certificates=${CA_CERTIFICATES_VERSION}"' in dockerfile
+    for package in ("libssl3t64", "openssl", "openssl-provider-legacy"):
+        assert f'"{package}=${{OPENSSL_VERSION}}"' in dockerfile
+    assert "--only-upgrade" in dockerfile
+    assert "COPY --from=restic /out/restic" in dockerfile
+    assert "rm -f /usr/local/bin/gosu" in dockerfile
+    assert "USER 10001:10001" in dockerfile
+    assert "ENTRYPOINT []" in dockerfile
+    assert '["/opt/liquent/backup/backup.sh", "--check"]' in dockerfile
+
+
+def test_quality_workflow_builds_and_smokes_backup_image() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "quality.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "backup-container:" in workflow
+    assert "--file Dockerfile.backup" in workflow
+    assert "backup-smoke-test.sh" in workflow
+    assert '10001:10001' in workflow
 
 
 def test_backup_and_restore_check_mode_perform_no_external_commands(tmp_path: Path) -> None:
@@ -114,3 +155,38 @@ def test_runbook_requires_isolated_restore_and_records_rpo_rto() -> None:
     )
     for term in ("isolated", "RPO", "RTO", "snapshot ID", "never into Production"):
         assert term in runbook
+
+
+def test_scheduled_backup_runs_retention_only_after_backup_and_records_success() -> None:
+    service = (SYSTEMD_ROOT / "liquent-backup.service").read_text(encoding="utf-8")
+    backup = service.index("run --rm backup\n")
+    retention = service.index("retention.sh --apply")
+    success = service.index("last-success")
+    assert backup < retention < success
+    assert "OnFailure=liquent-backup-failure-alert.service" in service
+
+
+def test_backup_and_age_timers_are_persistent_and_daily() -> None:
+    backup_timer = (SYSTEMD_ROOT / "liquent-backup.timer").read_text(encoding="utf-8")
+    age_timer = (SYSTEMD_ROOT / "liquent-backup-age.timer").read_text(encoding="utf-8")
+    for timer in (backup_timer, age_timer):
+        assert "OnCalendar=*-*-*" in timer
+        assert "Persistent=true" in timer
+        assert "RandomizedDelaySec=" in timer
+
+
+def test_age_check_defaults_to_24_hours_and_alerts_fail_closed() -> None:
+    script = (BACKUP_ROOT / "check-age.sh").read_text(encoding="utf-8")
+    assert "LIQUENT_BACKUP_MAXIMUM_AGE_SECONDS:-86400" in script
+    assert "No successful backup timestamp is recorded." in script
+    assert "older than 24 hours" in script
+    assert '[[ ! -f "$stamp" || -L "$stamp" ]]' in script
+
+
+def test_alert_configuration_contains_no_real_recipient_or_password() -> None:
+    example = (BACKUP_ROOT / "alert.env.example").read_text(encoding="utf-8")
+    assert "admin@example.invalid" in example
+    assert "password" not in example.lower()
+    alert = (BACKUP_ROOT / "alert.sh").read_text(encoding="utf-8")
+    assert "backup_require_file" in alert
+    assert "msmtp --account=" in alert
