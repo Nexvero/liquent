@@ -18,9 +18,9 @@
   Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
   per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
-- **Paketinventar:** **71 Console Entry Points**, **70 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **42 lineare Migrationen**, Head
-  `20260826_0042`.
+- **Paketinventar:** **74 Console Entry Points**, **71 Operatorimplementierungs-
+  und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
+  `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
@@ -12212,6 +12212,1539 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - stoppt PostgreSQL künftig im Bootstrap-Fehlerpfad neben der Control Plane
   - bestätigt gestoppten Container, leeres Volume und weiterhin aktiven Host-nginx
   - löscht weder Container, Volume noch die vier geprüften Deployment-Netzwerke
+
+- LQ-2641 staging runtime restart acceptance:
+  `docs/lq-2641-staging-runtime-restart-acceptance.md`
+  - bindet die Abnahme an den gemergten Repository- und unveränderlichen Release-Stand
+  - startet PostgreSQL, Control Plane und Container-Edge kontrolliert in Abhängigkeitsreihenfolge neu
+  - bestätigt alle drei Healthchecks sowie den externen HTTPS-Liveness-Endpunkt mit HTTP 200
+  - bestätigt den persistent erhaltenen Alembic-Stand `20260826_0042`
+  - hält den abgelösten Host-nginx inaktiv und beide Backup-Überwachungstimer aktiv
+  - belegt 20 erfolgreiche lokale Bootstrap-, Edge- und Promotion-Vertragstests
+  - führt weder Release, Migration, Secretänderung noch Production-Freigabe aus
+  - lässt die authentifizierte Benutzer- und OIDC-Staging-Abnahme als nächsten separaten Strang offen
+
+- LQ-2642 staging OIDC readiness audit:
+  `docs/lq-2642-staging-oidc-readiness-audit.md`
+  - bestätigt die vollständig deaktivierte OIDC-Runtime-Composition ohne Teilverdrahtung
+  - bestätigt die weiterhin geschlossene öffentliche Edge-Grenze für Session- und OIDC-Routen
+  - zählt neutral null Benutzer, Workspaces, Trust-Autoritäten, Client-Konfigurationen und externe Bindungen
+  - trennt Initial-Identity-, Trust-Authority-, Provider-, Runtime-, Edge- und Browserphasen fail-closed
+  - verbietet die Ableitung eines Providers oder einer Autorität aus Caller-, Browser- oder Hostwerten
+  - wahrt die Trennung von SessionPrincipal, Membership, Research und Management Capability
+  - verändert weder Datenbank, Runtime, Edge, DNS, Zertifikate noch externe Providerkonten
+  - lässt Initial-Identity- und Trust-Authority-Bootstrap als nächsten kontrollierten Slice offen
+
+- LQ-2643 staging initial identity and trust-authority bootstrap:
+  `docs/lq-2643-staging-initial-identity-and-trust-authority-bootstrap.md`
+  - führt beide einmaligen Operatoren aus dem digestgebundenen Staging-Release isoliert aus
+  - erzeugt genau einen stabilen internen Benutzer und genau einen stabilen internen Workspace
+  - bindet genau eine globale OIDC-Trust-Management-Autorität an den erzeugten aktiven Benutzer
+  - verwahrt Resultate und enge ID-Übergabe root-only ohne interne IDs offenzulegen
+  - bestätigt weiterhin null OIDC-Client-Konfigurationen und null externe Identitätsbindungen
+  - trennt Trust-Management ausdrücklich von Membership, Onboarding und Research-Berechtigungen
+  - verändert weder Runtime, Edge, DNS, Zertifikate noch externe Providerkonten
+  - lässt Providerwahl, Client-Einrichtung und Trust-Aktivierung als nächsten separaten Strang offen
+
+- LQ-2644 confidential OIDC client runtime secret:
+  `docs/lq-2644-confidential-oidc-client-runtime-secret.md`
+  - ergänzt ein vollständigkeitsgebundenes `SecretStr` ausschließlich für die OIDC-Runtime
+  - hält das Client-Secret vollständig außerhalb persistenter Trust-Konfiguration und Migrationen
+  - sendet Secret und PKCE-Verifier gemeinsam nur an den konfigurierten Token-Endpunkt
+  - hält Secret aus Authorization-URL, JWKS, Browserantworten, Fehlern und Repräsentationen fern
+  - mountet das Docker Secret ausschließlich in die Control Plane
+  - lässt fehlende oder leere Secrets vor automatischer OIDC-Composition geschlossen scheitern
+  - belegt Token-, Composition-, Wiring-, Settings- und Compose-Vertrag mit 78 Tests
+  - lässt Google-Client-Erzeugung, Review, Release und Staging-Promotion separat offen
+
+- LQ-2645 staging Google OIDC activation acceptance:
+  `docs/lq-2645-staging-google-oidc-activation-acceptance.md`
+  - bindet Google-Provider, persistente Trust-Konfiguration, Release `0.1.4` und exakte öffentliche OIDC-Edge-Routen zu einem geprüften Staging-Checkpoint
+  - bestätigt PostgreSQL, Control Plane und Edge gesund sowie OIDC in der wertfreien Runtime-Zusammenfassung vollständig aktiviert
+  - bestätigt aggregiert genau einen Nutzer, einen Workspace, eine Trust-Autorität und eine Client-Konfiguration, aber null externe Bindungen und null Admissions
+  - belegt Login-Start mit 405 für GET und 303 zu Google für einen gültigen same-origin POST; der Callback erreicht die Anwendung statt Edge-404
+  - hält Client-Secret, interne IDs, Provider-Subject und Client-ID außerhalb von Repository, Evidenz und Ausgaben
+  - wertet die neutrale Callback-Ablehnung ohne Bindung oder Admission als beabsichtigtes fail-closed Verhalten
+  - lässt genau eine intern autorisierte, serverseitig an den Login gebundene Staging-Admission als LQ-2646 offen
+  - erzeugt weder Identitätsbindung, Session, Membership noch Research-Berechtigung
+
+- LQ-2646 controlled staging OIDC admission login:
+  `docs/lq-2646-controlled-staging-oidc-admission-login.md`
+  - ergänzt einen privaten Offline-Operator für autorisierte Admission-Provisionierung und serverseitige Login-Bindung
+  - akzeptiert weder Browser-State noch Admission-ID, Providerwerte, Rollen oder caller-gelieferte Freigaben
+  - bindet nur bei genau einer aktuellen ungebundenen OIDC-Login-Transaktion
+  - behandelt null oder mehrere Kandidaten neutral und ohne Mutation
+  - macht exakte Wiederholung mit derselben Admission erfolgreich und erzeugt keine zweite Admission
+  - nutzt bestehende persistente Autoritätsauflösung; SessionPrincipal identifiziert nur den Akteur
+  - hält Onboarding-Management getrennt von Membership und Research-Berechtigungen
+  - lässt öffentliche OIDC-Routen und Browserverträge unverändert
+  - lässt Review, Release, Promotion und einen realen kontrollierten Staging-Login separat offen
+
+- LQ-2647 staging OIDC login entry:
+  `docs/lq-2647-staging-oidc-login-entry.md`
+  - ergänzt genau eine statische same-origin Loginoberfläche bei vollständiger OIDC-Komposition
+  - enthält ein einziges skriptfreies POST-Formular ohne Browser- oder Geschäftseingaben
+  - übernimmt weder Provider-, State-, Admission-, Ziel-, Rollen- noch Autoritätswerte
+  - lehnt Querywerte und alle Nicht-GET-Methoden leer und ohne Loginmutation ab
+  - erweitert die Staging-Edge ausschließlich um den exakten Pfad `/login`
+  - erlaubt per CSP nur same-origin Form-Übermittlung bei fortbestehendem Default-Deny
+  - verändert weder Callback, Session, Persistenz, Schema, Provider noch Secrets
+  - lässt Review, Release, Promotion und den kontrollierten realen Login separat offen
+
+- LQ-2648 Safari OIDC login-start compatibility:
+  `docs/lq-2648-safari-oidc-login-start-compatibility.md`
+  - akzeptiert fehlenden Origin nur mit exakt browsergebundenem `Sec-Fetch-Site: same-origin`
+  - lässt jeden vorhandenen Origin weiterhin ausschließlich bei exakter Übereinstimmung passieren
+  - hält fremde, null-, unvollständige und cross-site Nachweise vor jeder Mutation geschlossen
+  - versieht leere neutrale Ablehnungen mit browsergeeignetem `text/plain` statt Downloadverhalten
+  - verändert weder Admission, Callback, Sessionautorität, Persistenz, Schema noch Secrets
+  - belegt den Fix mit 179 fokussierten und 7.216 vollständigen erfolgreichen Tests
+  - lässt Review, Release, Promotion und den einmaligen realen Staging-Login separat offen
+
+- LQ-2649 login-entry origin preservation:
+  `docs/lq-2649-login-entry-origin-preservation.md`
+  - korrigiert den beobachteten Widerspruch zwischen `no-referrer` und der exakten Origin-Prüfung
+  - verwendet `same-origin` ausschließlich für das statische Login-Dokument
+  - behält `no-referrer` für die anschließende Weiterleitung zum Provider bei
+  - lässt `Origin: null` auch mit same-origin Fetch Metadata weiterhin geschlossen
+  - wiederholt am Edge-Override alle bestehenden Sicherheitsheader ausdrücklich
+  - verändert weder Admission, Callback, Sessionautorität, Persistenz, Schema noch Secrets
+  - lässt Review, Release, Promotion und den realen Browser-Login separat offen
+
+- LQ-2650 OIDC form redirect policy:
+  `docs/lq-2650-oidc-form-redirect-policy.md`
+  - erklärt die leere Browserseite trotz erfolgreichem Login-POST und `303`
+  - erlaubt im `/login`-CSP ausschließlich `https://accounts.google.com`
+  - behält die serverweite Richtlinie bei `form-action 'self'`
+  - erhält `default-src 'none'`, Frame-Schutz und die exakte Origin-Prüfung
+  - lässt `Origin: null` weiterhin geschlossen
+  - verändert weder OIDC-Secrets noch Callback, Admission oder Sessionautorität
+  - hebt die durch das Image-Gate beanstandeten `httpx2`-/`httpcore2`-Pins auf die reparierten Versionen an
+  - lässt Review, Edge-Aktivierung und den realen Browser-Test separat offen
+
+- LQ-2651 OIDC login outcome pages:
+  `docs/lq-2651-oidc-login-outcome-pages.md`
+  - ersetzt die beobachteten Callback-Ziel-404 durch zwei exakte, statische Ergebnis-Seiten
+  - trennt neutrale Ablehnung von detailfreier technischer Nichtverfügbarkeit
+  - legt weder Admission-, Identitäts-, Provider-, Workspace- noch Autoritätsdetails offen
+  - lehnt Querywerte und alle Nicht-GET-Methoden leer und ohne Mutation ab
+  - versieht beide Dokumente mit `no-store`, `no-referrer` und bestehendem Edge-Schutz
+  - erweitert die Staging-Edge nur um `/login/rejected` und `/login/unavailable`
+  - verändert weder Admission, Session, Persistenz, Providerkonfiguration noch Berechtigungen
+  - lässt Review, Release, Promotion und die kontrollierte LQ-2646-Admission separat offen
+
+- LQ-2652 Google OIDC callback compatibility:
+  `docs/lq-2652-google-oidc-callback-compatibility.md`
+  - akzeptiert die beobachteten Google-Erfolgsannotationen nur als begrenzte, nicht autoritative Metadaten
+  - verlangt weiterhin genau einen nicht leeren State und Authorization Code
+  - lehnt unbekannte, doppelte, leere und überlange Queryformen geschlossen ab
+  - reicht ausschließlich den Authorization Code an die bestehende Verifikationskette weiter
+  - erhält Issuer-, PKCE-, Nonce-, Admission-, Lebenszyklus- und Session-Gates
+  - verändert weder Identität, Autorität, Mitgliedschaft, Schema, Migration, Route noch Edge
+  - lässt Review, Release, Promotion und eine neue kontrollierte Admission separat offen
+
+- LQ-2653 authenticated post-login landing:
+  `docs/lq-2653-authenticated-post-login-landing.md`
+  - schließt den nach erfolgreichem kontrolliertem OIDC-Login beobachteten Root-404
+  - liefert bei aktuell aktiver Browser-Session ein statisches, detailfreies Erfolgsdokument
+  - leitet fehlende oder ungültige Sessions neutral zu `/login` zurück und löscht vorhandene ungültige Cookies
+  - trennt technische Session-Store-Nichtverfügbarkeit über `/login/unavailable` von einer Authentifizierungsentscheidung
+  - bindet den Akteur ausschließlich aus der aktuellen persistenten Session und leitet daraus keine Autorität ab
+  - akzeptiert keine Querywerte und lehnt jede Nicht-GET-Methode leer vor einem Lookup ab
+  - exponiert am Staging-Edge ausschließlich den exakten Root-Pfad bei fortbestehendem Default-Deny
+  - erzeugt oder verändert weder Nutzer, Workspace, Admission, Bindung, Membership, Rolle, Capability noch Research-Recht
+  - lässt Produktoberfläche, Workspace-Auswahl, autorisierte Navigation, Review, Release und Staging-Abnahme separat offen
+
+- LQ-2654 staging authenticated landing acceptance:
+  `docs/lq-2654-staging-authenticated-landing-acceptance.md`
+  - bindet die reale Staging-Abnahme an `main`-Revision `424d8a5`, Release `0.1.12` und den unveränderlichen Image-Digest
+  - bestätigt grünen Post-Merge-Qualitätslauf, erfolgreiche Veröffentlichung und Attestations-Evidenz
+  - bindet die Promotion an den frischen, isoliert verifizierten Backup-Snapshot `ab25235e`
+  - bestätigt den vollständigen Promotionslauf sowie gesunde PostgreSQL- und Control-Plane-Container
+  - belegt die Bytegleichheit der aktiven Edge-Konfiguration mit dem geprüften Repositorystand
+  - bestätigt öffentlich 200 für Health und Login-Ergebnisse sowie neutralen 303-Redirect ohne Session
+  - bestätigt mit bestehender aktiver Session das statische Erfolgsdokument statt Root-404 oder Download
+  - hält SessionPrincipal nicht autorisierend und erzeugt weder Workspace-Auswahl noch Membership oder Research-Recht
+  - lässt die erste workspace-aware Read-Oberfläche und reguläre Autoritätspersistenz ausdrücklich für spätere Slices offen
+
+- LQ-2655 workspace-aware read surface contract:
+  `docs/lq-2655-workspace-aware-read-surface-contract.md`
+  - definiert die erste read-only Browsergrenze nach der authentifizierten Landing-Abnahme
+  - lässt den SessionPrincipal ausschließlich den Akteur identifizieren und verleiht ihm keine Workspace- oder Research-Autorität
+  - verlangt die serverseitige Bindung des Workspace-Kontexts an aktuelle aktive Nutzer-, Workspace- und Membership-Fakten
+  - akzeptiert weder caller-supplied Workspace-Auswahl noch Allow-Boolean, Rolle, Status oder Capability-Snapshot
+  - behandelt null oder mehrere geeignete Memberships deterministisch fail-closed und ohne implizite Auswahl
+  - trennt ordinary Membership weiterhin von Research-, Onboarding-, Membership- und Lifecycle-Management-Capabilities
+  - macht Deaktivierung und Entzug bei jeder späteren Entscheidung ohne Session-, Route- oder Prozesscache wirksam
+  - trennt neutrale Abwesenheit und Ablehnung von detailfreier technischer Nichtverfügbarkeit
+  - hält stabile interne UserId und WorkspaceId dauerhaft nicht wiederverwendbar, ohne ein konkretes Retentionsschema festzulegen
+  - erzeugt oder verändert keine Identitäts-, Workspace-, Membership-, Capability-, Session- oder Autoritätsfakten
+  - lässt Resolver, Port, Modell, Persistenz, Route, Tests, Wiring, Edge und Staging-Abnahme für explizite Folgeslices offen
+
+- LQ-2656 current workspace context resolver:
+  `docs/lq-2656-current-workspace-context-resolver.md`
+  - ergänzt einen read-only Port und ein unveränderliches internes Ergebnis für genau einen aktuellen Workspace-Kontext
+  - akzeptiert nur die stabile interne UserId und keine caller-supplied Workspace-Auswahl, Rolle, Capability oder Allow-Entscheidung
+  - bindet Nutzer, Workspace und ordinary Membership bei jedem Lookup frisch an aktive persistente System-of-Record-Fakten
+  - liefert bei null oder mehreren geeigneten Memberships dasselbe neutrale `None` und wählt niemals die erste Zeile
+  - verwendet für technische Persistenzfehler die bestehende detailfreie Membership-Unavailability-Grenze
+  - hält SessionPrincipal, Workspace-Kontext und Research- sowie Management-Autorität strikt getrennt
+  - macht eine committete Deaktivierung ohne Session-, Route-, Prozess- oder Adaptercache bei der nächsten Auflösung wirksam
+  - ergänzt weder Schema noch Migration und erzeugt oder verändert keine persistente Tatsache
+  - lässt Browserroute, HTML, Edge-Freigabe, Mehrfach-Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
+
+- LQ-2657 workspace-aware authenticated landing:
+  `docs/lq-2657-workspace-aware-authenticated-landing.md`
+  - komponiert den aktuellen Workspace-Resolver nach erfolgreicher persistenter Sessionauflösung in die bestehende Root-Landing
+  - leitet ausschließlich die interne UserId des SessionPrincipal weiter und akzeptiert keine Workspace-Auswahl vom Browser
+  - bestätigt genau einen aktuellen Kontext ohne interne IDs, Membershipstatus, Rollen, Capabilities oder Permissions offenzulegen
+  - behandelt null und mehrere geeignete Memberships mit demselben neutralen statischen Dokument
+  - verwendet bei technischer Membership-Nichtverfügbarkeit das bestehende detailfreie `/login/unavailable`-Ergebnis
+  - komponiert den persistenten Resolver bei vorhandener App-Datenbank automatisch, wahrt aber explizite Testabhängigkeiten
+  - behält LQ-2653 ohne Resolver unverändert und erweitert weder Pfad- noch Edge-Oberfläche
+  - verleiht durch sichtbaren Workspace-Kontext keine Research- oder Management-Autorität
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Operationnavigation, Workspace-Auswahl und reale Staging-Abnahme für spätere Slices offen
+
+- LQ-2658 current workspace research-read access:
+  `docs/lq-2658-current-workspace-research-read-access.md`
+  - komponiert den serverseitig aktuellen Workspace-Kontext mit der bestehenden Research-Autorisierung
+  - verlangt für denselben Sessionakteur und Workspace eine frische aktive Membership mit `research:read`
+  - erhält die bestehende Write-impliziert-Read-Regel, ohne Read zu Write-Autorität zu erweitern
+  - stoppt bei fehlendem oder mehrdeutigem Workspace-Kontext vor jedem Membership-Lookup
+  - lehnt abweichende Akteur- oder Workspace-Fakten geschlossen ab
+  - vereinheitlicht alle fachlichen Ablehnungen als neutrales `None` ohne Grund-, ID- oder Capability-Offenlegung
+  - lässt technische Store-Nichtverfügbarkeit detailfrei propagieren und tarnt sie nicht als Ablehnung
+  - cached keine Entscheidung, sodass Deaktivierung und Permission-Entzug beim nächsten Aufruf wirken
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt HTTP-Route, Linkziel, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
+
+- LQ-2659 workspace Research-read indicator:
+  `docs/lq-2659-workspace-research-read-indicator.md`
+  - ergänzt die bestehende workspace-aware Landing um einen detailfreien Research-Lesehinweis
+  - zeigt den Hinweis nur nach aktueller Autorisierung für denselben Sessionakteur und Workspace
+  - verwendet den bereits aufgelösten Workspace-Kontext ohne zweiten Kontext-Lookup
+  - wahrt die bestehende Write-impliziert-Read-Regel ohne zusätzliche Autorität zu erzeugen
+  - lässt fehlende, inaktive oder unberechtigte Memberships neutral ohne Hinweis erscheinen
+  - stoppt bei fehlendem oder mehrdeutigem Workspace-Kontext vor dem Research-Lookup
+  - trennt technische Store-Nichtverfügbarkeit über das bestehende detailfreie Ergebnis
+  - cached keine Entscheidung, sodass Deaktivierung und Permission-Entzug beim nächsten Request wirken
+  - exponiert weder IDs, Rollen, Capabilities, Permission-Sätze noch Ablehnungsgründe
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Research-Zielroute, Jobliste, Edge-Freigabe und Staging-Abnahme für spätere Slices offen
+
+- LQ-2660 workspace Research-read destination:
+  `docs/lq-2660-workspace-research-read-destination.md`
+  - ergänzt den festen queryfreien Pfad `GET /research` als erste statische Read-Oberfläche
+  - verlinkt ihn ausschließlich aus der aktuell autorisierten LQ-2659-Landing
+  - bindet Sessionakteur und aktuellen Workspace serverseitig ohne Browserauswahl
+  - verlangt bei jedem Request eine frische aktive Membership mit `research:read`
+  - wahrt Write-impliziert-Read, ohne Read zu Schreib- oder Managementautorität zu erweitern
+  - vereinheitlicht fehlenden Kontext und fachliche Ablehnung als leeres `404`
+  - trennt technische Store-Nichtverfügbarkeit über `/login/unavailable`
+  - lehnt Querywerte und Nicht-GET-Methoden vor allen Authority-Lookups ab
+  - exponiert weder IDs, Membershipdetails, Permissions, Jobs noch Sessionmaterial
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt Edge-Freigabe, reale Staging-Abnahme und persistenten Jobindex separat offen
+
+- LQ-2661 staging Research-read edge:
+  `docs/lq-2661-staging-research-read-edge.md`
+  - exponiert ausschließlich den exakten HTTPS-Pfad `/research` zur Control Plane
+  - erhält `/research/`, Unterpfade, Research-APIs und alle übrigen Pfade im Default-Deny
+  - ergänzt weder Prefix-, Regex-, Rewrite- noch Fallback-Routing
+  - übernimmt bestehende Security-Header und begrenzte Proxy-Timeouts
+  - hält die Google-spezifische Form-Ausnahme weiterhin allein auf `/login`
+  - trifft selbst keine Authority-Entscheidung und übermittelt keine Rollen oder Allow-Werte
+  - lässt Session-, Workspace- und Research-Autorisierung bei jedem Request in der Anwendung
+  - cached keine Entscheidung und schafft keinen alternativen Erfolgsweg
+  - erzeugt oder mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - exponiert weder Jobliste, Jobdetails, Evidence noch Research-Schreiboperationen
+  - lässt Release, Promotion und reale Staging-Abnahme als separate Folgeschritte offen
+
+- LQ-2662 workspace Research-job index contract:
+  `docs/lq-2662-workspace-research-job-index-contract.md`
+  - definiert einen begrenzten read-only Index persistenter Jobs im aktuellen Workspace
+  - bindet Actor und Workspace ausschließlich aus Session und aktuellen System-of-Record-Fakten
+  - verlangt pro Request eine frische aktive Membership mit Research-Leseautorität
+  - erlaubt nur opaque JobId, kontrollierten Status sowie Acceptance- und Update-Zeit
+  - lässt Workspace-, Actor-, Revision-, Claim-, Worker- und Artifact-IDs unsichtbar
+  - ordnet deterministisch nach Acceptance-Zeit und JobId unter einem serverseitigen Maximum
+  - unterscheidet autorisierte Leere von neutraler Authority-Ablehnung
+  - trennt technische Store-Nichtverfügbarkeit vom leeren oder abgelehnten Ergebnis
+  - macht Entzug und Deaktivierung bei der nächsten Entscheidung wirksam
+  - hält UserId, WorkspaceId und JobId stabil, nicht wiederverwendbar und lineage-erhaltend
+  - entscheidet noch kein Schema, SQL, Port, Modell, Route, Test, Wiring oder Pagination
+  - lässt Implementierung, HTTP-Rendering, Edge und Staging-Abnahme für Folgeslices offen
+
+- LQ-2663 workspace Research-job index foundation:
+  `docs/lq-2663-workspace-research-job-index-foundation.md`
+  - ergänzt ein minimales unveränderliches Indexelement aus JobId, Status und zwei UTC-Zeitpunkten
+  - ergänzt einen read-only Port ausschließlich für interne Actor- und Workspace-IDs
+  - implementiert den Lookup auf den vorhandenen persistenten Research-Jobtabellen
+  - bindet aktive Nutzer-, Workspace-, Membership- und Research-Read-Fakten in derselben Abfrage
+  - beschränkt jede Zeile auf den exakt serverseitig aufgelösten Workspace
+  - liefert höchstens 50 Jobs ohne caller-gesteuerten Limit-, Filter- oder Cursorwert
+  - ordnet deterministisch nach Acceptance-Zeit und opaque JobId
+  - lässt autorisierte Leere als unveränderliches leeres Tupel erscheinen
+  - macht Permission-Entzug und Lifecycle-Deaktivierungen beim nächsten Lookup wirksam
+  - verwendet die bestehende detailfreie Research-Job-Store-Unavailability-Grenze
+  - ergänzt weder Schema noch Migration und erzeugt oder mutiert keine persistente Tatsache
+  - lässt Application-Komposition, HTTP-Rendering, Edge und Staging-Abnahme separat offen
+
+- LQ-2664 workspace Research-job index application composition:
+  `docs/lq-2664-workspace-research-job-index-application-composition.md`
+  - komponiert aktuelle Workspace-Auflösung und Research-Leseentscheidung mit dem Index-Port
+  - behandelt den SessionPrincipal nur als Actor-Identität und niemals als Authority-Beleg
+  - akzeptiert keinen caller-gelieferten Workspace, Allow-Wert, Rolle, Filter oder Seitenwert
+  - bindet exakt den Principal-Actor an den frisch aufgelösten aktuellen Workspace
+  - ruft den Jobindex bei fehlender oder widersprüchlicher Authority nicht auf
+  - unterscheidet autorisierte Ergebnisse, autorisierte Leere und neutrale Ablehnung
+  - hält die Ablehnung frei von Details zur fehlenden Authority-Tatsache
+  - propagiert bestehende technische Unavailability-Grenzen unverändert
+  - wiederholt Context-, Membership- und Index-Auflösung bei jedem Aufruf
+  - cached weder Authority noch Ergebnis und macht Entzug beim nächsten Aufruf wirksam
+  - erzeugt und mutiert keine persistente Tatsache und ergänzt weder Schema noch Migration
+  - lässt HTTP-Rendering, persistentes Wiring, Edge und Staging-Abnahme separat offen
+
+- LQ-2665 workspace Research-job index HTTP rendering:
+  `docs/lq-2665-workspace-research-job-index-http-rendering.md`
+  - rendert den autorisierten Jobindex auf dem bestehenden exakten GET-Pfad `/research`
+  - zeigt nur opaque JobId, kontrollierten Status und committed Update-Zeit
+  - hält Actor, Workspace, Membership, Revision, Claims und Artifacts unsichtbar
+  - erzeugt noch keine Detail-, Evidence-, Mutation-, Retry- oder Löschlinks
+  - weist Querywerte und caller-gesteuerte Workspace-, Filter- und Seitenwerte vor Lookup ab
+  - rendert autorisierte Leere als erfolgreichen ausdrücklichen Leerzustand
+  - erhält neutrale Ablehnung als detailfreien bodylosen 404
+  - mappt bestehende technische Store-Unavailability auf das vorhandene Ziel
+  - escaped alle persistenten Werte und liefert keine Scripts oder Formulare
+  - erhält No-store- und No-referrer-Sicherheitsheader
+  - bleibt ohne explizite Index-Abhängigkeit kompatibel zur bisherigen Landing-Seite
+  - lässt persistentes Wiring, Edge, Deployment und Staging-Abnahme separat offen
+
+- LQ-2666 workspace Research-job index persistent wiring:
+  `docs/lq-2666-workspace-research-job-index-persistent-wiring.md`
+  - verdrahtet den vorhandenen DatabaseResearchJobs-Adapter bei vorhandener Engine
+  - verwendet dieselbe Engine wie Sessions, Workspace-Kontext und Memberships
+  - exponiert den Adapter am Renderer nur über den read-only Index-Port
+  - erhält explizit injizierte Index-Abhängigkeiten mit Vorrang
+  - inferiert ohne Datenbank-Engine keinen persistenten Index
+  - hält nicht benötigte Mutationsgeneratoren durch bestehende Unavailability fail-closed
+  - aktiviert weder Acceptance noch Claiming, Leases, Completion oder Worker
+  - bindet Actor und aktuellen Workspace weiterhin aus frischen Authority-Fakten
+  - cached weder Authority noch Indexresultat
+  - macht committed Permission-Entzug beim nächsten HTTP-Request wirksam
+  - ergänzt weder Schema, SQL noch Migration und mutiert keine persistente Tatsache
+  - lässt Release, Promotion, Edge und reale Staging-Abnahme separat offen
+
+- LQ-2667 staging workspace Research-job index acceptance contract:
+  `docs/lq-2667-staging-workspace-research-job-index-acceptance-contract.md`
+  - bindet Abnahme an unveränderlichen Candidate-Digest, HTTPS-Origin und Ausführung
+  - kann keinen fehlgeschlagenen Vulnerability- oder Release-Gate überstimmen
+  - verlangt vorhandene Deployment-, TLS-, Edge-, OIDC- und Authority-Voraussetzungen
+  - prüft anonymen Schutz sowie autorisierte leere und nichtleere Indexseiten
+  - verlangt No-store, No-referrer und ausschließlich minimale sichtbare Jobfakten
+  - weist caller-gesteuerte Query-, Workspace- und Seitenauswahl zurück
+  - verlangt frische Revocation- und detailfreie Unavailability-Beobachtung
+  - beschränkt den Erfolg auf den exakten HTTPS-Pfad `/research`
+  - speichert weder Cookies, Tokens, IDs, Response-Bodies noch Providerdiagnosen
+  - akzeptiert nur einen vollständigen widerspruchsfreien Beobachtungssatz
+  - löst selbst keine Promotion, Reparatur, Wiederherstellung oder Mutation aus
+  - lässt Evaluator, Netzwerkaufnahme, CLI und reale Ausführung separat offen
+
+- LQ-2668 staging Research-index acceptance evaluator:
+  `docs/lq-2668-staging-research-index-acceptance-evaluator.md`
+  - implementiert einen lokalen side-effect-freien Evaluator für LQ-2667
+  - bindet jeden Lauf an kanonischen SHA-256-Digest, HTTPS-Origin und UTC-Zeit
+  - weist Origins mit Credentials, Pfad, Query, Fragment oder Klartext zurück
+  - verwendet ein geschlossenes Vokabular aus acht Pflichtbeobachtungen
+  - akzeptiert nur einen vollständigen einmaligen Pass-Satz
+  - weist fehlende, doppelte und ersetzte Beobachtungssätze neutral zurück
+  - trennt technische Unavailability von fachlicher Rejection und Acceptance
+  - speichert nur Laufbindung und Gesamtklassifikation
+  - transportiert keine Bodies, Cookies, Tokens, IDs oder Diagnosedetails
+  - löst keine Mutation, Reparatur, Promotion oder Folgeaktion aus
+  - ergänzt weder Netzwerkzugriff, CLI, Evidenzdatei noch Workflow
+  - lässt Aufnahmeadapter, Operations-Wiring und reale Staging-Abnahme offen
+
+- LQ-2669 staging Research-index acceptance offline tool:
+  `docs/lq-2669-staging-research-index-acceptance-offline-tool.md`
+  - ergänzt ein repository-lokales Offline-Tool für den LQ-2668-Evaluator
+  - hält die eingefrorene Inventur von 72 installierten Operatoren unverändert
+  - liest nur ein sanitisiertes owner-private reguläres JSON-Dokument
+  - weist Symlinks, leere, zu große, malformed und erweiterte Eingaben zurück
+  - akzeptiert keine Cookies, Tokens, Bodies, Identitäten oder Diagnosen
+  - gibt nur Digest, HTTPS-Origin, UTC-Zeit und Gesamtklassifikation aus
+  - trennt Statuscodes für Acceptance, Rejection, Unavailability und Inputfehler
+  - reflektiert bei Inputfehlern keine privaten Details
+  - führt keinen Netzwerkzugriff, Login und Redirect-Following aus
+  - schreibt keine Evidenz und besitzt keine Authority- oder Mutationfähigkeit
+  - startet weder Workflow, Service, Deployment noch Promotion
+  - lässt reale Beobachtungsaufnahme und autorisierte Promotion separat offen
+
+- LQ-2670 staging Research-index observation acquisition contract:
+  `docs/lq-2670-staging-research-index-observation-acquisition-contract.md`
+  - bindet eine Aufnahme vor dem ersten Request an Digest, HTTPS-Origin und UTC-Zeit
+  - verwendet ausschließlich den exakten Pfad `/research` ohne caller-gesteuerte Auswahl
+  - behandelt Sessionmaterial nur als Identität und niemals als Authority
+  - verlangt frische Authority-Auflösung durch das deployte System of Record
+  - hält Credentials aus URLs, Argumenten, Logs, Ausgaben und Fehlern fern
+  - verlangt einzelne redirect-freie, zeit- und größenbegrenzte Requests
+  - trennt neutrale Abwesenheit oder Rejection von detailfreier Unavailability
+  - emittiert nur geschlossene Checknamen und sanitiserte Klassifikationen
+  - cached weder Antworten noch Authority-, Workspace- oder Ergebnisfakten
+  - besitzt keine Revocation-, Restore-, Reparatur- oder Mutationfähigkeit
+  - ergänzt noch keinen HTTP-Client, Request-Builder, Classifier oder Workflow
+  - lässt reale Aufnahme, Evidenzbildung und Promotion separat offen
+
+- LQ-2671 staging Research-index request plan:
+  `docs/lq-2671-staging-research-index-request-plan.md`
+  - implementiert einen reinen geschlossenen Plan ohne Netzwerkzugriff
+  - leitet alle URLs ausschließlich aus der validierten Laufbindung ab
+  - deckt acht Checks mit neun geordneten Requests einschließlich Revocation-Paar ab
+  - verwendet ausschließlich `GET` und den exakten `/research`-Pfad
+  - hält anonyme und Query-Rejection-Requests credential-frei
+  - trennt opaque Credential-Slots für autorisierte Testfälle
+  - enthält selbst keinerlei Credential-, Header- oder Bodymaterial
+  - akzeptiert keine Workspace-, Rollen-, URL- oder Allow-Eingabe
+  - transportiert weder Identitäten noch WorkspaceIds oder JobIds
+  - führt keine Klassifikation, Mutation, Persistenz oder Promotion aus
+  - ergänzt keinen installierten Operator und verändert dessen Inventur nicht
+  - lässt Transport, Response-Klassifikation und Evidenz separat offen
+
+- LQ-2672 staging Research-index response classifier:
+  `docs/lq-2672-staging-research-index-response-classifier.md`
+  - klassifiziert begrenzte Responses für den geschlossenen Request-Plan
+  - führt selbst keinen Netzwerkzugriff und kein Redirect-Following aus
+  - prüft Closure, HTML, minimale Indexstruktur und Security-Header
+  - prüft Query-Rejection und beide geordneten Revocation-Phasen
+  - verlangt einen leeren detailfreien Unavailability-Redirect ohne Cookie
+  - trennt valide Abweichung als Failure von technischer Unavailability
+  - behandelt doppelte Header und übergroße oder malformed Bodies fail-closed
+  - hält Header und Body aus Repräsentation und Ergebnis heraus
+  - gibt nur Check, geschlossene Phase und Klassifikation zurück
+  - transportiert weder URL, Status, Credential, Identität noch Diagnosedetail
+  - ergänzt keinen installierten Operator und keine Mutation
+  - lässt Reduktion, reale Aufnahme, Evidenz und Promotion separat offen
+
+- LQ-2673 staging Research-index classification reducer:
+  `docs/lq-2673-staging-research-index-classification-reducer.md`
+  - reduziert neun geschlossene Klassifikationen auf acht Acceptance-Beobachtungen
+  - verlangt jeden Single-Phase-Check exakt einmal
+  - verlangt beide Revocation-Phasen exakt einmal
+  - weist fehlende, doppelte, unbekannte und falsch phasierte Eingaben zurück
+  - gibt Beobachtungen ausschließlich in kanonischer Check-Reihenfolge aus
+  - lässt Revocation nur bei zwei bestandenen Phasen passieren
+  - priorisiert technische Unavailability im Revocation-Paar
+  - behandelt jede andere Revocation-Abweichung als Failure
+  - transportiert keine Response-, Credential-, Identitäts- oder Diagnosedaten
+  - führt keinerlei I/O, Authority-Lookup oder Mutation aus
+  - ergänzt keinen installierten Operator und keine Infrastrukturentscheidung
+  - lässt Composition, reale Aufnahme, Evidenz und Promotion separat offen
+
+- LQ-2674 staging Research-index offline composition:
+  `docs/lq-2674-staging-research-index-offline-composition.md`
+  - verbindet Request-Plan, Classifier, Reducer und Evaluator side-effect-frei
+  - akzeptiert nur den validierten Lauf und exakt neun Response-Container
+  - erzeugt den kanonischen Plan intern statt caller-gesteuerter Requests
+  - paart Responses ausschließlich in der geschlossenen Planreihenfolge
+  - weist Listen sowie fehlende und zusätzliche Responses zurück
+  - erhält Response-Abweichung als Rejection
+  - erhält malformed Response-Material als technische Unavailability
+  - reduziert das Revocation-Paar vor der finalen Auswertung
+  - gibt ausschließlich das etablierte Acceptance-Ergebnis zurück
+  - hält Response-, Credential-, Identitäts- und Diagnosedaten aus dem Ergebnis
+  - führt weder Netzwerk, Datei-I/O, Mutation noch Promotion aus
+  - lässt Acquisition, Evidenz und reale Staging-Ausführung separat offen
+
+- LQ-2675 staging Research-index HTTP acquisition adapter:
+  `docs/lq-2675-staging-research-index-http-acquisition-adapter.md`
+  - führt exakt einen bereits validierten Planrequest aus
+  - leitet Methode und URL ausschließlich aus dem geschlossenen Request ab
+  - entfernt geerbte Cookie- und Authorization-Header
+  - verlangt Session-Abwesenheit für anonyme und Session-Präsenz für autorisierte Slots
+  - hält opaque Sessionmaterial aus Repräsentationen und Ergebnissen heraus
+  - verwendet feste Timeouts, Identity-Encoding und kein Redirect-Following
+  - führt weder Retry noch Client-Authentifizierung aus
+  - begrenzt deklarierte und tatsächlich gelesene Bodies auf 64 KiB
+  - weist komprimierte und malformed Responses technisch unavailable zurück
+  - unterdrückt Transport-, Provider- und Clientdiagnosen
+  - besitzt keine Revocation-, Evidenz-, Deployment- oder Promotion-Fähigkeit
+  - lässt Koordination, Credential-Provisioning und reale Ausführung separat offen
+
+- LQ-2676 staging Research-index staged acquisition:
+  `docs/lq-2676-staging-research-index-staged-acquisition.md`
+  - teilt Acquisition geschlossen in Baseline, After-Revocation und Unavailability
+  - beendet die Baseline mit der Before-Revocation-Beobachtung
+  - isoliert After-Revocation und Unavailability in eigene Stages
+  - verlangt je Stage exakt die benötigten opaque Session-Slots
+  - weist fehlende, zusätzliche und untypisierte Sessions vor I/O zurück
+  - übergibt anonymen Requests niemals Sessionmaterial
+  - klassifiziert jede begrenzte Response unmittelbar
+  - behält ausschließlich Check, Phase und Ergebnis
+  - reduziert Acquisition- und Classifier-Fehler detailfrei auf Unavailability
+  - besitzt weder Revocation- noch Restore- oder Cross-Stage-State
+  - ergänzt keinen Credential-Store, Workflow oder installierten Operator
+  - lässt Handoff, reale Ausführung, Evidenz und Promotion separat offen
+
+- LQ-2677 staging Research-index stage handoff:
+  `docs/lq-2677-staging-research-index-stage-handoff.md`
+  - bindet jede Stage an einen validierten Acceptance-Lauf
+  - validiert pro Stage die exakte geschlossene Check- und Phaseninventur
+  - verlangt Baseline, After-Revocation und Unavailability exakt einmal
+  - weist fehlende, doppelte, unbekannte und falsch phasierte Inhalte zurück
+  - weist gemischte Digest-, Origin- oder Zeitbindungen vor Reduktion zurück
+  - behandelt caller-gesteuerte Handoff-Reihenfolge nicht als Authority
+  - stellt die kanonische Stage-Reihenfolge intern wieder her
+  - transportiert nur Lauf, Stage und sanitiserte Klassifikationen
+  - erhält technische Unavailability bis zum finalen Evaluator
+  - besitzt keine Revocation-, Restore- oder Credential-Fähigkeit
+  - ergänzt kein I/O, Workflow oder installierten Operator
+  - lässt Evidence-Codec, reale Ausführung und Promotion separat offen
+
+- LQ-2678 staging Research-index evidence codec:
+  `docs/lq-2678-staging-research-index-evidence-codec.md`
+  - kodiert den exakt validierten Drei-Stage-Handoff als kanonisches ASCII-JSON
+  - begrenzt das Dokument und verlangt genau einen abschließenden Newline
+  - ordnet Stages und Klassifikationen kanonisch und entzieht Caller-Reihenfolge jede Authority
+  - transportiert nur Run-Bindung und sanitiserte Check-, Phasen- und Ergebniswerte
+  - rekonstruiert beim Lesen ausschließlich geschlossene Domain-Typen
+  - wiederholt Handoff-Validierung, Reduktion und finale Acceptance-Auswertung
+  - behandelt das gespeicherte Gesamtergebnis nur als abgeleiteten Cross-Check
+  - weist unbekannte Felder, Versionen und nichtkanonische Bytes geschlossen zurück
+  - weist unvollständige, doppelte, falsch phasierte und gemischte Runs zurück
+  - enthält keine Session-, Credential-, Response-, Identitäts- oder Diagnosedaten
+  - besitzt weder Datei-, Netzwerk-, Revocation-, Restore- noch Promotion-Fähigkeit
+  - korrigiert den LQ-2676-Adapterimport durch einen application-eigenen opaque Sessiontyp
+  - lässt owner-private Ablage, reale Ausführung und Promotion separat offen
+
+- LQ-2679 staging Research-index evidence writer:
+  `docs/lq-2679-staging-research-index-evidence-writer.md`
+  - schreibt ausschließlich die kanonischen sanitisierten LQ-2678-Evidenzbytes
+  - verlangt einen absoluten expliziten Zielpfad
+  - verlangt ein bestehendes owner-eigenes reales Parent-Verzeichnis mit Modus 0700
+  - hält das Parent descriptorgebunden ohne Symlink-Following
+  - erstellt das Ziel ausschließlich mit O_EXCL, O_NOFOLLOW und O_CLOEXEC
+  - erzwingt owner-private Modus 0600 und ersetzt niemals bestehende Ziele
+  - schreibt vollständig und behandelt Zero-Write geschlossen als Unavailability
+  - synchronisiert Datei und gehaltenes Parent-Verzeichnis vor Erfolg
+  - entfernt bei technischem Fehlschlag eine exklusiv erstellte Teil-Datei
+  - reduziert Pfad-, Encoding-, Konflikt- und Dateifehler detailfrei
+  - erstellt keine Verzeichnisse und besitzt keine Read-, List- oder Credential-Fähigkeit
+  - führt weder Acquisition, Revocation, Restore, Deployment noch Promotion aus
+  - lässt owner-private Reader, reale Ausführung und Promotion separat offen
+
+- LQ-2680 staging Research-index evidence reader:
+  `docs/lq-2680-staging-research-index-evidence-reader.md`
+  - liest genau einen expliziten absoluten Evidenzpfad
+  - verlangt ein owner-eigenes reales Parent-Verzeichnis mit exaktem Modus 0700
+  - öffnet Parent und Ziel descriptorgebunden ohne Symlink-Following
+  - verlangt eine reguläre owner-eigene Single-Link-Datei mit exaktem Modus 0600
+  - begrenzt deklarierte und tatsächlich gelesene Evidenz auf 8192 Bytes
+  - verlangt positive Größe und Byteanzahl identisch zur Descriptorgröße
+  - revalidiert Device, Inode, Modus, Owner, Linkzahl und Größe nach dem Read
+  - gibt ausschließlich vollständig kanonisch dekodierte LQ-2678-Handoffs zurück
+  - reduziert Pfad-, Metadaten-, Read- und Decodefehler detailfrei
+  - erstellt, ersetzt, repariert, löscht und listet keine Evidenz
+  - besitzt weder Netzwerk-, Credential-, Acquisition- noch Mutationsfähigkeit
+  - führt weder Revocation, Restore, Deployment noch Promotion aus
+  - lässt Ausführungscomposition und reale Promotion separat offen
+
+- LQ-2681 staging Research-index evidence composition:
+  `docs/lq-2681-staging-research-index-evidence-composition.md`
+  - komponiert bestehende Acquisition-, Handoff-, Evaluation- und Writer-Grenzen
+  - bindet jede explizit gestartete Stage unmittelbar an den validierten Run
+  - delegiert exakte Session-Inventur und sofortige Klassifikation an LQ-2676
+  - hält Stages als getrennte Aufrufe ohne mutable Cross-Stage-State
+  - evaluiert das vollständige Drei-Stage-Set vor jeder Dateierstellung
+  - veröffentlicht ausschließlich über den kanonischen owner-private No-Replace-Pfad
+  - gibt nur das bestehende detailfreie Acceptance-Ergebnis zurück
+  - lässt veröffentlichte Evidenz unabhängig durch LQ-2680 revalidieren
+  - erstellt keine Sessions, Credentials, Memberships, Rollen oder Capabilities
+  - trifft keine Admission- oder Authority-Entscheidung
+  - besitzt weder Revocation-, Restore-, Retry- noch Scheduling-Fähigkeit
+  - führt weder Deployment noch Promotion aus
+  - korrigiert einen am festen Kalendertag abgelaufenen persistenten Session-Testfixture
+  - lässt explizite Fixture-Mutation und reale Promotion separat offen
+
+- LQ-2682 staging Research-index fixture-control contract:
+  `docs/lq-2682-staging-research-index-fixture-control-contract.md`
+  - definiert einen opaken begrenzten Handle für genau ein vorprovisioniertes Fixture
+  - behandelt den Handle ausdrücklich nicht als Authority
+  - trennt Revocation und Restore in zwei injizierte Fähigkeiten
+  - bindet Revocation an die exakt erwartete aktive Revision
+  - verlangt für erfolgreiche Revocation eine neue unterscheidbare Revision
+  - bindet Restore an das vollständige vorausgehende Revocation-Ergebnis
+  - verlangt identisches Fixture und identische revoked Source-Revision
+  - verbietet die Wiederverwendung aktiver oder revoked Revisionen beim Restore
+  - akzeptiert keine Caller-Allow-, Rollen-, Membership- oder Permission-Fakten
+  - transportiert keine UserId, WorkspaceId, Session, Credentials oder URLs
+  - verlangt spätere Authority- und Target-Auflösung aus dem System of Record
+  - definiert keine Schema-, SQL-, Migration-, CLI- oder Fixture-Creation-Entscheidung
+  - führt selbst keine Mutation, Ausführung, Evidenzablage oder Promotion aus
+  - lässt Controller-Adapter, reale Ausführung und Promotion separat offen
+
+- LQ-2683 staging Research-index fixture controller:
+  `docs/lq-2683-staging-research-index-fixture-controller.md`
+  - adaptiert opake Fixtures an die bestehende autorisierte Membership-Mutation
+  - bezieht Actor, Target, Workspace und Snapshot nur aus einem System-of-Record-Resolver
+  - behandelt Fixture-Handle und SessionPrincipal nicht als Authority
+  - akzeptiert keine Caller-IDs, Rollen, Permissions, Memberships oder Allow-Booleans
+  - verlangt die exakte erwartete aktive Revision vor Revocation
+  - revoked durch einen aktiven vollständigen Membership-Snapshot ohne Permissions
+  - re-resolved das Fixture vor Restore und prüft die ursprüngliche Bindung erneut
+  - restored exakt Status und Permissions aus dem System-of-Record-Snapshot
+  - bindet Restore an die committed revoked Revision
+  - verlangt neue nicht wiederverwendbare Change- und Result-Revisionen
+  - reduziert Absence, Stale, Rejection und Technik detailfrei auf Unavailability
+  - ergänzt keine Registry-, Schema-, SQL-, Migration-, CLI- oder Credential-Entscheidung
+  - führt keine Fixture-Creation, Evidenzmutation, Deployment oder Promotion aus
+  - lässt persistenten Resolver, reale Ausführung und Promotion separat offen
+
+- LQ-2684 persistent staging Research-index fixture resolver:
+  `docs/lq-2684-staging-research-index-fixture-resolver.md`
+  - löst opake Fixture-Handles ausschließlich aus vorprovisionierten Fakten auf
+  - bindet Actor, Target, Workspace und ursprüngliche aktive Revision atomar
+  - verlangt aktive Actor-, Target- und Workspace-Lifecycle-Fakten
+  - verlangt die separate aktive workspace-scoped Management-Capability
+  - behandelt den SessionPrincipal ausschließlich als Actor-Identität
+  - trennt Management-Authority strikt von Research-Permissions
+  - akzeptiert keine Caller-Allow-, Rollen-, Membership- oder Permission-Fakten
+  - lässt spätere Lifecycle- und Authority-Revocation sofort wirken
+  - bewahrt den ursprünglichen Snapshot für den gebundenen Restore lesbar
+  - liefert Absence neutral und technische Fehler detailfrei
+  - ergänzt keine Fixture-Anlage, Mutation, Credentials, Ausführung oder Promotion
+  - lässt Provisionierung, reale Ausführung und Promotion separat offen
+
+- LQ-2685 controlled staging Research-index execution:
+  `docs/lq-2685-staging-research-index-controlled-execution.md`
+  - komponiert bestehende Acquisition-, Fixture-Control- und Evidence-Grenzen
+  - verlangt das exakte geschlossene Session-Inventar aller drei Stages
+  - führt Baseline vor jeder Fixture-Mutation aus
+  - revoked ausschließlich über den opaken revisionsgebundenen Controller
+  - beobachtet Revocation unmittelbar nach der committed Mutation
+  - versucht nach erfolgreicher Revocation auf jedem Ausgang den Restore
+  - validiert die vollständige Fixture- und Revisionskette nach Restore
+  - führt Unavailability-Beobachtung erst nach gültigem Restore aus
+  - veröffentlicht Evidenz ausschließlich nach erfolgreicher Wiederherstellung
+  - reduziert Ablauf-, Restore- und Veröffentlichungsfehler detailfrei
+  - ergänzt keine Provisionierung, Credentials, CLI, Deployment oder Promotion
+  - lässt operative Composition, kontrollierten Operator und Promotion offen
+
+- LQ-2686 persistent staging Research-index control composition:
+  `docs/lq-2686-staging-research-index-persistent-control-composition.md`
+  - verdrahtet Resolver, autorisierten Membership-Store und Fixture-Controller
+  - nutzt genau eine extern besessene Database Engine
+  - erzeugt Revision- und Change-Identitäten aus einer sicheren Materialquelle
+  - adaptiert die Change-ID-Quelle nur über eine private schmale Fähigkeit
+  - führt bei Construction keinerlei Datenbankzugriff oder Mutation aus
+  - startet keine Acquisition, Revocation, Restoration oder Evidenzablage
+  - behandelt erzeugte Identitäten ausdrücklich nicht als Authority
+  - bewahrt die aktuelle System-of-Record-Auflösung je Controller-Aufruf
+  - exponiert Controller und persistente Adapter für höhere Composition
+  - hält die Materialquelle aus der Repräsentation heraus
+  - ergänzt keine Migration, Provisionierung, Credentials, CLI oder Promotion
+  - lässt Session-/HTTP-Bindung, kontrollierten Operator und Promotion offen
+
+- LQ-2687 staging Research-index runtime composition:
+  `docs/lq-2687-staging-research-index-runtime-composition.md`
+  - bindet persistente Fixture-Control und vorhandene bounded HTTP-Acquisition
+  - nutzt extern besessene Database Engine und extern besessenen HTTP-Client
+  - führt bei Composition keinerlei Datenbank- oder Netzwerk-I/O aus
+  - exponiert Ausführung ausschließlich über einen expliziten Methodenaufruf
+  - verlangt Run, Evidenzpfad, Fixture, aktive Revision und exakte Sessions
+  - reicht opake Sessioninventare ohne Umdeutung an LQ-2685 weiter
+  - nutzt denselben Controller für Revocation und Restoration
+  - führt alle Requests über genau den vorhandenen HTTP-Adapter aus
+  - besitzt oder schließt weder Engine noch Client
+  - speichert und lädt keine Sessions, Credentials oder Secrets
+  - ergänzt keine Migration, Login-Automation, CLI, Deployment oder Promotion
+  - lässt sicheren Session-Handoff, kontrollierten Operator und Promotion offen
+
+- LQ-2688 staging Research-index session handoff:
+  `docs/lq-2688-staging-research-index-session-handoff.md`
+  - verlangt vor jeder Ausführung das vollständige exakte Drei-Stage-Inventar
+  - bindet Baseline und After-Revocation an dieselbe opake Fixture-Session
+  - verwirft fehlende, zusätzliche, anonyme und falsch typisierte Session-Slots
+  - kopiert akzeptierte Inventare defensiv gegen spätere Caller-Mutation
+  - gibt jeder Ausführung eine frische Mapping-Struktur
+  - behandelt Sessions ausschließlich als Identifikation und niemals als Authority
+  - akzeptiert keine Rollen, Memberships, Permissions oder Allow-Booleans
+  - validiert vollständig vor Datenbankmutation, HTTP-I/O und Evidenzablage
+  - hält opakes Sessionmaterial aus Repräsentationen heraus
+  - lässt die bestehenden exakten Stage-Prüfungen als zweite Grenze bestehen
+  - ergänzt keine Session-Erzeugung, Persistenz, Erneuerung oder Discovery
+  - ergänzt keine Migration, Credential-Quelle, CLI, Deployment oder Promotion
+  - lässt Session-Akquisition, kontrollierten Operator und Promotion offen
+
+- LQ-2689 staging Research-index controlled operator:
+  `docs/lq-2689-staging-research-index-controlled-operator.md`
+  - bindet Run, Evidenzziel, Fixture, Revision und Session-Handoff vor Composition
+  - verlangt für den Operator-Request ausschließlich exakte Domänentypen
+  - komponiert die bestehende Runtime genau einmal je explizitem Aufruf
+  - führt genau eine Ausführung mit den gebundenen Request-Werten aus
+  - nutzt ausschließlich extern besessene Database Engine und HTTP-Client
+  - besitzt und schließt weder Engine noch Client
+  - akzeptiert keine Authority-Aussage, Rolle, Permission oder Allow-Boolean
+  - belässt aktuelle Authority-Auflösung vollständig im System of Record
+  - behandelt Session-Handoffs weiterhin nur als Identifikationsmaterial
+  - reduziert operative Fehler auf ein einziges detailfreies Unavailable-Signal
+  - interpretiert abgeschlossene Acceptance-Ergebnisse nicht um
+  - serialisiert Sessions weder in Argumente, Umgebung noch Request-Dateien
+  - ergänzt bewusst keine CLI, Migration, Provisionierung oder Promotion
+  - lässt kontrollierte Credential-Akquisition und reale Promotion offen
+
+- LQ-2690 staging Research-index session-acquisition contract:
+  `docs/lq-2690-staging-research-index-session-acquisition-contract.md`
+  - definiert opake nicht autorisierende Session-Set- und Revisionswerte
+  - bindet jede Akquisition an die exakt erwartete aktuelle Revision
+  - liefert bei Erfolg ausschließlich einen bereits validierten LQ-2688-Handoff
+  - validiert zurückgegebenes Set, Revision und Handoff als eine Einheit
+  - akzeptiert keine User-, Workspace-, Rollen- oder Membership-Angaben
+  - akzeptiert keine Permission-, Capability-, Provider- oder Allow-Behauptung
+  - bildet unbekannte, inaktive, revoked oder stale Sets als neutrale Absenz ab
+  - überlässt technische Fehler der detailfreien Reduktion höherer Composition
+  - verlangt spätere Lifecycle- und Revisionsauflösung aus dem System of Record
+  - lässt Revocation und Rotation auf alle späteren Akquisitionen wirken
+  - exponiert opake Set- und Revisionswerte nicht in Repräsentationen
+  - ergänzt keine Login-Automation, Credential-Quelle oder Session-Erzeugung
+  - ergänzt keine Schema-, SQL-, Migration-, CLI- oder Promotion-Entscheidung
+  - lässt persistente Registry und konkrete Akquisition separat offen
+
+- LQ-2691 persistent staging session-set registry:
+  `docs/lq-2691-persistent-staging-session-set-registry.md`
+  - persistiert ausschließlich opake Set-ID, nicht wiederverwendbare Revision und Lifecycle
+  - speichert keinerlei Session-, Passwort-, Token- oder Provider-Material
+  - löst nur die exakte aktive Set-/Revisionsbindung auf
+  - bildet unbekannte, inaktive, revoked und stale Fakten als neutrale Absenz ab
+  - reduziert technische Speicherfehler detailfrei
+  - lässt spätere Lifecycle-Änderungen auf jeden späteren Lookup wirken
+  - akzeptiert keine User-, Workspace-, Rollen- oder Authority-Fakten
+  - besitzt ausschließlich eine read-only Resolver-Fähigkeit
+  - ergänzt keine Provisionierungs-, Mutations- oder Löschoperation
+  - ergänzt keine Login-Automation, Credential-Auflösung, CLI oder Promotion
+  - lässt Provisionierung, Mutation, konkrete Akquisition und Promotion offen
+
+- LQ-2692 persistent staging session-set composition:
+  `docs/lq-2692-persistent-staging-session-set-composition.md`
+  - bindet genau eine extern besessene Database Engine
+  - komponiert ausschließlich den read-only LQ-2691-Resolver
+  - führt beim Aufbau keinerlei Datenbankzugriff oder Mutation aus
+  - besitzt und schließt die Engine nicht
+  - exponiert keine Create-, Update-, Delete- oder Rotate-Fähigkeit
+  - exponiert keine Session-Akquisition oder Ausführung
+  - hält Engine-, Registry-, Revisions- und Secret-Details aus der Repräsentation
+  - ergänzt keine Authority-, Cache-, Login- oder Provider-Entscheidung
+  - ergänzt keine Schema-, Migration-, CLI-, Deployment- oder Promotion-Änderung
+  - lässt Secret-Auflösung, kontrollierte Akquisition und Promotion offen
+
+- LQ-2693 controlled staging session acquisition:
+  `docs/lq-2693-controlled-staging-session-acquisition.md`
+  - löst das exakte aktive Set vor jeder externen Akquisition auf
+  - validiert Set-, Revisions- und Handoff-Bindung des Ergebnisses
+  - löst dieselbe Registry-Bindung nach der Akquisition erneut auf
+  - lässt Deaktivierung, Revocation und Rotation während der Akquisition wirken
+  - verhindert Akquisition bei initialer neutraler Absenz
+  - behandelt Acquirer-Absenz und spätere Registry-Absenz neutral
+  - reduziert Substitution und technische Fehler detailfrei
+  - akzeptiert keine Caller-Authority-, Rollen-, Permission- oder Allow-Fakten
+  - ergänzt keine Credential-Persistenz, Login-Automation, Migration oder CLI
+  - lässt konkreten Acquirer, Runtime-Handoff und Promotion offen
+
+- LQ-2694 staging session runtime handoff:
+  `docs/lq-2694-staging-session-runtime-handoff.md`
+  - bindet die kontrollierte Registry-Akquisition an den bestehenden Operator
+  - akzeptiert nur opake Session-Set-ID und exakt erwartete Revision
+  - startet die Runtime erst nach einem vollständig validierten Handoff
+  - führt bei neutraler Absenz keinerlei Acceptance-Ausführung aus
+  - behandelt Sessions weiterhin nur als Identifikationsmaterial
+  - belässt Fixture-Authority vollständig im bestehenden System-of-Record-Pfad
+  - reduziert Registry-, Akquisitions- und Runtime-Fehler detailfrei
+  - ergänzt keine Session-, Credential-, User- oder Authority-Mutation
+  - ergänzt keine Provider-, Login-, CLI-, Deployment- oder Promotion-Entscheidung
+  - lässt konkreten Acquirer und reale Staging-Promotion separat offen
+
+- LQ-2695 injected staging session acquirer:
+  `docs/lq-2695-injected-staging-session-acquirer.md`
+  - implementiert den LQ-2690-Acquirer über eine extern besessene Handoff-Quelle
+  - übergibt ausschließlich opake Set-ID und exakt erwartete Revision
+  - akzeptiert nur einen bereits validierten vollständigen LQ-2688-Handoff
+  - bindet den Handoff unverändert an Set-ID und Revision
+  - bewahrt Quellenabsenz als neutrales Ergebnis
+  - überlässt Quellenfehler den detailfreien LQ-2693-/LQ-2694-Grenzen
+  - hält Sessions, Set-Identitäten und Revisionen aus Repräsentationen heraus
+  - führt bei Construction keinerlei Quellenzugriff aus
+  - ergänzt keine Secret-, Login-, Provider-, Persistenz- oder Cache-Entscheidung
+  - ergänzt keine CLI-, Deployment- oder Promotion-Fähigkeit
+  - lässt sichere operative Quelle und reale Staging-Promotion separat offen
+
+- LQ-2696 staging session operator composition:
+  `docs/lq-2696-staging-session-operator-composition.md`
+  - bindet externe Engine, HTTP-Client und Handoff-Quelle an einen Operator
+  - adaptiert die Quelle ausschließlich über den LQ-2695-Acquirer
+  - delegiert jede Ausführung an die vollständige LQ-2694-Grenze
+  - führt bei Composition keinerlei Datenbank-, HTTP- oder Quellenzugriff aus
+  - besitzt und schließt keine externe Ressource
+  - persistiert oder cached kein erworbenes Session-Set
+  - hält Quellen-, Ressourcen- und Sessiondetails aus Repräsentationen heraus
+  - behandelt Sessions weiterhin ausschließlich als Identifikationsmaterial
+  - belässt Fixture-Authority im bestehenden System-of-Record-Pfad
+  - ergänzt keine Secret-, Login-, Provider-, CLI- oder Scheduling-Entscheidung
+  - lässt sichere Quelle, Invocation und reale Promotion separat offen
+
+- LQ-2697 ephemeral staging session source:
+  `docs/lq-2697-ephemeral-staging-session-source.md`
+  - adaptiert einen extern besessenen Resolver an die LQ-2695-Quellengrenze
+  - ruft den Resolver bei jedem Lookup mit exakter Set-/Revisionsbindung neu auf
+  - cached und behält keinen zurückgegebenen Session-Handoff
+  - lässt spätere Rotation, Revocation und Absenz auf spätere Lookups wirken
+  - akzeptiert nur vollständige validierte LQ-2688-Handoffs oder neutrale Absenz
+  - überlässt Resolverfehler den detailfreien LQ-2693-/LQ-2694-Grenzen
+  - hält Resolver-, Session-, Set- und Revisionsdetails aus Repräsentationen heraus
+  - führt bei Construction keinerlei Resolverzugriff aus
+  - besitzt und schließt keine externe Ressource
+  - ergänzt keine Secret-, Login-, Provider-, Retry- oder Cache-Entscheidung
+  - lässt operative Resolverintegration und reale Promotion separat offen
+
+- LQ-2698 ephemeral staging runtime composition:
+  `docs/lq-2698-ephemeral-staging-runtime-composition.md`
+  - schließt die Composition vom externen Resolver bis zum kontrollierten Operator
+  - adaptiert Resolver über LQ-2697, LQ-2695 und die vollständige LQ-2694-Grenze
+  - bewahrt sämtliche LQ-2696-Ressourcen- und Ownership-Grenzen
+  - führt beim Aufbau keinerlei Resolver-, Datenbank- oder HTTP-Zugriff aus
+  - erlaubt Sessionauflösung ausschließlich nach explizitem Execute-Aufruf
+  - löst Sessionmaterial für jeden Aufruf frisch und ohne Cache auf
+  - speichert keinen aufgelösten Handoff und kein Session-Set
+  - behandelt Resolverfähigkeit und Sessions nicht als Authority
+  - hält operatives Material aus Repräsentationen heraus
+  - ergänzt keine Secret-, Provider-, Login-, Retry- oder Scheduling-Entscheidung
+  - lässt sicheren Resolver, Invocation und reale Promotion separat offen
+
+- LQ-2699 controlled staging session invocation:
+  `docs/lq-2699-controlled-staging-session-invocation.md`
+  - exponiert genau eine callable Invocation über die vollständige LQ-2698-Composition
+  - validiert den exakten LQ-2694-Request vor jeder Composition
+  - komponiert pro explizitem Aufruf genau einen ephemeren Operator
+  - ruft den Operator je Invocation höchstens einmal auf
+  - führt keine Wiederholung, Schleife, Planung oder Ergebniswiederverwendung aus
+  - bewahrt neutrale Session-Set-Absenz als neutrales Ergebnis
+  - verhindert bei ungültigem Request Resolver-, Datenbank- und HTTP-Zugriff
+  - reduziert Composition-, Akquisitions- und Ausführungsfehler detailfrei
+  - ergänzt keine Idempotenzbehauptung und keine Authority-Aussage
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Retry-Entscheidung
+  - lässt externe Invocation und reale Staging-Promotion separat offen
+
+- LQ-2700 staging promotion eligibility:
+  `docs/lq-2700-staging-promotion-eligibility.md`
+  - leitet eine enge nicht autorisierende Eignungsbeobachtung aus Acceptance ab
+  - akzeptiert ausschließlich ein exaktes LQ-2668-Ergebnis mit Outcome accepted
+  - bindet Eignung an den vollständigen exakten Acceptance-Run
+  - bildet Invocation-Absenz, Rejection und Unavailability als neutrale Absenz ab
+  - lässt neutrale Ergebnisse niemals in Richtung Promotion fortschreiten
+  - behandelt Eignung ausdrücklich nicht als Deployment- oder Promotion-Authority
+  - exponiert keine Operatoridentität, Mutation oder Promote-Fähigkeit
+  - verlangt spätere aktuelle Authority- und Candidate-Auflösung aus Systemen of Record
+  - führt keine Persistenz, Publication, Deployment- oder Environmentmutation aus
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Secret-Entscheidung
+  - lässt dauerhafte Evidenzbindung und reale Promotion separat offen
+
+- LQ-2701 staging promotion evidence binding:
+  `docs/lq-2701-staging-promotion-evidence-binding.md`
+  - bindet LQ-2700-Eignung an vollständige kanonische Acceptance-Evidenz
+  - decodiert und evaluiert die Evidenz vor jeder Bindung erneut
+  - verlangt accepted sowie exakt identischen Candidate, Origin und Zeitpunkt
+  - identifiziert die exakten Evidenzbytes über einen stabilen SHA-256-Digest
+  - weist nichtkanonische, abgelehnte, unavailable oder fremde Evidenz zurück
+  - behandelt die Bindung ausdrücklich als Evidenz und niemals als Authority
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - verlangt spätere aktuelle Lifecycle- und Authority-Auflösung aus Systemen of Record
+  - schreibt weder Datei noch Datenbankrecord
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt dauerhafte Ablage und reale Promotion separat offen
+
+- LQ-2702 persistent staging promotion evidence:
+  `docs/lq-2702-persistent-staging-promotion-evidence.md`
+  - persistiert die nicht autorisierende LQ-2701-Evidenzbindung append-only
+  - speichert Digest, Candidate, Staging-Origin und UTC-Beobachtungszeit
+  - speichert keine Evidenzbytes, Sessions, Credentials oder Authority-Fakten
+  - behandelt identische Wiederholung idempotent und Konflikte fail-closed
+  - liefert unbekannte Bindungen als neutrale Absenz
+  - reduziert fehlerhafte Records und technische Speicherfehler detailfrei
+  - exponiert ausschließlich Record und Read ohne Update, Delete oder Promote
+  - ergänzt Migration 20260916_0045 ohne Seed-Daten
+  - führt keine Publication, Deployment-, Environment- oder Promotionmutation aus
+  - lässt aktuelle Candidate-/Authority-Auflösung und reale Promotion separat offen
+
+- LQ-2703 current staging promotion evidence:
+  `docs/lq-2703-current-staging-promotion-evidence.md`
+  - löst persistierte Evidenz gegen den aktuell aktiven Staging-Candidate auf
+  - bezieht Evidenz und Candidate ausschließlich aus getrennten trusted readers
+  - akzeptiert vom Caller nur den Evidenz-Digest, kein Allow, Role oder Authority
+  - liefert nur bei exakter Candidate-Digest- und Origin-Bindung ein Ergebnis
+  - behandelt Evidenzabsenz, Candidate-Absenz, Austausch und Deaktivierung neutral
+  - reduziert fehlerhafte Rückgaben und technische Readerfehler detailfrei
+  - erzwingt frische Auflösung für jede spätere Entscheidung ohne Cache
+  - behandelt das Ergebnis ausdrücklich als Evidenz und nicht als Authority
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
+  - lässt aktuelle Operator-Authority und reale Promotion separat offen
+
+- LQ-2704 current staging promotion authority:
+  `docs/lq-2704-current-staging-promotion-authority.md`
+  - trennt aktuelle Operator-Authority strikt von Session und Evidenz
+  - behandelt SessionPrincipal ausschließlich als Actor-Identifikation
+  - löst Authority ausschließlich über einen trusted system-of-record resolver
+  - bindet Actor, Candidate, Staging-Origin und Zielumgebung gemeinsam
+  - akzeptiert kein caller-supplied Allow, Role, Target oder Authority-Assertion
+  - behandelt fehlende, inaktive oder widerrufene Authority als neutrale Absenz
+  - reduziert substituierte Bindungen und technische Resolverfehler detailfrei
+  - löst für jede spätere Entscheidung frisch auf, sodass Revocation wirkt
+  - exponiert keine Promote-, Deployment- oder Mutationsfähigkeit
+  - ergänzt keine Persistenz-, Schema-, Migration-, CLI- oder Route-Entscheidung
+  - lässt atomare Abschlussprüfung und reale Promotion separat offen
+
+- LQ-2705 atomic staging promotion boundary:
+  `docs/lq-2705-atomic-staging-promotion-boundary.md`
+  - definiert die einzige sichere Gateway-Grenze für eine spätere Promotion
+  - akzeptiert ausschließlich authentifizierten Actor und persistierten Evidenz-Digest
+  - akzeptiert kein Allow, Role, Candidate, Origin, Target oder Authority-Assertion
+  - verlangt Evidenz-, Candidate- und Authority-Auflösung innerhalb einer Operation
+  - verlangt system-of-record Target-Bindung statt caller-supplied Ziel
+  - koppelt Abschlussprüfung, höchstens eine Mutation und Receipt atomar
+  - erlaubt bei Absenz oder Revocation keinerlei Effekt
+  - erzeugt keinen wiederverwendbaren Preauthorization-Token
+  - behandelt das Receipt als Effektnachweis und nicht als zukünftige Authority
+  - implementiert noch keine Persistenz-, Provider- oder Promotionmutation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt atomare Persistenz und realen Promotion-Adapter separat offen
+
+- LQ-2706 staging promotion attempt state:
+  `docs/lq-2706-staging-promotion-attempt-state.md`
+  - definiert crash-sichere immutable Zustände hinter dem atomaren Gateway
+  - bindet Operation, authentifizierten Command und system-of-record Authority
+  - verlangt aktuelle Evidenz-, Candidate-, Authority- und Target-Auflösung bei Prepare
+  - persistiert Write-Started zwingend vor jedem externen Mutationseffekt
+  - behandelt fehlende Bestätigung nach Write-Started als unbekannten Effekt
+  - erlaubt aus unbekanntem Effekt keine automatische Wiederholung
+  - bindet ein Receipt ausschließlich an den exakten Write-Started-Versuch
+  - akzeptiert kein caller-supplied Allow, Role, Candidate, Origin oder Target
+  - exponiert keine Retry- oder direkte Promote-Fähigkeit
+  - implementiert noch keine Datenbank- oder Provideroperation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt persistente Umsetzung, Reconciliation und Provideradapter separat offen
+
+- LQ-2707 persistent staging promotion attempt schema:
+  `docs/lq-2707-persistent-staging-promotion-attempt-schema.md`
+  - persistiert immutable Attempt-Bindungen und ein append-only Eventjournal
+  - bindet Operation, Actor, Evidenz, Candidate, Origin, Target und Erstellzeit
+  - erlaubt prepared, write-started, effect-unknown und committed als Zustände
+  - ordnet Events pro Operation über eine positive Sequenz
+  - erlaubt Provider-Receipt-Identität ausschließlich für committed
+  - erzwingt Schlüssel-, Referenz-, Status-, Digest- und Receipt-Constraints
+  - speichert keine Session, Credentials, Role, Allow oder Provider-Secrets
+  - ergänzt Migration 20260916_0046 ohne Seed-Daten
+  - führt keine Transition, Provideroperation oder Promotionmutation aus
+  - ergänzt keine CLI-, Route-, Worker-, Scheduler- oder Retry-Entscheidung
+  - lässt transaktionalen Store und Unknown-Effect-Reconciliation separat offen
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
+
+- LQ-2708 persistent staging promotion attempt journal:
+  `docs/lq-2708-persistent-staging-promotion-attempt-journal.md`
+  - persistiert Attempt-Bindung und prepared-Event in einer Transaktion
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist Operation-ID-Wiederverwendung mit abweichender Bindung geschlossen ab
+  - prüft vor write-started die vollständige immutable Attempt-Bindung
+  - persistiert write-started vor jedem späteren externen Provideraufruf
+  - verhindert doppelte write-started-Events bei identischer Wiederholung
+  - akzeptiert kein Allow, Role, Candidate, Origin oder Target vom Caller
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - löst selbst keine Evidenz, Authority oder Zielumgebung auf
+  - führt keine Provider-, Deployment- oder Promotionmutation aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Unknown-Effect-Persistenz und Receipt-Reconciliation separat offen
+
+- LQ-2709 persistent staging promotion unknown effect:
+  `docs/lq-2709-persistent-staging-promotion-unknown-effect.md`
+  - persistiert effect-unknown nur nach dem exakten write-started-Versuch
+  - prüft die vollständige immutable Attempt-Bindung und Eventreihenfolge
+  - hängt den Unknown-Zustand transaktional als drittes Event an
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist fehlende, substituierte oder weitergelaufene Zustände geschlossen ab
+  - speichert für effect-unknown niemals ein Provider-Receipt
+  - behandelt Unknown ausdrücklich nicht als Erlaubnis zur Wiederholung
+  - exponiert keine Retry-, Provider- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Receipt-Persistenz und Unknown-Effect-Reconciliation separat offen
+
+- LQ-2710 persistent staging promotion commit receipt:
+  `docs/lq-2710-persistent-staging-promotion-commit-receipt.md`
+  - persistiert committed nur für den exakt gebundenen write-started-Versuch
+  - bindet Receipt an Operation, Actor, Evidenz, Candidate, Origin und Target
+  - verlangt die vollständige geordnete prepared/write-started-Historie
+  - hängt committed und Receipt-Identität transaktional als drittes Event an
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist substituierte Bindungen oder abweichende Receipts geschlossen ab
+  - erlaubt keine direkte Umdeutung von effect-unknown zu committed
+  - behandelt das Receipt als Effektnachweis und nicht als Authority
+  - exponiert keine Retry-, Provider- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Providerkomposition und Unknown-Effect-Reconciliation separat offen
+
+- LQ-2711 persistent staging promotion reconciliation commit:
+  `docs/lq-2711-persistent-staging-promotion-reconciliation-commit.md`
+  - schließt effect-unknown nur über einen getrennten Reconciliation-Übergang
+  - bindet Receipt exakt an Operation, Actor, Evidenz, Candidate, Origin und Target
+  - verlangt die Historie prepared/write-started/effect-unknown vollständig
+  - bewahrt Unknown als immutable Event und hängt committed als viertes Event an
+  - speichert Receipt-Identität ausschließlich am committed-Event
+  - behandelt ausschließlich exakt gleiche Wiederholungen idempotent
+  - weist fehlende Zustände oder substituierte Receipts geschlossen ab
+  - behandelt den Übergang weder als Providerbeobachtung noch als Authority
+  - exponiert keine automatische Retry- oder Promotionmutation
+  - reduziert inkonsistente Zustände und technische Speicherfehler detailfrei
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt trusted Providerbeobachtung und Reconciliation-Orchestrierung offen
+
+- LQ-2712 staging promotion reconciliation observation:
+  `docs/lq-2712-staging-promotion-reconciliation-observation.md`
+  - akzeptiert ausschließlich den exakt gebundenen Unknown-Versuch vom Caller
+  - bezieht Commit-Beobachtung und Receipt nur aus einem trusted Outcome-Reader
+  - bindet Operation, Actor, Evidenz, Candidate, Origin und Target vollständig
+  - übergibt nur exakte Beobachtungen an den separaten Reconciliation-Recorder
+  - behandelt fehlenden Commit-Nachweis neutral und schreibt dabei nichts
+  - löst Providerzustand für jede Entscheidung frisch ohne Cache auf
+  - weist substituierte oder inkonsistente Ergebnisse geschlossen ab
+  - reduziert Observer- und Recorderfehler detailfrei
+  - behandelt Observation und Receipt weder als Authority noch als Retry-Erlaubnis
+  - ergänzt keinen konkreten Provider-, Netzwerk- oder Mutationadapter
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Provideradapter und operativen Reconciliation-Trigger separat offen
+
+- LQ-2713 persistent staging promotion unknown reader:
+  `docs/lq-2713-persistent-staging-promotion-unknown-reader.md`
+  - löst Unknown-Versuche read-only über eine opaque Operation-ID auf
+  - rekonstruiert Actor, Evidenz, Candidate, Origin und Target aus Persistenz
+  - verlangt die exakte Historie prepared/write-started/effect-unknown
+  - behandelt fehlende, unvollständige oder bereits abgeschlossene Versuche neutral
+  - validiert lückenlose Sequenzen und zustandsgebundene Receipt-Präsenz
+  - weist Lücken, Umordnung und malformed Fakten geschlossen ab
+  - reduziert technische Datenbankfehler detailfrei
+  - behandelt den rekonstruierten Actor weder als frische Session noch Authority
+  - exponiert keine Write-, Retry-, Provider- oder Promotionoperation
+  - ergänzt keine Enumeration, Queue-, Scheduler- oder Workerentscheidung
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt operative Auswahl und konkreten Provider-Observer separat offen
+
+- LQ-2714 staging promotion reconciliation operation:
+  `docs/lq-2714-staging-promotion-reconciliation-operation.md`
+  - komponiert Unknown-Auflösung und trusted Observation für genau eine Operation
+  - akzeptiert ausschließlich eine opaque Operation-ID vom Caller
+  - lädt den persistenten Unknown-Zustand vor jeder Providerbeobachtung frisch
+  - bindet das Resolver-Ergebnis exakt an die angeforderte Operation
+  - kontaktiert bei Absenz oder Abschluss keinen Outcome-Observer
+  - behandelt fehlenden Commit-Nachweis neutral und mutationsfrei
+  - weist substituierte Ergebnisse und malformed IDs geschlossen ab
+  - reduziert Reader-, Observer- und Recorderfehler detailfrei
+  - behandelt Operation-ID und Ergebnis weder als Authority noch Retry-Erlaubnis
+  - führt keinen Scan, Claim, Lease, Batch oder automatischen Retry aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt operative Discovery und konkreten Providertransport separat offen
+
+- LQ-2715 persistent staging promotion unknown index:
+  `docs/lq-2715-persistent-staging-promotion-unknown-index.md`
+  - entdeckt durable Unknown-Operationen read-only über den bestehenden Journalzustand
+  - liefert ausschließlich opaque Operation-IDs als untrusted Kandidaten
+  - begrenzt jede Abfrage fest auf höchstens 100 deterministisch sortierte Ergebnisse
+  - blendet vorbereitete, gestartete, direkt committete und reconciliierte Versuche aus
+  - macht einen Reconciliation-Commit beim nächsten Read sichtbar
+  - verlangt für jeden Kandidaten weiterhin den exakten Reload über LQ-2714
+  - behandelt leere Ergebnisse neutral ohne Mutation
+  - reduziert technische Datenbankfehler detailfrei
+  - behandelt Discovery weder als Authority noch als Claim oder Retry-Erlaubnis
+  - ergänzt keinen Scheduler, Worker, Batch-Reconciler oder Provideraufruf
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Claiming und kontrollierte Ausführung separat offen
+
+- LQ-2716 staging promotion reconciliation candidate selection:
+  `docs/lq-2716-staging-promotion-reconciliation-candidate-selection.md`
+  - liest den begrenzten Unknown-Index pro Auswahl exakt einmal
+  - liefert bei leerem Index neutrale Absenz
+  - wählt aus einem validen Ergebnis höchstens die erste Operation-ID
+  - verlangt ein unveränderliches Tuple mit höchstens 100 Einträgen
+  - validiert opaque IDs, Eindeutigkeit und deterministische Sortierung vollständig
+  - weist Listen, Duplikate, malformed IDs und übergroße Ergebnisse geschlossen ab
+  - reduziert Indexfehler detailfrei
+  - behandelt die ausgewählte ID ausschließlich als untrusted Lookup-Kandidaten
+  - gewährt weder Authority, Claim, Exklusivität noch Retry-Erlaubnis
+  - führt keine Persistence-Mutation oder Providerbeobachtung aus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Claiming und kontrollierte Ausführung separat offen
+
+- LQ-2717 controlled staging promotion reconciliation execution:
+  `docs/lq-2717-controlled-staging-promotion-reconciliation-execution.md`
+  - komponiert Auswahl und Single-Operation-Reconciliation für höchstens einen Kandidaten
+  - ruft den Candidate-Selector pro Ausführung exakt einmal auf
+  - beendet neutrale Absenz ohne Unknown-Reload oder Providerbeobachtung
+  - übergibt ausschließlich die erste validierte Operation-ID an LQ-2714
+  - lädt dadurch den vollständigen Unknown-Zustand vor Observation erneut
+  - liefert bei trusted Commit-Beobachtung das exakte durable Receipt
+  - bleibt bei fehlendem Commit-Nachweis neutral und mutationsfrei
+  - reduziert Selector-, Reader-, Observer- und Recorderfehler detailfrei
+  - führt keinen Loop, Batch, Claim oder automatischen Retry aus
+  - initiiert und wiederholt keine Promotionmutation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Triggering und konkreten Providertransport separat offen
+
+- LQ-2718 staging promotion provider outcome adapter:
+  `docs/lq-2718-staging-promotion-provider-outcome-adapter.md`
+  - verbindet ein trusted Provider-Status-Gateway read-only mit dem Observation-Vertrag
+  - ruft das Gateway nur mit der persistent rekonstruierten Operation-ID auf
+  - behandelt Providerabsenz neutral
+  - bindet Operation, Actor, Evidenz, Candidate, Origin und Target vollständig
+  - konstruiert nur aus einem exakten Commit-Status ein trusted Receipt
+  - verlangt einen zeitzonenbewussten Beobachtungszeitpunkt
+  - weist substituierte oder malformed Providerergebnisse geschlossen ab
+  - reduziert Gatewayfehler detailfrei
+  - akzeptiert keinen caller-supplied Success-Boolean oder Receipt
+  - exponiert keine Promotionmutation, Authority, Claim- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkreten Providertransport und Production-Wiring separat offen
+
+- LQ-2719 staging promotion provider response classifier:
+  `docs/lq-2719-staging-promotion-provider-response-classifier.md`
+  - klassifiziert transportneutrale Providerantworten hinter dem trusted Gateway
+  - ruft den read-only Transport mit genau einer validen Operation-ID auf
+  - behandelt Absenz und exakt gebundenen Pending-Zustand neutral
+  - übersetzt ausschließlich einen exakten Commit-Status in trusted Statusdaten
+  - bindet jede nicht-leere Antwort erneut an die angeforderte Operation
+  - weist substituierte IDs und unbekannte Response-Typen geschlossen ab
+  - reduziert malformed Werte und Transportfehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - exponiert keine Mutation, Polling-, Claim- oder Retry-Erlaubnis
+  - entscheidet weder URL, Authentifizierung, TLS noch Timeout
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
+- LQ-2720 staging promotion provider acquisition request:
+  `docs/lq-2720-staging-promotion-provider-acquisition-request.md`
+  - kapselt eine opaque Operation-ID in einen unveränderlichen Status-Request
+  - verbirgt die Operation-ID vollständig aus der Repräsentation
+  - übergibt den geschlossenen Request exakt einmal an Acquisition
+  - lässt neutrale Absenz unverändert passieren
+  - akzeptiert ausschließlich die expliziten Pending- und Commit-Response-Typen
+  - lässt malformed Operation-IDs niemals bis zur Acquisition gelangen
+  - weist unbekannte Response-Werte geschlossen ab
+  - reduziert Acquisition-Fehler detailfrei
+  - akzeptiert weder Role, Success-Flag, Receipt noch Target-Override
+  - entscheidet noch keinen HTTP-Pfad, Credential-, Timeout- oder Retrymechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt konkrete Providerakquisition und Production-Wiring separat offen
+
+- LQ-2721 staging promotion provider response decoder:
+  `docs/lq-2721-staging-promotion-provider-response-decoder.md`
+  - dekodiert genau eine begrenzte rohe Providerantwort
+  - behandelt einen bodylosen 404 neutral als Absenz
+  - verlangt für Pending exakt Status 202, Operation-ID und Statuswert
+  - verlangt für Commit exakt Status 200 und den vollständigen Feldsatz
+  - akzeptiert für nicht-leere Antworten ausschließlich application/json
+  - begrenzt den Body auf 16 KiB und weist Duplicate Keys geschlossen ab
+  - weist Extra-Felder, invalides JSON und substituierte Operationen geschlossen ab
+  - reduziert rohe Acquisition-Fehler detailfrei
+  - behandelt Pending niemals als Success oder Receipt
+  - etabliert weder Authority noch Promotion- oder Retry-Erlaubnis
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt bounded HTTP-Akquisition und Production-Wiring separat offen
+
+- LQ-2722 staging promotion provider HTTP acquisition:
+  `docs/lq-2722-staging-promotion-provider-http-acquisition.md`
+  - führt genau einen begrenzten GET für einen geschlossenen Status-Request aus
+  - verlangt einen trusted HTTPS-Endpunkt ohne Userinfo, Query oder Fragment
+  - entfernt geerbte Authorization- und Cookie-Header
+  - deaktiviert Redirects, Client-Authentifizierung und Retry
+  - fordert JSON mit identity encoding und festen Timeouts an
+  - begrenzt declared und gestreamte Bodies strikt auf 16 KiB
+  - weist komprimierte, malformed und übergroße Antworten geschlossen ab
+  - reduziert Transportfehler detailfrei
+  - übergibt nur Status, Header und begrenzte Rohbytes an LQ-2721
+  - etabliert keine Authority, Mutation, Credential- oder Pollingfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Endpoint-Provisioning und Production-Wiring separat offen
+
+- LQ-2723 staging promotion provider observer composition:
+  `docs/lq-2723-staging-promotion-provider-observer-composition.md`
+  - komponiert HTTP, Decoder, Request-Boundary, Classifier und Outcome-Adapter
+  - akzeptiert einen bestehenden HTTP-Client und einen trusted Endpoint
+  - umgeht keine der zuvor definierten Validierungsschichten
+  - führt pro Observation höchstens einen Providerrequest aus
+  - bewahrt Providerabsenz und Pending neutral
+  - übersetzt exakte Commit-Antworten in exakt gebundene Observations
+  - reduziert invalides Wiring detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keinen Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Production-Lifecycle-Wiring separat offen
+
+- LQ-2724 staging promotion provider endpoint settings:
+  `docs/lq-2724-staging-promotion-provider-endpoint-settings.md`
+  - definiert einen geschlossenen Settings-Wert für genau einen Status-Endpunkt
+  - verlangt eine vollständige Mappingform mit ausschließlich dem Endpoint-Key
+  - akzeptiert nur begrenzte HTTPS-Endpunkte an einer vollständigen Pfadgrenze
+  - weist Userinfo, Query, Fragment, Extra-Keys und fehlenden Slash geschlossen ab
+  - verbirgt den Endpoint aus der Repräsentation
+  - reduziert invalide Settings detailfrei
+  - bietet keinen impliziten oder unsicheren Default
+  - behandelt Routingkonfiguration weder als Content-Trust noch Authority
+  - trägt keine Credential-, Mutation-, Claim- oder Retryfähigkeit
+  - ergänzt noch keinen Environment- oder File-Settings-Source
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Settings-Sourcing und Production-Wiring separat offen
+
+- LQ-2725 staging promotion provider settings source:
+  `docs/lq-2725-staging-promotion-provider-settings-source.md`
+  - lädt die geschlossenen Endpoint-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt den vollständigen UTF-8-Inhalt auf 4 KiB
+  - verlangt genau einen vollständigen Endpoint-Key mit abschließendem Newline
+  - delegiert die Endpoint-Validierung unverändert an LQ-2724
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - trägt keine Credential-, Authority-, Mutation-, Watch- oder Retryfähigkeit
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Lifecycle-Komposition und Production-Wiring separat offen
+
+- LQ-2726 settings-backed staging promotion provider composition:
+  `docs/lq-2726-settings-backed-staging-promotion-provider-composition.md`
+  - verbindet die explizite Settings-Datei mit der bestehenden Observer-Kette
+  - akzeptiert genau einen bestehenden HTTP-Client und einen absoluten Pfad
+  - lädt die Settings pro Komposition exakt einmal
+  - reicht ausschließlich den validierten Endpoint an LQ-2723 weiter
+  - führt während der Komposition keinen Providerrequest aus
+  - bewahrt die Ein-Request-Grenze jeder späteren Observation
+  - reduziert Settings- und Wiringfehler detailfrei
+  - belässt den Client-Lebenszyklus vollständig beim Caller
+  - ergänzt weder Watch noch Reload oder Default-Pfad
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Runtime-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2727 owned staging promotion provider lifecycle:
+  `docs/lq-2727-owned-staging-promotion-provider-lifecycle.md`
+  - besitzt genau einen HTTP-Client und den settings-gestützten Observer
+  - deaktiviert ambient Proxy-/Zertifikatskonfiguration und Redirect-Following
+  - führt während der Komposition keinen Providerrequest aus
+  - exponiert den read-only Observer und deterministisches Close
+  - schließt den Client bei Context-Exit zuverlässig
+  - behandelt wiederholtes Close neutral und verbietet erneuten Eintritt
+  - schließt einen bereits erstellten Client auch bei Kompositionsfehlern
+  - reduziert Lifecycle-Fehler detailfrei
+  - exponiert keine Mutation, Authority, Credential-, Claim- oder Retryfläche
+  - ergänzt weder Singleton noch Scheduler, Worker oder Polling-Loop
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Application-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2728 controlled staging promotion reconciliation runtime:
+  `docs/lq-2728-controlled-staging-promotion-reconciliation-runtime.md`
+  - verbindet den owned Provider-Lifecycle mit der kontrollierten Reconciliation
+  - akzeptiert die bestehenden Index-, Resolver- und Recorder-Ports
+  - führt ausschließlich auf expliziten Aufruf höchstens eine Operation aus
+  - beendet einen leeren Index neutral ohne Providerzugriff
+  - persistiert Commit-Ergebnisse nur über den bestehenden Recorder
+  - reduziert Kompositions- und Ausführungsfehler detailfrei
+  - schließt den Provider-Client bei Runtime-Close deterministisch
+  - behandelt Close als terminal für spätere Ausführungen
+  - exponiert weder Promotionmutation noch Claim oder Retry
+  - ergänzt keinen Loop, Scheduler, Worker, Timer oder Pollingmechanismus
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Triggering und konkrete Persistence-Komposition separat offen
+
+- LQ-2729 database-backed staging promotion reconciliation runtime:
+  `docs/lq-2729-database-backed-staging-promotion-reconciliation-runtime.md`
+  - komponiert Unknown-Index, exakten Reader und Attempt-Journal gemeinsam
+  - verwendet für alle drei Adapter genau einen caller-owned Engine
+  - verbindet ausschließlich bestehende Persistence-Verträge mit LQ-2728
+  - reconciliert ein durables Unknown über einen expliziten Runtime-Aufruf
+  - entfernt ein finalisiertes Unknown aus der nächsten Auswahl
+  - behandelt eine leere Datenbank neutral ohne Providerzugriff
+  - reduziert Engine- und Wiringfehler detailfrei
+  - disponiert den caller-owned Engine bei Runtime-Close nicht
+  - erstellt weder Attempt noch User, Workspace, Membership oder Rolle
+  - ergänzt weder DSN-Quelle noch Engine-Konstruktion oder Bootstrap
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt Process-Lifecycle- und Production-Wiring separat offen
+
+- LQ-2730 one-shot staging promotion reconciliation:
+  `docs/lq-2730-one-shot-staging-promotion-reconciliation.md`
+  - exponiert eine explizite process-neutrale One-shot-Operation
+  - komponiert pro Aufruf genau eine datenbankgestützte Runtime
+  - reicht Settings-Pfad und caller-owned Engine unverändert weiter
+  - führt die kontrollierte Reconciliation exakt einmal aus
+  - liefert neutrale Absenz oder das exakte durable Receipt
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - schließt die Runtime bei Erfolg, Absenz und Fehler zuverlässig
+  - reduziert Fehler detailfrei
+  - besitzt und disponiert den Datenbank-Engine nicht
+  - ergänzt weder Trigger noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Secret-Entscheidung
+  - lässt externes Triggering und Production-Wiring separat offen
+
+- LQ-2731 staging promotion reconciliation process settings:
+  `docs/lq-2731-staging-promotion-reconciliation-process-settings.md`
+  - definiert genau Settings-Datei und Datenbank-URL als geschlossene Gruppe
+  - verlangt eine vollständige Mappingform ohne Defaults oder Extra-Felder
+  - validiert einen absoluten, kanonischen und begrenzten Settings-Pfad
+  - akzeptiert nur bereits unterstützte SQLite- und PostgreSQL-Treiber
+  - weist malformed und nicht-stringförmige Werte geschlossen ab
+  - verbirgt Pfad und Datenbank-URL vollständig aus der Repräsentation
+  - ist unveränderlich und hält kein caller-owned Mapping fest
+  - reduziert invalide Konfiguration detailfrei
+  - gewährt weder Authority noch Trigger-, Retry- oder Promotionfähigkeit
+  - ergänzt noch keine Settings-Quelle oder Engine-Erzeugung
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt sicheres Sourcing und Process-Komposition separat offen
+
+- LQ-2732 staging promotion reconciliation process settings source:
+  `docs/lq-2732-staging-promotion-reconciliation-process-settings-source.md`
+  - lädt die vollständigen Process-Settings aus genau einer expliziten Datei
+  - verlangt einen absoluten, nicht-rootigen Pfad ohne Parent-Traversal
+  - akzeptiert nur reguläre, inhabergehaltene Mode-0600-Dateien mit einem Link
+  - weist Symlinks und vererbbare Deskriptoren geschlossen ab
+  - begrenzt stabilen UTF-8-Inhalt auf 8 KiB mit Abschluss-Newline
+  - verlangt beide präfigierten Keys jeweils exakt einmal
+  - delegiert sämtliche Wertevalidierung unverändert an LQ-2731
+  - reduziert Pfad-, Metadaten-, Inhalts-, Race- und Lesefehler detailfrei
+  - liest weder Environment noch Default-Pfad und erstellt keine Datei
+  - erzeugt weder Engine noch Verbindung und triggert keine Reconciliation
+  - ergänzt keine Schema-, Migration-, CLI-, Route- oder Bootstrap-Entscheidung
+  - lässt Process-Komposition und Production-Wiring separat offen
+
+- LQ-2733 owned staging promotion reconciliation process:
+  `docs/lq-2733-owned-staging-promotion-reconciliation-process.md`
+  - komponiert Settings-Quelle, Engine-Fabrik und One-shot-Ausführung
+  - lädt pro explizitem Aufruf genau einen Settings-Pfad
+  - erzeugt genau einen Engine aus der validierten Datenbank-URL
+  - reicht Provider-Settings-Pfad und Engine an genau eine Ausführung weiter
+  - bewahrt neutrale Absenz und exakte Receipts unverändert
+  - disponiert den Engine bei Erfolg, Absenz und Fehler zuverlässig
+  - erzeugt bei Settingsfehlern weder Engine noch Reconciliation-Aufruf
+  - reduziert unbekannte Ergebnisse und Downstream-Fehler detailfrei
+  - besitzt Ressourcenlebenszeit, gewährt aber keine Promotionauthority
+  - ergänzt weder Migration noch Bootstrap, Loop, Scheduler oder Retry
+  - ergänzt keine Schema-, CLI-, Route- oder Environment-Entscheidung
+  - lässt externen Aufruf und Schema-Readiness separat offen
+
+- LQ-2734 readiness-gated staging promotion reconciliation process:
+  `docs/lq-2734-readiness-gated-staging-promotion-reconciliation-process.md`
+  - setzt den bestehenden Datenbank-Readiness-Probe vor die One-shot-Ausführung
+  - prüft Erreichbarkeit und erwarteten Migration-Head exakt einmal
+  - erlaubt Ausführung ausschließlich bei einem exakten Ready-Ergebnis
+  - stoppt bei Unverfügbarkeit, Schema-Mismatch und malformed Readiness geschlossen
+  - führt im unready Fall weder Providerzugriff noch Reconciliation aus
+  - disponiert den process-owned Engine in jedem Ausgang zuverlässig
+  - reduziert Readiness- und Downstream-Fehler detailfrei
+  - behandelt Readiness als Voraussetzung und niemals als Authority
+  - appliziert keine Migration und erstellt weder Schema noch Bootstrap-Fakten
+  - ergänzt weder Waiting noch Loop, Scheduler, Worker oder Retry
+  - ergänzt keine CLI-, Route-, Signal- oder Deployment-Entscheidung
+  - lässt externen Aufruf weiterhin separat offen
+
+- LQ-2735 staging promotion reconciliation process outcome:
+  `docs/lq-2735-staging-promotion-reconciliation-process-outcome.md`
+  - setzt eine minimale detailfreie Ausgangsgrenze vor den ready Process
+  - ruft den Prozess mit dem gelieferten Settings-Pfad exakt einmal auf
+  - übersetzt neutrale Absenz ausschließlich in `IDLE`
+  - übersetzt ein exaktes durable Receipt ausschließlich in `RECONCILED`
+  - hält weder Receipt-Inhalt noch Operation-ID fest
+  - weist unbekannte Ergebniswerte geschlossen ab
+  - reduziert technische Fehler detailfrei
+  - exponiert weder DSN, Pfad noch Providerdetails
+  - behandelt Outcomes weder als Authority noch Permission oder Retryhinweis
+  - ergänzt noch kein Exit-Code-, stdout-, stderr- oder CLI-Format
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt externe Präsentation separat offen
+
+- LQ-2736 staging promotion reconciliation CLI:
+  `docs/lq-2736-staging-promotion-reconciliation-cli.md`
+  - akzeptiert genau einen absoluten Process-Settings-Pfad
+  - weist Root, Parent-Traversal und falsche Argumentanzahl vor Ausführung ab
+  - präsentiert `IDLE` ausschließlich als `idle` mit Exit null
+  - präsentiert `RECONCILED` ausschließlich als `reconciled` mit Exit null
+  - präsentiert technische Unverfügbarkeit detailfrei mit Exit eins
+  - präsentiert invalide Invocation detailfrei mit Exit zwei
+  - weist unbekannte Outcomes geschlossen als unavailable ab
+  - exponiert weder Receipt noch Operation, Pfad, DSN oder Providerdetails
+  - gewährt keine Authority und ergänzt weder Retry noch Loop
+  - ergänzt noch keinen installierten Script-Eintrag oder Shell-Wrapper
+  - ergänzt keine Schema-, Migration-, Route- oder Deployment-Entscheidung
+  - lässt Packaging und externe Invocation separat offen
+
+- LQ-2737 staging promotion reconciliation entry point:
+  `docs/lq-2737-staging-promotion-reconciliation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconcile`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält die LQ-2736-Ausgaben und Exit-Codes unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup
+  - synchronisiert das Paketinventar auf 73 Console Entry Points
+  - aktualisiert die exakte semantische und dateibasierte Wheel-Identität
+  - ergänzt kein weiteres Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet keinen Prozess implizit
+  - ergänzt weder Retry noch Loop, Scheduler, Timer oder Worker
+  - ergänzt keine Route, Migration, Bootstrap- oder Deployment-Entscheidung
+  - lässt operatives Triggering und Production-Wiring separat offen
+
+- LQ-2738 staging promotion reconciliation runbook handoff:
+  `docs/lq-2738-staging-promotion-reconciliation-runbook-handoff.md`
+  - ergänzt die manuelle Recovery-Übergabe im bestehenden Staging-Runbook
+  - trennt Reconciliation ausdrücklich von normaler Promotion und Rollback
+  - nennt das installierte Kommando mit genau einem expliziten Settings-Pfad
+  - beschreibt beide owner-privaten Mode-0600-Settingsdateien
+  - fixiert die exakten Provider- und Process-Settings-Keys
+  - bewahrt die vier detailfreien Ausgabe- und Exit-Code-Fälle unverändert
+  - verlangt bei Unverfügbarkeit einen Stopp ohne automatischen Retry
+  - schließt Settingswerte und durable Identitäten aus Argumenten und Logs aus
+  - verlangt für jeden späteren Aufruf eine neue Operatorentscheidung
+  - gewährt keine Promotionauthority und bestätigt kein Deployment
+  - ergänzt weder Datei noch Secret, Default, Wrapper oder Service
+  - lässt Production-Triggering und Deployment-Wiring separat offen
+
+- LQ-2739 staging promotion reconciliation completion audit:
+  `docs/lq-2739-staging-promotion-reconciliation-completion-audit.md`
+  - schließt den manuellen Reconciliation-Strang LQ-2712 bis LQ-2738 ab
+  - belegt die geordnete Kette vom durable Unknown bis zur Runbook-Übergabe
+  - bestätigt systemseitige Zielwahl ohne caller-supplied Allow oder Rolle
+  - bestätigt exakte Readiness vor jedem Providerzugriff
+  - bestätigt höchstens einen Kandidaten pro explizitem Prozesslauf
+  - bestätigt geschlossene Providerakquise, Decodierung und Klassifikation
+  - bestätigt zuverlässige Client- und Engine-Disposition
+  - bestätigt die vier festen detailfreien CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt Timer, Service, Worker, Retry und Bulk-Drain als neue Slices offen
+
+- LQ-2740 staging promotion reconciliation settings installation contract:
+  `docs/lq-2740-staging-promotion-reconciliation-settings-installation-contract.md`
+  - definiert vier explizite absolute Quell- und Zielpfade ohne Defaults
+  - bewahrt die geschlossenen Provider- und Process-Settings-Grammatiken
+  - verlangt owner-private reguläre Quellen mit Mode 0600 und einem Link
+  - verlangt bestehende owner-gehaltene, nicht fremd-schreibbare Zielverzeichnisse
+  - bindet den Process-Inhalt exakt an den kanonischen Provider-Zielpfad
+  - verlangt zwei neue getrennte Mode-0600-Zieldateien ohne Alias
+  - verbietet Überschreiben, Ersetzen, Truncation und Content-Offenlegung
+  - publiziert Provider zuerst und Process als abschließenden Activation Record
+  - hält einen privaten verwaisten Provider nach Unterbrechung inert und neutral
+  - synchronisiert Inhalt und Verzeichnispublikation vor Erfolg
+  - behandelt konkurrierende oder wiederholte Installation geschlossen
+  - transportiert Konfiguration ohne Authority oder Reconciliation-Ausführung
+  - lässt Implementierung, Kommando und Runtime-Trigger als separate Slices offen
+
+- LQ-2741 staging promotion reconciliation settings installer:
+  `docs/lq-2741-staging-promotion-reconciliation-settings-installer.md`
+  - implementiert die vier expliziten Path-Eingaben ohne Defaults
+  - liest beide Quellen stabil über non-following, non-inheritable Deskriptoren
+  - delegiert Werteprüfung an die bestehenden Provider- und Process-Settings
+  - bindet den Process-Providerpfad exakt an das gelieferte Providerziel
+  - prüft owner-gehaltene und nicht fremd-schreibbare Zielverzeichnisse
+  - publiziert private temporäre Dateien per Hard Link ohne Replacement
+  - synchronisiert Datei und Verzeichnis vor dem nächsten Schritt
+  - publiziert Provider zuerst und Process zuletzt als Activation Record
+  - lässt einen Provider nach Activation-Fehler vollständig und inert zurück
+  - unterscheidet `INSTALLED` von neutralem `PRESENT`
+  - reduziert alle übrigen Fehler detailfrei auf technische Unverfügbarkeit
+  - ergänzt weder CLI noch Authority, Netzwerk, Datenbankzugriff oder Trigger
+
+- LQ-2742 staging promotion reconciliation settings installation CLI contract:
+  `docs/lq-2742-staging-promotion-reconciliation-settings-installation-cli-contract.md`
+  - akzeptiert genau vier explizite absolute Positionsargumente
+  - bewahrt die feste Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - ergänzt weder Default-Pfad noch Environment- oder Arbeitsverzeichnissuche
+  - ruft den Installer höchstens einmal pro Invocation auf
+  - bildet `INSTALLED` fest auf `installed`, stdout und Exit-Code 0 ab
+  - bildet neutrales `PRESENT` fest auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Unverfügbarkeit detailfrei auf stderr und Exit-Code 1 ab
+  - bildet ungültige Invocation detailfrei auf stderr und Exit-Code 2 ab
+  - legt pro Aufruf genau ein festes Token auf genau einem Stream offen
+  - legt weder Pfad noch Inhalt, Endpoint, DSN, Metadaten oder Fehlerdetail offen
+  - behandelt Presence nicht als Erfolg, Inhaltsgleichheit oder Replacement-Erlaubnis
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt weder Implementierung noch Entry Point, Retry, Service oder Deployment
+  - lässt Implementierung und Packaging als getrennte Folgeslices offen
+
+- LQ-2743 staging promotion reconciliation settings installation CLI:
+  `docs/lq-2743-staging-promotion-reconciliation-settings-installation-cli.md`
+  - implementiert den geschlossenen LQ-2742-Präsentationsvertrag
+  - akzeptiert genau vier Strings und validiert sie vor jeder Delegation
+  - delegiert genau einen Aufruf mit vier expliziten `Path`-Werten
+  - bildet `INSTALLED` auf `installed`, stdout und Exit-Code 0 ab
+  - bildet `PRESENT` auf `present`, stderr und Exit-Code 3 ab
+  - bildet technische Fehler und unbekannte Outcomes detailfrei auf Exit-Code 1 ab
+  - bildet ungültige Aufrufe ohne Installerzugriff auf Exit-Code 2 ab
+  - legt weder Settingsinhalt noch Pfad, Endpoint, DSN, Metadaten oder Fehler offen
+  - ergänzt weder Discovery noch Environment-Lookup, Retry, Cleanup oder Trigger
+  - gewährt keine Promotionauthority und startet keine Reconciliation
+  - ergänzt keinen installierten Entry Point und lässt Packaging separat offen
+
+- LQ-2744 staging promotion reconciliation settings installation entry point:
+  `docs/lq-2744-staging-promotion-reconciliation-settings-installation-entry-point.md`
+  - installiert die geschlossene CLI als `liquent-staging-promotion-reconciliation-settings-install`
+  - bindet genau den bestehenden detailfreien `main`-Pfad
+  - hält Argumente, Ausgaben und Exit-Codes aus LQ-2742 und LQ-2743 unverändert
+  - ergänzt weder Default-Pfad noch Environment-Lookup oder zweite Präsentation
+  - synchronisiert das Paketinventar auf 74 Console Entry Points
+  - aktualisiert semantische, dateibasierte und Member-basierte Wheel-Identität
+  - ergänzt kein Operatorimplementierungsmodul
+  - gewährt keine Promotionauthority und startet weder Installation noch Reconciliation
+  - ergänzt weder Retry noch Service, Scheduler, Route oder Deployment
+  - lässt operatives Triggering und Runbook-Übergabe separat offen
+
+- LQ-2745 staging promotion reconciliation settings installation runbook handoff:
+  `docs/lq-2745-staging-promotion-reconciliation-settings-installation-runbook-handoff.md`
+  - ergänzt die manuelle Settings-Installation im bestehenden Staging-Runbook
+  - nennt den installierten Befehl mit vier expliziten absoluten Pfaden
+  - fixiert die Reihenfolge Providerquelle, Providerziel, Processquelle und Processziel
+  - bewahrt Owner-, Mode-, Link-, Verzeichnis- und Bindungsregeln
+  - behandelt ausschließlich `installed` mit Exit-Code 0 als Erfolg
+  - stoppt bei `present` ohne Inhaltsvergleich, Löschung oder Replacement
+  - stoppt bei `unavailable` ohne automatischen Retry
+  - trennt Installation ausdrücklich von späterer Reconciliation-Entscheidung
+  - schließt Settingswerte aus Argumenten, Logs, Tickets und Evidenz aus
+  - gewährt weder Promotionauthority noch Deploymentfreigabe
+  - ergänzt weder Secret noch Default, Cleanup, Rotation, Service oder Trigger
+
+- LQ-2746 staging promotion reconciliation settings installation completion audit:
+  `docs/lq-2746-staging-promotion-reconciliation-settings-installation-completion-audit.md`
+  - schließt den manuellen Settings-Installationsstrang LQ-2740 bis LQ-2745 ab
+  - belegt die geordnete Kette von Vertrag bis Runbook-Übergabe
+  - bestätigt vier explizite absolute und getrennte Pfade ohne Discovery
+  - bestätigt private stabile Quellen und geschlossene Settingsgrammatiken
+  - bestätigt no-replace-Publikation ohne Vergleich oder Löschung
+  - bestätigt Provider zuerst und Process zuletzt als Activation Record
+  - bestätigt den inert-neutralen verwaisten Providerfall
+  - bestätigt vier feste detailfreie CLI-Ergebnisse
+  - bindet genau einen installierten Entry Point an den manuellen Runbookpfad
+  - gewährt weder Promotion- noch Deploymentauthority
+  - startet weder Provider-, Datenbank- noch Reconciliation-Runtime
+  - ergänzt weder Runtimeverhalten noch Schema, Route, Secret oder Deployment
+  - lässt reale Staging-Provisionierung und Integration als externe Arbeit offen
+
+- LQ-2748 Python 3.14 runtime migration:
+  `docs/lq-2748-python-3-14-runtime-migration.md`
+  - hebt ausschließlich das unveränderlich gepinnte Container-Basisimage auf Python 3.14.7 Slim Trixie an
+  - ersetzt die von Grype beanstandete Python-3.13.15-Laufzeit mit `CVE-2026-82049`
+  - bewahrt den Paketvertrag `requires-python = ">=3.10"` und die Python-3.12-CI-Abdeckung
+  - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
+  - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
+  - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Liquent backup age daily
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=liquent-backup-age.service
+
+[Install]
+WantedBy=timers.target

@@ -102,9 +102,9 @@ def test_no_policy_file_follow_on_update_or_delete_power() -> None:
 def test_head_inventory_and_roadmap_remain_synchronized() -> None:
     roadmap = (ROOT / "docs/technical-status-and-roadmap.md").read_text(encoding="utf-8")
     bundle = (ROOT / "tools/operational_release_bundle.py").read_text(encoding="utf-8")
-    assert "**42 lineare Migrationen**, Head\n  `20260826_0042`" in roadmap
-    assert "EXPECTED_MIGRATION_COUNT = 42" in bundle
-    assert "**71 Console Entry Points**, **70 Operatorimplementierungs-" in roadmap
+    assert "**46 lineare Migrationen**, Head\n  `20260916_0046`" in roadmap
+    assert "EXPECTED_MIGRATION_COUNT = 46" in bundle
+    assert "**74 Console Entry Points**, **71 Operatorimplementierungs-" in roadmap
 
 
 def test_roadmap_records_lq529_and_lq530() -> None:

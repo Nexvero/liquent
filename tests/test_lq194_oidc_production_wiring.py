@@ -54,6 +54,7 @@ def test_complete_wiring_enables_both_oidc_routes_without_owning_resources(
             database_engine=engine,
             oidc_http_client=client,
             oidc_verification_policy=POLICY,
+            oidc_client_secret="runtime-client-secret",
             **_operational(),
         )
         paths = {route.path for route in app.routes}
@@ -88,6 +89,7 @@ def test_empty_configuration_fails_login_neutrally_without_network(
             database_engine=engine,
             oidc_http_client=client,
             oidc_verification_policy=POLICY,
+            oidc_client_secret="runtime-client-secret",
             **_operational(),
         )
         with TestClient(app) as browser:
@@ -109,6 +111,7 @@ def test_empty_configuration_fails_login_neutrally_without_network(
         {"oidc_http_client": object()},
         {"oidc_verification_policy": POLICY},
         {"oidc_monotonic_clock": lambda: 1.0},
+        {"oidc_client_secret": "runtime-client-secret"},
     ],
 )
 def test_partial_auto_wiring_fails_fast(tmp_path: Path, supplied: dict[str, object]) -> None:
@@ -136,6 +139,7 @@ def test_auto_wiring_refuses_mixed_managed_dependencies(tmp_path: Path) -> None:
                 database_engine=engine,
                 oidc_http_client=client,
                 oidc_verification_policy=POLICY,
+                oidc_client_secret="runtime-client-secret",
                 oidc_login_configurations=object(),
                 **_operational(),
             )

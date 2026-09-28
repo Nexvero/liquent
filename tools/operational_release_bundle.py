@@ -27,9 +27,9 @@ MIGRATION_RE = re.compile(
     r"liquent_platform/persistence/alembic/versions/[^/]+\.py"
 )
 OPERATOR_RE = re.compile(r"liquent_platform/operators/[^/]+\.py")
-EXPECTED_ENTRY_POINT_COUNT = 71
-EXPECTED_OPERATOR_FILE_COUNT = 71
-EXPECTED_MIGRATION_COUNT = 42
+EXPECTED_ENTRY_POINT_COUNT = 74
+EXPECTED_OPERATOR_FILE_COUNT = 72
+EXPECTED_MIGRATION_COUNT = 46
 
 RUNBOOKS = (
     "initial-identity-and-trust-authority-bootstrap.md",
@@ -399,7 +399,7 @@ def _manifest(
         _reject()
     evidence_path = f"evidence/{EVIDENCE_NAME}"
     _validate_evidence(payload[evidence_path], source_commit)
-    if details["migration_head"] != "20260826_0042":
+    if details["migration_head"] != "20260916_0046":
         _reject()
 
     def entries(prefix: str, **extra: object) -> list[dict[str, object]]:

@@ -20,7 +20,8 @@ from liquent_platform.identity.research import (
 from liquent_platform.identity.research_job import (
     AcceptedResearchJob, ClaimedResearchJob, CompletedResearchJob,
     RenewedResearchJobLease, ResearchJobFailureCode,
-    ResearchJobAcceptanceConflict, ResearchJobView, ResearchResultArtifactClass,
+    ResearchJobAcceptanceConflict, ResearchJobIndexItem, ResearchJobView,
+    ResearchResultArtifactClass,
 )
 from liquent_platform.jobs.lifecycle import ResearchJobStatus
 from liquent_platform.persistence.identity_errors import ResearchJobStoreUnavailable
@@ -79,6 +80,8 @@ def _stored_utc(value: object) -> datetime:
 
 
 class DatabaseResearchJobs:
+    INDEX_LIMIT = 50
+
     __slots__ = ("_engine", "_job_id", "_revision_id", "_claim_id", "_clock", "_lease")
 
     def __init__(self, engine: Engine, *, generate_job_id: Callable[[], JobId],
@@ -212,5 +215,39 @@ class DatabaseResearchJobs:
             accepted = _stored_utc(row["accepted_at"])
             updated = _stored_utc(row["updated_at"])
             return ResearchJobView(job_id, ResearchJobRevisionId(_s(row["revision_id"])), WorkspaceId(_s(row["workspace_id"])), ResearchJobStatus(row["status"]), accepted, updated)
+        except ResearchJobStoreUnavailable: raise
+        except Exception: raise ResearchJobStoreUnavailable from None
+
+    def list_jobs(self, actor_user_id, workspace_id):
+        try:
+            values = {
+                "actor": _b(actor_user_id),
+                "workspace": _b(workspace_id),
+                "limit": self.INDEX_LIMIT,
+            }
+            with self._engine.connect() as c:
+                rows = c.execute(text(
+                    "SELECT j.job_id,j.status,j.accepted_at,j.updated_at "
+                    "FROM research_jobs j "
+                    "JOIN identity_users u ON u.user_id=:actor AND u.status='active' "
+                    "JOIN identity_workspaces w ON w.workspace_id=:workspace "
+                    "AND w.status='active' "
+                    "JOIN workspace_memberships m ON m.user_id=:actor "
+                    "AND m.workspace_id=:workspace AND m.status='active' "
+                    "WHERE j.workspace_id=:workspace "
+                    "AND EXISTS (SELECT 1 FROM workspace_membership_permissions p "
+                    "WHERE p.user_id=:actor AND p.workspace_id=:workspace "
+                    "AND p.permission IN ('research:read','research:write')) "
+                    "ORDER BY j.accepted_at DESC,j.job_id DESC LIMIT :limit"
+                ), values).mappings().all()
+            return tuple(
+                ResearchJobIndexItem(
+                    JobId(_s(row["job_id"])),
+                    ResearchJobStatus(row["status"]),
+                    _stored_utc(row["accepted_at"]),
+                    _stored_utc(row["updated_at"]),
+                )
+                for row in rows
+            )
         except ResearchJobStoreUnavailable: raise
         except Exception: raise ResearchJobStoreUnavailable from None

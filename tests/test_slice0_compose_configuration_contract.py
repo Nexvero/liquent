@@ -86,9 +86,15 @@ def test_staging_infrastructure_examples_are_complete_verified_pins() -> None:
 
 def test_secrets_are_file_mounted_and_examples_contain_no_values() -> None:
     compose = _text(COMPOSE)
+    control_plane = _service_block(compose, "control-plane", "research-worker")
     assert "POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password" in compose
     assert "GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password" in compose
     assert "database_url:" in compose
+    assert "oidc_client_secret:" in compose
+    assert "- oidc_client_secret" in control_plane
+    assert "oidc_client_secret" not in _service_block(
+        compose, "migration-gate", "control-plane"
+    )
     assert "password=" not in _text(RUNTIME_EXAMPLE).lower()
     assert "database_url=" not in _text(RUNTIME_EXAMPLE).lower()
 
@@ -141,3 +147,11 @@ def test_backup_role_is_isolated_in_explicit_operations_overlay() -> None:
     assert "LIQUENT_BACKUP_IMAGE=" in backup_images and "@sha256:" in backup_images
     assert "restic_password:" not in compose
     assert "restic_password:" in overlay
+    backup = _service_block(overlay, "backup", None)
+    assert "      - data\n      - backup-egress\n" in backup
+    assert "LIQUENT_BACKUP_CONFIG: /etc/liquent/backup.env" in backup
+    assert "RESTIC_CACHE_DIR: /tmp/restic-cache" in backup
+    assert "../backup/backup.env:/etc/liquent/backup.env:ro" in backup
+    assert "/backup-input/database:size=2048m,mode=0700,uid=10001,gid=10001" in backup
+    assert "ports:" not in backup
+    assert "\nnetworks:\n  backup-egress:\n    internal: false\n" in overlay

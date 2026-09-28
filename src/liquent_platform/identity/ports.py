@@ -5,6 +5,7 @@ from typing import Protocol
 
 from liquent_platform.identity.access import (
     BootstrappedIdentityAuthority,
+    CurrentWorkspaceContext,
     MembershipStatus,
     Permission,
     UserId,
@@ -323,6 +324,7 @@ from liquent_platform.identity.research_job import (
     CompletedResearchJob,
     RenewedResearchJobLease,
     ResearchJobAcceptanceConflict,
+    ResearchJobIndexItem,
     ResearchJobView,
     ResearchJobFailureCode,
     ResearchResultArtifactClass,
@@ -389,6 +391,14 @@ class WorkspaceMembershipLookup(Protocol):
     def get_membership(
         self, user_id: UserId, workspace_id: WorkspaceId
     ) -> WorkspaceMembership | None: ...
+
+
+class CurrentWorkspaceContextLookup(Protocol):
+    """Resolve one current workspace for an actor without caller selection."""
+
+    def resolve_current_workspace(
+        self, user_id: UserId
+    ) -> CurrentWorkspaceContext | None: ...
 
 
 class AuthorizedManifestHandoffAttemptReservation(Protocol):
@@ -1329,6 +1339,14 @@ class AuthorizedResearchJobLookup(Protocol):
     ) -> ResearchJobView | None: ...
 
 
+class AuthorizedWorkspaceResearchJobIndex(Protocol):
+    """Read one bounded job page for one currently authorized workspace."""
+
+    def list_jobs(
+        self, actor_user_id: UserId, workspace_id: WorkspaceId
+    ) -> tuple[ResearchJobIndexItem, ...]: ...
+
+
 class InitialReleaseRegistryBootstrap(Protocol):
     """Create the first release authorities and inactive public key once."""
 
@@ -1955,6 +1973,19 @@ class IdentityAdmissionProvisioningStore(Protocol):
         target_workspace_id: WorkspaceId,
         lifetime: timedelta,
     ) -> IdentityAdmissionId: ...
+
+
+class OidcPendingLoginAdmissionBindingStore(Protocol):
+    """Bind one internal admission to the sole eligible pending OIDC login.
+
+    The caller supplies no state, browser value, issuer, user, workspace, or
+    time. The implementation resolves the target facts and exactly one current
+    unbound transaction from its system of record. ``False`` neutrally covers
+    absence, expiry, ineligibility, or ambiguity; technical failure remains the
+    existing detail-free login-transaction store unavailability.
+    """
+
+    def bind_admission(self, admission_id: IdentityAdmissionId) -> bool: ...
 
 
 class OidcLoginTransactionClaimStore(Protocol):

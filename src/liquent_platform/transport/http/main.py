@@ -72,6 +72,7 @@ def build_app(settings: PlatformSettings):
 
     rejection = ValidatedInternalDestination(settings.oidc_callback_rejection)
     unavailable = ValidatedInternalDestination(settings.oidc_callback_unavailable)
+    assert settings.oidc_client_secret is not None
     policy = OidcVerificationPolicy(
         connect_timeout=timedelta(seconds=settings.oidc_connect_timeout_seconds),
         read_timeout=timedelta(seconds=settings.oidc_read_timeout_seconds),
@@ -88,6 +89,7 @@ def build_app(settings: PlatformSettings):
             oidc_http_client=oidc_client,
             oidc_http_client_owned=True,
             oidc_verification_policy=policy,
+            oidc_client_secret=settings.oidc_client_secret.get_secret_value(),
             oidc_login_origin=settings.oidc_login_origin,
             oidc_login_lifetime=timedelta(
                 seconds=settings.oidc_login_lifetime_seconds

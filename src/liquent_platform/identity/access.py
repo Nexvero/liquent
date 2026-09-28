@@ -36,6 +36,14 @@ class WorkspaceMembership:
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentWorkspaceContext:
+    """One unambiguous active workspace context, without operation authority."""
+
+    user_id: UserId
+    workspace_id: WorkspaceId
+
+
+@dataclass(frozen=True, slots=True)
 class BootstrappedIdentityAuthority:
     """The first internal user and workspace created as one durable fact."""
 

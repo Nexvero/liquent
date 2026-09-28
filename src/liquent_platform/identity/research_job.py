@@ -131,3 +131,19 @@ class ResearchJobView:
         _require_utc(self.updated_at, "research job update time")
         if self.updated_at < self.accepted_at:
             raise ValueError("research job update time must not precede acceptance")
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchJobIndexItem:
+    """Minimum committed facts visible in one workspace job index."""
+
+    job_id: JobId = field(repr=False)
+    status: ResearchJobStatus
+    accepted_at: datetime
+    updated_at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.accepted_at, "research job acceptance time")
+        _require_utc(self.updated_at, "research job update time")
+        if self.updated_at < self.accepted_at:
+            raise ValueError("research job update time must not precede acceptance")

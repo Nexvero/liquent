@@ -30,6 +30,7 @@ def _oidc(**changes: object) -> dict[str, object]:
         "oidc_token_response_max_bytes": 65_536,
         "oidc_jwks_response_max_bytes": 262_144,
         "oidc_jwks_cache_ttl_seconds": 300,
+        "oidc_client_secret": "runtime-client-secret",
     }
     values.update(changes)
     return values
@@ -44,9 +45,25 @@ def test_oidc_process_settings_are_all_or_none_and_summary_is_value_free() -> No
     assert closed.public_summary()["oidc_enabled"] == "false"
     assert active.public_summary()["oidc_enabled"] == "true"
     assert "app.example" not in str(active.public_summary())
+    assert "runtime-client-secret" not in repr(active)
 
     with pytest.raises(ValidationError, match="must be provided together"):
         PlatformSettings(_secrets_dir=None, oidc_login_origin="https://app.example")
+
+
+def test_oidc_client_secret_is_loaded_from_the_runtime_secret_file(
+    tmp_path: Path,
+) -> None:
+    secret = "runtime-client-secret-from-file"
+    (tmp_path / "oidc_client_secret").write_text(secret, encoding="utf-8")
+    values = _oidc()
+    del values["oidc_client_secret"]
+
+    settings = PlatformSettings(_secrets_dir=tmp_path, **values)
+
+    assert settings.oidc_client_secret is not None
+    assert settings.oidc_client_secret.get_secret_value() == secret
+    assert secret not in repr(settings)
 
 
 @pytest.mark.parametrize(
@@ -156,6 +173,7 @@ def test_lifespan_closes_owned_client_even_when_shutdown_health_fails(
             jwks_response_max_bytes=1,
             jwks_cache_ttl=timedelta(seconds=1),
         ),
+        oidc_client_secret="runtime-client-secret",
         oidc_login_lifetime=timedelta(seconds=1),
         oidc_login_origin="https://app.example",
         oidc_session_lifetime=timedelta(seconds=1),
