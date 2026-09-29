@@ -13848,5 +13848,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Kommando, Repair, Retry oder Automation
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2757 staging promotion reconciliation database failure containment:
+  `docs/lq-2757-staging-promotion-reconciliation-database-failure-containment.md`
+  - bündelt Datenbank-Nichtverfügbarkeit in einer realen CLI-/SQLite-Abnahme
+  - nutzt installierte private Settings und einen exakten Unknown-Effect-Kandidaten
+  - lässt Readiness, Kandidatenaudit und Reconciliation detailfrei stoppen
+  - führt bei unerreichbarer Datenbank keinen Providerrequest aus
+  - exponiert weder Datenbankpfad noch Datenbank-URL oder Operation-ID
+  - zeichnet keine durable Reconciliation auf
+  - erhält den ursprünglichen Unknown-Effect-Kandidaten unverändert
+  - ergänzt weder Produktionscode noch Kommando, Repair, Retry oder Automation
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
