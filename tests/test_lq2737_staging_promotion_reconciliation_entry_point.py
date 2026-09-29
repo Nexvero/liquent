@@ -22,7 +22,7 @@ def test_release_inventory_tracks_the_added_command_without_operator_drift() -> 
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     scripts = re.findall(r"^liquent-[a-z0-9-]+\s*=", project, re.MULTILINE)
     operators = list((ROOT / "src/liquent_platform/operators").glob("*.py"))
-    assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 74
+    assert len(scripts) == EXPECTED_ENTRY_POINT_COUNT == 75
     assert len(operators) == 72
 
 
