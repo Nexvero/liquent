@@ -13823,5 +13823,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Kommando, Trigger oder Automation
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2755 staging promotion reconciliation failure containment:
+  `docs/lq-2755-staging-promotion-reconciliation-failure-containment.md`
+  - bündelt HTTP- und Decoderfehler in einer realen CLI-/SQLite-Abnahme
+  - installiert private Settings und nutzt den aktuellen Migrationsstand
+  - belegt `ready` → `pending` → `unavailable` → `pending`
+  - führt pro begrenztem Fehlerlauf genau einen Providerrequest aus
+  - reduziert private Providerdetails detailfrei auf `unavailable`
+  - zeichnet bei Providerfehlern keine durable Reconciliation auf
+  - erhält den ursprünglichen Unknown-Effect-Kandidaten unverändert
+  - exponiert weder Operation-ID noch Responsebody oder Fehlerkette
+  - ergänzt weder Produktionscode noch Kommando, Trigger oder Retrypolicy
+  - gewährt weder Retry-, Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
