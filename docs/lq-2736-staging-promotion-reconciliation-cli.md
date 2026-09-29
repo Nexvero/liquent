@@ -8,7 +8,8 @@ one absolute process-settings path and emits only fixed status tokens.
 ## Observable contract
 
 - Exactly one absolute, non-root path without parent traversal is accepted.
-- `IDLE` writes `idle` to stdout and exits zero.
+- `IDLE` writes `idle` to stdout and exits zero. It means that this bounded pass
+  recorded no durable reconciliation; it does not assert candidate absence.
 - `RECONCILED` writes `reconciled` to stdout and exits zero.
 - Technical unavailability writes only `unavailable` to stderr and exits one.
 - Invalid invocation writes only `invalid_invocation` to stderr and exits two.

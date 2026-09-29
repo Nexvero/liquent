@@ -13796,5 +13796,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - behandelt jedes Ergebnis als sofort veraltbare Voraussetzungsevidenz
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2753 staging promotion reconciliation operator-boundary acceptance:
+  `docs/lq-2753-staging-promotion-reconciliation-operator-boundary-acceptance.md`
+  - prüft den realen CLI-/SQLite-Übergang ohne neue Produktionslogik
+  - belegt `pending` → `reconciled` → `idle` bei exaktem Commitnachweis
+  - belegt `pending` → `idle` → `pending` bei weiter ausstehendem Providerstatus
+  - bindet jeden Reconcile-Lauf an exakt einen Providerrequest
+  - bestätigt Durable Mutation nur bei exaktem gebundenem Commitnachweis
+  - bestätigt den Erhalt des Unknown-Effect-Kandidaten bei neutraler Beobachtung
+  - exponiert keine Operation-ID über die CLI-Grenzen
+  - korrigiert `idle` auf „keine durable Reconciliation in diesem Lauf“
+  - stellt klar, dass `idle` keine leere Kandidatenmenge beweist
+  - hält jeden weiteren Lauf unter neuer expliziter Operatorentscheidung
+  - gewährt weder Retry-, Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

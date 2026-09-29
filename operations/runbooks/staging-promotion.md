@@ -154,7 +154,9 @@ liquent-staging-promotion-reconcile /ABSOLUTE/PROCESS_SETTINGS
 
 Interpret only the fixed result and exit status:
 
-- `idle` on stdout with exit `0`: no eligible unknown attempt was present;
+- `idle` on stdout with exit `0`: no durable reconciliation was recorded by
+  this bounded pass; this does not prove that no eligible candidate exists,
+  because a provider may still report the selected operation as pending;
 - `reconciled` on stdout with exit `0`: one exact durable reconciliation was
   completed;
 - `unavailable` on stderr with exit `1`: stop and investigate outside this
@@ -165,7 +167,9 @@ Interpret only the fixed result and exit status:
 Never put either settings value, an operation identity, receipt, provider
 response or database detail into command arguments beyond the single settings
 path, logs, tickets or copied evidence. A second invocation is a new explicit
-operator decision after current durable state has been reviewed.
+operator decision after current durable state has been reviewed. If the result
+is `idle`, use a new candidate audit only as fresh read-only evidence; do not
+convert either result into automatic retry authority.
 
 ## Required evidence
 
