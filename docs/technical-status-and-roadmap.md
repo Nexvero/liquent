@@ -13898,5 +13898,21 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt ausschließlich Tests und Dokumentation
   - gewährt weder Stagingausführung, Reconciliation, Promotion noch Deployment
 
+- LQ-2761 staging reconciliation exercise authorization handoff:
+  `docs/lq-2761-staging-reconciliation-exercise-authorization-handoff.md`
+  - überführt die abgeschlossene LQ-2760-Abnahme in ein begrenztes
+    Entscheidungs- und Übergabepaket für einen späteren Realtest
+  - verlangt exakte Staginggrenze, private Settingsverwahrung, aktuelle
+    Providerfreigabe, PostgreSQL-Readiness und durable Kandidatenevidenz
+  - trennt Operator, Approver und Incident-Response-Rolle
+  - bindet die vier installierten Befehle an die bestehende manuelle Reihenfolge
+  - macht jedes feste Ergebnis zu einer neuen Stopgrenze
+  - hält Settings, Endpoint, Datenbank-URL, Credentials und Operation-ID aus
+    kopierbarer Evidenz heraus
+  - erlaubt weder automatische Wiederholung noch Polling oder Bulkdrain
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
+    noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
