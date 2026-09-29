@@ -200,3 +200,11 @@ Treat every fixed command result as a new stop boundary. Missing, stale,
 ambiguous, rejected or expired evidence stops the exercise. A later invocation
 requires fresh evidence and a new explicit decision; there is no automatic
 retry, polling, bulk drain, promotion or deployment authority.
+
+Record that decision with the fixed, data-minimizing packet in
+`docs/lq-2762-staging-reconciliation-exercise-decision-packet.md`. Complete
+every confirmation and UTC timestamp immediately before the bounded exercise.
+Only an unexpired `approved` packet with every confirmation set to `yes` may be
+consulted for that one window. The packet contains no path, settings value,
+endpoint, database detail, operation identity, person or account. It is not a
+credential and cannot be reused for a retry or later pass.
