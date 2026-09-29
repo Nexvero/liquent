@@ -24,7 +24,7 @@
   Entry Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #254 wurde nach erfolgreichen Pflichtprüfungen per
   Squash-Merge in `main` integriert; sein Merge-Commit ist `da7a89dc`.
-- **Paketinventar:** **75 Console Entry Points**, **71 Operatorimplementierungs-
+- **Paketinventar:** **76 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -13779,6 +13779,22 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
   - bündelt Runbook-Handoff und Abschlussaudit ohne Runtimeänderung
   - hält Provisionierung, Durable-State-Review, Entscheidung und Ausführung extern
+
+- LQ-2752 staging promotion reconciliation candidate audit and runbook handoff:
+  `docs/lq-2752-staging-promotion-reconciliation-candidate-audit.md`
+  - bündelt Durable-State-Prüfung, installierten Befehl und Runbook-Übergabe
+  - validiert Process- und Provider-Settings ohne Providerzugriff
+  - prüft die Datenbank-Readiness exakt einmal
+  - liest den begrenzten Unknown-Effect-Index exakt einmal
+  - nutzt die bestehende deterministische Kandidatenauswahl
+  - disponiert den process-owned Engine bei jedem Ausgang
+  - installiert `liquent-staging-promotion-reconciliation-candidate-audit`
+  - liefert ausschließlich `pending`, `idle`, `unavailable` oder `invalid_invocation`
+  - exponiert keine Operation-ID, Pfade, Werte, Endpoints oder Fehlerdetails
+  - führt weder Providerrequest noch Reconciliation oder Datenbankmutation aus
+  - ordnet den Audit nach Readiness und vor die manuelle Reconciliation
+  - behandelt jedes Ergebnis als sofort veraltbare Voraussetzungsevidenz
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

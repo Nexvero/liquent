@@ -97,6 +97,35 @@ become stale immediately and is prerequisite evidence only. Never record the
 settings paths, values, endpoint, database URL or technical failure detail in
 logs, tickets or copied evidence.
 
+### Audit an eligible reconciliation candidate
+
+After a fresh `ready` result, inspect only whether the durable journal currently
+contains an eligible unknown-effect candidate. Pass the same explicit absolute
+process settings path:
+
+```text
+liquent-staging-promotion-reconciliation-candidate-audit /ABSOLUTE/PROCESS_SETTINGS
+```
+
+Interpret only the fixed audit result and exit status:
+
+- `pending` on stdout with exit `0`: at least one eligible candidate existed at
+  audit time; make a new explicit operator decision before reconciliation;
+- `idle` on stdout with exit `0`: no eligible candidate existed at audit time;
+  stop without invoking reconciliation;
+- `unavailable` on stderr with exit `1`: stop and investigate outside this
+  command; do not retry automatically and do not invoke reconciliation;
+- `invalid_invocation` on stderr with exit `2`: correct the path argument
+  without assuming that durable state was inspected.
+
+The audit validates the closed settings and database readiness, then reads the
+bounded unknown-effect index exactly once. It makes no provider request,
+performs no reconciliation or database mutation, and never exposes an operation
+identity. A `pending` result can become stale immediately, is prerequisite
+evidence only, and grants no reconciliation, promotion or deployment authority.
+Never record settings paths or values, endpoint, database URL, operation
+identity or technical failure detail in logs, tickets or copied evidence.
+
 This is a separate, manual recovery action. Do not run it during the normal
 application promotion or rollback flow. Use it only when the durable staging
 research-index promotion journal already contains an unknown-effect attempt and
