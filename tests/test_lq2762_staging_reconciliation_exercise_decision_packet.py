@@ -8,10 +8,11 @@ RUNBOOK = ROOT / "operations/runbooks/staging-promotion.md"
 
 def test_packet_is_one_bounded_decision_not_executable_authority() -> None:
     text = DOC.read_text(encoding="utf-8")
-    assert "one future staging reconciliation exercise" in text
-    assert "evidence of a decision only" in text
-    assert "not a credential, reusable\nauthorization token" in text
-    assert "applies only to the named exercise\nwindow" in text
+    normalized = " ".join(text.split())
+    assert "one future staging reconciliation exercise" in normalized
+    assert "evidence of a decision only" in normalized
+    assert "not a credential, reusable authorization token" in normalized
+    assert "applies only to the named exercise window" in normalized
 
 
 def test_packet_has_fixed_minimal_fields_and_decisions() -> None:
