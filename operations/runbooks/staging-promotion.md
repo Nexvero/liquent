@@ -208,3 +208,12 @@ Only an unexpired `approved` packet with every confirmation set to `yes` may be
 consulted for that one window. The packet contains no path, settings value,
 endpoint, database detail, operation identity, person or account. It is not a
 credential and cannot be reused for a retry or later pass.
+
+Validate the completed packet once with
+`docs/lq-2763-staging-reconciliation-exercise-decision-packet-validation.md`
+before consulting any command step. Check its exact shape and tokens, current
+UTC window, unchanged prerequisite evidence, role separation and single-use
+state in that order. Record only `valid`, `rejected`, `expired` or `invalid`
+without packet values or technical detail. A `valid` result is point-in-time
+evidence, not command authority. Every other, missing or ambiguous result stops
+before settings installation, provider access or reconciliation.
