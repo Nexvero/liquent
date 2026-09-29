@@ -13928,5 +13928,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
     noch Deploymentauthority
 
+- LQ-2763 staging reconciliation exercise decision packet validation:
+  `docs/lq-2763-staging-reconciliation-exercise-decision-packet-validation.md`
+  - definiert eine einmalige manuelle Validierung vor einem begrenzten Realtest
+  - prüft Form, Tokens, UTC-Fenster, aktuelle Evidenz und Rollentrennung geordnet
+  - repariert, normalisiert oder vervollständigt kein Entscheidungspaket
+  - erlaubt ausschließlich `valid`, `rejected`, `expired` oder `invalid`
+  - hält Paketwerte, Fehlerdetails, Pfade, Endpoints und Identitäten fern
+  - behandelt `valid` nur als punktuelle Evidenz und nicht als Kommandoauthority
+  - stoppt bei jedem anderen, fehlenden oder mehrdeutigen Ergebnis geschlossen
+  - verhindert Wiederverwendung, Retryauthority, Polling und Bulkdrain
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
+    noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
