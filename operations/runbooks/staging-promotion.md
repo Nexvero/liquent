@@ -178,3 +178,25 @@ backup snapshot ID, migration result, internal container health, external HTTPS
 result, operator and decision. A first-ever staging deployment without a known
 healthy previous digest is intentionally outside this automation and requires a
 separate bootstrap procedure.
+
+## Reconciliation exercise authorization handoff
+
+Before using the reconciliation commands against the real staging environment,
+review the decision packet in
+`docs/lq-2761-staging-reconciliation-exercise-authorization-handoff.md`. The
+packet must establish the exact staging boundary, owner-private settings
+custody, current provider authorization, current PostgreSQL readiness, current
+durable candidate state, named decision roles and a bounded exercise window.
+
+The packet itself is not authorization and must contain no settings path or
+value, endpoint, database URL, credential, operation identity, provider
+response, receipt or technical error detail. A separate approver records only
+`approved`, `rejected` or `expired`. Approval is valid for one bounded exercise
+window and cannot be reused.
+
+Within an approved window, retain the existing manual order: settings
+installation, readiness audit, candidate audit and one reconciliation pass.
+Treat every fixed command result as a new stop boundary. Missing, stale,
+ambiguous, rejected or expired evidence stops the exercise. A later invocation
+requires fresh evidence and a new explicit decision; there is no automatic
+retry, polling, bulk drain, promotion or deployment authority.
