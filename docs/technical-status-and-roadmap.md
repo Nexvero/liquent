@@ -13872,5 +13872,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Migration, Repair, Retry oder Automation
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2759 staging promotion reconciliation PostgreSQL acceptance:
+  `docs/lq-2759-staging-promotion-reconciliation-postgresql-acceptance.md`
+  - schließt die bisherige SQLite-Abnahme mit einem echten PostgreSQL-Nachweis
+  - nutzt eine dedizierte Wegwerfdatenbank auf dem aktuellen Migrationsstand
+  - installiert private Provider- und Process-Settings ohne Replacement
+  - belegt `installed` → `ready` → `pending` → `reconciled` → `idle`
+  - führt genau einen Providerrequest im begrenzten Reconcile-Lauf aus
+  - bestätigt die durable Reconciliation über eine unabhängige Engine
+  - entfernt den Kandidaten aus dem persistenten Unknown-Effect-Index
+  - exponiert weder Pfade, Datenbank-URL noch Operation-ID
+  - ergänzt weder Produktionscode noch Kommando, Trigger oder Automation
+  - gewährt weder weitere Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
