@@ -51,8 +51,8 @@ def test_inventory_is_synchronized() -> None:
     project=(ROOT/"pyproject.toml").read_text(encoding="utf-8")
     scripts=re.findall(r"^liquent-[a-z0-9-]+\s*=",project,re.MULTILINE)
     bundle=(ROOT/"tools/operational_release_bundle.py").read_text(encoding="utf-8")
-    assert len(scripts)==75
-    assert "EXPECTED_ENTRY_POINT_COUNT = 75" in bundle
+    assert len(scripts)==76
+    assert "EXPECTED_ENTRY_POINT_COUNT = 76" in bundle
 
 
 def test_roadmap_records_lq543_and_lq544() -> None:
