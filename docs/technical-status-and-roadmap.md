@@ -13836,5 +13836,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Kommando, Trigger oder Retrypolicy
   - gewährt weder Retry-, Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2756 staging promotion reconciliation settings tamper containment:
+  `docs/lq-2756-staging-promotion-reconciliation-settings-tamper-containment.md`
+  - bündelt Process- und Provider-Settings-Tamper in einer realen CLI-/SQLite-Abnahme
+  - nutzt installierte private Settings und einen exakten Unknown-Effect-Kandidaten
+  - lässt Readiness, Kandidatenaudit und Reconciliation detailfrei stoppen
+  - führt bei verletzter Owner-Private-Grenze keinen Providerrequest aus
+  - exponiert weder Settingspfad noch Datenbank-URL oder Operation-ID
+  - zeichnet keine durable Reconciliation auf
+  - erhält den ursprünglichen Unknown-Effect-Kandidaten unverändert
+  - ergänzt weder Produktionscode noch Kommando, Repair, Retry oder Automation
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
