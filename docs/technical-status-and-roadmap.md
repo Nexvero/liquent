@@ -13860,5 +13860,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Kommando, Repair, Retry oder Automation
   - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2758 staging promotion reconciliation schema mismatch containment:
+  `docs/lq-2758-staging-promotion-reconciliation-schema-mismatch-containment.md`
+  - bündelt einen veralteten Migrationsstand in einer realen CLI-/SQLite-Abnahme
+  - nutzt installierte private Settings und einen exakten Unknown-Effect-Kandidaten
+  - lässt Readiness, Kandidatenaudit und Reconciliation detailfrei stoppen
+  - führt bei abweichender Schema-Revision keinen Providerrequest aus
+  - exponiert weder Datenbank-URL, Operation-ID noch unerwartete Revision
+  - zeichnet keine durable Reconciliation auf
+  - erhält den ursprünglichen Unknown-Effect-Kandidaten unverändert
+  - ergänzt weder Produktionscode noch Migration, Repair, Retry oder Automation
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
