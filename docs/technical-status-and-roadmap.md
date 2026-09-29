@@ -6,18 +6,24 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Branch:** `codex/lq-post-merge-release`, erstellt auf dem in `main`
-  gemergten Squash-Commit `2a5a5b07`; kein Release oder Deployment erfolgt.
-- **Normaler Teststand:** **7167 passed**, **111 skipped** auf sauberem Baum;
-  davon sind drei historische Pre-Staging-Vollscope-Reaudits nicht anwendbar.
-- **PostgreSQL-Markerstand:** **107 passed**, **7171 deselected**, gegen einen
-  disposable lokalen PostgreSQL-16.14-Cluster mit UTC-Sessions.
-- **Preflightstand:** alle zehn kontrollierten Phasen auf Commit `5d62b967`
-  bestanden; Publishing und Deployment bleiben ausdrücklich nicht autorisiert.
-- **Container-/Scanstand:** Image `sha256:c8868d4…f4513`, 71 ladbare Entry
-  Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
-- **Integrationsscope:** PR #128 wurde nach vier erfolgreichen Pflichtprüfungen
-  per Squash-Merge in `main` integriert; der Merge-Tree ist `8a0cdc71`.
+- **Branch/Quelle:** `main` auf Squash-Commit `da7a89dc` (PR #254); der lokale
+  Nachlaufzweig zeigt exakt auf denselben Baum. Kein Release oder Deployment
+  erfolgte.
+- **Normaler Teststand:** **7788 passed**, **112 skipped** auf sauberem Baum mit
+  Python 3.12.14 und dem durch `requirements/ci.lock` gebundenen CI-Werkzeugsatz.
+- **Paketstand:** commitgebundener, reproduzierbarer Wheel-Bau und
+  `tools/verify_release_wheel.py` bestanden; SHA-256
+  `e258a7e04c5f40aa66d4ee00b5efbe3b672c5ed7cdbfe52fb5ae6d9aede9445f`.
+- **Letzter gesonderter PostgreSQL-Markerstand:** **107 passed**,
+  **7171 deselected**, gegen einen disposable lokalen PostgreSQL-16.14-Cluster
+  mit UTC-Sessions.
+- **Letzter vollständiger Preflightstand:** alle zehn kontrollierten Phasen auf
+  Commit `5d62b967` bestanden; Publishing und Deployment bleiben ausdrücklich
+  nicht autorisiert.
+- **Letzter Container-/Scanstand:** Image `sha256:c8868d4…f4513`, 71 ladbare
+  Entry Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
+- **Integrationsscope:** PR #254 wurde nach erfolgreichen Pflichtprüfungen per
+  Squash-Merge in `main` integriert; sein Merge-Commit ist `da7a89dc`.
 - **Paketinventar:** **74 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.

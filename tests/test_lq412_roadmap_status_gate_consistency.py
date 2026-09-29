@@ -19,9 +19,13 @@ def _roadmap_head() -> str:
 
 def test_consolidated_head_records_separate_verified_test_boundaries() -> None:
     head = _roadmap_head()
-    assert "**7167 passed**, **111 skipped**" in head
-    assert "**107 passed**, **7171 deselected**" in head
-    assert "PostgreSQL-16.14-Cluster mit UTC-Sessions" in head
+    assert "**7788 passed**, **112 skipped**" in head
+    assert "Python 3.12.14" in head
+    assert "`requirements/ci.lock`" in head
+    assert "`da7a89dc`" in head
+    assert "e258a7e04c5f40aa66d4ee00b5efbe3b672c5ed7cdbfe52fb5ae6d9aede9445f" in head
+    assert re.search(r"\*\*107 passed\*\*,\s+\*\*7171 deselected\*\*", head)
+    assert re.search(r"PostgreSQL-16\.14-Cluster\s+mit UTC-Sessions", head)
     assert "bis LQ-2622" in head
     assert "alle zehn kontrollierten Phasen" in head
 
