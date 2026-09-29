@@ -24,7 +24,7 @@
   Entry Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
 - **Integrationsscope:** PR #254 wurde nach erfolgreichen Pflichtprüfungen per
   Squash-Merge in `main` integriert; sein Merge-Commit ist `da7a89dc`.
-- **Paketinventar:** **74 Console Entry Points**, **71 Operatorimplementierungs-
+- **Paketinventar:** **75 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
@@ -13751,6 +13751,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - verwendet den offiziellen Manifest-Digest `caaf356f...f8a2`
   - ergänzt weder Ausnahme noch Gate-Abschwächung oder veränderliches Paket-Upgrade
   - lässt das bestehende Container-Gate die neue Laufzeit verbindlich abnehmen
+
+- LQ-2750 staging promotion reconciliation readiness audit:
+  `docs/lq-2750-staging-promotion-reconciliation-readiness-audit.md`
+  - bündelt den nächsten sicheren Integrationsschritt nach LQ-2740 bis LQ-2746
+  - validiert genau eine explizite Process-Settings-Datei und ihre Providerdatei
+  - prüft die bestehende Datenbank-Readiness exakt einmal
+  - disponiert den process-owned Engine bei jedem Ausgang
+  - installiert `liquent-staging-promotion-reconciliation-readiness-audit`
+  - liefert ausschließlich `ready`, `unavailable` oder `invalid_invocation`
+  - exponiert weder Pfad, Endpoint, Datenbank-URL noch Fehlerdetails
+  - führt keinen Providerrequest, keine Reconciliation und keine Mutation aus
+  - gewährt weder Promotion- noch Deploymentauthority
+  - hält Provisionierung, Reconciliation und Staging-Abnahme separat extern
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
