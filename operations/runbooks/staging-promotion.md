@@ -71,6 +71,32 @@ operator procedure. Installation does not authorize reconciliation; review the
 durable unknown-effect state and make a new explicit operator decision before
 the bounded reconciliation command below.
 
+### Audit reconciliation readiness
+
+After a successful settings installation, audit only the closed settings and
+database prerequisites. Pass the explicit absolute process target path; do not
+copy either settings value into the command:
+
+```text
+liquent-staging-promotion-reconciliation-readiness-audit /ABSOLUTE/PROCESS_SETTINGS
+```
+
+Interpret only the fixed audit result and exit status:
+
+- `ready` on stdout with exit `0`: the settings projections and database schema
+  were ready at audit time; continue only to a separate review of current
+  durable state and an explicit operator decision;
+- `unavailable` on stderr with exit `1`: stop and investigate outside this
+  command; do not retry automatically and do not invoke reconciliation;
+- `invalid_invocation` on stderr with exit `2`: correct the path argument
+  without assuming that readiness was checked.
+
+The audit makes no provider request, performs no reconciliation or database
+mutation, and grants no promotion or deployment authority. A `ready` result can
+become stale immediately and is prerequisite evidence only. Never record the
+settings paths, values, endpoint, database URL or technical failure detail in
+logs, tickets or copied evidence.
+
 This is a separate, manual recovery action. Do not run it during the normal
 application promotion or rollback flow. Use it only when the durable staging
 research-index promotion journal already contains an unknown-effect attempt and

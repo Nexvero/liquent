@@ -13765,5 +13765,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - gewährt weder Promotion- noch Deploymentauthority
   - hält Provisionierung, Reconciliation und Staging-Abnahme separat extern
 
+- LQ-2751 staging promotion reconciliation readiness runbook and completion audit:
+  `docs/lq-2751-staging-promotion-reconciliation-readiness-runbook-and-completion-audit.md`
+  - übergibt den installierten LQ-2750-Readiness-Befehl an das Staging-Runbook
+  - ordnet den Audit nach Settingsinstallation und vor jede Reconciliation-Entscheidung
+  - verlangt genau einen expliziten absoluten Process-Settings-Pfad
+  - behandelt ausschließlich `ready` mit Exit-Code 0 als erfolgreichen Audit
+  - stoppt bei `unavailable` ohne automatischen Retry oder Reconciliation
+  - hält `invalid_invocation` auf die Korrektur des Pfadarguments begrenzt
+  - schließt Pfade, Werte, Endpoint, Datenbank-URL und Fehlerdetails aus Evidenz aus
+  - bestätigt Providerfreiheit, Mutationsfreiheit und Engine-Disposition
+  - behandelt Readiness nur als sofort veraltbare Voraussetzungsevidenz
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
+  - bündelt Runbook-Handoff und Abschlussaudit ohne Runtimeänderung
+  - hält Provisionierung, Durable-State-Review, Entscheidung und Ausführung extern
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
