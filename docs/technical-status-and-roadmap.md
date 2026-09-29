@@ -13885,5 +13885,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt weder Produktionscode noch Kommando, Trigger oder Automation
   - gewährt weder weitere Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2760 staging promotion reconciliation acceptance completion audit:
+  `docs/lq-2760-staging-promotion-reconciliation-acceptance-completion-audit.md`
+  - schließt die manuelle Acceptance-Reihe LQ-2750 bis LQ-2759
+  - bindet Settingsinstallation, Readiness-, Kandidaten- und Reconcile-Kommando
+    an den expliziten Runbook-Ablauf
+  - bündelt positiven SQLite- und PostgreSQL-Nachweis mit den geschlossenen
+    Provider-, Settings-, Datenbank- und Schemafehlergrenzen
+  - bestätigt genau einen Providerrequest im erfolgreichen begrenzten Lauf
+  - bestätigt unveränderten Unknown-Effect-Zustand auf allen Fehlerpfaden
+  - exponiert weder Settings, Endpoint, Datenbank-URL noch Operation-ID
+  - ergänzt ausschließlich Tests und Dokumentation
+  - gewährt weder Stagingausführung, Reconciliation, Promotion noch Deployment
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
