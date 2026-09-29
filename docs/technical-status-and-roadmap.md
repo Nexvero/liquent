@@ -13810,5 +13810,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - hält jeden weiteren Lauf unter neuer expliziter Operatorentscheidung
   - gewährt weder Retry-, Reconciliation-, Promotion- noch Deploymentauthority
 
+- LQ-2754 staging promotion reconciliation operator rehearsal:
+  `docs/lq-2754-staging-promotion-reconciliation-operator-rehearsal.md`
+  - bündelt die bereits installierte manuelle Befehlskette in einer Abnahmeprobe
+  - installiert private Provider- und Process-Settings ohne Replacement
+  - nutzt den realen SQLite-Migrationsstand und einen exakten Unknown-Effect-Versuch
+  - belegt `installed` → `ready` → `pending` → `reconciled` → `idle`
+  - führt genau einen Providerrequest im begrenzten Reconcile-Lauf aus
+  - bestätigt die exakte durable Reconciliation und Entfernung aus dem Unknown-Index
+  - bestätigt `present` ohne Änderung bei wiederholter Settingsinstallation
+  - exponiert weder Pfade noch Endpoint, Datenbank-URL oder Operation-ID
+  - ergänzt weder Produktionscode noch Kommando, Trigger oder Automation
+  - gewährt weder Reconciliation-, Promotion- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
