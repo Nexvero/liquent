@@ -13914,5 +13914,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
     noch Deploymentauthority
 
+- LQ-2762 staging reconciliation exercise decision packet:
+  `docs/lq-2762-staging-reconciliation-exercise-decision-packet.md`
+  - übersetzt die LQ-2761-Übergabe in einen festen kopierbaren Entscheidungsblock
+  - bindet genau eine Staginggrenze und ein begrenztes UTC-Zeitfenster
+  - verlangt acht explizite Bestätigungen ohne implizite Freigabe
+  - erlaubt ausschließlich `approved`, `rejected` oder `expired`
+  - trennt Operator-, Approver- und Incident-Response-Rolle ohne Personendaten
+  - hält Settings, Endpoint, Datenbankdetails, Operation-ID und Credentials fern
+  - stoppt bei fehlenden, negativen, ungültigen, abgelaufenen oder veralteten Fakten
+  - verhindert Wiederverwendung, Retryauthority, Polling und Bulkdrain
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
+    noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
