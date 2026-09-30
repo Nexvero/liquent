@@ -127,8 +127,7 @@ def _read_only_mount(root: Path, mountinfo: bytes) -> bool:
                 raise RuntimeInspectUnavailable
             if _mount_path(fields[4]) == str(root):
                 mount_options = set(fields[5].split(","))
-                super_options = set(fields[separator + 3].split(",")) if separator + 3 < len(fields) else set()
-                matches.append("ro" in mount_options and "rw" not in mount_options and "rw" not in super_options)
+                matches.append("ro" in mount_options and "rw" not in mount_options)
         if len(matches) != 1:
             raise RuntimeInspectUnavailable
         return matches[0]
