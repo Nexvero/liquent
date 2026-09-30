@@ -51,7 +51,7 @@ EXPECTED_REQUIRES_DIST = [
     "prometheus-client<1,>=0.22",
     "psycopg[binary]<4,>=3.2",
     "pydantic-settings<3,>=2.7",
-    "PyJWT[crypto]<3,>=2.13",
+    "PyJWT[crypto]<3,>=2.14",
     "sqlalchemy<2.1,>=2.0",
     "uvicorn<1,>=0.34",
     'build<2,>=1.3; extra == "dev"',

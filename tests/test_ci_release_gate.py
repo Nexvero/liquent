@@ -97,7 +97,12 @@ def test_pyjwt_is_a_bounded_runtime_dependency_with_the_crypto_extra() -> None:
     assert pyjwt.extras == {"crypto"}
     assert pyjwt.url is None
     assert {specifier.operator for specifier in pyjwt.specifier} >= {">=", "<"}
+    assert any(
+        specifier.operator == ">=" and Version(specifier.version) >= Version("2.14.0")
+        for specifier in pyjwt.specifier
+    )
     assert not any(Version(s.version).is_prerelease for s in pyjwt.specifier)
+    assert "PyJWT==2.14.0" in LOCK.read_text(encoding="utf-8").splitlines()
 
 
 def test_httpx2_is_a_bounded_runtime_dependency() -> None:
