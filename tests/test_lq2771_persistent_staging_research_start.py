@@ -82,6 +82,10 @@ def test_database_backed_start_queues_for_worker_and_honors_revocation(
                 "INSERT INTO workspace_membership_permissions VALUES"
                 " (:user,:workspace,'research:write')"
             ), {"user": USER.encode(), "workspace": WORKSPACE.encode()})
+            connection.execute(text(
+                "INSERT INTO workspace_membership_permissions VALUES"
+                " (:user,:workspace,'research:read')"
+            ), {"user": USER.encode(), "workspace": WORKSPACE.encode()})
 
         sessions = DatabaseBrowserSessions(engine, now=lambda: datetime.now(UTC))
         assert sessions.add_session(
