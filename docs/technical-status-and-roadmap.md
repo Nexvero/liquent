@@ -13969,5 +13969,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt ausschließlich Tests, Runbook und Dokumentation
   - führt keinen Realtest aus und mutiert keinen persistenten Zustand
 
+- LQ-2766 staging reconciliation exercise completion audit:
+  `docs/lq-2766-staging-reconciliation-exercise-completion-audit.md`
+  - schließt die geordnete Evidenzkette LQ-2761 bis LQ-2765 ab
+  - bindet Autorisierungsübergabe, Entscheidung, beide Validierungen und Ergebnis
+  - erlaubt ausschließlich `complete`, `stopped`, `unverified` oder `invalid`
+  - trennt Evidenzvollständigkeit ausdrücklich vom Reconciliation-Erfolg
+  - behandelt fehlende, widersprüchliche oder mutable Evidenz fail-closed
+  - repariert, kombiniert, konsumiert oder wiederholt keinen Nachweis
+  - hält Paketwerte, Pfade, Endpoint, Datenbank-URL und Identitäten fern
+  - erhält die private Evidenz des abgeschlossenen Zeitfensters unveränderlich
+  - verhindert Retryauthority, Polling, Bulkdrain, Promotion und Deployment
+  - benennt den realen Staging-Lauf und Betrieb als externe Restarbeit
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt keinen Realtest aus und mutiert keinen persistenten Zustand
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

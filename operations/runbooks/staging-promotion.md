@@ -241,3 +241,17 @@ technical detail. A `valid` result is immutable completion evidence for the
 already-finished bounded window and does not authorize another exercise,
 retry, polling, promotion or deployment. Every other, missing or ambiguous
 result remains closed and requires investigation outside this command chain.
+
+Audit the closed evidence chain once with
+`docs/lq-2766-staging-reconciliation-exercise-completion-audit.md`. Confirm
+that the LQ-2761 handoff, LQ-2762 decision packet, LQ-2763 decision validation,
+LQ-2764 outcome packet and LQ-2765 outcome validation form one ordered,
+immutable window record. Record only `complete`, `stopped`, `unverified` or
+`invalid` in the approved private operational record.
+
+The completion audit does not prove reconciliation success: a correctly
+stopped exercise can have complete closure evidence. It does not repair or
+replay evidence, invoke a command or inspect another candidate. It does not
+authorize a new exercise, retry, polling, promotion or deployment. Missing,
+conflicting or non-verifiable evidence remains closed and requires
+investigation outside this command chain.
