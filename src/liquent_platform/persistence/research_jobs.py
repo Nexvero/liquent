@@ -210,7 +210,18 @@ class DatabaseResearchJobs:
     def get_job(self, actor_user_id, job_id):
         try:
             with self._engine.connect() as c:
-                row = c.execute(text("SELECT j.* FROM research_jobs j JOIN identity_users u ON u.user_id=:u AND u.status='active' JOIN identity_workspaces w ON w.workspace_id=j.workspace_id AND w.status='active' JOIN workspace_memberships m ON m.user_id=:u AND m.workspace_id=j.workspace_id AND m.status='active' JOIN workspace_membership_permissions p ON p.user_id=:u AND p.workspace_id=j.workspace_id AND p.permission IN ('research:read','research:write') WHERE j.job_id=:j"), {"u": _b(actor_user_id), "j": _b(job_id)}).mappings().one_or_none()
+                row = c.execute(text(
+                    "SELECT j.* FROM research_jobs j "
+                    "JOIN identity_users u ON u.user_id=:u AND u.status='active' "
+                    "JOIN identity_workspaces w ON w.workspace_id=j.workspace_id "
+                    "AND w.status='active' "
+                    "JOIN workspace_memberships m ON m.user_id=:u "
+                    "AND m.workspace_id=j.workspace_id AND m.status='active' "
+                    "WHERE j.job_id=:j "
+                    "AND EXISTS (SELECT 1 FROM workspace_membership_permissions p "
+                    "WHERE p.user_id=:u AND p.workspace_id=j.workspace_id "
+                    "AND p.permission IN ('research:read','research:write'))"
+                ), {"u": _b(actor_user_id), "j": _b(job_id)}).mappings().one_or_none()
             if not row: return None
             snapshot = _snapshot(row["snapshot_json"])
             accepted = _stored_utc(row["accepted_at"])
@@ -240,10 +251,10 @@ class DatabaseResearchJobs:
                     "AND w.status='active' "
                     "JOIN workspace_memberships m ON m.user_id=:u "
                     "AND m.workspace_id=j.workspace_id AND m.status='active' "
-                    "JOIN workspace_membership_permissions p ON p.user_id=:u "
-                    "AND p.workspace_id=j.workspace_id "
-                    "AND p.permission IN ('research:read','research:write') "
-                    "WHERE j.job_id=:j AND o.kind='succeeded'"
+                    "WHERE j.job_id=:j AND o.kind='succeeded' "
+                    "AND EXISTS (SELECT 1 FROM workspace_membership_permissions p "
+                    "WHERE p.user_id=:u AND p.workspace_id=j.workspace_id "
+                    "AND p.permission IN ('research:read','research:write'))"
                 ), {"u": _b(actor_user_id), "j": _b(job_id)}).one_or_none()
             if row is None:
                 return None

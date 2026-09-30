@@ -60,6 +60,39 @@ def test_success_is_atomic_claim_bound_and_stale_retry_is_neutral(tmp_path):
         assert connection.scalar(text("SELECT status FROM research_jobs")) == "succeeded"
 
 
+def test_status_and_evidence_are_unique_with_read_and_write_authority(tmp_path):
+    engine, store, claimed = _prepared(tmp_path)
+    artifact = ArtifactReference(
+        "research/job-final/result.json",
+        "a" * 64,
+        "application/json",
+        128,
+    )
+    completed = store.finalize_success(
+        claimed.job_id,
+        claimed.revision_id,
+        claimed.worker_id,
+        claimed.claim_id,
+        _summary(),
+        artifact,
+    )
+    assert completed is not None
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO workspace_membership_permissions "
+                "VALUES (:user,:workspace,'research:read')"
+            ),
+            {"user": b"u", "workspace": b"w"},
+        )
+
+    job = store.get_job(UserId("u"), claimed.job_id)
+    evidence = store.get_evidence(UserId("u"), claimed.job_id)
+
+    assert job is not None and job.status is ResearchJobStatus.SUCCEEDED
+    assert evidence is not None and evidence["experiment_id"] == "e"
+
+
 def test_failure_is_detail_poor_and_terminal(tmp_path):
     engine, store, claimed = _prepared(tmp_path)
     completed = store.finalize_failure(
