@@ -125,13 +125,14 @@ def test_lease_and_view_require_utc_and_monotonic_observation_times():
     assert lease.lease_expires_at > now
     view = ResearchJobView(
         JobId("job-1"), ResearchJobRevisionId("revision-3"),
-        WorkspaceId("workspace-1"), ResearchJobStatus.RUNNING, now, now,
+        WorkspaceId("workspace-1"), ExperimentId("experiment-1"),
+        ResearchJobStatus.RUNNING, now, now,
     )
     assert not hasattr(view, "claim_id")
     assert not hasattr(view, "worker_id")
     assert not hasattr(view, "lease_expires_at")
     with pytest.raises(ValueError):
         ResearchJobView(
-            view.job_id, view.revision_id, view.workspace_id, view.status,
-            now, now - timedelta(seconds=1),
+            view.job_id, view.revision_id, view.workspace_id,
+            view.experiment_id, view.status, now, now - timedelta(seconds=1),
         )
