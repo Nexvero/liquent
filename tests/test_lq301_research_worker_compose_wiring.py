@@ -38,6 +38,7 @@ def test_worker_receives_only_explicit_entry_point_files() -> None:
 
 def test_inputs_are_read_only_and_only_artifacts_are_worker_writable() -> None:
     worker = _worker(_text(COMPOSE))
+    assert "healthcheck:\n      disable: true" in worker
     assert "/run/liquent/research-worker.json:ro" in worker
     assert "/run/liquent/research-worker-id:ro" in worker
     assert "/var/lib/liquent/research-data:ro" in worker
