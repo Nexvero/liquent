@@ -13955,5 +13955,19 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - ergänzt ausschließlich Tests, Runbook und Dokumentation
   - führt den Realtest nicht aus und mutiert keinen persistenten Zustand
 
+- LQ-2765 staging reconciliation exercise outcome packet validation:
+  `docs/lq-2765-staging-reconciliation-exercise-outcome-packet-validation.md`
+  - validiert genau ein abgeschlossenes LQ-2764-Ergebnisprotokoll manuell
+  - prüft Form, Tokens, Stopreihenfolge, Durable-Evidenz und Abschluss geordnet
+  - erlaubt `completed` nur bei übereinstimmendem Reconcile- und Durable-Nachweis
+  - behandelt Abweichungen, fehlende Fakten und nicht prüfbare Evidenz fail-closed
+  - repariert oder vervollständigt kein Protokoll und wiederholt keinen Befehl
+  - zeichnet ausschließlich `valid`, `invalid` oder `unverified` auf
+  - hält Paketwerte, Pfade, Endpoint, Datenbank-URL und Operation-ID fern
+  - erhält Protokoll und Validierung als unveränderliche Evidenz des Zeitfensters
+  - verhindert Retryauthority, Polling, Bulkdrain, Promotion und Deployment
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt keinen Realtest aus und mutiert keinen persistenten Zustand
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
