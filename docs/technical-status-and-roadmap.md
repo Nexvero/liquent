@@ -13942,5 +13942,18 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - führt den Realtest nicht aus und gewährt weder Reconciliation-, Promotion-
     noch Deploymentauthority
 
+- LQ-2764 staging reconciliation exercise outcome packet:
+  `docs/lq-2764-staging-reconciliation-exercise-outcome-packet.md`
+  - definiert das minimale Abschlussprotokoll für genau einen begrenzten Lauf
+  - zeichnet ausschließlich feste Kommandoergebnisse oder `not_run` auf
+  - verlangt eine unabhängige Prüfung des finalen persistenten Kandidatenstatus
+  - erlaubt nur `reconciled`, `present` oder fail-closed `unverified`
+  - erlaubt `completed` nur bei übereinstimmendem Reconcile- und Durable-Nachweis
+  - schließt das Zeitfenster und markiert das Entscheidungspaket als verbraucht
+  - hält Pfade, Endpoint, Datenbank-URL, Operation-ID und Fehlerdetails fern
+  - verhindert Retryauthority, Polling, Bulkdrain, Promotion und Deployment
+  - ergänzt ausschließlich Tests, Runbook und Dokumentation
+  - führt den Realtest nicht aus und mutiert keinen persistenten Zustand
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

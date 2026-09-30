@@ -217,3 +217,15 @@ state in that order. Record only `valid`, `rejected`, `expired` or `invalid`
 without packet values or technical detail. A `valid` result is point-in-time
 evidence, not command authority. Every other, missing or ambiguous result stops
 before settings installation, provider access or reconciliation.
+
+After the bounded exercise stops, complete the fixed outcome packet in
+`docs/lq-2764-staging-reconciliation-exercise-outcome-packet.md`. Record the
+fixed result of every invoked command and `not_run` for each later command that
+the first stop boundary prevented. Verify the final candidate state
+independently through the system of record; use only `reconciled`, `present` or
+`unverified` and never copy an operation identity or technical detail.
+
+Close the exercise window and consume the decision packet even when the run
+stopped early. The outcome packet grants no authority for another pass, retry,
+polling, promotion or deployment. A later exercise starts again with fresh
+evidence, a new decision packet, a separate decision and a new validation.
