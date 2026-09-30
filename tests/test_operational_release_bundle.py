@@ -39,8 +39,12 @@ def _wheel(path: Path, *, disconnected: bool = False) -> None:
         for index in range(EXPECTED_ENTRY_POINT_COUNT)
     )
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("liquent-1.2.3.dist-info/METADATA", metadata)
-        archive.writestr("liquent-1.2.3.dist-info/entry_points.txt", entries)
+        def write(name: str, value: str) -> None:
+            info = zipfile.ZipInfo(name, date_time=(2023, 11, 14, 22, 13, 20))
+            archive.writestr(info, value)
+
+        write("liquent-1.2.3.dist-info/METADATA", metadata)
+        write("liquent-1.2.3.dist-info/entry_points.txt", entries)
         for index in range(46):
             revision = (
                 "20260915_0043" if index == 42 else
@@ -56,13 +60,13 @@ def _wheel(path: Path, *, disconnected: bool = False) -> None:
                 "20260916_0045" if index == 45 else
                 f"20260826_{index:04d}"
             )
-            archive.writestr(
+            write(
                 f"liquent_platform/persistence/alembic/versions/{revision}.py",
                 f"revision: str = {revision!r}\ndown_revision = {parent!r}\n",
             )
-        archive.writestr("liquent_platform/operators/__init__.py", "")
+        write("liquent_platform/operators/__init__.py", "")
         for index in range(EXPECTED_OPERATOR_FILE_COUNT - 1):
-            archive.writestr(
+            write(
                 f"liquent_platform/operators/command_{index}.py", "def main(): pass\n"
             )
 
