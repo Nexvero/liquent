@@ -6,11 +6,13 @@
 
 ## 1. Aktueller Stand (verifiziert)
 
-- **Branch/Quelle:** `main` auf Squash-Commit `da7a89dc` (PR #254); der lokale
-  Nachlaufzweig zeigt exakt auf denselben Baum. Kein Release oder Deployment
-  erfolgte.
-- **Normaler Teststand:** **7788 passed**, **112 skipped** auf sauberem Baum mit
+- **Branch/Quelle:** `main` auf Squash-Commit `58f736b` (PR #272). Kein Release
+  oder Deployment erfolgte.
+- **Letzter lokaler Vollteststand:** **7788 passed**, **112 skipped** auf
+  sauberem Baum mit
   Python 3.12.14 und dem durch `requirements/ci.lock` gebundenen CI-Werkzeugsatz.
+- **Aktueller GitHub-Actions-Stand:** PR #272 bestand alle fünf ausführbaren
+  Pflichtprüfungen; die Provenance-Prüfung war erwartungsgemäß übersprungen.
 - **Paketstand:** commitgebundener, reproduzierbarer Wheel-Bau und
   `tools/verify_release_wheel.py` bestanden; SHA-256
   `e258a7e04c5f40aa66d4ee00b5efbe3b672c5ed7cdbfe52fb5ae6d9aede9445f`.
@@ -20,17 +22,21 @@
 - **Letzter vollständiger Preflightstand:** alle zehn kontrollierten Phasen auf
   Commit `5d62b967` bestanden; Publishing und Deployment bleiben ausdrücklich
   nicht autorisiert.
-- **Letzter Container-/Scanstand:** Image `sha256:c8868d4…f4513`, 71 ladbare
-  Entry Points und gehärteter Smoke bestanden; Grype meldet **0 High/Critical**.
-- **Integrationsscope:** PR #254 wurde nach erfolgreichen Pflichtprüfungen per
-  Squash-Merge in `main` integriert; sein Merge-Commit ist `da7a89dc`.
+- **Aktueller Container-/Scanstand:** Das offizielle Basisimage
+  `python:3.14.7-slim-trixie` ist auf Manifest-Digest `sha256:caaf356f…f8a2`
+  fixiert; Containerbau, gehärteter Smoke und das unveränderte Grype-Gate
+  bestanden auf PR #272 ohne Ausnahme oder veränderliches Paket-Upgrade.
+- **Integrationsscope:** Der Staging-Reconciliation-Strang bis LQ-2766 wurde
+  nach erfolgreichen Pflichtprüfungen per Squash-Merge in `main` integriert;
+  PR #272 hat den Merge-Commit `58f736b`.
 - **Paketinventar:** **76 Console Entry Points**, **71 Operatorimplementierungs-
   und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
   `20260916_0046`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
-  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2622.
+  Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2767.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe
-  Signierung, Providerfreigabe, Staging-Akzeptanz und Deployment bleiben offen.
+  Signierung, Providerfreigabe, ein realer autorisierter Staging-Lauf und
+  Deployment bleiben offen.
 
 ## 2. Abgeschlossene Foundations / Schritte
 
@@ -13983,6 +13989,16 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - benennt den realen Staging-Lauf und Betrieb als externe Restarbeit
   - ergänzt ausschließlich Tests, Runbook und Dokumentation
   - führt keinen Realtest aus und mutiert keinen persistenten Zustand
+
+- LQ-2767 roadmap status reconciliation:
+  `docs/lq-2767-roadmap-status-reconciliation.md`
+  - synchronisiert den verifizierten Main- und Integrationsstand auf PR #272
+  - trennt historische lokale Volltests vom aktuellen GitHub-Actions-Nachweis
+  - bindet den Containerstatus an Python 3.14.7 und den unveränderlichen Digest
+  - bestätigt das unveränderte Grype-Gate ohne Ausnahme oder Paket-Upgrade
+  - erhält das gezählte Paket- und Migrationsinventar unverändert
+  - weist den realen autorisierten Staging-Lauf weiterhin als externe Arbeit aus
+  - ergänzt keine Runtime-, Reconciliation-, Promotion- oder Deploymentauthority
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
