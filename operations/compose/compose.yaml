@@ -67,6 +67,8 @@ services:
 
   research-worker:
     <<: *app-base
+    healthcheck:
+      disable: true
     command:
       - liquent-research-worker
       - --configuration
