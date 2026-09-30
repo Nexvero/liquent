@@ -229,3 +229,15 @@ Close the exercise window and consume the decision packet even when the run
 stopped early. The outcome packet grants no authority for another pass, retry,
 polling, promotion or deployment. A later exercise starts again with fresh
 evidence, a new decision packet, a separate decision and a new validation.
+
+Validate the completed outcome packet once with
+`docs/lq-2765-staging-reconciliation-exercise-outcome-packet-validation.md`.
+Check its exact shape and tokens, command stop sequence, independent durable
+evidence, result consistency and closure in that order. Do not repair the
+packet or re-run a command to make validation pass.
+
+Record only `valid`, `invalid` or `unverified`, without packet values or
+technical detail. A `valid` result is immutable completion evidence for the
+already-finished bounded window and does not authorize another exercise,
+retry, polling, promotion or deployment. Every other, missing or ambiguous
+result remains closed and requires investigation outside this command chain.
