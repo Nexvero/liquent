@@ -106,6 +106,26 @@ def test_data_read_only_observes_mount_and_existing_files_without_write(tmp_path
     assert sorted(item.name for item in root.iterdir()) == ["fixture.csv"]
 
 
+def test_data_read_only_accepts_read_only_bind_on_writable_backing_filesystem(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "data"
+    root.mkdir(mode=0o700)
+    fixture = root / "fixture.csv"
+    fixture.write_text("private-content")
+    os.chmod(fixture, 0o400)
+    os.chmod(root, 0o500)
+
+    assert inspect.inspect_data_read_only(
+        root=root,
+        mountinfo_path=_mountinfo(
+            root,
+            options="ro,relatime",
+            super_options="rw,bind",
+        ),
+    ) is True
+
+
 def test_writable_mount_or_file_is_explicit_false(tmp_path: Path) -> None:
     root = tmp_path / "data"
     root.mkdir(mode=0o700)
