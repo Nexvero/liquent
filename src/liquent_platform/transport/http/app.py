@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from html import escape
@@ -39,6 +40,9 @@ from liquent_platform.application.experiment import ExperimentSnapshot, freeze_p
 from liquent_platform.application.authorization_errors import (
     ResearchAuthorizationDenied,
 )
+from liquent_platform.application.authorize_research import (
+    require_research_authorization,
+)
 from liquent_platform.application.complete_oidc_login import complete_oidc_login
 from liquent_platform.application.csrf import (
     CsrfValidationFailed,
@@ -59,6 +63,9 @@ from liquent_platform.application.verify_oidc_callback import verify_oidc_callba
 from liquent_platform.application.prepare_oidc_login_authorization import (
     prepare_oidc_login_authorization,
 )
+from liquent_platform.application.persistent_research_jobs import (
+    PersistentResearchControlPlane,
+)
 from liquent_platform.application.read_research_job import get_authorized_research_job
 from liquent_platform.application.resolve_workspace_research_read import (
     permits_workspace_research_read,
@@ -76,8 +83,17 @@ from liquent_platform.application.start_research import (
 from liquent_platform.identity.research import (
     ExperimentId,
     JobId,
+    ResearchJobAcceptanceId,
+    ResearchJobClaimId,
+    ResearchJobRevisionId,
     StrategyVersionId,
     WorkspaceId,
+)
+from liquent_platform.identity.access import Permission
+from liquent_platform.identity.research_job import (
+    ResearchJobAcceptanceConflict,
+    ResearchJobView,
+    ResearchResultArtifactClass,
 )
 from liquent_platform.identity.oidc_login_material import (
     SecureOidcLoginMaterialGenerator,
@@ -581,18 +597,38 @@ def create_app(
         logout_revocations = persistent_sessions
     if engine is not None and landing_workspace_contexts is None:
         landing_workspace_contexts = DatabaseCurrentWorkspaceContexts(engine)
+    persistent_research_store: DatabaseResearchJobs | None = None
+    persistent_research_control: PersistentResearchControlPlane | None = None
     if engine is not None and workspace_research_job_index is None:
+        def _identifier(identifier_type):
+            return identifier_type(secrets.token_urlsafe(32))
+
         def _read_only_identifier():
             raise ResearchJobStoreUnavailable
 
-        workspace_research_job_index = DatabaseResearchJobs(
+        if research_resolver is not None:
+            generate_job_id = lambda: _identifier(JobId)
+            generate_revision_id = lambda: _identifier(ResearchJobRevisionId)
+            generate_claim_id = lambda: _identifier(ResearchJobClaimId)
+        else:
+            generate_job_id = _read_only_identifier
+            generate_revision_id = _read_only_identifier
+            generate_claim_id = _read_only_identifier
+
+        persistent_research_store = DatabaseResearchJobs(
             engine,
-            generate_job_id=_read_only_identifier,
-            generate_revision_id=_read_only_identifier,
-            generate_claim_id=_read_only_identifier,
+            generate_job_id=generate_job_id,
+            generate_revision_id=generate_revision_id,
+            generate_claim_id=generate_claim_id,
             clock=lambda: datetime.now(UTC),
-            lease_duration=timedelta(seconds=1),
+            lease_duration=timedelta(seconds=30),
         )
+        workspace_research_job_index = persistent_research_store
+        if research_resolver is not None:
+            persistent_research_control = PersistentResearchControlPlane(
+                persistent_research_store,
+                persistent_research_store,
+            )
     control_metrics = metrics or ControlPlaneMetrics()
     job_store = research_jobs or InMemoryResearchJobs()
 
@@ -633,6 +669,7 @@ def create_app(
     app.state.settings = runtime_settings
     app.state.metrics = control_metrics
     app.state.research_jobs = job_store
+    app.state.persistent_research_jobs = persistent_research_store
     app.state.workspace_research_job_index = workspace_research_job_index
     app.add_middleware(ObservabilityMiddleware, metrics=control_metrics)
 
@@ -645,6 +682,24 @@ def create_app(
             experiment_id=job.snapshot.experiment_id,
             status=job.status,
             error_code=job.error_code,
+            evidence_url=evidence_url,
+        )
+
+    def persistent_job_response(job: ResearchJobView) -> ResearchJobResponse:
+        evidence_url = (
+            f"/v1/research/jobs/{job.job_id}/evidence"
+            if job.status is ResearchJobStatus.SUCCEEDED
+            else None
+        )
+        return ResearchJobResponse(
+            job_id=job.job_id,
+            experiment_id=job.experiment_id,
+            status=job.status,
+            error_code=(
+                "execution_failed"
+                if job.status is ResearchJobStatus.FAILED
+                else None
+            ),
             evidence_url=evidence_url,
         )
 
@@ -714,6 +769,16 @@ def create_app(
         job_id: JobId,
         session: ResolvedBrowserSession | None = Depends(current_research_session),
     ) -> ResearchJobResponse:
+        if persistent_research_control is not None:
+            if session is None:
+                raise HTTPException(401, "authentication_required")
+            try:
+                job = persistent_research_control.get(session.principal, job_id)
+            except ResearchJobStoreUnavailable:
+                raise HTTPException(503, "research_job_unavailable") from None
+            if job is None:
+                raise HTTPException(404, "research_job_not_found")
+            return persistent_job_response(job)
         return job_response(visible_job(job_id, session))
 
     @app.get(
@@ -724,6 +789,18 @@ def create_app(
         job_id: JobId,
         session: ResolvedBrowserSession | None = Depends(current_research_session),
     ):
+        if persistent_research_store is not None:
+            if session is None:
+                raise HTTPException(401, "authentication_required")
+            try:
+                evidence = persistent_research_store.get_evidence(
+                    session.principal.user_id, job_id
+                )
+            except ResearchJobStoreUnavailable:
+                raise HTTPException(503, "research_job_unavailable") from None
+            if evidence is None:
+                raise HTTPException(404, "research_evidence_not_found")
+            return evidence
         evidence = visible_job(job_id, session).evidence
         if evidence is None:
             raise HTTPException(404, "research_evidence_not_found")
@@ -759,6 +836,39 @@ def create_app(
                     risk_parameters=freeze_parameters(request.risk_parameters),
                     cost_parameters=freeze_parameters(request.cost_parameters),
                 )
+                if persistent_research_control is not None:
+                    if session is None:
+                        raise HTTPException(401, "authentication_required")
+                    require_valid_csrf_token(
+                        session.expected_csrf_token, csrf_token
+                    )
+                    if research_memberships is None:
+                        raise ResearchJobStoreUnavailable
+                    require_research_authorization(
+                        research_memberships,
+                        session.principal,
+                        snapshot.workspace_id,
+                        Permission.RESEARCH_WRITE,
+                    )
+                    research_resolver.resolve(snapshot)
+                    accepted = persistent_research_control.accept(
+                        session,
+                        csrf_token,
+                        ResearchJobAcceptanceId(str(request.job_id)),
+                        snapshot,
+                        ResearchResultArtifactClass.BACKTEST_RESULT_V1,
+                    )
+                    if accepted is None:
+                        raise ResearchAuthorizationDenied
+                    if isinstance(accepted, ResearchJobAcceptanceConflict):
+                        raise HTTPException(409, "research_job_conflict")
+                    return ResearchJobResponse(
+                        job_id=accepted.job_id,
+                        experiment_id=accepted.snapshot.experiment_id,
+                        status=accepted.status,
+                        error_code=None,
+                        evidence_url=None,
+                    )
                 pending_job = InMemoryResearchJob(request.job_id, snapshot)
                 if session is not None and research_memberships is not None:
                     job = csrf_authorize_resolve_and_start_research_job(
@@ -783,6 +893,8 @@ def create_app(
                 if str(exc).startswith("research job already exists:"):
                     raise HTTPException(409, "research_job_conflict") from None
                 raise HTTPException(422, "research_inputs_unresolvable") from None
+            except ResearchJobStoreUnavailable:
+                raise HTTPException(503, "research_job_unavailable") from None
             return job_response(job)
 
     if logout_sessions is not None and logout_revocations is not None:

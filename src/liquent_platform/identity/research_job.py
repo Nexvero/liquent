@@ -9,6 +9,7 @@ from liquent_platform.application.ports import ArtifactReference
 from liquent_platform.application.experiment import ExperimentSnapshot
 from liquent_platform.identity.access import UserId
 from liquent_platform.identity.research import (
+    ExperimentId,
     JobId,
     ResearchJobAcceptanceId,
     ResearchJobClaimId,
@@ -122,6 +123,7 @@ class ResearchJobView:
     job_id: JobId = field(repr=False)
     revision_id: ResearchJobRevisionId = field(repr=False)
     workspace_id: WorkspaceId = field(repr=False)
+    experiment_id: ExperimentId = field(repr=False)
     status: ResearchJobStatus
     accepted_at: datetime
     updated_at: datetime

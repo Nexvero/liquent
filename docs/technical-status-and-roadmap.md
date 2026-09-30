@@ -14012,5 +14012,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - bindet die anschließende Staging-Abnahme weiterhin an ein unveränderliches Image
   - gewährt weder Production- noch automatische Deploymentauthority
 
+- LQ-2771 persistent staging Research start:
+  `docs/lq-2771-persistent-staging-research-start.md`
+  - ersetzt die versehentliche synchrone In-Memory-Ausführung im datenbankgestützten Control Plane durch eine dauerhafte Queue-Annahme
+  - verwendet die Request-Job-ID als retry-sichere Acceptance-ID und gibt eine getrennte dauerhafte Job-ID zurück
+  - prüft Session, CSRF und aktuelle `research:write`-Berechtigung vor der lokalen Datensatzauflösung
+  - wiederholt die Autorisierungsentscheidung atomar bei der persistenten Jobanlage
+  - liest Status und erfolgreiche Evidenz aus PostgreSQL statt aus dem Prozessspeicher
+  - hält Claims, Leases, Workeridentitäten und interne Fehlerdetails aus der öffentlichen Antwort fern
+  - gewährt keine Berechtigung und führt weder Deployment noch Staging-Job aus
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
