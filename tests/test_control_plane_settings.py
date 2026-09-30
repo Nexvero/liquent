@@ -44,7 +44,7 @@ def test_research_data_root_is_explicit_and_path_is_not_logged(tmp_path: Path) -
     assert str(tmp_path) not in str(settings.public_summary())
 
 
-@pytest.mark.parametrize("environment", ("preview", "production"))
+@pytest.mark.parametrize("environment", ("preview", "staging", "production"))
 def test_research_start_is_rejected_without_authentication_in_shared_environments(
     environment: str, tmp_path: Path
 ) -> None:
@@ -52,14 +52,72 @@ def test_research_start_is_rejected_without_authentication_in_shared_environment
         "environment": environment,
         "research_data_root": tmp_path,
     }
-    if environment == "production":
+    if environment in {"staging", "production"}:
         values.update(
             log_format="json",
             http_host="0.0.0.0",
             database_url="postgresql+psycopg://liquent:test@postgres/liquent",
         )
 
-    with pytest.raises(ValidationError, match="limited to local and ci"):
+    with pytest.raises(
+        ValidationError, match="authenticated, database-backed staging"
+    ):
+        PlatformSettings(_secrets_dir=None, **values)
+
+
+def test_authenticated_database_backed_staging_may_enable_research_start(
+    tmp_path: Path,
+) -> None:
+    settings = PlatformSettings(
+        _secrets_dir=None,
+        environment="staging",
+        log_format="json",
+        http_host="0.0.0.0",
+        database_url="postgresql+psycopg://liquent:test@postgres/liquent",
+        research_data_root=tmp_path,
+        oidc_login_origin="https://staging.example",
+        oidc_login_lifetime_seconds=300,
+        oidc_session_lifetime_seconds=28_800,
+        oidc_callback_rejection="/login/rejected",
+        oidc_callback_unavailable="/login/unavailable",
+        oidc_connect_timeout_seconds=5,
+        oidc_read_timeout_seconds=10,
+        oidc_total_timeout_seconds=15,
+        oidc_token_response_max_bytes=65_536,
+        oidc_jwks_response_max_bytes=262_144,
+        oidc_jwks_cache_ttl_seconds=300,
+        oidc_client_secret="runtime-client-secret",
+    )
+
+    assert settings.environment is Environment.STAGING
+    assert settings.research_data_root == tmp_path
+    assert settings.public_summary()["research_start_enabled"] == "true"
+
+
+def test_authenticated_production_still_rejects_local_research_start(
+    tmp_path: Path,
+) -> None:
+    values: dict[str, object] = {
+        "environment": "production",
+        "log_format": "json",
+        "http_host": "0.0.0.0",
+        "database_url": "postgresql+psycopg://liquent:test@postgres/liquent",
+        "research_data_root": tmp_path,
+        "oidc_login_origin": "https://app.example",
+        "oidc_login_lifetime_seconds": 300,
+        "oidc_session_lifetime_seconds": 28_800,
+        "oidc_callback_rejection": "/login/rejected",
+        "oidc_callback_unavailable": "/login/unavailable",
+        "oidc_connect_timeout_seconds": 5,
+        "oidc_read_timeout_seconds": 10,
+        "oidc_total_timeout_seconds": 15,
+        "oidc_token_response_max_bytes": 65_536,
+        "oidc_jwks_response_max_bytes": 262_144,
+        "oidc_jwks_cache_ttl_seconds": 300,
+        "oidc_client_secret": "runtime-client-secret",
+    }
+
+    with pytest.raises(ValidationError, match="database-backed staging"):
         PlatformSettings(_secrets_dir=None, **values)
 
 

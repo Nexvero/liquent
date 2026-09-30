@@ -62,6 +62,8 @@ services:
       start_period: 10s
     cpus: 1.50
     mem_limit: 1536m
+    volumes:
+      - ${LIQUENT_RESEARCH_DATA_ROOT:?set read-only research data directory}:/var/lib/liquent/research-data:ro
 
   research-worker:
     <<: *app-base

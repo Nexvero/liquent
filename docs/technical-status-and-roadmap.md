@@ -14000,5 +14000,17 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - weist den realen autorisierten Staging-Lauf weiterhin als externe Arbeit aus
   - ergänzt keine Runtime-, Reconciliation-, Promotion- oder Deploymentauthority
 
+- LQ-2770 authenticated staging Research start:
+  `docs/lq-2770-authenticated-staging-research-start.md`
+  - führt eine explizite Staging-Umgebung mit den harten Production-Betriebsgrenzen ein
+  - erlaubt Research-Start ausschließlich bei vollständigem OIDC-Vertrag und PostgreSQL
+  - hält Preview und Production für einen lokalen Research-Datenpfad geschlossen
+  - bindet den operatorgewählten Datensatzpfad im Control Plane nur lesbar ein
+  - aktiviert Research-Start nicht allein durch den Compose-Mount
+  - erhält den Research-Worker als einzigen Schreiber des Artefakt-Volumes
+  - schafft keine Identität, Mitgliedschaft, Berechtigung, Aufgabe oder Datensatzreferenz
+  - bindet die anschließende Staging-Abnahme weiterhin an ein unveränderliches Image
+  - gewährt weder Production- noch automatische Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
