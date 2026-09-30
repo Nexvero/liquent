@@ -18,6 +18,11 @@ def _worker(compose: str) -> str:
     return compose[start:compose.index("\n  postgres:\n", start)]
 
 
+def _control_plane(compose: str) -> str:
+    start = compose.index("\n  control-plane:\n")
+    return compose[start:compose.index("\n  research-worker:\n", start)]
+
+
 def test_worker_receives_only_explicit_entry_point_files() -> None:
     worker = _worker(_text(COMPOSE))
     assert "- liquent-research-worker" in worker
@@ -39,6 +44,16 @@ def test_inputs_are_read_only_and_only_artifacts_are_worker_writable() -> None:
     assert "artifacts:/var/lib/liquent/artifacts" in worker
     assert "artifacts:/var/lib/liquent/artifacts:ro" not in worker
     assert "- public" not in worker
+
+
+def test_control_plane_receives_research_data_read_only_without_enabling_it() -> None:
+    control_plane = _control_plane(_text(COMPOSE))
+
+    assert (
+        "${LIQUENT_RESEARCH_DATA_ROOT:?set read-only research data directory}:"
+        "/var/lib/liquent/research-data:ro"
+    ) in control_plane
+    assert "\n    environment:\n" not in control_plane
 
 
 def test_example_is_closed_and_matches_container_mount_targets() -> None:

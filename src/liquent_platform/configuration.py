@@ -14,6 +14,7 @@ class Environment(str, Enum):
     LOCAL = "local"
     CI = "ci"
     PREVIEW = "preview"
+    STAGING = "staging"
     PRODUCTION = "production"
 
 
@@ -148,23 +149,35 @@ class PlatformSettings(BaseSettings):
                 raise ValueError(
                     "manifest handoff supervisor identity policy is invalid"
                 )
-        if self.research_data_root is not None and self.environment not in {
-            Environment.LOCAL,
-            Environment.CI,
-        }:
-            raise ValueError(
-                "research data root is limited to local and ci until "
-                "authentication is implemented"
+        if self.research_data_root is not None and not (
+            self.environment in {Environment.LOCAL, Environment.CI}
+            or (
+                self.environment is Environment.STAGING
+                and self.oidc_enabled
+                and self.database_url is not None
             )
-        if self.environment is Environment.PRODUCTION:
+        ):
+            raise ValueError(
+                "shared research start is limited to authenticated, "
+                "database-backed staging"
+            )
+        if self.environment in {Environment.STAGING, Environment.PRODUCTION}:
             if self.log_format != "json":
-                raise ValueError("production requires LIQUENT_LOG_FORMAT=json")
+                raise ValueError(
+                    "staging and production require LIQUENT_LOG_FORMAT=json"
+                )
             if self.http_host != "0.0.0.0":
-                raise ValueError("production requires LIQUENT_HTTP_HOST=0.0.0.0")
+                raise ValueError(
+                    "staging and production require LIQUENT_HTTP_HOST=0.0.0.0"
+                )
             if self.database_url is None:
-                raise ValueError("production requires the database_url secret file")
+                raise ValueError(
+                    "staging and production require the database_url secret file"
+                )
             if not self.database_url.get_secret_value().startswith("postgresql+psycopg://"):
-                raise ValueError("production database_url must use postgresql+psycopg")
+                raise ValueError(
+                    "staging and production database_url must use postgresql+psycopg"
+                )
         return self
 
     def _oidc_values(self) -> tuple[object | None, ...]:
