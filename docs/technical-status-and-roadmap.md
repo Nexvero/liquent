@@ -23,7 +23,7 @@
   Commit `5d62b967` bestanden; Publishing und Deployment bleiben ausdrücklich
   nicht autorisiert.
 - **Aktueller Container-/Scanstand:** Das offizielle Basisimage
-  `python:3.14.7-slim-bookworm` ist auf Manifest-Digest `sha256:82bc3c53…ff56`
+  `python:3.14.7-alpine3.24` ist auf Manifest-Digest `sha256:9e9fde4d…66b01`
   fixiert; Containerbau, gehärteter Smoke und das unveränderte Grype-Gate sind
   die autoritative Abnahme ohne Ausnahme oder veränderliches Paket-Upgrade.
 - **Integrationsscope:** Der Staging-Reconciliation-Strang bis LQ-2766 wurde

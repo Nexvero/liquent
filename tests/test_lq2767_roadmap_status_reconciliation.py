@@ -24,8 +24,8 @@ def test_status_reconciliation_records_immutable_runtime_basis() -> None:
 
     assert "python:3.14.7-slim-trixie" in doc
     assert digest in doc
-    assert "python:3.14.7-slim-bookworm" in roadmap
-    assert "sha256:82bc3c53…ff56" in roadmap
+    assert "python:3.14.7-alpine3.24" in roadmap
+    assert "sha256:9e9fde4d…66b01" in roadmap
     assert "without a vulnerability exception or mutable package upgrade" in doc
 
 
