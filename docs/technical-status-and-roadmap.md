@@ -23,9 +23,9 @@
   Commit `5d62b967` bestanden; Publishing und Deployment bleiben ausdrücklich
   nicht autorisiert.
 - **Aktueller Container-/Scanstand:** Das offizielle Basisimage
-  `python:3.14.7-slim-trixie` ist auf Manifest-Digest `sha256:caaf356f…f8a2`
-  fixiert; Containerbau, gehärteter Smoke und das unveränderte Grype-Gate
-  bestanden auf PR #272 ohne Ausnahme oder veränderliches Paket-Upgrade.
+  `python:3.14.7-alpine3.24` ist auf Manifest-Digest `sha256:9e9fde4d…66b01`
+  fixiert; Containerbau, gehärteter Smoke und das unveränderte Grype-Gate sind
+  die autoritative Abnahme ohne Ausnahme oder veränderliches Paket-Upgrade.
 - **Integrationsscope:** Der Staging-Reconciliation-Strang bis LQ-2766 wurde
   nach erfolgreichen Pflichtprüfungen per Squash-Merge in `main` integriert;
   PR #272 hat den Merge-Commit `58f736b`.
@@ -14021,6 +14021,14 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - liest Status und erfolgreiche Evidenz aus PostgreSQL statt aus dem Prozessspeicher
   - hält Claims, Leases, Workeridentitäten und interne Fehlerdetails aus der öffentlichen Antwort fern
   - gewährt keine Berechtigung und führt weder Deployment noch Staging-Job aus
+
+- LQ-2774 Python Bookworm security refresh:
+  `docs/lq-2774-python-bookworm-security-refresh.md`
+  - behält Python 3.14.7 bei und wechselt nur die offizielle Debian-Basis
+  - fixiert `slim-bookworm` auf den offiziellen Manifest-Digest
+  - umgeht die reparierbaren OpenSSL-Funde des aktuellen trixie-Images nicht
+  - erhält das unveränderte Grype-Gate als autoritative Abnahme
+  - führt weder Ausnahme, Paket-Upgrade, Publishing noch Deployment ein
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*

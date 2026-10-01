@@ -1,5 +1,5 @@
 # LQ-063: the tag is human-readable; the manifest-list digest is authoritative.
-ARG PYTHON_IMAGE=python:3.14.7-slim-trixie@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2
+ARG PYTHON_IMAGE=python:3.14.7-alpine3.24@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
 
 FROM ${PYTHON_IMAGE} AS builder
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
@@ -22,8 +22,8 @@ LABEL org.opencontainers.image.title="Liquent Platform" \
 ENV PATH=/opt/liquent/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
-RUN groupadd --gid 10001 liquent \
-    && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin liquent \
+RUN addgroup -g 10001 -S liquent \
+    && adduser -u 10001 -S -D -H -h /nonexistent -s /sbin/nologin -G liquent liquent \
     && python -m venv /opt/liquent/venv
 COPY requirements/ci.lock /tmp/ci.lock
 COPY --from=builder /wheelhouse /wheelhouse
