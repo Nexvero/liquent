@@ -14022,11 +14022,12 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - hält Claims, Leases, Workeridentitäten und interne Fehlerdetails aus der öffentlichen Antwort fern
   - gewährt keine Berechtigung und führt weder Deployment noch Staging-Job aus
 
-- LQ-2774 Python Bookworm security refresh:
-  `docs/lq-2774-python-bookworm-security-refresh.md`
-  - behält Python 3.14.7 bei und wechselt nur die offizielle Debian-Basis
-  - fixiert `slim-bookworm` auf den offiziellen Manifest-Digest
-  - umgeht die reparierbaren OpenSSL-Funde des aktuellen trixie-Images nicht
+- LQ-2774 Python Alpine security refresh:
+  `docs/lq-2774-python-alpine-security-refresh.md`
+  - behält Python 3.14.7 bei und wechselt auf die offizielle Alpine-3.24-Basis
+  - fixiert `alpine3.24` auf den offiziellen Manifest-Digest
+  - dokumentiert die reparierbaren OpenSSL-Funde der geprüften Trixie- und
+    Bookworm-Alternativen, ohne sie zu umgehen
   - erhält das unveränderte Grype-Gate als autoritative Abnahme
   - führt weder Ausnahme, Paket-Upgrade, Publishing noch Deployment ein
 

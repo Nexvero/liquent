@@ -29,6 +29,15 @@ def test_status_reconciliation_records_immutable_runtime_basis() -> None:
     assert "without a vulnerability exception or mutable package upgrade" in doc
 
 
+def test_roadmap_records_the_selected_lq2774_alpine_basis() -> None:
+    roadmap = ROADMAP.read_text(encoding="utf-8")
+
+    assert "- LQ-2774 Python Alpine security refresh:" in roadmap
+    assert "`docs/lq-2774-python-alpine-security-refresh.md`" in roadmap
+    assert "fixiert `alpine3.24` auf den offiziellen Manifest-Digest" in roadmap
+    assert "docs/lq-2774-python-bookworm-security-refresh.md" not in roadmap
+
+
 def test_status_reconciliation_preserves_inventory_and_external_boundary() -> None:
     doc = DOC.read_text(encoding="utf-8")
     roadmap = ROADMAP.read_text(encoding="utf-8")
