@@ -70,9 +70,9 @@ def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
     assert "ARG RESTIC_SOURCE_SHA256=" in dockerfile
     for module in (
         "golang.org/x/crypto@v0.56.0",
-        "golang.org/x/net@v0.57.0",
+        "golang.org/x/net@v0.58.0",
         "golang.org/x/text@v0.41.0",
-        "google.golang.org/grpc@v1.83.1",
+        "google.golang.org/grpc@v1.83.2",
     ):
         assert module in dockerfile
     assert "ARG OPENSSL_VERSION=3.5.7-1~deb13u2" in dockerfile
