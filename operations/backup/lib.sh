@@ -41,7 +41,7 @@ backup_load_config() {
     # shellcheck disable=SC1090 -- operator-selected, permission-checked file
     source "$config_file"
     for name in \
-        RESTIC_REPOSITORY RESTIC_PASSWORD_FILE OVH_ACCESS_KEY_FILE \
+        RESTIC_REPOSITORY AWS_DEFAULT_REGION RESTIC_PASSWORD_FILE OVH_ACCESS_KEY_FILE \
         OVH_SECRET_KEY_FILE PGPASSFILE POSTGRES_HOST POSTGRES_PORT \
         POSTGRES_DB POSTGRES_USER BACKUP_DATABASE_DIR ARTIFACT_ROOT \
         BACKUP_HOST_ID; do
@@ -58,7 +58,7 @@ backup_load_config() {
 }
 
 backup_export_credentials() {
-    export RESTIC_PASSWORD_FILE PGPASSFILE
+    export RESTIC_PASSWORD_FILE PGPASSFILE AWS_DEFAULT_REGION
     IFS= read -r AWS_ACCESS_KEY_ID < "$OVH_ACCESS_KEY_FILE"
     IFS= read -r AWS_SECRET_ACCESS_KEY < "$OVH_SECRET_KEY_FILE"
     [[ -n "$AWS_ACCESS_KEY_ID" && -n "$AWS_SECRET_ACCESS_KEY" ]] || \

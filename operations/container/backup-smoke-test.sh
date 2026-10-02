@@ -21,6 +21,7 @@ for name in restic_password ovh_access_key ovh_secret_key pgpass; do
 done
 cat > "$fixture/backup.env" <<'EOF'
 RESTIC_REPOSITORY=s3:https://s3.example.invalid/bucket/liquent
+AWS_DEFAULT_REGION=example-region
 RESTIC_PASSWORD_FILE=/run/secrets/restic_password
 OVH_ACCESS_KEY_FILE=/run/secrets/ovh_access_key
 OVH_SECRET_KEY_FILE=/run/secrets/ovh_secret_key
