@@ -2,10 +2,10 @@
 
 ## Ergebnis
 
-Der noch nicht veröffentlichte reguläre Backup-Container ist nicht länger Teil
-des Basis-Compose-Vertrags für den initialen Staging-Start. Dienst, vier
-Backup-Secrets und der separate Imagewert liegen jetzt vollständig in
-`compose.backup.yaml` und `backup-images.env.example`.
+Der separat veröffentlichte reguläre Backup-Container ist nicht Teil des
+Basis-Compose-Vertrags für den initialen Staging-Start. Dienst, vier
+Backup-Secrets und der operatorgewählte unveränderliche Imagewert liegen
+vollständig in `compose.backup.yaml` und `backup-images.env.example`.
 
 Das Overlay bleibt doppelt opt-in: Der Betreiber muss es ausdrücklich als
 zweite Compose-Datei angeben und zusätzlich das Profil `operations` aktivieren.
@@ -30,5 +30,7 @@ Datenbank- und Artefaktbackupbetrieb ausgegeben.
 ## Grenze
 
 Dieser Slice baut oder veröffentlicht kein Backup-Image und erzeugt keine
-Object-Storage-Zugangsdaten. Das Overlay darf erst nach eigener Imagefreigabe,
-Konfiguration, Restore-Probe und Betreiberaktivierung verwendet werden.
+Object-Storage-Zugangsdaten. Der freigegebene Image-Nachweis ist in
+`docs/lq-2777-backup-release-handoff.md` festgehalten. Das Overlay darf erst
+nach Konfiguration, Restore-Probe und ausdrücklicher Betreiberaktivierung
+verwendet werden.
