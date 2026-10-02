@@ -36,6 +36,7 @@ def _checked_config(tmp_path: Path) -> Path:
         "\n".join(
             (
                 "RESTIC_REPOSITORY=s3:https://s3.example.invalid/bucket/liquent",
+                "AWS_DEFAULT_REGION=example-region",
                 f"RESTIC_PASSWORD_FILE={secrets['restic_password']}",
                 f"OVH_ACCESS_KEY_FILE={secrets['ovh_access_key']}",
                 f"OVH_SECRET_KEY_FILE={secrets['ovh_secret_key']}",
