@@ -64,7 +64,7 @@ def test_backup_scripts_have_valid_bash_syntax() -> None:
 
 def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
     dockerfile = BACKUP_DOCKERFILE.read_text(encoding="utf-8")
-    assert "postgres:18.6-trixie@sha256:" in dockerfile
+    assert "postgres:18.6-alpine3.24@sha256:" in dockerfile
     assert "golang:1.26.6-trixie@sha256:" in dockerfile
     assert "ARG RESTIC_VERSION=0.19.1" in dockerfile
     assert "ARG RESTIC_SOURCE_SHA256=" in dockerfile
@@ -75,14 +75,14 @@ def test_backup_image_uses_pinned_tools_and_non_root_runtime() -> None:
         "google.golang.org/grpc@v1.83.2",
     ):
         assert module in dockerfile
-    assert "ARG OPENSSL_VERSION=3.5.7-1~deb13u2" in dockerfile
-    assert "ARG CA_CERTIFICATES_VERSION=20250419" in dockerfile
-    assert '"ca-certificates=${CA_CERTIFICATES_VERSION}"' in dockerfile
-    for package in ("libssl3t64", "openssl", "openssl-provider-legacy"):
-        assert f'"{package}=${{OPENSSL_VERSION}}"' in dockerfile
-    assert "--only-upgrade" in dockerfile
+    runtime = dockerfile.split("FROM ${POSTGRES_IMAGE} AS runtime", 1)[1]
+    assert "apt-get" not in runtime
+    assert "apk add" not in runtime
+    assert "OPENSSL_VERSION" not in runtime
     assert "COPY --from=restic /out/restic" in dockerfile
     assert "rm -f /usr/local/bin/gosu" in dockerfile
+    assert "addgroup -g 10001 -S liquent-backup" in dockerfile
+    assert "adduser -u 10001 -S -D" in dockerfile
     assert "USER 10001:10001" in dockerfile
     assert "ENTRYPOINT []" in dockerfile
     assert '["/opt/liquent/backup/backup.sh", "--check"]' in dockerfile

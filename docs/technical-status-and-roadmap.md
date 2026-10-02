@@ -14031,5 +14031,15 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erhält das unveränderte Grype-Gate als autoritative Abnahme
   - führt weder Ausnahme, Paket-Upgrade, Publishing noch Deployment ein
 
+- LQ-2776 backup Alpine security refresh:
+  `docs/lq-2776-backup-alpine-security-refresh.md`
+  - behält PostgreSQL 18.6 und restic 0.19.1 unverändert bei
+  - wechselt die Backup-Laufzeit auf das offizielle Alpine-3.24-Image
+  - fixiert den PostgreSQL-Tag auf den offiziellen Manifest-Digest
+  - entfernt die Debian-spezifische OpenSSL-Nachrüstung vollständig
+  - führt in der finalen Laufzeitstufe keine Paketinstallation oder -aktualisierung aus
+  - erhält Smoke-Test und unverändertes Grype-Gate als autoritative Abnahme
+  - führt weder Ausnahme, Publishing noch Deployment ein
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
