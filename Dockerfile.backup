@@ -1,5 +1,5 @@
 # The manifest-list digests are authoritative; tags document reviewed versions.
-ARG POSTGRES_IMAGE=postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+ARG POSTGRES_IMAGE=postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
 ARG GO_IMAGE=golang:1.26.6-trixie@sha256:b75d466dd608587fd66cca705a307ba65b889827d06ad61d6a75f0482b51b7c7
 
 FROM ${GO_IMAGE} AS restic
@@ -21,8 +21,6 @@ RUN mkdir /src /out \
 
 FROM ${POSTGRES_IMAGE} AS runtime
 ARG VCS_REF=unknown
-ARG OPENSSL_VERSION=3.5.7-1~deb13u2
-ARG CA_CERTIFICATES_VERSION=20250419
 LABEL org.opencontainers.image.title="Liquent Backup" \
       org.opencontainers.image.description="Liquent PostgreSQL and artifact backup runtime" \
       org.opencontainers.image.source="https://github.com/Nexvero/liquent" \
@@ -31,18 +29,10 @@ LABEL org.opencontainers.image.title="Liquent Backup" \
 COPY --from=restic /out/restic /usr/local/bin/restic
 COPY operations/backup/ /opt/liquent/backup/
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends \
-        "ca-certificates=${CA_CERTIFICATES_VERSION}" \
-    && apt-get install --yes --no-install-recommends --only-upgrade \
-        "libssl3t64=${OPENSSL_VERSION}" \
-        "openssl=${OPENSSL_VERSION}" \
-        "openssl-provider-legacy=${OPENSSL_VERSION}" \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /usr/local/bin/gosu \
-    && groupadd --gid 10001 liquent-backup \
-    && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
-        --shell /usr/sbin/nologin liquent-backup \
+RUN rm -f /usr/local/bin/gosu \
+    && addgroup -g 10001 -S liquent-backup \
+    && adduser -u 10001 -S -D -G liquent-backup -H -h /nonexistent \
+        -s /bin/false liquent-backup \
     && chmod 0555 /opt/liquent/backup/*.sh /usr/local/bin/restic
 
 USER 10001:10001
