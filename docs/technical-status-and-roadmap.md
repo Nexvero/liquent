@@ -14041,5 +14041,13 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - erhält Smoke-Test und unverändertes Grype-Gate als autoritative Abnahme
   - führt weder Ausnahme, Publishing noch Deployment ein
 
+- LQ-2777 backup release handoff:
+  `docs/lq-2777-backup-release-handoff.md`
+  - dokumentiert den erfolgreichen Main-Quality-Lauf für den gemergten Commit
+  - fixiert das veröffentlichte Backup-Image über seinen Registry-Digest
+  - hält SBOM, unverändertes Grype-Gate, Attestation und Releaseartefakt fest
+  - trennt die Imagefreigabe weiterhin von Backup-Konfiguration und Aktivierung
+  - gewährt weder Secret-, Object-Storage-, Restore- noch Deploymentauthority
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
