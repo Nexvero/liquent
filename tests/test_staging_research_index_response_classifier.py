@@ -33,6 +33,19 @@ VISIBLE = (
 )
 
 
+def test_minimum_fields_accepts_local_result_link() -> None:
+    request = next(
+        item for item in _requests()
+        if item.check is StagingResearchIndexCheck.MINIMUM_FIELDS
+    )
+    body = VISIBLE.replace(
+        b'</time></li>',
+        b'</time> <a href="/research/jobs/job-visible">Ergebnis ansehen</a></li>',
+    )
+    result = classify_staging_research_index_response(request, _html(body))
+    assert result.outcome is StagingResearchIndexCheckOutcome.PASSED
+
+
 def test_every_planned_response_can_pass_without_retaining_details() -> None:
     responses = (
         StagingResearchIndexResponse(404, (), b""),

@@ -17,7 +17,8 @@ _MAX_BODY_BYTES = 65_536
 _INDEX_ENTRY = re.compile(
     rb'<li><span>[^<>]{1,256}</span> <span>'
     rb'(queued|running|succeeded|failed)</span> '
-    rb'<time datetime="[^"<>]{1,64}">[^<>]{1,64}</time></li>'
+    rb'<time datetime="[^"<>]{1,64}">[^<>]{1,64}</time>'
+    rb'(?: <a href="/research/jobs/[A-Za-z0-9_%.-]{1,768}">Ergebnis ansehen</a>)?</li>'
 )
 _FORBIDDEN_VISIBLE_FACTS = (
     b"user_id", b"workspace_id", b"csrf", b"session", b"membership",

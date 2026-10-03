@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from html import escape
 from hmac import compare_digest
 from typing import Annotated, AsyncIterator, Callable
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
+
+from liquent_platform.transport.http.research_results import STYLE, result_document
 
 import httpx2
 from fastapi import (
@@ -1085,16 +1087,20 @@ def create_app(
                         + "</span> <time datetime=\""
                         + escape(item.updated_at.isoformat())
                         + "\">"
-                        + escape(item.updated_at.isoformat())
-                        + "</time></li>"
+                        + escape(item.updated_at.astimezone(UTC).strftime("%d.%m.%Y · %H:%M UTC"))
+                        + '</time> <a href="/research/jobs/'
+                        + quote(str(item.job_id), safe="")
+                        + '">Ergebnis ansehen</a></li>'
                         for item in items
                     )
                     rows = "<ol>" + entries + "</ol>"
                 return (
                     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
                     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                    "<title>Liquent Research</title></head><body><main>"
+                    f"<title>Liquent Research</title><style>{STYLE}</style></head><body><main>"
                     "<h1>Research</h1><p>Read-only Research access is available.</p>"
+                    "<p>Ergebnisse Ihrer Simulationen. Dieser Zugang ist nur lesend.</p>"
+                    "<p><small>succeeded = abgeschlossen · running = läuft · queued = wartet · failed = fehlgeschlagen</small></p>"
                     "<h2>Research jobs</h2>"
                     + rows
                     + "<p><a href=\"/\">Return to Liquent</a></p>"
@@ -1175,6 +1181,71 @@ def create_app(
                 landed.headers["Cache-Control"] = "no-store"
                 landed.headers["Referrer-Policy"] = "no-referrer"
                 return landed
+
+            @app.api_route(
+                "/research/jobs/{job_id}",
+                methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT"],
+                tags=["research"],
+            )
+            def workspace_research_result(
+                request: Request,
+                job_id: str,
+                session_cookie: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+            ) -> Response:
+                def rejected(code: int) -> Response:
+                    response = Response(status_code=code)
+                    response.headers["Cache-Control"] = "no-store"
+                    response.headers["Referrer-Policy"] = "no-referrer"
+                    if code == 405:
+                        response.headers["Allow"] = "GET"
+                    return response
+
+                if request.method != "GET":
+                    return rejected(405)
+                if request.url.query:
+                    return rejected(400)
+                try:
+                    session_id = None if session_cookie is None else SessionId(session_cookie)
+                    session = require_browser_session(logout_sessions, session_id)
+                except (AuthenticationRequired, ValueError):
+                    return _landing_redirect("/login", clear_cookie=session_cookie is not None)
+                except BrowserSessionStoreUnavailable:
+                    return _landing_redirect("/login/unavailable")
+                try:
+                    identifier = JobId(job_id)
+                except ValueError:
+                    return rejected(404)
+                try:
+                    context = resolve_workspace_research_read(
+                        landing_workspace_contexts, research_memberships, session.principal,
+                    )
+                    if context is None:
+                        return rejected(404)
+                    if persistent_research_store is not None:
+                        job = persistent_research_store.get_job(session.principal.user_id, identifier)
+                        if job is None or job.workspace_id != context.workspace_id:
+                            return rejected(404)
+                        evidence = (
+                            persistent_research_store.get_evidence(session.principal.user_id, identifier)
+                            if job.status is ResearchJobStatus.SUCCEEDED else None
+                        )
+                    else:
+                        job = visible_job(identifier, session)
+                        if job.snapshot.workspace_id != context.workspace_id:
+                            return rejected(404)
+                        evidence = evidence_document(job.evidence) if job.evidence is not None else None
+                except HTTPException as error:
+                    if error.status_code == 404:
+                        return rejected(404)
+                    raise
+                except (WorkspaceMembershipStoreUnavailable, ResearchJobStoreUnavailable):
+                    return _landing_redirect("/login/unavailable")
+                response = Response(result_document(str(identifier), job.status.value, evidence), media_type="text/html")
+                response.headers["Cache-Control"] = "no-store"
+                response.headers["Referrer-Policy"] = "no-referrer"
+                response.headers["X-Content-Type-Options"] = "nosniff"
+                response.headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+                return response
 
     if oidc_login_enabled:
 
