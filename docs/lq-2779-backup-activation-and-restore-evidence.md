@@ -23,8 +23,8 @@ digest and independently checked for runtime identity `10001:10001`, source
 revision and configuration validity before activation.
 
 The owner-only image environment was replaced atomically and remains mode
-`0600`. The previous `0.1.3` digest is retained in an owner-only rollback copy
-until the first scheduled `0.1.4` run succeeds.
+`0600`. The previous `0.1.3` digest was retained in an owner-only rollback copy
+until the first scheduled `0.1.4` run succeeded.
 
 One explicit backup run using the activated digest created encrypted snapshot
 `ca346edb`. The repository metadata check completed without errors. No manual
@@ -51,11 +51,17 @@ ports. Liveness and readiness both returned HTTP 200. The application and
 database containers, internal network, disposable volume, restored files and
 test-only secrets were removed after acceptance.
 
-## Remaining operational gate
+## Scheduled-run confirmation and cleanup
 
-The first timer-triggered backup using `0.1.4` remains intentionally pending.
-A read-only follow-up must verify the configured digest, successful service
-result, new snapshot, repository check, success timestamp and both timer
-states. Only after that evidence exists may the retained rollback copy be
-removed. This document grants no authority to delete the rollback copy,
-snapshots or retention evidence.
+The first timer-triggered backup using `0.1.4` started at
+`2026-10-03T02:23:58Z` and completed successfully at
+`2026-10-03T02:24:09Z`. The service returned result `success` and exit status
+zero while still using the approved immutable digest. It created snapshot
+`2997744f`, applied the configured retention policy and completed the
+repository metadata check with no errors. Both backup timers remained active.
+
+After that evidence was captured, the superseded owner-only rollback copy
+`backup-images.env.pre-0.1.4` was removed. No snapshot, repository evidence,
+active image configuration or Production data was removed. The temporary
+read-only follow-up automation was paused after its one-time purpose was
+fulfilled.

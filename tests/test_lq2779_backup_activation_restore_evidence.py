@@ -36,12 +36,12 @@ def test_restore_evidence_records_isolation_and_cleanup() -> None:
         assert value in evidence
 
 
-def test_scheduled_confirmation_and_rollback_cleanup_remain_gated() -> None:
+def test_scheduled_confirmation_and_rollback_cleanup_are_recorded() -> None:
     evidence = EVIDENCE.read_text(encoding="utf-8")
     roadmap = ROADMAP.read_text(encoding="utf-8")
-    assert (
-        "first timer-triggered backup using `0.1.4` remains intentionally pending"
-        in evidence
-    )
-    assert "grants no authority to delete the rollback copy" in evidence
+    assert "2026-10-03T02:23:58Z" in evidence
+    assert "2997744f" in evidence
+    assert "repository metadata check with no errors" in evidence
+    assert "backup-images.env.pre-0.1.4` was removed" in evidence
+    assert "read-only follow-up automation was paused" in evidence
     assert "LQ-2779 backup activation and restore evidence" in roadmap

@@ -14059,7 +14059,8 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - startet das passende App-Image ausschließlich im internen Testnetz
   - bestätigt Liveness und Readiness ohne veröffentlichte Ports
   - dokumentiert die vollständige Entfernung aller Restore-Testressourcen
-  - lässt den ersten timergetriebenen Lauf und die Rollback-Bereinigung offen
+  - bestätigt den ersten timergetriebenen Lauf mit Snapshot `2997744f`
+  - dokumentiert die anschließende Entfernung der überholten Rollback-Kopie
 
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
