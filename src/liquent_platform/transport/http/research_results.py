@@ -2,19 +2,8 @@
 
 from html import escape
 import math
+from liquent_platform.transport.http.ui_brand import STYLE, brand_document
 
-
-STYLE = """:root{font-family:system-ui,sans-serif;color:#172b3a;background:#f3f6f8}
-body{margin:0}main{max-width:960px;margin:auto;padding:32px 20px}
-a{color:#075e78;text-underline-offset:3px}h1{font-size:2rem}
-.notice{border-left:4px solid #18798a;padding:16px;background:#e4f1f3}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.cards div,section{background:white;border:1px solid #d6e0e6;border-radius:10px;padding:18px}
-section{margin:20px 0}dt{font-weight:600}dd{margin:8px 0 0;font-size:1.15rem}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #e4ebef;overflow-wrap:anywhere}
-code{overflow-wrap:anywhere}li{padding:8px 0}small{color:#475a69}
-@media(max-width:480px){main{padding:20px 12px}th,td{padding:10px 4px}}
-"""
 
 STATUS_LABELS = {
     "ready": "Bereit zur Ausführung",
@@ -28,7 +17,7 @@ STATUS_LABELS = {
 
 
 def page(title: str, content: str) -> str:
-    return (
+    return brand_document(
         '<!doctype html><html lang="de"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>{escape(title)} · Liquent</title><style>{STYLE}</style>'

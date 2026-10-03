@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -159,6 +161,14 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert "proxy_read_timeout 5s" in research_location
     assert "location /research" not in config
     assert "location ^~ /research" not in config
+    result_location = config.split(
+        "location ~ ^/research/jobs/[A-Za-z0-9_-]+$ {", 1
+    )[1].split("}", 1)[0]
+    assert "proxy_pass http://liquent_staging_control_plane;" in result_location
+    assert "proxy_set_header Host $host;" in result_location
+    assert "proxy_set_header X-Forwarded-Proto https;" in result_location
+    assert "proxy_read_timeout 5s;" in result_location
+    assert "rewrite " not in result_location
     root_location = config.split("location = / {", 1)[1].split("}", 1)[0]
     assert "proxy_pass http://liquent_staging_control_plane/" in root_location
     assert "form-action 'self'" in config
@@ -166,6 +176,23 @@ def test_edge_exposes_liveness_and_exact_oidc_routes_and_denies_default() -> Non
     assert "/health/ready" not in config
     assert "/internal/metrics" not in config
     assert "ssl_protocols TLSv1.2 TLSv1.3" in config
+
+
+def test_result_style_policy_allows_only_reviewed_stylesheet() -> None:
+    from liquent_platform.transport.http.research_results import STYLE
+
+    config = EDGE.read_text(encoding="utf-8")
+    result_location = config.split(
+        "location ~ ^/research/jobs/[A-Za-z0-9_-]+$ {", 1
+    )[1].split("}", 1)[0]
+    digest = base64.b64encode(hashlib.sha256(STYLE.encode()).digest()).decode()
+    assert f"style-src 'sha256-{digest}'" in result_location
+    assert "unsafe-inline" not in result_location
+    assert "default-src 'none'" in result_location
+    assert "base-uri 'none'" in result_location
+    assert "form-action 'none'" in result_location
+    for header in ("Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy"):
+        assert f"add_header {header}" in result_location
 
 
 def test_login_entry_preserves_origin_without_weakening_other_security_headers() -> None:
