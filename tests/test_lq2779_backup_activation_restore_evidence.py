@@ -36,6 +36,19 @@ def test_restore_evidence_records_isolation_and_cleanup() -> None:
         assert value in evidence
 
 
+def test_staging_functional_acceptance_records_job_artifact_and_revocation() -> None:
+    evidence = EVIDENCE.read_text(encoding="utf-8")
+    for value in (
+        "Z8HT3-xvK41LNMhJO0PcaxFrQszabsKEWsxTortBpjM",
+        "exactly one claim and one outcome",
+        "1671 bytes",
+        "f8f738f7f2d37d958a8cfedafebff4fa8adaba30ea0b598194c65c3d484d8ab1",
+        "`research:read=true` and `research:write=false`",
+        "liveness endpoint returned HTTP 200",
+    ):
+        assert value in evidence
+
+
 def test_scheduled_confirmation_and_rollback_cleanup_are_recorded() -> None:
     evidence = EVIDENCE.read_text(encoding="utf-8")
     roadmap = ROADMAP.read_text(encoding="utf-8")

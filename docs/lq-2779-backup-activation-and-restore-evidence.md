@@ -51,6 +51,28 @@ ports. Liveness and readiness both returned HTTP 200. The application and
 database containers, internal network, disposable volume, restored files and
 test-only secrets were removed after acceptance.
 
+## Staging functional acceptance
+
+After the restore acceptance, Staging received one explicitly authorized
+end-to-end Research exercise. The operator granted `research:write` as a
+temporary complete membership snapshot, submitted exactly one request and
+observed durable job
+`Z8HT3-xvK41LNMhJO0PcaxFrQszabsKEWsxTortBpjM` reach `succeeded`.
+
+The public start returned HTTP 202 and the evidence read returned HTTP 200.
+The database contained exactly one claim and one outcome for the job. Its
+artifact was stored at
+`research/e00f16fa81f541197bc02bc2be0319061ad5baff76e9130f5449a16b51beba8c/result.json`
+with 1671 bytes, mode `0600`, runtime ownership `10001:10001` and SHA-256
+`f8f738f7f2d37d958a8cfedafebff4fa8adaba30ea0b598194c65c3d484d8ab1`.
+The file bytes matched the database metadata.
+
+The temporary write permission was revoked immediately after artifact
+verification. A direct membership readback confirmed the membership remained
+active with `research:read=true` and `research:write=false`. The Control Plane,
+Research worker, PostgreSQL and public edge remained running; the public
+liveness endpoint returned HTTP 200.
+
 ## Scheduled-run confirmation and cleanup
 
 The first timer-triggered backup using `0.1.4` started at

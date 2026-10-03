@@ -14059,6 +14059,8 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - startet das passende App-Image ausschließlich im internen Testnetz
   - bestätigt Liveness und Readiness ohne veröffentlichte Ports
   - dokumentiert die vollständige Entfernung aller Restore-Testressourcen
+  - belegt einen erfolgreichen Staging-End-to-End-Researchjob mit genau einem Claim und Outcome
+  - bestätigt Artefakt-Hash, restriktive Dateirechte und den sofortigen Entzug von `research:write`
   - bestätigt den ersten timergetriebenen Lauf mit Snapshot `2997744f`
   - dokumentiert die anschließende Entfernung der überholten Rollback-Kopie
 
