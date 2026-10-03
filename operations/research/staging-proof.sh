@@ -10,7 +10,11 @@ check_only=0
 [[ "$#" == 0 ]] || die "usage: staging-proof.sh [--check]"
 config="${LIQUENT_RESEARCH_PROOF_CONFIG:-/etc/liquent/research-proof.env}"
 [[ -f "$config" && ! -L "$config" ]] || die "configuration must be a regular file"
-config_mode="$(stat -f '%Lp' "$config" 2>/dev/null || stat -c '%a' "$config")"
+if [[ "$(uname -s)" == Darwin ]]; then
+  config_mode="$(stat -f '%Lp' "$config")"
+else
+  config_mode="$(stat -c '%a' "$config")"
+fi
 [[ "$config_mode" == 600 ]] || die "configuration must have mode 0600"
 # shellcheck disable=SC1090
 source "$config"
@@ -41,26 +45,41 @@ apply_membership() {
   local request="$1" stem="$2"
   local container_request="$container_dir/${stem}-request.json"
   local container_result="$container_dir/${stem}-result.json"
-  docker exec "$CONTROL_PLANE_CONTAINER" /bin/sh -c 'install -d -m 0700 "$1"' sh "$container_dir"
-  put_in_container "$request" "$container_request"
+  docker exec "$CONTROL_PLANE_CONTAINER" /bin/sh -c 'install -d -m 0700 "$1"' sh "$container_dir" || return 1
+  put_in_container "$request" "$container_request" || return 1
   docker exec "$CONTROL_PLANE_CONTAINER" liquent-membership-management apply \
     --database-url-file "$DATABASE_URL_SECRET" --request "$container_request" \
-    --result-file "$container_result" > "$run_dir/${stem}-outcome.json"
-  docker exec "$CONTROL_PLANE_CONTAINER" cat "$container_result" > "$run_dir/${stem}-result.json"
-  chmod 0600 "$run_dir/${stem}-result.json" "$run_dir/${stem}-outcome.json"
-  docker exec "$CONTROL_PLANE_CONTAINER" rm -f "$container_request" "$container_result"
+    --result-file "$container_result" > "$run_dir/${stem}-outcome.json" || return 1
+  docker exec "$CONTROL_PLANE_CONTAINER" cat "$container_result" > "$run_dir/${stem}-result.json" || return 1
+  chmod 0600 "$run_dir/${stem}-result.json" "$run_dir/${stem}-outcome.json" || return 1
+  docker exec "$CONTROL_PLANE_CONTAINER" rm -f "$container_request" "$container_result" || return 1
   [[ "$(jq -r '.outcome' "$run_dir/${stem}-outcome.json")" == applied ]]
 }
 
 revoke_write() {
   local change_id revision
-  change_id="$(docker exec "$CONTROL_PLANE_CONTAINER" liquent-membership-management new-change-id)"
-  revision="$(jq -er '.revision_id' "$run_dir/grant-result.json")"
+  change_id="$(docker exec "$CONTROL_PLANE_CONTAINER" liquent-membership-management new-change-id)" || return 1
+  # Recover the durable revision even when grant-result retrieval failed.
+  revision="$(docker exec -i "$CONTROL_PLANE_CONTAINER" python - "$container_dir/base-request.json" "$DATABASE_URL_SECRET" <<'PY'
+import json, sys
+from pathlib import Path
+from sqlalchemy import create_engine, text
+request = json.loads(Path(sys.argv[1]).read_text())
+engine = create_engine(Path(sys.argv[2]).read_text().strip())
+try:
+    with engine.connect() as connection:
+        revision = connection.execute(text("SELECT revision_id FROM workspace_memberships WHERE user_id=:target AND workspace_id=:workspace"), {"target": request["target_user_id"].encode(), "workspace": request["workspace_id"].encode()}).scalar_one()
+    print(bytes(revision).decode())
+finally:
+    engine.dispose()
+PY
+)" || return 1
+  [[ -n "$revision" ]] || return 1
   jq --arg change "$change_id" --arg revision "$revision" \
     '.change_id=$change | .expected_revision=$revision | .permissions=["research:read"]' \
-    "$run_dir/grant-request.json" > "$run_dir/revoke-request.json"
-  chmod 0600 "$run_dir/revoke-request.json"
-  apply_membership "$run_dir/revoke-request.json" revoke
+    "$run_dir/grant-request.json" > "$run_dir/revoke-request.json" || return 1
+  chmod 0600 "$run_dir/revoke-request.json" || return 1
+  apply_membership "$run_dir/revoke-request.json" revoke || return 1
   revoke_done=1
 }
 
@@ -72,7 +91,7 @@ cleanup() {
     printf '%s\n' 'write_permission_revocation=failed' >&2
   fi
   docker exec "$CONTROL_PLANE_CONTAINER" rm -r "$container_dir" >/dev/null 2>&1 || true
-  rm -f "$run_dir/session-id" "$run_dir/csrf-token" "$run_dir/cookies.txt" "$run_dir/headers.txt"
+  rm -f "$run_dir/session.json" "$run_dir/session-id" "$run_dir/csrf-token" "$run_dir/cookies.txt" "$run_dir/headers.txt"
   exit "$result"
 }
 trap 'cleanup $?' EXIT
@@ -107,6 +126,7 @@ chmod 0600 "$run_dir"/*.json
 if [[ "$(jq -r '.write_present' "$run_dir/current-membership.json")" == true ]]; then
   cp "$run_dir/current-membership.json" "$run_dir/grant-result.json"
 else
+  grant_applied=1
   apply_membership "$run_dir/grant-request.json" grant
 fi
 grant_applied=1

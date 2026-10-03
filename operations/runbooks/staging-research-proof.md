@@ -20,3 +20,8 @@ artifact digest/size match, completed write revocation, and a final HTTP 403
 If cleanup reports `write_permission_revocation=failed`, treat that as an incident
 and revoke the permission with the membership-management runbook before any other
 work.
+
+Cleanup deletes the copied browser session, cookie and CSRF header files. It also
+attempts revocation when grant confirmation retrieval fails: the revision is read
+from the durable membership record, not the local grant result. A failed
+revocation command must never be recorded as a successful revocation.
