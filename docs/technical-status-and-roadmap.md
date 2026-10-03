@@ -14049,5 +14049,20 @@ Freigabe, manuell bereitgestellt. **Keine** Profitabilitätsbewertung.
   - trennt die Imagefreigabe weiterhin von Backup-Konfiguration und Aktivierung
   - gewährt weder Secret-, Object-Storage-, Restore- noch Deploymentauthority
 
+- LQ-2779 backup activation and restore evidence:
+  `docs/lq-2779-backup-activation-and-restore-evidence.md`
+  - bindet Backup-Version `0.1.4` an Commit, Registry-Digest und Attestation
+  - dokumentiert die atomare Produktionsaktivierung mit erhaltener Rollback-Kopie
+  - hält Snapshot `ca346edb` und den fehlerfreien Repositorycheck fest
+  - belegt Prüfsumme, Katalog und Import in disposable PostgreSQL
+  - bestätigt 159 öffentliche Tabellen und Migration `20260916_0046`
+  - startet das passende App-Image ausschließlich im internen Testnetz
+  - bestätigt Liveness und Readiness ohne veröffentlichte Ports
+  - dokumentiert die vollständige Entfernung aller Restore-Testressourcen
+  - belegt einen erfolgreichen Staging-End-to-End-Researchjob mit genau einem Claim und Outcome
+  - bestätigt Artefakt-Hash, restriktive Dateirechte und den sofortigen Entzug von `research:write`
+  - bestätigt den ersten timergetriebenen Lauf mit Snapshot `2997744f`
+  - dokumentiert die anschließende Entfernung der überholten Rollback-Kopie
+
 *Research-/Backtesting-Kontext. Keine Live-/Paper-Trading-Funktion, keine
 Exchange-Anbindung, keine Profitabilitätsaussage, keine Handelsempfehlung.*
