@@ -30,7 +30,8 @@ def test_required_runbook_inventory_is_complete_and_exact() -> None:
     actual = {
         path.name for path in (ROOT / "operations/runbooks").glob("*.md")
     }
-    assert len(RUNBOOKS) == 17
+    assert len(RUNBOOKS) == 18
+    assert "staging-research-proof.md" in RUNBOOKS
     assert set(RUNBOOKS) == actual
 
 

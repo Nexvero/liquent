@@ -46,6 +46,7 @@ RUNBOOKS = (
     "release-environment-readiness.md",
     "release-publication-worker.md",
     "research-worker-staging-readiness.md",
+    "staging-research-proof.md",
     "staging-promotion.md",
     "disposable-postgres-runtime-cleanup.md",
     "disposable-postgres-volume-disposition-deletion.md",

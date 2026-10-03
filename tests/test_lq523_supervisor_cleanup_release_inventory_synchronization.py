@@ -45,9 +45,10 @@ def test_three_cleanup_contracts_are_required_exactly_once() -> None:
     assert all((ROOT / "docs" / name).is_file() for name in expected)
 
 
-def test_runbook_inventory_remains_closed_and_unchanged() -> None:
+def test_runbook_inventory_remains_closed_and_exact() -> None:
     actual = {path.name for path in (ROOT / "operations/runbooks").glob("*.md")}
-    assert len(RUNBOOKS) == 17
+    assert len(RUNBOOKS) == 18
+    assert "staging-research-proof.md" in RUNBOOKS
     assert set(RUNBOOKS) == actual
     assert not any("supervisor" in name and "cleanup" in name for name in RUNBOOKS)
 
