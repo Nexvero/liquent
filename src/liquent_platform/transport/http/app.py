@@ -11,6 +11,7 @@ from typing import Annotated, AsyncIterator, Callable
 from urllib.parse import quote, urlsplit
 
 from liquent_platform.transport.http.research_results import STYLE, result_document
+from liquent_platform.transport.http.ui_brand import brand_document, CONTENT_SECURITY_POLICY
 
 import httpx2
 from fastapi import (
@@ -1058,7 +1059,7 @@ def create_app(
                         return _landing_redirect("/login/unavailable")
                     if has_research_read:
                         document = workspace_research_read_landing_document
-            landed = Response(content=document, media_type="text/html")
+            landed = Response(content=brand_document(document), media_type="text/html")
             landed.headers["Cache-Control"] = "no-store"
             landed.headers["Referrer-Policy"] = "no-referrer"
             return landed
@@ -1175,7 +1176,7 @@ def create_app(
                     else _research_index_document(result)
                 )
                 landed = Response(
-                    content=document,
+                    content=brand_document(document),
                     media_type="text/html",
                 )
                 landed.headers["Cache-Control"] = "no-store"
@@ -1244,7 +1245,7 @@ def create_app(
                 response.headers["Cache-Control"] = "no-store"
                 response.headers["Referrer-Policy"] = "no-referrer"
                 response.headers["X-Content-Type-Options"] = "nosniff"
-                response.headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+                response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
                 return response
 
     if oidc_login_enabled:
@@ -1284,7 +1285,7 @@ def create_app(
                 rejected = Response(status_code=status.HTTP_400_BAD_REQUEST)
                 rejected.headers["Cache-Control"] = "no-store"
                 return rejected
-            entry = Response(content=login_entry_document, media_type="text/html")
+            entry = Response(content=brand_document(login_entry_document), media_type="text/html")
             entry.headers["Cache-Control"] = "no-store"
             # A same-origin form POST must retain its concrete Origin. With
             # ``no-referrer`` Safari and Chromium serialize that Origin as
@@ -1327,7 +1328,7 @@ def create_app(
                 return rejected
             title, message = login_outcome_documents[request.url.path]
             outcome = Response(
-                content=_login_outcome_document(title, message),
+                content=brand_document(_login_outcome_document(title, message)),
                 media_type="text/html",
             )
             outcome.headers["Cache-Control"] = "no-store"
