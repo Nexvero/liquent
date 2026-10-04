@@ -210,4 +210,22 @@ def test_authorized_landing_links_only_to_fixed_research_path() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert '<a href="/research">Open Research</a>' in response.text
+    assert '<a href="/research">Research-Aufträge ansehen</a>' in response.text
+    assert '<html lang="de">' in response.text
+    assert "Was kann Liquent derzeit?" in response.text
+    assert "So lesen Sie ein Ergebnis" in response.text
+    assert "startet keine neuen Aufträge" in response.text
+    assert "keine Live-Trades" in response.text
+    assert "keine Handelsempfehlung" in response.text
+    assert '<form' not in response.text
+    assert '<script' not in response.text
+    assert str(USER) not in response.text
+    assert str(WORKSPACE) not in response.text
+
+
+def test_read_overview_is_not_shown_without_research_permission() -> None:
+    client, _ = _client(Contexts(CONTEXT), Memberships(_membership()))
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Was kann Liquent derzeit?" not in response.text
+    assert 'href="/research"' not in response.text
