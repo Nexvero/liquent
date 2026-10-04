@@ -45,12 +45,13 @@ def _wheel(path: Path, *, disconnected: bool = False) -> None:
 
         write("liquent-1.2.3.dist-info/METADATA", metadata)
         write("liquent-1.2.3.dist-info/entry_points.txt", entries)
-        for index in range(46):
+        for index in range(47):
             revision = (
                 "20260915_0043" if index == 42 else
                 "20260916_0044" if index == 43 else
                 "20260916_0045" if index == 44 else
                 "20260916_0046" if index == 45 else
+                "20261004_0047" if index == 46 else
                 f"20260826_{index + 1:04d}"
             )
             parent = None if index == 0 or (disconnected and index == 18) else (
@@ -58,6 +59,7 @@ def _wheel(path: Path, *, disconnected: bool = False) -> None:
                 "20260915_0043" if index == 43 else
                 "20260916_0044" if index == 44 else
                 "20260916_0045" if index == 45 else
+                "20260916_0046" if index == 46 else
                 f"20260826_{index:04d}"
             )
             write(
@@ -183,7 +185,7 @@ def test_build_is_deterministic_and_verify_is_explicitly_non_promotable(
         "bundle_format_version": 1,
         "source_commit": COMMIT,
         "package_version": VERSION,
-        "migration_head": "20260916_0046",
+        "migration_head": "20261004_0047",
         "integrity": "verified",
         "signature": "not_verified",
         "promotable": False,

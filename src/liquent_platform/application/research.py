@@ -22,5 +22,10 @@ def execute_local_research(
 ) -> BacktestExperimentSummary:
     """Execute one deterministic research run and return neutral evidence."""
 
+    from liquent_platform.application.customer_research import PilotBacktestExecution
+
+    if isinstance(runner, PilotBacktestExecution):
+        return runner.run_summary(title=title)
+
     result = runner.run()
     return summarize_backtest_result(result, title=title)

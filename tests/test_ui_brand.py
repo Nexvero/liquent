@@ -25,9 +25,14 @@ def test_stylesheet_digest_matches_every_edge_policy() -> None:
     assert STYLE_DIGEST == base64.b64encode(hashlib.sha256(STYLE.encode()).digest()).decode()
     edge = (Path(__file__).resolve().parents[1] / 'operations/edge/staging.conf').read_text()
     policies = [line for line in edge.splitlines() if 'add_header Content-Security-Policy' in line]
-    assert len(policies) == 3
+    assert len(policies) == 4
     assert all(f"style-src 'sha256-{STYLE_DIGEST}'" in line for line in policies)
     assert 'unsafe-inline' not in CONTENT_SECURITY_POLICY
+    from liquent_platform.transport.http.research_customer_ui import CUSTOMER_CSP, CUSTOMER_CONTROLS, CUSTOMER_SCRIPT
+    script_hash = base64.b64encode(hashlib.sha256(CUSTOMER_SCRIPT.encode()).digest()).decode()
+    assert "script-src 'sha256-" + script_hash + "'" in edge
+    assert "script-src 'sha256-" + script_hash + "'" in CUSTOMER_CSP
+    assert 'integrity="sha256-' + script_hash + '"' in CUSTOMER_CONTROLS
     assert "default-src 'none'" in CONTENT_SECURITY_POLICY
 
 

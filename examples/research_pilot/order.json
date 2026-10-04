@@ -1,0 +1,35 @@
+{
+  "schema": "liquent.research-pilot.config.v1",
+  "order": {
+    "reference": "DEMO-SYNTHETIC-001",
+    "title": "Synthetischer Research Pilot – keine Marktaussage",
+    "instrument": "SYNTHETIC",
+    "price_unit": "Simulationseinheiten (keine reale Währung)",
+    "data_origin": "synthetic",
+    "assumptions": "Nur technische Demonstration. Alle drei Varianten wurden vorab festgelegt; keine Ergebnisoptimierung. Sehr kurze künstliche Historie."
+  },
+  "dataset": {"timeframe": "5m"},
+  "variants": [
+    {
+      "id": "A-v0-absolute", "strategy": "mid-breakout-v0", "seed": 0,
+      "hypothesis": "Unveränderte v0 mit absoluter Größenkappe",
+      "strategy_parameters": {"lookback_bars": 2, "stop_distance_pct": 0.02, "min_strength": 0.0, "allow_short": true},
+      "risk": {"initial_equity": 1000, "sizing_mode": "absolute", "max_position_size": 2, "max_total_exposure": 2, "risk_per_trade": 1, "max_daily_drawdown": 100, "risk_per_trade_pct": 0, "max_position_notional": 0, "max_daily_loss": 0, "max_losing_streak": 0},
+      "costs": {"fee_rate": 0.001, "spread": 0.02, "slippage": 0.0005}
+    },
+    {
+      "id": "B-v1-percent", "strategy": "mid-breakout-v1", "seed": 0,
+      "hypothesis": "v1 mit Schwelle, Cooldown und prozentualem Sizing",
+      "strategy_parameters": {"lookback_bars": 2, "stop_distance_pct": 0.02, "min_strength": 0.0, "allow_short": true, "breakout_threshold_pct": 0.005, "cooldown_bars": 1, "max_signals_per_day": 4},
+      "risk": {"initial_equity": 1000, "sizing_mode": "percent_risk", "max_position_size": 2, "max_total_exposure": 2, "risk_per_trade": 0, "max_daily_drawdown": 100, "risk_per_trade_pct": 0.01, "max_position_notional": 200, "max_daily_loss": 0, "max_losing_streak": 3},
+      "costs": {"fee_rate": 0.001, "spread": 0.02, "slippage": 0.0005}
+    },
+    {
+      "id": "C-v1-long", "strategy": "mid-breakout-v1", "seed": 0,
+      "hypothesis": "Vorab vereinbarte Long-only-v1 mit längerer Rückschau",
+      "strategy_parameters": {"lookback_bars": 3, "stop_distance_pct": 0.015, "min_strength": 0.0, "allow_short": false, "breakout_threshold_pct": 0.01, "cooldown_bars": 2, "max_signals_per_day": 3},
+      "risk": {"initial_equity": 1000, "sizing_mode": "percent_risk", "max_position_size": 1, "max_total_exposure": 1, "risk_per_trade": 0, "max_daily_drawdown": 100, "risk_per_trade_pct": 0.005, "max_position_notional": 100, "max_daily_loss": 0, "max_losing_streak": 2},
+      "costs": {"fee_rate": 0.001, "spread": 0.02, "slippage": 0.0005}
+    }
+  ]
+}

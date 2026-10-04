@@ -11,6 +11,9 @@ from liquent.data.sources import HistoricalFileSource
 from liquent.risk.engine import RiskEngine, RiskLimits
 from liquent.strategy import MidBreakoutStrategy
 from liquent_platform.application.experiment import ExperimentSnapshot, ParameterSet
+from liquent_platform.application.customer_research import (
+    CustomerResearchStore, PILOT_STRATEGY_VERSION, PilotBacktestExecution,
+)
 
 
 _STRATEGY_KEYS = {
@@ -69,10 +72,15 @@ def _integer(values: dict[str, object], key: str) -> int:
 class LocalCsvMidBreakoutV0Resolver:
     """Resolve only allowlisted local CSV + MidBreakout v0 snapshots."""
 
-    def __init__(self, data_root: Path) -> None:
+    def __init__(self, data_root: Path, customer_store: CustomerResearchStore | None = None) -> None:
         self.data_root = data_root.resolve(strict=True)
+        self._customer_store = customer_store
 
-    def resolve(self, snapshot: ExperimentSnapshot) -> BacktestRunner:
+    def resolve(self, snapshot: ExperimentSnapshot) -> BacktestRunner | PilotBacktestExecution:
+        if snapshot.strategy_version_id == PILOT_STRATEGY_VERSION:
+            if self._customer_store is None:
+                raise ValueError("Private research database is not configured")
+            return self._customer_store.resolve(snapshot)
         if snapshot.strategy_version_id != "mid-breakout-v0":
             raise ValueError("unsupported strategy version")
 

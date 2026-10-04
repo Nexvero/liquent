@@ -30,8 +30,8 @@
   nach erfolgreichen Pflichtprüfungen per Squash-Merge in `main` integriert;
   PR #272 hat den Merge-Commit `58f736b`.
 - **Paketinventar:** **76 Console Entry Points**, **71 Operatorimplementierungs-
-  und Hilfsmodule** plus Paketinitialisierer, **46 lineare Migrationen**, Head
-  `20260916_0046`.
+  und Hilfsmodule** plus Paketinitialisierer, **47 lineare Migrationen**, Head
+  `20261004_0047`.
 - **Doku-Inventar:** historische Research-Spezifikationen plus fortlaufende
   Plattform-, Sicherheits-, Betriebs- und Audit-Slices bis LQ-2767.
 - **Releasegrenze:** lokale technische Vorbereitung ist geschlossen; externe

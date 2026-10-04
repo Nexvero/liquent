@@ -12,8 +12,11 @@ from urllib.parse import quote, urlsplit
 
 from liquent_platform.transport.http.research_results import STYLE, result_document
 from liquent_platform.transport.http.ui_brand import brand_document, CONTENT_SECURITY_POLICY
+from liquent_platform.transport.http.research_customer_ui import CUSTOMER_CONTROLS, CUSTOMER_CSP
+from liquent_platform.transport.http.customer_research import register_customer_research
 
 import httpx2
+from fastapi.responses import JSONResponse
 from fastapi import (
     Cookie,
     Depends,
@@ -363,6 +366,7 @@ def create_app(
     oidc_callback_unavailable: ValidatedInternalDestination | None = None,
     database_engine: Engine | None = None,
     database_engine_owned: bool = False,
+    customer_research_store=None,
     oidc_http_client: httpx2.Client | None = None,
     oidc_verification_policy: OidcVerificationPolicy | None = None,
     oidc_client_secret: str | None = None,
@@ -600,6 +604,12 @@ def create_app(
         logout_revocations = persistent_sessions
     if engine is not None and landing_workspace_contexts is None:
         landing_workspace_contexts = DatabaseCurrentWorkspaceContexts(engine)
+    if engine is not None:
+        from liquent_platform.persistence.customer_research import DatabaseCustomerResearchStore
+        from liquent_platform.application.local_csv import LocalCsvMidBreakoutV0Resolver
+        customer_research_store = customer_research_store or DatabaseCustomerResearchStore(engine)
+        if isinstance(research_resolver, LocalCsvMidBreakoutV0Resolver):
+            research_resolver = LocalCsvMidBreakoutV0Resolver(research_resolver.data_root, customer_store=customer_research_store)
     persistent_research_store: DatabaseResearchJobs | None = None
     persistent_research_control: PersistentResearchControlPlane | None = None
     if engine is not None and workspace_research_job_index is None:
@@ -675,6 +685,20 @@ def create_app(
     app.state.persistent_research_jobs = persistent_research_store
     app.state.workspace_research_job_index = workspace_research_job_index
     app.add_middleware(ObservabilityMiddleware, metrics=control_metrics)
+
+    @app.middleware("http")
+    async def customer_no_store(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/v1/research/") or request.url.path == "/research/customer.js":
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+    if research_sessions is not None and research_memberships is not None and landing_workspace_contexts is not None:
+        register_customer_research(app, sessions=research_sessions, memberships=research_memberships,
+                                   contexts=landing_workspace_contexts, store=customer_research_store,
+                                   control=persistent_research_control)
 
     def job_response(job: InMemoryResearchJob) -> ResearchJobResponse:
         evidence_url = None
@@ -803,11 +827,11 @@ def create_app(
                 raise HTTPException(503, "research_job_unavailable") from None
             if evidence is None:
                 raise HTTPException(404, "research_evidence_not_found")
-            return evidence
+            return JSONResponse(evidence, headers={"Content-Disposition": 'attachment; filename="research-evidence.json"', "Cache-Control": "no-store"})
         evidence = visible_job(job_id, session).evidence
         if evidence is None:
             raise HTTPException(404, "research_evidence_not_found")
-        return evidence_document(evidence)
+        return JSONResponse(evidence_document(evidence), headers={"Content-Disposition": 'attachment; filename="research-evidence.json"', "Cache-Control": "no-store"})
 
     if research_resolver is not None:
 
@@ -1100,10 +1124,11 @@ def create_app(
                     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                     f"<title>Liquent Research</title><style>{STYLE}</style></head><body><main>"
                     "<h1>Research</h1><p>Read-only Research access is available.</p>"
-                    "<p>Ergebnisse Ihrer Simulationen. Dieser Zugang ist nur lesend.</p>"
+                    "<p>Ergebnisse Ihrer Simulationen. Die Auftragsliste ist nur lesend; weitere Aktionen erfordern gesonderte Freigaben.</p>"
                     "<p><small>succeeded = abgeschlossen · running = läuft · queued = wartet · failed = fehlgeschlagen</small></p>"
                     "<h2>Research jobs</h2>"
                     + rows
+                    + CUSTOMER_CONTROLS
                     + "<p><a href=\"/\">Return to Liquent</a></p>"
                     "</main></body></html>"
                 )
@@ -1181,6 +1206,7 @@ def create_app(
                 )
                 landed.headers["Cache-Control"] = "no-store"
                 landed.headers["Referrer-Policy"] = "no-referrer"
+                landed.headers["Content-Security-Policy"] = CUSTOMER_CSP
                 return landed
 
             @app.api_route(
