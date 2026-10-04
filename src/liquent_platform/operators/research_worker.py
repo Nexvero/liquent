@@ -21,6 +21,7 @@ from liquent_platform.operators.research_worker_configuration import (
 )
 from liquent_platform.operators.research_worker_loop import ResearchWorkerLoop
 from liquent_platform.persistence.database import DatabaseReadinessProbe, build_engine
+from liquent_platform.persistence.customer_research import DatabaseCustomerResearchStore
 from liquent_platform.persistence.research_artifacts import (
     LocalImmutableResearchArtifactStore, ResearchArtifactStoreUnavailable,
 )
@@ -90,7 +91,10 @@ def run_research_worker(
         if not readiness.ready:
             raise ResearchWorkerOperatorUnavailable
 
-        resolver = LocalCsvMidBreakoutV0Resolver(configuration.research_data_root)
+        resolver = LocalCsvMidBreakoutV0Resolver(
+            configuration.research_data_root,
+            customer_store=DatabaseCustomerResearchStore(engine),
+        )
         artifacts = LocalImmutableResearchArtifactStore(configuration.artifact_root)
         composition = compose_research_worker(
             engine=engine,

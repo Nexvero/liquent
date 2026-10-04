@@ -24,7 +24,8 @@ REVIEW_SECTIONS = (
     "integration_preflight",
 )
 ALLOWED_PREFIXES = ("docs/", "operations/", "src/", "tests/", "tools/")
-ALLOWED_FILES = {".grype.yaml", "Dockerfile", "pyproject.toml"}
+ALLOWED_FILES = {".grype.yaml", "Dockerfile", "pyproject.toml",
+                 "examples/research_pilot/synthetic.csv", "examples/research_pilot/order.json"}
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 SLICE_RE = re.compile(r"(?:lq-|test_lq)([0-9]{3})(?:-|_)")
 

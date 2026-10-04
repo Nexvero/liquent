@@ -56,7 +56,7 @@ def test_entrypoint_checks_readiness_composes_runs_and_disposes(tmp_path: Path, 
         def __init__(self, candidate): assert candidate is engine
         def check(self): calls.append("readiness"); return Readiness(True, "database_ready")
     monkeypatch.setattr(operator, "DatabaseReadinessProbe", Probe)
-    monkeypatch.setattr(operator, "LocalCsvMidBreakoutV0Resolver", lambda path: calls.append(("resolver", path)) or object())
+    monkeypatch.setattr(operator, "LocalCsvMidBreakoutV0Resolver", lambda path, **kwargs: calls.append(("resolver", path)) or object())
     monkeypatch.setattr(operator, "LocalImmutableResearchArtifactStore", lambda path: calls.append(("artifacts", path)) or object())
     class Composition: processor = object()
     monkeypatch.setattr(operator, "compose_research_worker", lambda **values: calls.append("compose") or Composition())
@@ -94,7 +94,7 @@ def test_signal_handlers_only_set_stop_and_are_restored(tmp_path: Path, monkeypa
         def dispose(self): pass
     monkeypatch.setattr(operator, "build_engine", lambda _: Engine())
     monkeypatch.setattr(operator, "DatabaseReadinessProbe", lambda _: type("P", (), {"check": lambda self: Readiness(True, "database_ready")})())
-    monkeypatch.setattr(operator, "LocalCsvMidBreakoutV0Resolver", lambda _: object())
+    monkeypatch.setattr(operator, "LocalCsvMidBreakoutV0Resolver", lambda _, **kwargs: object())
     monkeypatch.setattr(operator, "LocalImmutableResearchArtifactStore", lambda _: object())
     monkeypatch.setattr(operator, "compose_research_worker", lambda **_: type("C", (), {"processor": object()})())
     def register(name, handler):
