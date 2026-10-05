@@ -69,7 +69,8 @@ def _csv(value) -> bytes:
 def register_customer_research(app, *, sessions, memberships, contexts, store, control):
     def authorize(request: Request, *, write=False, mutation=True):
         try:
-            session = require_browser_session(sessions, SessionId(request.cookies.get("liquent_session", "")))
+            cookie = request.cookies.get("liquent_session")
+            session = require_browser_session(sessions, SessionId(cookie) if cookie else None)
             context = resolve_workspace_research_read(contexts, memberships, session.principal)
             if context is None:
                 raise HTTPException(403, "permission_denied")
