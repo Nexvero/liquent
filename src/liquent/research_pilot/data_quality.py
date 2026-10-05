@@ -145,9 +145,11 @@ def inspect_dataset(path: Path, timeframe: str) -> DataInspection:
             "Historie unterschreitet die empfohlene Mindestlänge; "
             "kurze synthetische Testdaten bleiben zulässig, ihre Aussagekraft ist begrenzt."
         ]
+    # The loader has already validated values and ascending UTC timestamps.
+    # Retain these observed dates even when spacing prevents simulation.
+    report["period_start"] = bars[0].timestamp.isoformat()
+    report["period_end"] = bars[-1].timestamp.isoformat()
     if report["gaps"]:
         return invalid("Zeitreihe enthält Lücken oder unregelmäßige Abstände zum konfigurierten Timeframe.")
     report["status"] = "valid"
-    report["period_start"] = bars[0].timestamp.isoformat()
-    report["period_end"] = bars[-1].timestamp.isoformat()
     return DataInspection(report=report, bars=bars)
