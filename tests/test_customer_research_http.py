@@ -123,6 +123,25 @@ def test_feedback_independent_and_explicit_synthetic_classification(setup):
     assert store.requests == control.calls == []
 
 
+@pytest.mark.parametrize('cookie', [None, ''])
+@pytest.mark.parametrize('path', ['customer-context', 'data-check', 'request-preview', 'customer-jobs', 'customer-feedback'])
+def test_missing_session_never_queries_session_store(cookie, path):
+    class StrictSessions:
+        def get_session(self, identifier):
+            raise AssertionError('Missing sessions must be rejected before querying storage')
+
+    app, store, control = FastAPI(), Store(), Control()
+    register_customer_research(app, sessions=StrictSessions(), memberships=Memberships(True),
+                              contexts=Contexts(), store=store, control=control)
+    client = TestClient(app)
+    if cookie is not None:
+        client.cookies.set('liquent_session', cookie)
+    response = client.get('/v1/research/' + path) if path == 'customer-context' else client.post('/v1/research/' + path, json={})
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'authentication_required'}
+    assert store.requests == store.feedback == control.calls == []
+
+
 def test_read_only_customer_can_check_not_execute():
     app, store, control = FastAPI(), Store(), Control()
     register_customer_research(app, sessions=Sessions(), memberships=Memberships(False), contexts=Contexts(), store=store, control=control)
