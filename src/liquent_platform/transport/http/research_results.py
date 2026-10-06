@@ -26,14 +26,22 @@ def page(title: str, content: str) -> str:
     )
 
 
-def _number(value: object, *, percent: bool = False) -> str:
+def _number(value: object, *, percent: bool = False, detailed: bool = False) -> str:
     if type(value) not in (int, float):
         return "Nicht verfügbar"
     try:
         scaled = value * 100 if percent else value
         if not math.isfinite(scaled):
             return "Nicht verfügbar"
-        rendered = f"{scaled:,.2f}"
+        if detailed and scaled != 0 and abs(scaled) < 0.000001:
+            # Even the smallest nonzero stored float must not look like zero.
+            rendered = f"{scaled:.6e}"
+        elif detailed:
+            rendered = f"{scaled:,.6f}"
+            whole, fraction = rendered.rsplit(".", 1)
+            rendered = whole + "." + fraction.rstrip("0").ljust(2, "0")
+        else:
+            rendered = f"{scaled:,.2f}"
     except (OverflowError, ValueError):
         return "Nicht verfügbar"
     rendered = rendered.replace(",", "_").replace(".", ",").replace("_", ".")
@@ -107,8 +115,12 @@ def _details(summary: dict, actual: dict | None = None) -> str:
     for key, label in (("gross_pnl", "Bruttoergebnis"), ("fee", "Gebühren"),
                        ("spread", "Spread-Kosten"), ("slippage", "Slippage-Kosten"),
                        ("total", "Gesamtkosten"), ("net_pnl", "Nettoergebnis")):
-        content += f'<div><dt>{label}</dt><dd>{_number(totals.get(key))}</dd></div>'
-    content += '</dl><p>Nur gespeicherte Werte; keine Rekonstruktion aus Kapitalständen.</p></section>'
+        content += f'<div><dt>{label}</dt><dd>{_number(totals.get(key), detailed=True)}</dd></div>'
+    content += ('</dl><p>Nur gespeicherte Werte; keine Rekonstruktion aus Kapitalständen. '
+                'Anzeige mit bis zu sechs Nachkommastellen; kleinere von null verschiedene '
+                'Beträge in wissenschaftlicher Schreibweise. Ungerundete gespeicherte Werte '
+                'stehen im JSON-Download. Gerundete Einzelbeträge können von der '
+                'angezeigten Summe abweichen.</p></section>')
     effective = _mapping(_mapping(actual).get("effective_risk"))
     content += _fields("Gespeicherte Risikowirkung", effective, _PARAMETERS)
     content += '<p>Deklarierte Risikolimits sind nicht automatisch wirksame Schutzmechanismen; siehe Modellgrenzen. Im absoluten Modus werden Prozent-Risiko, Notional-Limit und Verlustserie nicht verwendet.</p>'

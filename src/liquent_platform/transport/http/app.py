@@ -1095,7 +1095,7 @@ def create_app(
                 "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                 "<title>Liquent Research</title></head><body><main>"
                 "<h1>Research</h1>"
-                "<p>Read-only Research access is available.</p>"
+                "<p>Research-Aufträge und Ergebnisse ansehen.</p>"
                 "<p><a href=\"/\">Return to Liquent</a></p>"
                 "</main></body></html>"
             )
@@ -1123,8 +1123,8 @@ def create_app(
                     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
                     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                     f"<title>Liquent Research</title><style>{STYLE}</style></head><body><main>"
-                    "<h1>Research</h1><p>Read-only Research access is available.</p>"
-                    "<p>Ergebnisse Ihrer Simulationen. Die Auftragsliste ist nur lesend; weitere Aktionen erfordern gesonderte Freigaben.</p>"
+                    "<h1>Research</h1><p>Research-Aufträge und Ergebnisse ansehen.</p>"
+                    "<p>Die Auftragsliste zeigt gespeicherte Simulationen. Neue Simulationen benötigen Schreibrechte sowie die ausdrückliche Freigabe Ihrer Daten und Konfigurationen.</p>"
                     "<p><small>succeeded = abgeschlossen · running = läuft · queued = wartet · failed = fehlgeschlagen</small></p>"
                     "<h2>Research jobs</h2>"
                     + rows
