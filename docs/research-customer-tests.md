@@ -30,8 +30,12 @@ Keine Bestellung oder Zahlung wird durch diesen Test ausgelöst.
    Prüfen: keine Reparatur, kein Auftrag, keine Simulation, keine dauerhafte CSV-Speicherung.
 3. Mit einer synthetischen ungültigen Datei wiederholen. Fehlergrund verstehen
    und Ausführungssperre erkennen; keine automatische Korrektur erwarten.
-4. Optional einen Research-Auftrag mit genau drei selbst bestimmten Varianten
-   vorbereiten. Datenrechte und tatsächliche Eingaben prüfen. Erst die getrennte,
+4. Optional einen Research-Auftrag im Formular mit genau drei selbst bestimmten
+   Varianten vorbereiten. Leere Werte müssen abgewiesen werden, Nullwerte müssen
+   ausdrücklich eingegeben werden. Strategieabhängige Felder, Kostenanteile und
+   absolute Spread-Einheiten verstehen. JSON ist nur der alternative Bedienweg.
+   Eine Änderung oder ein Moduswechsel muss die frühere Bindung und Zustimmung
+   zurücksetzen. Datenrechte und tatsächliche Eingaben prüfen. Erst die getrennte,
    erforderliche Ausführungsfreigabe darf einen Lauf starten.
 5. Bestehende Jobansicht öffnen, Varianten in vereinbarter Reihenfolge lesen,
    Eingaben und Fingerprints zuordnen, Gebühren, Spread, Slippage und Brutto/Netto
