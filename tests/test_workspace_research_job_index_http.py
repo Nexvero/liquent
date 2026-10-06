@@ -107,6 +107,9 @@ def test_authorized_index_renders_only_minimum_read_facts() -> None:
 
     assert response.status_code == 200
     assert "Research jobs" in response.text
+    assert "Research-Aufträge und Ergebnisse ansehen." in response.text
+    assert "Neue Simulationen benötigen Schreibrechte" in response.text
+    assert "Read-only Research access is available." not in response.text
     assert "job-visible" in response.text
     assert "running" in response.text
     assert NOW.isoformat() in response.text

@@ -80,6 +80,33 @@ erforderlich. Abhängigkeitsprüfung, Syntaxprüfung der Betriebs-Skripte und
 Diese lokale Abnahme ersetzt nicht die CI, das unveränderte Release-Gate oder die
 HTTPS-Prüfung nach einer tatsächlichen Staging-Veröffentlichung.
 
+## Anzeigepräzision und Zugangskennzeichnung
+
+Die Ergebnis- und Kostenkarten zeigen gespeicherte Brutto-/Nettowerte, Gebühren,
+Spread und Slippage mit bis zu sechs Nachkommastellen. Kleinere von null
+verschiedene Beträge erscheinen in wissenschaftlicher Schreibweise, nicht als
+`0,00`. Echte Nullwerte bleiben `0,00`, fehlende oder nicht endliche Werte
+bleiben `Nicht verfügbar`. Gerundete Einzelbeträge können von der angezeigten
+Summe abweichen; der geschützte JSON-Download enthält die ungerundeten
+gespeicherten Werte. Berechnung, Evidenz und Modellgrenzen sind unverändert.
+
+Der Research-Einstieg bezeichnet die gesamte Sitzung nicht mehr pauschal als
+„Read-only“. Er beschreibt die vorhandene Auftragsliste; neue Simulationen
+erfordern weiterhin die tatsächlich geprüften Schreibrechte, Eingabebindung,
+Datenrechte und ausdrückliche Ausführungsfreigabe. Diese Textänderung vergibt
+keine Berechtigungen. Die vorhandene Ausführungssperre bei fehlenden
+Schreibrechten bleibt bestehen.
+
+Lokale Prüfung dieser Anzeigeänderungen am 6. Oktober 2026: 88 gezielte Tests
+bestanden; vollständige Suite mit 8313 bestandenen und 113 übersprungenen Tests,
+keine Fehler. Die heruntergeladene Evidenz des synthetischen Staging-Auftrags
+wurde mit der neuen Projektion geprüft: kleine Kosten sichtbar, Evidenz
+unverändert. Abhängigkeitsprüfung und `git diff --check` bestanden. Der unabhängige
+Code-Review fand keine relevanten Befunde; seine eigene Testausführung war nicht
+verfügbar, die genannten Tests wurden vom Hauptagenten ausgeführt. Dies ist
+keine Veröffentlichung der Anzeigeänderungen auf Staging und ersetzt weder
+PostgreSQL-CI noch Release-Gate oder HTTPS-Abnahme nach Deployment.
+
 ## Freiwilliges Feedback und Preisstatus
 
 Aufgabe, Hindernis, wahrgenommener Nutzen und Wiederverwendungsabsicht können

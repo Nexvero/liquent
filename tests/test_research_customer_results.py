@@ -102,3 +102,21 @@ def test_existing_serialized_summary_shape_and_dataset_identity():
     document = result_document("job", "succeeded", evidence)
     assert "lookback_bars" in document and "sha256:dataset" in document and "5m" in document
     assert "fee_rate</th><td>0.003" in document
+
+
+@pytest.mark.parametrize("value,rendered", [
+    (0, "0,00"), (2, "2,00"), (1234.5, "1.234,50"),
+    (0.0031086763060182787, "0,003109"),
+    (0.0003773584905660377, "0,000377"),
+    (-0.0010047169811320754, "-0,001005"),
+    (0.000001, "0,000001"), (1e-7, "1,000000e-07"),
+    (-1e-7, "-1,000000e-07"), (5e-324, "4,940656e-324"),
+])
+def test_small_stored_costs_are_visible_without_changing_evidence(value, rendered):
+    evidence = pilot()
+    evidence["pilot_result"]["variants"][0]["evidence"]["cost_totals"]["fee"] = value
+    original = deepcopy(evidence)
+    document = result_document("job", "succeeded", evidence)
+    assert f"Gebühren</dt><dd>{rendered}</dd>" in document
+    assert "Ungerundete gespeicherte Werte" in document
+    assert evidence == original

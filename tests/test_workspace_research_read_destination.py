@@ -117,7 +117,8 @@ def test_current_authority_opens_detail_free_read_destination(
     response = client.get("/research")
 
     assert response.status_code == 200
-    assert "Read-only Research access is available." in response.text
+    assert "Research-Aufträge und Ergebnisse ansehen." in response.text
+    assert "Read-only Research access is available." not in response.text
     assert str(USER) not in response.text
     assert str(WORKSPACE) not in response.text
     assert "private-csrf" not in response.text
