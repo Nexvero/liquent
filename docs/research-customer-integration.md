@@ -20,8 +20,13 @@ Kurze Historie ist ein sichtbarer Hinweis, kein Renditenachweis.
 
 ## Optional genau drei Simulationen
 
-Die bestehende Research Schreibberechtigung ist erforderlich. Eine eigene JSON
-Konfiguration bis 64 KiB enthält genau drei ausdrücklich bestimmte Varianten.
+Die bestehende Research Schreibberechtigung ist erforderlich. Das Formular in
+der bestehenden Research-Seite enthält genau drei Varianten in fester Reihenfolge.
+Auftragsangaben, Strategie, Parameter, Risiko, Kosten und Seed werden ausdrücklich
+ausgefüllt; leere Felder sind keine Nullwerte oder Empfehlungen. Varianten-IDs
+müssen eindeutig sein. Die Datenprüfung bleibt unabhängig von diesen Feldern.
+Alternativ kann im ausdrücklich gewählten JSON-Modus eine eigene Konfiguration
+bis 64 KiB geprüft und bearbeitet werden. Beide Modi verwenden denselben Vertrag.
 Das Format und ein ausschließlich synthetisches Beispiel stehen in
 `examples/research_pilot/order.json`; dieses Beispiel ist keine Empfehlung und
 wird nicht automatisch in den Auftrag übernommen. Jede Variante legt Strategie,
@@ -29,7 +34,8 @@ Parameter, Risiko, Startkapital, Seed und Kosten vollständig fest.
 
 Datei, Intervall und Konfiguration prüfen und binden. Erst danach Datenrechte und
 Ausführung ausdrücklich bestätigen. Bei Änderungen werden Bindung und Zustimmung
-ungültig. Nur die ausdrückliche Auftragsfreigabe speichert die Datei geschützt in
+ungültig; auch ein Wechsel zwischen Formular und JSON erfordert neue Prüfung
+und Zustimmung. Nur die ausdrückliche Auftragsfreigabe speichert die Datei geschützt in
 der bestehenden Datenbank und stellt den Auftrag in die bestehende Worker Queue.
 Gleiche gebundene Eingaben desselben Kunden werden bei Wiederholung dem bestehenden
 Auftrag zugeordnet, statt nach einem verlorenen Antwortsignal doppelt gestartet.
@@ -47,6 +53,32 @@ Ein Trade endet nach einem Datenbalken. `stop_price` berechnet nur die
 Positionsgröße und führt keinen Stop-Loss aus. Der Schlusskurs dient als
 Mittelkurs Proxy. Weitere wirkungslose beziehungsweise abweichend wirksame
 Risikoparameter werden angezeigt; diese Semantik wird nicht geändert.
+
+## Lokale Formularprüfung (6. Oktober 2026)
+
+Die Formularerweiterung wurde mit ausschließlich synthetischen Daten lokal im
+Browser geprüft: Datenprüfung bei leeren Strategiefeldern, verständliche Ablehnung
+unvollständiger Auftragsangaben, drei Varianten in vereinbarter Reihenfolge und
+identische Eingabebindung über Formular und JSON. Eine Parameteränderung hebt beide
+Zustimmungen auf und sperrt die Ausführung. Der Browserlauf hat keinen Auftrag
+freigegeben und ist kein Nachweis einer ausgeführten Worker-Simulation.
+
+Gezielte automatisierte Prüfungen: 236 bestanden, eine PostgreSQL-Prüfung mangels
+lokaler Test-Datenbank (`LIQUENT_TEST_DATABASE_URL`) übersprungen. Enthalten sind
+bestehende HTTP-/Backend-/Ergebnisprüfungen und neue
+Formular-, Zahlen-, Bindungs-, Freigabe- und Parallelitätstests. Ein unabhängiger
+Review fand einen Fehler bei gleichzeitig laufender Datenprüfung und Bearbeitung
+der Varianten; dieser wurde korrigiert und durch acht Regressionstests abgesichert.
+Die erneute unabhängige Prüfung fand keine weiteren relevanten Befunde.
+
+Die vollständige Testsuite auf dem unveränderten finalen Stand ergab 8303 bestandene
+und 113 übersprungene Prüfungen, keine Fehler. Die übersprungenen Prüfungen sind
+kein Nachweis ihrer Funktion; insbesondere bleibt die separate PostgreSQL-CI
+erforderlich. Abhängigkeitsprüfung, Syntaxprüfung der Betriebs-Skripte und
+`git diff --check` bestanden ebenfalls.
+
+Diese lokale Abnahme ersetzt nicht die CI, das unveränderte Release-Gate oder die
+HTTPS-Prüfung nach einer tatsächlichen Staging-Veröffentlichung.
 
 ## Freiwilliges Feedback und Preisstatus
 
@@ -77,7 +109,9 @@ Vor HTTPS Abnahme Rollenrechte, Worker Abschluss, Ergebnisse und Downloads prüf
 
 Vor echten Kunden bleiben Einwilligung, Aufbewahrungsfristen, genehmigtes
 Löschverfahren, Upload Quoten und der Umgang mit abgebrochenen Aufträgen zu klären.
-JSON Konfiguration ist derzeit ein fortgeschrittener Bedienweg und im freiwilligen
-Test ausdrücklich auf Verständlichkeit zu prüfen. Es gibt noch keine belegte
+Formularbeschriftungen, Einheiten und der alternative JSON-Bedienweg sind im
+freiwilligen Test ausdrücklich auf Verständlichkeit zu prüfen. Zahlen für Gebühren
+und Slippage sind Anteile (0.01 = 1 Prozent), der Spread ein absoluter Preisbetrag
+pro Einheit und Transaktionsseite. Es gibt noch keine belegte
 Nachfrage oder validierten Preis. `/pilot/` bleibt bis zur geklärten Bestandsaufnahme
 unverändert; siehe `docs/research-pilot-retirement.md`.
