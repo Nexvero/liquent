@@ -197,6 +197,8 @@ def test_gaps_and_irregular_spacing_keep_source_gap_details(tmp_path, time, actu
         "expected_delta_seconds": 300, "actual_delta_seconds": actual, "missing_bars": missing,
     }]
     assert result.report["history"]["actual_bars"] == 2
+    assert result.report["period_start"] == "2026-01-01T00:00:00+00:00"
+    assert result.report["period_end"] == f"2026-01-01T{time}+00:00"
     assert "unregelmäßige" in result.report["issues"][0]
 
 

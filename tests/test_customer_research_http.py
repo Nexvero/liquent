@@ -103,6 +103,22 @@ def test_invalid_data_has_understandable_reason_and_no_job(setup):
     assert store.requests == control.calls == []
 
 
+def test_gap_check_retains_observed_period_but_never_creates_job(setup):
+    client, store, control = setup
+    raw = b'timestamp,open,high,low,close,volume\n2026-01-01T00:00:00Z,10,12,9,11,1\n2026-01-01T00:10:00Z,11,13,10,12,1\n'
+    response = client.post('/v1/research/data-check', json={
+        'csv_base64': base64.b64encode(raw).decode(), 'timeframe': '5m'})
+    assert response.status_code == 200
+    result = response.json()
+    assert result['status'] == 'blocked'
+    assert result['simulation_started'] is False
+    assert result['facts']['period_start'] == '2026-01-01T00:00:00+00:00'
+    assert result['facts']['period_end'] == '2026-01-01T00:10:00+00:00'
+    assert result['facts']['gap_count'] == 1
+    assert result['data_quality']['issues']
+    assert store.requests == store.feedback == control.calls == []
+
+
 @pytest.mark.parametrize('path', ['data-check', 'request-preview', 'customer-jobs', 'customer-feedback'])
 def test_no_session_or_csrf_cannot_reach_storage(setup, path):
     client, store, control = setup
