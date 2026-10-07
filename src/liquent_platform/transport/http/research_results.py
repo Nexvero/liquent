@@ -58,6 +58,79 @@ _PARAMETERS = {
 _STRATEGY = {"lookback", "lookback_bars", "stop_distance_pct", "min_strength", "allow_short",
              "breakout_threshold_pct", "cooldown_bars", "max_signals_per_day"}
 _COSTS = {"fee_rate", "spread", "slippage"}
+_VARIANT_STATUS_LABELS = {
+    "succeeded": "Ausgeführt", "no_signals": "Keine Signale",
+    "failed": "Fehlgeschlagen", "blocked_data": "Nicht ausgeführt: Datenprüfung blockiert",
+}
+
+
+def _variant_status(variant: dict) -> str:
+    state = variant.get("status")
+    return (_VARIANT_STATUS_LABELS.get(state, "Status nicht verfügbar")
+            if isinstance(state, str) else "Status nicht verfügbar")
+
+
+def _trade_count(value: object) -> str:
+    return str(value) if type(value) is int and value >= 0 else "Nicht verfügbar"
+
+
+def _plain_overview(variants: list[dict]) -> str:
+    content = ('<section><h2>Kurz erklärt</h2><p>Die drei Varianten zeigen, was unter den '
+               'vereinbarten Annahmen in historischen Daten simuliert wurde. Brutto ist '
+               'das Ergebnis vor Kosten, netto nach Kosten. Die gespeicherten Kosten '
+               'zeigen den angesetzten Kosteneinfluss; fehlende Werte werden nicht '
+               'berechnet. Beträge in Simulationseinheiten, keine Währung unterstellt.</p>'
+               '<ul>')
+    rows = ''
+    for variant in variants:
+        summary = _mapping(variant.get("summary"))
+        totals = _mapping(_mapping(variant.get("evidence")).get("cost_totals"))
+        count = summary.get("number_of_trades")
+        state = variant.get("status")
+        net = totals.get("net_pnl")
+        # Validate before comparison: booleans, nonfinite values and huge integers
+        # must not become claims about a positive, negative or zero result.
+        if _number(net, detailed=True) == "Nicht verfügbar":
+            net_note = 'Nettoergebnis nicht verfügbar.'
+        elif net > 0:
+            net_note = 'Das gespeicherte Nettoergebnis ist positiv (über null).'
+        elif net < 0:
+            net_note = 'Das gespeicherte Nettoergebnis ist negativ (unter null).'
+        else:
+            net_note = 'Das gespeicherte Nettoergebnis ist null (weder positiv noch negativ).'
+        if state == "failed":
+            note = 'Die Ausführung ist fehlgeschlagen; kein belastbares Ergebnis.'
+        elif state == "blocked_data":
+            note = 'Die Datenprüfung hat die Ausführung blockiert; kein belastbares Ergebnis.'
+        elif state == "no_signals":
+            note = 'Es wurden keine Signale gefunden; das reicht nicht zur Beurteilung der Handelsleistung.'
+        elif state != "succeeded":
+            note = 'Der Ausführungsstatus ist nicht verfügbar; die Evidenz reicht nicht zur Beurteilung.'
+        else:
+            note = ''
+        if type(count) is int and count == 0:
+            note += ' Es wurden null Trades simuliert; Leistungskennzahlen sind nicht aussagekräftig.'
+        elif _trade_count(count) == "Nicht verfügbar":
+            note += ' Die Trade-Anzahl ist nicht verfügbar; die Evidenz ist unzureichend.'
+        if not summary or any(_number(totals.get(key), detailed=True) == "Nicht verfügbar"
+                              for key in ("gross_pnl", "total", "net_pnl")):
+            note += ' Die Evidenz reicht nicht für eine vollständige Ergebnis- und Kostenbeurteilung.'
+        identifier = _scalar(variant.get("variant_id"))
+        label = _variant_status(variant)
+        content += f'<li>{identifier}: {label}. {note.strip()} {net_note}</li>'
+        rows += f'<tr><th scope="row">{identifier}</th><td>{label}</td><td>{_trade_count(count)}</td>'
+        rows += ''.join(f'<td>{_number(totals.get(key), detailed=True)}</td>'
+                        for key in ("gross_pnl", "total", "net_pnl")) + '</tr>'
+    content += ('</ul><table><thead><tr><th scope="col">Variante</th><th scope="col">Status</th>'
+                '<th scope="col">Trades</th><th scope="col">Bruttoergebnis</th>'
+                '<th scope="col">Gesamtkosten</th><th scope="col">Nettoergebnis</th>'
+                f'</tr></thead><tbody>{rows}</tbody></table>'
+                '<p>Daraus lässt sich nur das historische Simulationsergebnis unter diesen '
+                'Annahmen und der gespeicherte Kosteneinfluss ablesen. Ein positives '
+                'Nettoergebnis belegt keine künftige Profitabilität. Keine Variante wird '
+                'bevorzugt; dies ist keine Handelsempfehlung. Ohne Signale oder Trades, '
+                'bei Fehlern oder fehlenden Werten ist die Evidenz unzureichend.</p></section>')
+    return content
 
 
 def _mapping(value: object) -> dict:
@@ -102,14 +175,15 @@ def _limits() -> str:
 def _details(summary: dict, actual: dict | None = None) -> str:
     parameters = _mapping(summary.get("parameters"))
     costs = _mapping(summary.get("cost_metadata", summary.get("cost_model")))
-    content = _fields("Tatsächlich gespeicherte Laufparameter", parameters, _PARAMETERS)
+    content = '<details><summary>Technische Laufparameter und Kostenannahmen anzeigen</summary>'
+    content += _fields("Tatsächlich gespeicherte Laufparameter", parameters, _PARAMETERS)
     strategy = _mapping(summary.get("strategy_metadata", summary.get("strategy")))
     content += _fields("Strategieparameter", strategy.get("params", strategy), _STRATEGY)
     # Stored metadata has precedence, including missing/invalid values. No defaults.
     content += _fields("Kostenannahmen", {key: costs[key] if key in costs else parameters[key]
                        for key in _COSTS if key in costs or key in parameters}, _COSTS)
     content += ('<p>fee_rate und slippage sind Anteile des Handelswerts; spread ist ein '
-                'absoluter Preisaufschlag pro Einheit. Kosten fallen bei Ein- und Ausstieg an.</p>')
+                'absoluter Preisaufschlag pro Einheit. Kosten fallen bei Ein- und Ausstieg an.</p></details>')
     totals = _mapping(_mapping(actual).get("cost_totals"))
     content += '<section><h3>Tatsächliches simuliertes Ergebnis und Kosten</h3><dl class="cards">'
     for key, label in (("gross_pnl", "Bruttoergebnis"), ("fee", "Gebühren"),
@@ -129,16 +203,21 @@ def _details(summary: dict, actual: dict | None = None) -> str:
 
 def _pilot_sections(pilot: dict) -> str:
     content = '<h2>Drei vereinbarte Varianten</h2><p>Reihenfolge wie vereinbart; kein Ranking und keine Strategieempfehlung.</p>'
+    if _mapping(pilot.get("order")).get("data_origin") == "synthetic":
+        content += '<p class="notice">Synthetische Demonstration: künstliche Daten, kein Nachweis einer Marktleistung.</p>'
+    warnings = _mapping(pilot.get("data_quality")).get("warnings")
+    if isinstance(warnings, list):
+        content += ''.join(f'<p class="notice">Datenhinweis: {escape(note)}</p>'
+                           for note in warnings if isinstance(note, str))
     variants = pilot.get("variants")
     if not isinstance(variants, list) or len(variants) != 3 or not all(isinstance(v, dict) for v in variants):
         return content + '<p>Varianten-Evidenz unvollständig oder ungültig; kein vollständiger Vergleich verfügbar.</p>'
-    labels = {"succeeded": "Ausgeführt", "no_signals": "Keine Signale",
-              "failed": "Fehlgeschlagen", "blocked_data": "Nicht ausgeführt: Datenprüfung blockiert"}
+    content += _plain_overview(variants)
     for variant in variants:
         identifier = variant.get("variant_id")
-        state = variant.get("status")
-        label = labels.get(state, "Status nicht verfügbar") if isinstance(state, str) else "Status nicht verfügbar"
+        label = _variant_status(variant)
         content += f'<section><h2>Variante: {_scalar(identifier)}</h2><p><strong>{label}</strong></p>'
+        content += '<details><summary>Technische Eingaben der Variante anzeigen</summary>'
         content += _fields("Eingabebindung", variant, {"input_fingerprint"})
         inputs = _mapping(variant.get("inputs"))
         content += _fields("Vereinbarte Eingaben", inputs, {"strategy", "seed", "hypothesis", "dataset_fingerprint", "timeframe"})
@@ -146,6 +225,7 @@ def _pilot_sections(pilot: dict) -> str:
                                     ("risk", "Vereinbartes Risiko", _PARAMETERS | {"initial_equity"}),
                                     ("costs", "Vereinbarte Kosten", _COSTS)):
             content += _fields(title, inputs.get(key), allowed)
+        content += '</details>'
         summary = _mapping(variant.get("summary"))
         if summary:
             content += _summary_sections(summary) + _details(summary, _mapping(variant.get("evidence")))
@@ -209,12 +289,12 @@ def _summary_sections(evidence: dict) -> str:
         ("Abgelehnte Signale", "rejected_signals"),
     ):
         value = evidence.get(key)
-        rendered = str(value) if key.endswith(("trades", "signals")) and type(value) is int and value >= 0 else _number(value)
+        rendered = _trade_count(value) if key.endswith(("trades", "signals")) else _number(value)
         content += f'<div><dt>{label}</dt><dd>{rendered}</dd></div>'
     content += '</dl><section><h2>Kennzahlen</h2><table><thead><tr><th scope="col">Kennzahl</th><th scope="col">Wert</th></tr></thead><tbody>'
     metrics = evidence.get("metrics")
     metrics = metrics if isinstance(metrics, dict) else {}
-    if evidence.get("number_of_trades") == 0:
+    if type(evidence.get("number_of_trades")) is int and evidence["number_of_trades"] == 0:
         content += '<tr><td colspan="2">Ohne Trades sind Leistungskennzahlen nicht aussagekräftig; gespeicherte Werte sind keine Erfolgsbelege.</td></tr>'
     for key, label, percent in (
         ("win_rate", "Anteil gewinnender Trades", True),

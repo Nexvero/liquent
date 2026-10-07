@@ -40,12 +40,21 @@ Keine Bestellung oder Zahlung wird durch diesen Test ausgelöst.
 5. Bestehende Jobansicht öffnen, Varianten in vereinbarter Reihenfolge lesen,
    Eingaben und Fingerprints zuordnen, Gebühren, Spread, Slippage und Brutto/Netto
    unterscheiden. Fehlende Werte, keine Signale und Teilausfälle korrekt erklären.
+   Zuerst die Klartext-Einordnung lesen und in eigenen Worten benennen, was aus
+   dieser Simulation folgt und was nicht. Anschließend technische Details öffnen.
+   Festhalten, ob die Zusammenfassung ohne zusätzliche Erklärung verständlich ist.
 6. In eigenen Worten erklären: Ausstieg nach einem Balken; stop_price ist kein
    ausgeführter Stop-Loss; Schlusskurs ist Mittelkurs-Proxy. Simulation ist keine Prognose.
 7. JSON-Evidenz herunterladen und Zuordnung zum eigenen Auftrag nachvollziehen.
 8. Optional digitales Feedback: Kundenaufgabe, Hindernisse, wahrgenommener Nutzen,
    Wiederverwendungsabsicht. Überspringen muss jederzeit möglich sein; Feedback
    darf weder Datenprüfung sperren noch Auftrag freigeben.
+
+Zusatzprüfung der Eingabehilfe: Risiko und Kosten für Variante zwei ausdrücklich
+aus Variante eins übernehmen. Strategieparameter müssen unverändert bleiben.
+Eine frühere Zustimmung muss verschwinden, auch wenn kopierte Werte zufällig
+identisch sind. Werte nachbearbeiten und erneut prüfen. Vor Freigabe die angezeigten
+tatsächlichen Eingaben jeder Variante mit der eigenen Absicht vergleichen.
 
 ## Beobachtung und Abnahme
 
