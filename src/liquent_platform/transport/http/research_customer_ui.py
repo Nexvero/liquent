@@ -32,6 +32,9 @@ def _variant_form():
     parts.append('</fieldset>')
     for index in range(3):
         parts.append(f'<fieldset data-variant="{index}"><legend>Variante {index + 1} – eigene Eingaben</legend>')
+        if index:
+            parts.append(f'<button id="copy-risk-costs-{index}" type="button">Risiko und Kosten aus Variante 1 übernehmen</button>')
+            parts.append('<p>Nur auf Ihren Klick: ersetzt ausschließlich die Risiko- und Kostenfelder dieser Variante, auch mit leeren Werten. Strategie, Hypothese, ID und Seed bleiben unverändert. Danach erneut prüfen und zustimmen.</p>')
         def field(name, label, **kwargs):
             return _form_field(f'variant-{index}-' + name.replace('.', '-'), label, field=name, **kwargs)
         parts.extend([field('id', 'Eindeutige Varianten-ID (1–64 Buchstaben, Zahlen, _ oder -)', text=True),
@@ -72,14 +75,18 @@ def _variant_form():
     return ''.join(parts)
 
 
-CUSTOMER_CONTROLS = '''<section aria-labelledby="data-heading"><h2 id="data-heading">Ihre OHLCV-Daten prüfen</h2>
+CUSTOMER_CONTROLS = '''<section aria-labelledby="data-heading"><h2 id="data-heading">1. Ihre OHLCV-Daten prüfen</h2>
 <p>Wählen Sie eine CSV und das erwartete Intervall. Ohne Strategieparameter, ohne Simulation und ohne Auftrag. Die Prüfdatei wird nicht dauerhaft gespeichert. Maximal 5 MiB; UTF-8, UTC und feste Zeitabstände.</p>
 <form id="data-check"><label>OHLCV-CSV <input id="csv" type="file" accept=".csv,text/csv" required></label>
 <label>Erwartetes Intervall <select id="timeframe" required><option value="">Bitte wählen</option><option>1m</option><option>5m</option><option>15m</option><option>1h</option></select></label>
 <button type="submit">Nur Daten prüfen</button></form><div id="quality" role="status" aria-live="polite"></div></section>
-<section><h2>Optional: drei eigene Research-Konfigurationen</h2>
+<section><h2>2. Optional: drei eigene Research-Konfigurationen</h2>
 <p>Die Datenprüfung genügt als Einstieg. Research ist eine digitale Simulation, keine Bestellung, Zahlung, persönliche Beratung oder individuelle Handelsempfehlung. Keine automatische Parametersuche oder Empfehlung. Ein Preisangebot ist nicht eingerichtet; frühere Preise sind unbestätigte Hypothesen.</p>
 <p>Verwenden Sie Ihre ausdrücklich ausgefüllte Konfiguration im bestehenden Research-Pilot-Format mit genau drei Varianten. Die Reihenfolge bleibt erhalten. Keine vorausgefüllte Zustimmung.</p>
+<details id="technical-explanation"><summary>Technische Erklärung: Werte und Modellgrenzen</summary>
+<p>Verhältnisse sind keine Prozentwerte: 0.01 bedeutet 1 %, ohne Umrechnung. Gebühren und Slippage werden pro Seite als Verhältnis angegeben; Spread ist pro Seite absolut in Preiseinheiten. Der Mittelkurs ist ein Proxy, keine ausführbare Preiszusage.</p>
+<p>One-bar exit: Ausstieg nach einem Datenbalken. Stop-Distanz dient nur dem Sizing; keine echten Stop-Orders. Der Drawdown-Stopp ist kumulativ ohne Tagesreset; max_daily_loss bietet keinen wirksamen Verlustschutz. Runner-Exposure bleibt 0. Je nach Sizing-Modus ignorierte Risikofelder müssen trotzdem ausdrücklich ausgefüllt werden.</p>
+<p>Die Vorschau zeigt die exakten gesendeten Werte, auch ignorierte Felder. Die serverseitige Eingabebindung gilt nur für diese Datei und Konfiguration. Jede Änderung oder Übernahme hebt Bindung und beide Zustimmungen auf.</p></details>
 <label for="configuration-mode">Eingabemodus</label><select id="configuration-mode"><option value="form">Formular – drei eigene Varianten</option><option value="json">JSON – erweiterter Import und Editor</option></select>
 <!--VARIANT_FORM-->
 <details id="json-editor" hidden><summary>Erweiterte JSON-Konfiguration importieren und bearbeiten</summary>
@@ -87,7 +94,9 @@ CUSTOMER_CONTROLS = '''<section aria-labelledby="data-heading"><h2 id="data-head
 <label>Eigene Konfiguration (JSON) <input id="config-file" type="file" accept=".json,application/json"></label>
 <label>Konfiguration prüfen und bearbeiten <textarea id="configuration" rows="10" aria-label="Konfiguration prüfen und bearbeiten"></textarea></label>
 </details>
+</section><section aria-labelledby="approval-heading"><h2 id="approval-heading">3. Vorschau prüfen und ausdrücklich freigeben</h2>
 <button id="preview" type="button">Eingaben prüfen und binden</button><div id="binding" role="status" aria-live="polite"></div>
+<div id="configuration-preview" aria-live="polite"></div>
 <label><input id="rights" type="checkbox"> Ich habe die erforderlichen Rechte zur Verarbeitung dieser Daten.</label>
 <label><input id="approval" type="checkbox"> Ich gebe genau diese Datei und diese drei Konfigurationen zur Simulation frei. Dafür wird die Datei geschützt gespeichert.</label>
 <button id="submit-research" type="button" disabled>Research-Simulation freigeben</button><div id="order-status" role="status" aria-live="polite"></div></section>
@@ -136,10 +145,37 @@ function readFormConfiguration(root,timeframe){
     });
     return {schema:"liquent.research-pilot.config.v1",order,dataset:{timeframe},variants};
 }
+function renderConfigurationPreview(parent,config,file){
+    const labels={schema:"Format",order:"Auftragsangaben",dataset:"Datenangaben",reference:"Referenz",title:"Titel",
+        instrument:"Instrument",price_unit:"Preis- und Simulationseinheit",data_origin:"Datenherkunft",assumptions:"Annahmen und Grenzen",
+        timeframe:"Intervall",id:"Variantenname / ID",strategy:"Strategie",seed:"Seed",hypothesis:"Hypothese",
+        strategy_parameters:"Strategieparameter",risk:"Risiko",costs:"Kosten",lookback_bars:"Rückschau in Balken",
+        stop_distance_pct:"Stop-Distanz (Verhältnis, kein echter Stop)",min_strength:"Minimale Signalstärke",allow_short:"Short-Signale zulassen",
+        breakout_threshold_pct:"Breakout-Schwelle (Verhältnis)",cooldown_bars:"Cooldown in Balken",max_signals_per_day:"Maximale Signale pro Tag",
+        sizing_mode:"Sizing-Modus",initial_equity:"Startkapital",max_position_size:"Maximale Positionsgröße",
+        max_total_exposure:"Exposure-Kappe",risk_per_trade:"Absolute Ausgangsgröße",max_daily_drawdown:"Kumulativer Drawdown-Stopp",
+        risk_per_trade_pct:"Equity-Risikoanteil (Verhältnis)",max_position_notional:"Notional-Kappe",max_daily_loss:"Tagesverlustfeld (kein wirksamer Schutz)",
+        max_losing_streak:"Verlustserie bis Pause",fee_rate:"Gebühren pro Seite (Verhältnis)",spread:"Spread pro Seite (absolut)",slippage:"Slippage pro Seite (Verhältnis)"};
+    const add=(scope,tag,value)=>{const node=document.createElement(tag);node.textContent=value;scope.append(node);return node;};
+    const fields=(scope,value)=>{for(const [key,item] of Object.entries(value)){
+        const label=(labels[key]||key)+" ("+key+")";
+        if(item!==null&&typeof item==="object"){const group=document.createElement("section");add(group,"h4",label);fields(group,item);scope.append(group);}
+        else add(scope,"p",label+": "+(item===null?"null (unbegrenzt)":String(item)));
+    }};
+    parent.replaceChildren();
+    add(parent,"h3","Exakte Konfiguration zur Freigabe – Ihre Reihenfolge, kein Ranking");
+    add(parent,"p","Datei: "+file.name+" ("+file.size+" Bytes). Werte unverändert, keine Prozentumrechnung oder Rundung.");
+    fields(parent,{schema:config.schema,order:config.order,dataset:config.dataset});
+    for(const [index,variant] of config.variants.entries()){
+        const section=document.createElement("section");add(section,"h3","Variante "+(index+1)+": "+variant.id);fields(section,variant);parent.append(section);
+    }
+    add(parent,"h3","Modellgrenzen dieser Simulation");
+    add(parent,"p","One-bar exit: Ausstieg nach einem Datenbalken. Schlusskurs als Mittelkurs-Proxy, keine ausführbare Preiszusage. Keine echten Stop-Orders; Stop-Distanz nur für Sizing. Drawdown kumulativ ohne Tagesreset. Runner-Exposure und day_realized_loss bleiben 0; max_daily_loss ist kein wirksamer Verlustschutz. Im absoluten Modus werden Prozent-Risiko, Notional-Kappe und Verlustserie ignoriert. R-Multiple ist net_pnl / quantity, kein Stop-Risikoverhältnis.");
+}
 (()=>{const el=id=>document.getElementById(id);let csrf=null,canWrite=false,binding=null,version=0,datasetRevision=0,busy=false;
 const text=(id,message)=>{el(id).textContent=message;};
-const reset=(dataChanged=false)=>{version++;binding=null;el("rights").checked=false;el("approval").checked=false;text("binding","Eingaben geändert. Bitte erneut prüfen und ausdrücklich freigeben.");if(dataChanged){datasetRevision++;text("quality","Eingaben geändert. Bitte Daten erneut prüfen; frühere Befunde sind nicht mehr gültig.");}update();};
-const update=()=>{el("submit-research").disabled=busy||!csrf||!canWrite||!binding||!el("rights").checked||!el("approval").checked;};
+const reset=(dataChanged=false)=>{version++;binding=null;el("configuration-preview").replaceChildren();el("rights").checked=false;el("approval").checked=false;text("binding","Eingaben geändert. Bitte erneut prüfen und ausdrücklich freigeben.");if(dataChanged){datasetRevision++;text("quality","Eingaben geändert. Bitte Daten erneut prüfen; frühere Befunde sind nicht mehr gültig.");}update();};
+const update=()=>{const unavailable=busy||!csrf||!canWrite||!binding;for(const id of ["rights","approval"])el(id).disabled=unavailable;el("submit-research").disabled=unavailable||!el("rights").checked||!el("approval").checked;};
 async function api(path,body){const response=await fetch(path,{method:body===undefined?"GET":"POST",credentials:"same-origin",cache:"no-store",headers:body===undefined?{}:{"Content-Type":"application/json","X-CSRF-Token":csrf||""},body:body===undefined?undefined:JSON.stringify(body)});
 if(!response.ok)throw new Error(response.status===401?"Sitzung beendet. Bitte über die bestehende Anmeldung erneut anmelden.":response.status===403?"Freigabe oder Zugriffsrechte fehlen. Bitte Sitzung und Berechtigungen prüfen.":response.status===413?"Datei ist zu groß (maximal 5 MiB).":response.status===503?"Research ist derzeit nicht verfügbar. Es wurde kein Erfolg bestätigt.":"Eingaben abgewiesen. Bitte Datei, Intervall und vollständige Konfiguration prüfen.");return await response.json();}
 async function dataset(){const file=el("csv").files[0];if(!file||!file.size||file.size>5*1024*1024)throw new Error("Bitte eine nicht leere CSV bis 5 MiB wählen.");const bytes=new Uint8Array(await file.arrayBuffer());let raw="";for(let i=0;i<bytes.length;i+=16384)raw+=String.fromCharCode(...bytes.subarray(i,i+16384));return btoa(raw);}
@@ -157,20 +193,29 @@ function updateVariantFields(){for(const scope of el("variant-form").querySelect
     }
 }}
 for(const name of ["input","change"])el("variant-form").addEventListener(name,()=>{reset();updateVariantFields();});
+for(const index of [1,2])el("copy-risk-costs-"+index).addEventListener("click",()=>{
+    reset();const scopes=el("variant-form").querySelectorAll("fieldset[data-variant]");
+    for(const source of scopes[0].querySelectorAll("[data-field]")){
+        const name=source.dataset.field;
+        if(name.startsWith("risk.")||name.startsWith("costs."))scopes[index].querySelector(`[data-field="${name}"]`).value=source.value;
+    }
+});
 el("configuration-mode").addEventListener("change",()=>{reset();const json=el("configuration-mode").value==="json";el("variant-form").hidden=json;el("json-editor").hidden=!json;el("json-editor").open=json;});
 updateVariantFields();
 for(const id of ["rights","approval"])el(id).addEventListener("change",update);
 el("config-file").addEventListener("change",async()=>{reset();const stamp=version,file=el("config-file").files[0];if(!file)return;if(file.size>65536){text("binding","Konfiguration maximal 64 KiB.");return;}try{const value=await file.text();if(stamp===version)el("configuration").value=value;}catch(error){if(stamp===version)text("binding","Konfigurationsdatei konnte nicht gelesen werden.");}});
 el("data-check").addEventListener("submit",async event=>{event.preventDefault();const stamp=datasetRevision,timeframe=el("timeframe").value;text("quality","Daten werden geprüft; keine Simulation.");try{const data=await dataset();if(stamp!==datasetRevision)return;const result=await api("/v1/research/data-check",{csv_base64:data,timeframe});if(stamp===datasetRevision)showQuality(result);}catch(error){if(stamp===datasetRevision)text("quality",error.message);}});
-el("preview").addEventListener("click",async()=>{reset();const stamp=version;try{const config=configuration(),raw=await dataset();if(stamp!==version)return;const result=await api("/v1/research/request-preview",{csv_base64:raw,configuration:config});if(stamp!==version)return;binding=result.binding_fingerprint;text("binding","Geprüfte Varianten in Ihrer Reihenfolge: "+result.variant_ids.join(" → ")+". Eingabebindung: "+binding+". Noch kein Auftrag oder Simulationsstart.");update();}catch(error){if(stamp===version)text("binding",error.message);}});
+el("preview").addEventListener("click",async()=>{reset();const stamp=version;try{const config=configuration(),raw=await dataset();if(stamp!==version)return;const result=await api("/v1/research/request-preview",{csv_base64:raw,configuration:config});if(stamp!==version)return;renderConfigurationPreview(el("configuration-preview"),config,el("csv").files[0]);el("rights").checked=false;el("approval").checked=false;binding=result.binding_fingerprint;text("binding","Geprüfte Varianten in Ihrer Reihenfolge: "+result.variant_ids.join(" → ")+". Eingabebindung: "+binding+". Noch kein Auftrag oder Simulationsstart.");update();}catch(error){if(stamp===version)text("binding",error.message);}});
 el("submit-research").addEventListener("click",async()=>{if(el("submit-research").disabled)return;const stamp=version;busy=true;update();try{const config=configuration(),fingerprint=binding,raw=await dataset();if(stamp!==version||!el("rights").checked||!el("approval").checked)return;const result=await api("/v1/research/customer-jobs",{csv_base64:raw,configuration:config,binding_fingerprint:fingerprint,data_rights:true,execution_approved:true});reset();text("order-status","Auftrag zugeordnet. Aktueller Status: "+result.status+". Identische Eingaben werden nicht doppelt ausgeführt. ");const a=document.createElement("a");a.href="/research/jobs/"+encodeURIComponent(result.job_id);a.textContent="Status und Ergebnis ansehen";el("order-status").append(a);}catch(error){text("order-status",error.message);}finally{busy=false;update();}});
 el("feedback").addEventListener("submit",async event=>{event.preventDefault();try{await api("/v1/research/customer-feedback",{feedback:{goal:el("goal").value,main_obstacle:el("obstacle").value,usefulness:Number(el("usefulness").value),would_use_again:el("again").value,comment:el("comment").value},synthetic:el("synthetic-feedback").checked});text("feedback-status","Rückmeldung geschützt gespeichert; keine Auftragsfreigabe, kein Kaufnachweis.");}catch(error){text("feedback-status",error.message);}});
+update();
 api("/v1/research/customer-context").then(value=>{csrf=value.csrf_token;canWrite=value.can_write;update();if(!canWrite)text("order-status","Ihre Sitzung erlaubt Datenprüfung und Feedback; Research-Ausführung benötigt gesonderte Schreibrechte.");}).catch(error=>{text("quality",error.message);});
 })();'''
 
 CUSTOMER_CSP = CONTENT_SECURITY_POLICY.replace("default-src 'none';", "default-src 'none'; script-src 'self'; connect-src 'self';")
 
 CUSTOMER_STYLE = "[hidden]{display:none!important}fieldset{min-width:0;margin:24px 0;padding:20px;border:1px solid #a4b7ca;border-radius:8px}legend{color:#082d56;font-weight:600}details{margin:24px 0}summary{cursor:pointer;color:#082d56}label{display:block;margin:18px 0;color:#435b73}input:not([type=checkbox]),select,textarea{box-sizing:border-box;display:block;width:100%;max-width:100%;margin-top:8px;padding:12px;border:1px solid #a4b7ca;border-radius:8px;background:#fff;color:#082d56;font:inherit}textarea{resize:vertical}input[type=checkbox]{margin-right:8px}input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,button:focus-visible{outline:3px solid #082d56;outline-offset:3px}button:disabled{opacity:.55;cursor:not-allowed}#quality,#binding,#order-status,#feedback-status{overflow-wrap:anywhere}"
+CUSTOMER_STYLE += "#configuration-preview{overflow-wrap:anywhere}#configuration-preview:not(:empty){margin:24px 0;padding:20px;border:1px solid #a4b7ca;border-radius:8px;background:#fff;color:#082d56}#configuration-preview section{margin:18px 0}"
 _style_hash = base64.b64encode(hashlib.sha256(CUSTOMER_STYLE.encode()).digest()).decode()
 _script_hash = base64.b64encode(hashlib.sha256(CUSTOMER_SCRIPT.encode()).digest()).decode()
 CUSTOMER_CONTROLS = ('<style>' + CUSTOMER_STYLE + '</style>' + CUSTOMER_CONTROLS).replace(

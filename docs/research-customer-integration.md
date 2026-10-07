@@ -54,6 +54,53 @@ Positionsgröße und führt keinen Stop-Loss aus. Der Schlusskurs dient als
 Mittelkurs Proxy. Weitere wirkungslose beziehungsweise abweichend wirksame
 Risikoparameter werden angezeigt; diese Semantik wird nicht geändert.
 
+## Vereinfachter Research-Ablauf (lokaler Aufbau, 7. Oktober 2026)
+
+Die bestehende Research-Seite gliedert Datenprüfung, Konfiguration und Freigabe
+in nummerierte Schritte. Bei Varianten zwei und drei können Nutzer Risiko und
+Kosten ausdrücklich aus Variante eins übernehmen. Das ist eine Eingabehilfe,
+keine Strategieempfehlung: Strategie, Hypothese, Seed und Strategieparameter
+werden nicht kopiert. Es werden keine fehlenden Werte erfunden. Die übernommenen
+Werte bleiben bearbeitbar und lösen eine neue Eingabeprüfung aus; eine frühere
+Bindung und beide Zustimmungen werden aufgehoben.
+
+Vor der Freigabe wird die tatsächlich geprüfte Konfiguration in lesbarer Form
+angezeigt. Die Ergebnisansicht beginnt mit einer Klartext-Einordnung und einem
+geordneten Variantenvergleich. Ein gespeichertes positives Nettoergebnis beschreibt
+nur diese historische Simulation, kein Kauf- oder Live-Handelssignal. Fehlende
+Ergebnisse, keine Signale und fehlgeschlagene Läufe bleiben unterscheidbar.
+Technische Einzelheiten sind weiterhin zugänglich; die Modellgrenzen bleiben
+sichtbar. Es werden keine Kennzahlen aus Kapitalständen rekonstruiert.
+
+Dieser Aufbau automatisiert noch keinen Datenbezug, keine Spaltenzuordnung und
+keine Strategieauswahl. Die vorhandene CSV-Spezifikation gilt weiterhin. Eine
+vollständige Wiederverwendung früherer Aufträge sowie neue Ausstiegsmodelle sind
+nicht Teil dieses Bausteins. Veröffentlichung und echte Nutzertests sind separat
+nachzuweisen; diese Beschreibung ist kein Staging-Deploymentnachweis.
+
+Lokale Abnahme dieses Bausteins: 340 gezielte Tests bestanden, eine
+PostgreSQL-Prüfung ohne lokale Test-Datenbank übersprungen. Im Browser wurde
+die Datenprüfung mit zunächst falschem, dann passendem Intervall geprüft,
+ebenso die genaue JSON- und Formularvorschau, das ausdrückliche Übernehmen
+von Risiko/Kosten und das Rücksetzen der Zustimmungen. Die synthetische
+Testumgebung verzeichnete dabei null gespeicherte Aufträge und null
+Ausführungsaufrufe. Zwei direkte Ausführungen des bestehenden Runners über
+die synthetische Beispieldatei ergaben identische vollständige Ergebnisse.
+Dies ist kein Test einer realen Anmeldung oder eines Staging-Workers.
+
+Ein unabhängiger Code-Review fand eine vorzeitig mögliche Zustimmung während
+einer noch laufenden Vorschau sowie einen veralteten Stylesheet-Hash im
+Edge-Sicherheitsfilter. Beide Befunde wurden behoben und erneut geprüft;
+keine weiteren relevanten Befunde. Die bestehenden Sicherheitseinschränkungen
+bleiben erhalten; Script- und Stylesheet-Hashes wurden exakt nachgeführt.
+
+Abschließende Gesamtsuite auf dem finalen Code: 8391 bestanden, 113 übersprungen,
+keine Fehler. Übersprungene Datenbank- und andere Umgebungsprüfungen sind kein
+Funktionsnachweis. Python-Syntaxprüfung und `git diff --check` bestanden.
+Die Änderungen liegen lokal auf `codex/research-guided-workflow`; keine neue
+Staging-Version wurde für diesen Baustein veröffentlicht. CI, Datenbankprüfung,
+Release-Gate und tatsächliche HTTPS-Abnahme bleiben vor Veröffentlichung nötig.
+
 ## Lokale Formularprüfung (6. Oktober 2026)
 
 Die Formularerweiterung wurde mit ausschließlich synthetischen Daten lokal im
