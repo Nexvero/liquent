@@ -109,7 +109,7 @@ def test_indicator_requires_current_research_read_access(
     response = _client(contexts, memberships).get("/")
 
     assert response.status_code == 200
-    assert "Research read access is available." in response.text
+    assert "der lesende Research-Zugang sind verfügbar." in response.text
     assert str(USER) not in response.text
     assert str(WORKSPACE) not in response.text
     assert contexts.calls == [USER]
@@ -131,7 +131,7 @@ def test_denial_preserves_workspace_landing_without_indicator(
 
     assert response.status_code == 200
     assert "Your workspace context is available." in response.text
-    assert "Research read access is available." not in response.text
+    assert "der lesende Research-Zugang sind verfügbar." not in response.text
 
 
 def test_absent_context_stops_before_research_membership_lookup() -> None:
@@ -142,7 +142,7 @@ def test_absent_context_stops_before_research_membership_lookup() -> None:
 
     assert response.status_code == 200
     assert "No workspace context is available." in response.text
-    assert "Research read access is available." not in response.text
+    assert "der lesende Research-Zugang sind verfügbar." not in response.text
     assert memberships.calls == []
 
 
